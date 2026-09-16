@@ -1,4 +1,4 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}{{ classroom.name }}{% endblock title-main %}
@@ -6,13 +6,14 @@
 {% block title %}Classroom Overview{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <link rel="stylesheet" href="{% static 'assets/css/support-booking-v33.css' %}?v=33.2">
 {% endblock style %}
 
 {% block content %}
 <div class="support-shell support-stack">
   <div class="manager-breadcrumbs">
-    <a href="{% url 'manager_dashboard' %}">Manager overview</a><span>/</span>
+    <a href="{% url 'manager_dashboard_root' %}">Manager overview</a><span>/</span>
     <a href="{% url 'manager_teacher_detail' teacher.id %}">{{ teacher.get_full_name|default:teacher.username }}</a><span>/</span>
     <strong>{{ classroom.name }}</strong>
   </div>

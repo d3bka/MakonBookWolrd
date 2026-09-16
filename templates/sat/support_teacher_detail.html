@@ -1,4 +1,4 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
 
 {% block title-main %}{{ teacher.name }}{% endblock title-main %}
@@ -6,12 +6,13 @@
 {% block title %}Support Teacher{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <link rel="stylesheet" href="{% static 'assets/css/support-booking-v33.css' %}?v=33">
 {% endblock style %}
 
 {% block content %}
 <div class="support-shell support-stack">
-  {% if messages %}{% for message in messages %}<div class="support-alert {{ message.tags|default:'info' }}"><i class="bi bi-info-circle"></i><span>{{ message }}</span></div>{% endfor %}{% endif %}
+
 
   <section class="support-card support-hero support-hero-compact">
     <div class="support-hero-content">
@@ -20,9 +21,9 @@
         <h1>Request the exact topic you need.</h1>
         <p>The teacher chooses the class time. If a matching group is already planned and still open, your request can join it automatically.</p>
         <div class="support-hero-actions">
-          <a class="support-btn support-btn-light" href="{% url 'support_teacher_list' %}"><i class="bi bi-arrow-left"></i> All teachers</a>
-          {% if can_book %}<a class="support-btn support-btn-ghost-light" href="{% url 'my_support_lessons' %}"><i class="bi bi-calendar2-check"></i> My lessons</a>{% endif %}
-          {% if is_profile_owner %}<a class="support-btn support-btn-ghost-light" href="{% url 'support_teacher_planner' %}"><i class="bi bi-grid-1x2"></i> Planner</a>{% endif %}
+          <a class="support-btn support-btn-light" href="{% url 'support_teacher_list_root' %}"><i class="bi bi-arrow-left"></i> All teachers</a>
+          {% if can_book %}<a class="support-btn support-btn-ghost-light" href="{% url 'my_support_lessons_root' %}"><i class="bi bi-calendar2-check"></i> My lessons</a>{% endif %}
+          {% if is_profile_owner %}<a class="support-btn support-btn-ghost-light" href="{% url 'support_teacher_planner_root' %}"><i class="bi bi-grid-1x2"></i> Planner</a>{% endif %}
         </div>
       </div>
       <aside class="support-next-card">
@@ -52,7 +53,7 @@
         </div>
 
         {% if lesson_titles %}
-          <form method="post" action="{% url 'book_support_lesson' teacher.id %}" data-support-booking-form data-support-topic-picker>
+          <form method="post" action="{% url 'book_support_lesson_root' teacher.id %}" data-support-booking-form data-support-topic-picker>
             {% csrf_token %}
             <div class="support-booking-form-grid support-booking-form-grid-2">
               <div class="support-field">
@@ -149,6 +150,7 @@
           <div class="support-meta-row"><span>Grouping</span><strong>By exact topic</strong></div>
           <div class="support-meta-row"><span>Timezone</span><strong>{{ timezone_name }}</strong></div>
         </div>
+        {% for section in teacher.custom_sections.all %}{% if section.is_visible %}<div class="sf29-row" style="margin-top:10px"><div class="grow"><strong>{{ section.title }}</strong>{% if section.body %}<small>{{ section.body }}</small>{% endif %}{% if section.url %}<small><a href="{{ section.url }}" target="_blank" rel="noopener">Open link <i class="bi bi-box-arrow-up-right"></i></a></small>{% endif %}</div></div>{% endif %}{% endfor %}
       </section>
 
       {% if can_book %}
@@ -163,13 +165,14 @@
             </article>
           {% empty %}<p class="support-muted-copy">No requests with this teacher yet.</p>{% endfor %}
         </div>
-        <a class="support-btn support-btn-secondary" style="margin-top:14px;width:100%;" href="{% url 'my_support_lessons' %}"><i class="bi bi-calendar2-week"></i> Open all</a>
+        <a class="support-btn support-btn-secondary" style="margin-top:14px;width:100%;" href="{% url 'my_support_lessons_root' %}"><i class="bi bi-calendar2-week"></i> Open all</a>
       </section>
       {% endif %}
     </aside>
   </div>
 </div>
 
+{% if can_book %}
 <div id="supportBookingConfirmModal" class="support-modal" aria-hidden="true">
   <div class="support-modal-card" role="dialog" aria-modal="true" aria-labelledby="support-confirm-title">
     <h3 id="support-confirm-title">Send this support request?</h3>
@@ -182,6 +185,6 @@
     <div class="support-modal-actions"><button type="button" class="support-btn support-btn-secondary" data-close-support-modal>Go back</button><button type="button" class="support-btn support-btn-primary" data-confirm-booking>Send request</button></div>
   </div>
 </div>
-
 <script src="{% static 'assets/js/support-booking-v33.js' %}?v=33"></script>
+{% endif %}
 {% endblock content %}

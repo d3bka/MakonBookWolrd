@@ -1,0 +1,58 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+
+{% block student_workspace_style %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+  <link rel="stylesheet" href="{% static 'assets/css/world-v503.css' %}?v=504182">
+{% endblock student_workspace_style %}
+
+{% block content %}
+<section class="mw503-embedded-shell{% if world_compact_topbar %} is-match-view{% endif %}" data-world-shell data-csrf-cookie-name="{{ world_csrf_cookie_name|default:'csrftoken' }}" data-rematch-incoming-url="{% url 'world_rematch_incoming' %}">
+  <header class="mw503-worldbar{% if world_compact_topbar %} is-compact{% endif %}">
+    <div class="mw503-worldbar-brand">
+      <span class="mw503-worldbar-mark"><i class="bi bi-globe2"></i></span>
+      <div>
+        <strong>MakonBook World</strong>
+        <small>Competitive SAT · 1v1 + Multiplayer</small>
+      </div>
+    </div>
+    {% if not world_compact_topbar %}
+    <nav class="mw503-world-tabs" aria-label="World navigation">
+      <a class="{% if world_active == 'play' or world_active == 'multiplayer' %}is-active{% endif %}" href="{% url 'world_home' %}"><i class="bi bi-lightning-charge-fill"></i><span>Play</span></a>
+      <a class="{% if world_active == 'ranks' %}is-active{% endif %}" href="{% url 'world_leaderboard' %}"><i class="bi bi-bar-chart-fill"></i><span>Leaderboard</span></a>
+    </nav>
+    {% endif %}
+    <span class="mw503-worldbar-security"><i class="bi bi-shield-check"></i> Server scored</span>
+  </header>
+  {% block world_content %}{% endblock world_content %}
+
+  <form class="mw503-world-csrf" hidden aria-hidden="true">{% csrf_token %}</form>
+  <aside class="mw503-rematch-popover" data-world-rematch-popover hidden aria-live="polite">
+    <div class="mw503-rematch-popover-head">
+      <span class="mw503-rematch-popover-icon"><i class="bi bi-arrow-repeat"></i></span>
+      <div><small>REMATCH REQUEST</small><strong data-rematch-requester>Opponent</strong></div>
+      <button type="button" data-world-rematch-popover-close aria-label="Dismiss"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="mw503-rematch-popover-player">
+      <a href="#" data-rematch-profile><span class="mw503-avatar" data-rematch-initials>?</span></a>
+      <div><b data-rematch-rating>1000</b><span data-rematch-tier>BRONZE</span></div>
+      <em data-rematch-format>Math · Quick Match</em>
+    </div>
+    <p><span data-rematch-requester-copy>Opponent</span> wants another game with the same settings.</p>
+    <div class="mw503-rematch-popover-actions">
+      <button type="button" class="is-decline" data-world-rematch-popover-decline>Decline</button>
+      <button type="button" class="is-accept" data-world-rematch-popover-accept><i class="bi bi-check-lg"></i> Accept rematch</button>
+    </div>
+    <div class="mw503-rematch-popover-foot"><span>Request expires in</span><b data-rematch-seconds>60s</b></div>
+  </aside>
+</section>
+{% endblock content %}
+
+{% block student_workspace_scripts %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+  <script src="{% static 'assets/js/world-v503.js' %}?v=504182"></script>
+  <script src="{% static 'assets/js/world-multiplayer-v504.js' %}?v=504182"></script>
+{% endblock student_workspace_scripts %}

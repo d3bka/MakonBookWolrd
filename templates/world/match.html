@@ -1,0 +1,130 @@
+{% extends 'world/base.html' %}
+
+{% block world_content %}
+<div class="mw503-match-page" data-world-room data-status-url="{% url 'world_queue_status' match.id %}" data-heartbeat-url="{% url 'world_match_heartbeat' match.id %}" data-match-id="{{ match.id }}" data-total-questions="{{ match.total_questions }}">
+  <form hidden aria-hidden="true" data-world-csrf-form>{% csrf_token %}</form>
+  <header class="mw503-duel-head">
+    <a href="{% url 'world_home' %}"><i class="bi bi-arrow-left"></i>Back to lobby</a>
+    <div><span class="mw503-live-dot"></span>{{ match.get_mode_display }} · {{ match.get_subject_display }} · Server live</div>
+    <span>Room {{ match.id|stringformat:'s'|slice:':8'|upper }}</span>
+  </header>
+
+  {% if match.status == 'waiting' %}
+  <section class="mw503-wait-room">
+    <span class="mw503-radar" data-world-radar><i></i><b></b><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em></span>
+    <small>QUEUE ACTIVE</small><h1>Waiting for an opponent</h1><p>Keep this tab open. The room starts automatically when another player joins.</p>
+    <form method="post" action="{% url 'world_queue_cancel' match.id %}" data-world-cancel-form>{% csrf_token %}<button type="submit">Cancel queue</button></form>
+  </section>
+  {% elif match.status == 'active' %}
+  {% if opponent %}
+  <div class="mw503-match-intro" hidden data-world-intro data-match-id="{{ match.id }}" data-question-index='{{ question_index|default:"-1" }}' data-intro-required='{% if show_match_intro %}1{% else %}0{% endif %}' data-intro-seconds='{{ intro_seconds_remaining|default:0 }}'>
+    <div class="mw503-match-intro-card">
+      <span class="mw503-match-intro-kicker">MATCH FOUND</span>
+      <div class="mw503-match-intro-grid">
+        <article>
+          <span class="mw503-avatar large">{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}</span>
+          <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+          <small>{{ world_selected_rating.tier|upper }} · {{ world_selected_rating.rating }}</small>
+        </article>
+        <div class="mw503-match-intro-vs">
+          <b>VS</b>
+          <small data-world-intro-phase>Preparing match…</small>
+        </div>
+        <article>
+          <a href="{{ opponent_profile_url }}" class="mw503-avatar-link">
+            <span class="mw503-avatar large">{{ opponent.first_name|default:opponent.username|slice:':1'|upper }}</span>
+          </a>
+          <strong><a href="{{ opponent_profile_url }}">{{ opponent.get_full_name|default:opponent.username }}</a></strong>
+          <small>{{ opponent_rating.tier|upper }} · {{ opponent_rating.rating }}</small>
+        </article>
+      </div>
+      <p>{{ match.total_questions }} verified SAT questions. Server-scored. No skips.</p>
+      <div class="mw503-match-intro-count" data-world-intro-count>3</div>
+    </div>
+  </div>
+  {% endif %}
+  <section class="mw503-duel-stage">
+    <div class="mw503-versus mw503-scoreboard">
+      <div class="mw503-scoreboard-player is-me">
+        <strong class="mw503-scoreboard-name">{{ request.user.get_full_name|default:request.user.username }}</strong>
+        <b class="mw503-scoreboard-score" data-world-my-score>{{ my_score }}</b>
+      </div>
+      <span class="mw503-scoreboard-center">
+        <small>QUESTION {% if question_number %}{{ question_number }}{% elif my_answered_count and my_answered_count <= match.total_questions %}{{ my_answered_count }}{% else %}–{% endif %} / {{ match.total_questions }}</small>
+        <strong>VS</strong>
+      </span>
+      <div class="mw503-scoreboard-player is-opponent">
+        <b class="mw503-scoreboard-score" data-world-opponent-score>{{ opponent_score }}</b>
+        <strong class="mw503-scoreboard-name"><a href="{{ opponent_profile_url }}">{{ opponent.get_full_name|default:opponent.username }}</a></strong>
+      </div>
+    </div>
+
+    {% if question and question_ticket %}
+    <article class="mw503-question-card" data-world-question-card data-question-number="{{ question_number }}">
+      <div class="mw503-question-meta">
+        <span class="mw503-difficulty {% if pool_entry %}is-{{ pool_entry.difficulty }}{% endif %}"><i class="bi bi-stars"></i>{% if pool_entry %}{{ pool_entry.get_difficulty_display }}{% else %}Medium{% endif %}</span>
+        <span><i class="bi bi-shield-lock"></i>Server-scored</span>
+        <span><i class="bi bi-list-ol"></i>Question {{ question_number|default:"–" }} / {{ match.total_questions }}</span>
+        <strong class="mw503-question-timer" data-world-countdown data-seconds="{{ question_seconds|default:0 }}"><i class="bi bi-stopwatch"></i><b>{{ question_seconds|default:0 }}</b>s</strong>
+      </div>
+      {% if question.passage %}<div class="mw503-passage">{{ question.passage|safe }}</div>{% endif %}
+      {% if question.image %}
+      <button class="mw503-question-image-button" type="button" data-world-image-open aria-label="Open question image">
+        <img class="mw503-question-image" src="{{ question.image.url }}" alt="Question visual">
+        <span><i class="bi bi-arrows-fullscreen"></i>Click to enlarge</span>
+      </button>
+      <div class="mw503-image-lightbox" hidden data-world-image-lightbox>
+        <button type="button" class="mw503-image-lightbox-close" data-world-image-close aria-label="Close image"><i class="bi bi-x-lg"></i></button>
+        <img src="{{ question.image.url }}" alt="Question visual enlarged">
+      </div>
+      {% endif %}
+      <h1>{{ question.question|safe }}</h1>
+      <form action="{% url 'world_match_answer' match.id %}" method="post" data-world-answer>{% csrf_token %}
+        <input type="hidden" name="question_token" value="{{ question_ticket.token }}">
+        <div class="mw503-choices">
+          <label><input type="radio" name="answer" value="A" required><span>A</span><b>{{ question.a|safe }}</b></label>
+          <label><input type="radio" name="answer" value="B" required><span>B</span><b>{{ question.b|safe }}</b></label>
+          <label><input type="radio" name="answer" value="C" required><span>C</span><b>{{ question.c|safe }}</b></label>
+          <label><input type="radio" name="answer" value="D" required><span>D</span><b>{{ question.d|safe }}</b></label>
+        </div>
+        <div class="mw503-answer-foot"><span>Difficulty drives base points. Speed adds at most +20.</span><button type="submit"><span data-world-lock-label>Lock answer</span><i class="bi bi-arrow-right"></i></button></div>
+      </form>
+    </article>
+    {% elif waiting_for_opponent %}
+    <section class="mw503-wait-room compact" data-world-between-questions>
+      <span class="mw503-radar" data-world-radar><i></i><b></b><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em></span>
+      <small>ANSWER LOCKED</small>
+      <h2>Waiting for {{ opponent.get_full_name|default:opponent.username }}</h2>
+      <p data-world-wait-copy>You answered question {{ my_answered_count }} / {{ match.total_questions }}. The next one opens only after both players finish the current question.</p>
+    </section>
+    {% else %}
+    <section class="mw503-wait-room compact" data-world-between-questions>
+      <span class="mw503-radar" data-world-radar><i></i><b></b><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em></span>
+      <small>MATCH FLOW</small>
+      <h2>Preparing next step</h2>
+      <p data-world-wait-copy>Stay on this page. The room refreshes automatically.</p>
+    </section>
+    {% endif %}
+  </section>
+  {% else %}
+  <section class="mw503-result-card">
+    {% if match.winner_id == request.user.id %}<small>VICTORY</small><h1>You won.</h1>
+    {% elif match.winner_id %}<small>MATCH COMPLETE</small><h1>Good fight.</h1>
+    {% else %}<small>DRAW</small><h1>Dead even.</h1>{% endif %}
+    {% if match.disconnect_forfeit_user_id %}<p class="mw503-forfeit-note"><i class="bi bi-wifi-off"></i>Match resolved after a disconnect.</p>{% endif %}
+    <div class="mw503-result-score"><span><b>{{ my_score }}</b><small>You · points</small></span><em>—</em><span><b>{{ opponent_score }}</b><small>{{ opponent.get_full_name|default:opponent.username }} · points</small></span></div>
+    {% if match.mode == 'ranked' %}<p class="mw503-rating-change">Rating change: <strong>{% if rating_delta > 0 %}+{% endif %}{{ rating_delta }}</strong>{% if match.mmr_weight < 1 %}<small> Anti-farm weight {{ match.mmr_weight }}</small>{% endif %}</p>{% else %}<p class="mw503-rating-change">Quick Match · rating unchanged</p>{% endif %}
+    <div class="mw503-result-actions">
+      <form class="mw503-result-rematch-form" method="post" action="{% url 'world_rematch_request' match.id %}" data-world-rematch-form>
+        {% csrf_token %}
+        <button class="mw503-result-action mw503-result-action-primary" type="button" data-world-rematch-request data-rematch-url="{% url 'world_rematch_request' match.id %}"><i class="bi bi-arrow-repeat"></i><span>Rematch</span></button>
+        <button class="mw503-rematch-cancel" type="button" data-world-rematch-cancel hidden><i class="bi bi-x-lg"></i><span>Cancel request</span></button>
+      </form>
+      <a class="mw503-result-action mw503-result-action-secondary" href="{% url 'world_home' %}"><i class="bi bi-crosshair"></i><span>New opponent</span><i class="bi bi-arrow-right-short"></i></a>
+      <a class="mw503-result-action mw503-result-action-secondary" href="{% url 'world_leaderboard' %}?subject={{ match.subject }}"><i class="bi bi-bar-chart-fill"></i><span>Leaderboard</span><i class="bi bi-arrow-right-short"></i></a>
+    </div>
+    <p class="mw503-form-status" data-world-rematch-result-status></p>
+  </section>
+  {% endif %}
+</div>
+{% endblock world_content %}

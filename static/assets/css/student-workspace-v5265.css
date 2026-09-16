@@ -1,0 +1,166 @@
+/* MakonBook V50.2.6.5 — chat top-header + hover emoji popover. */
+
+/*
+ * Selected-room layout: inbox owns the left column; room identity is the
+ * literal first row of the right column; the themed conversation is below it.
+ * This removes the blank strip that could appear above the room header when
+ * the header lived inside the threaded grid.
+ */
+.v525-chat.v5265-chat-has-room{
+  grid-template-columns:310px minmax(0,1fr)!important;
+  grid-template-rows:72px minmax(0,1fr)!important;
+  align-items:stretch!important;
+}
+.v525-chat.v5265-chat-has-room>.v523-chat-inbox{
+  grid-column:1!important;
+  grid-row:1 / 3!important;
+  min-height:0!important;
+}
+.v525-chat.v5265-chat-has-room>.v5264-chat-room-head{
+  position:relative!important;
+  inset:auto!important;
+  grid-column:2!important;
+  grid-row:1!important;
+  z-index:50!important;
+  width:100%!important;
+  height:72px!important;
+  min-height:72px!important;
+  margin:0!important;
+  padding:10px 20px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  border:0!important;
+  border-bottom:1px solid var(--mb50-border)!important;
+  border-radius:0!important;
+  background:var(--mb50-panel)!important;
+  background-image:none!important;
+  box-shadow:0 8px 24px rgba(26,14,39,.055)!important;
+}
+.v525-chat.v5265-chat-has-room>.v5264-chat-room-head>div:first-child{
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  min-width:0!important;
+}
+.v525-chat.v5265-chat-has-room>.v5264-chat-room-head h2{
+  margin:0!important;
+  color:var(--mb50-text)!important;
+  font-size:14px!important;
+}
+.v525-chat.v5265-chat-has-room>.v5264-chat-room-head p{
+  margin:3px 0 0!important;
+  color:var(--mb50-muted)!important;
+  font-size:9px!important;
+}
+html[data-theme="dark"] .v525-chat.v5265-chat-has-room>.v5264-chat-room-head{
+  background:#17141d!important;
+  border-bottom-color:rgba(255,255,255,.09)!important;
+}
+.v525-chat.v5265-chat-has-room>.v5265-chat-thread-has-room{
+  position:relative!important;
+  grid-column:2!important;
+  grid-row:2!important;
+  display:block!important;
+  min-width:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background:transparent!important;
+  background-image:none!important;
+}
+.v525-chat.v5265-chat-has-room>.v5265-chat-thread-has-room>.v5264-chat-canvas{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+}
+
+/* Docked media is a full-height third column spanning header + conversation. */
+.v525-chat.v5265-chat-has-room.is-media-docked{
+  grid-template-columns:310px minmax(0,1fr) 360px!important;
+}
+.v525-chat.v5265-chat-has-room.is-media-docked>.v525-chat-media{
+  grid-column:3!important;
+  grid-row:1 / 3!important;
+  height:100%!important;
+}
+
+/*
+ * Hover state: compact popover directly above the emoji trigger.
+ * JS writes the viewport coordinates so the picker stays attached to the icon
+ * even when the sidebar width or browser size changes.
+ */
+.v525-chat.is-media-preview .v525-chat-media{
+  position:fixed!important;
+  z-index:2050!important;
+  left:var(--v5265-media-preview-left,24px)!important;
+  top:var(--v5265-media-preview-top,120px)!important;
+  right:auto!important;
+  bottom:auto!important;
+  width:var(--v5265-media-preview-width,360px)!important;
+  height:var(--v5265-media-preview-height,500px)!important;
+  max-height:calc(100dvh - 24px)!important;
+  border:1px solid var(--mb50-border)!important;
+  border-radius:20px!important;
+  box-shadow:0 24px 70px rgba(19,10,31,.28)!important;
+  transform-origin:bottom left!important;
+  transform:translateY(10px) scale(.985)!important;
+  opacity:0!important;
+}
+.v525-chat.is-media-preview .v525-chat-media.is-open{
+  transform:none!important;
+  opacity:1!important;
+}
+.v525-chat.is-media-preview .v525-chat-media.is-closing{
+  transform:translateY(10px) scale(.985)!important;
+  opacity:0!important;
+}
+.v525-chat.is-media-preview .v525-chat-media [data-chat-media-undock]{
+  display:none!important;
+}
+.v525-chat.is-media-docked .v525-chat-media [data-chat-media-undock]{
+  display:grid!important;
+}
+
+@media(max-width:1180px){
+  .v525-chat.v5265-chat-has-room{
+    grid-template-columns:270px minmax(0,1fr)!important;
+  }
+  .v525-chat.v5265-chat-has-room.is-media-docked{
+    grid-template-columns:270px minmax(0,1fr) 330px!important;
+  }
+}
+
+@media(max-width:860px){
+  .v525-chat.v5265-chat-has-room,
+  .v525-chat.v5265-chat-has-room.is-media-docked{
+    grid-template-columns:1fr!important;
+    grid-template-rows:auto 72px minmax(580px,1fr)!important;
+  }
+  .v525-chat.v5265-chat-has-room>.v523-chat-inbox{
+    grid-column:1!important;
+    grid-row:1!important;
+  }
+  .v525-chat.v5265-chat-has-room>.v5264-chat-room-head{
+    grid-column:1!important;
+    grid-row:2!important;
+  }
+  .v525-chat.v5265-chat-has-room>.v5265-chat-thread-has-room{
+    grid-column:1!important;
+    grid-row:3!important;
+  }
+  .v525-chat.is-media-preview .v525-chat-media,
+  .v525-chat.v5265-chat-has-room.is-media-docked>.v525-chat-media{
+    position:fixed!important;
+    z-index:2050!important;
+    top:auto!important;
+    right:10px!important;
+    left:10px!important;
+    bottom:10px!important;
+    width:auto!important;
+    height:min(650px,calc(100dvh - 90px))!important;
+    border-radius:22px!important;
+  }
+}

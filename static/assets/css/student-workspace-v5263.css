@@ -1,0 +1,163 @@
+/* MakonBook V50.2.6.3 — chat header lock, collapsed rail alignment, UI selection guard. */
+
+/*
+ * Chat header contract.
+ * Keep the theme/background inside the conversation canvas while the room
+ * identity bar is an opaque, fixed top layer. Absolute positioning avoids an
+ * extra phantom 72px grid row in Chromium when the sticky header is combined
+ * with the themed grid container.
+ */
+.v525-chat .v523-chat-thread{
+  position:relative!important;
+  display:grid!important;
+  grid-template-rows:minmax(0,1fr) auto!important;
+  align-content:stretch!important;
+}
+.mb50-shell .v525-chat[data-chat-theme] .v523-chat-thread>header,
+.mb50-shell .v525-chat .v523-chat-thread>header{
+  position:absolute!important;
+  inset:0 0 auto 0!important;
+  z-index:40!important;
+  width:100%!important;
+  height:72px!important;
+  min-height:72px!important;
+  margin:0!important;
+  border-radius:0!important;
+  background:var(--mb50-panel)!important;
+  background-image:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  box-shadow:0 1px 0 var(--mb50-border),0 10px 28px rgba(26,14,39,.06)!important;
+}
+.v525-chat .v523-chat-messages{
+  grid-row:1!important;
+  min-height:0!important;
+  padding-top:94px!important;
+}
+.v525-chat .v523-chat-compose{grid-row:2!important}
+.v525-chat .v524-chat-theme-panel{top:78px!important}
+html[data-theme="dark"] .mb50-shell .v525-chat[data-chat-theme] .v523-chat-thread>header,
+html[data-theme="dark"] .mb50-shell .v525-chat .v523-chat-thread>header{
+  background:color-mix(in srgb,var(--mb50-panel) 96%,#100b17 4%)!important;
+}
+
+/*
+ * Collapsed sidebar: every icon sits on one shared center axis. V5261's drag
+ * affordance adds right padding in the expanded state; that padding must be
+ * completely removed once the rail is collapsed.
+ */
+@media(min-width:981px){
+  .mb50-shell.is-collapsed .mb50-sidebar{
+    padding-inline:10px!important;
+  }
+  .mb50-shell.is-collapsed .mb50-sidebar-head{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  .mb50-shell.is-collapsed .mb50-nav,
+  .mb50-shell.is-collapsed .mb50-nav-group{
+    width:100%!important;
+  }
+  .mb50-shell.is-collapsed .mb50-nav-item,
+  .mb50-shell.is-collapsed .mb50-nav-item.mb526-nav-drag-enabled,
+  .mb50-shell.is-collapsed .mb50-profile-link{
+    width:50px!important;
+    min-width:50px!important;
+    max-width:50px!important;
+    min-height:48px!important;
+    margin-inline:auto!important;
+    padding:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:0!important;
+  }
+  .mb50-shell.is-collapsed .mb50-nav-item>i:not(.mb50-nav-end){
+    width:20px!important;
+    min-width:20px!important;
+    flex:0 0 20px!important;
+    margin:0!important;
+    text-align:center!important;
+    line-height:1!important;
+  }
+  .mb50-shell.is-collapsed .mb50-nav-end{display:none!important}
+  .mb50-shell.is-collapsed .mb50-nav-item>kbd,
+  .mb50-shell.is-collapsed .mb50-nav-item>span,
+  .mb50-shell.is-collapsed .mb50-nav-item>em,
+  .mb50-shell.is-collapsed .mb50-nav-item>b{
+    display:none!important;
+  }
+  .mb50-shell.is-collapsed .mb50-sidebar-foot{
+    width:100%!important;
+  }
+  .mb50-shell.is-collapsed .mb50-profile-link .mb50-avatar{
+    width:36px!important;
+    height:36px!important;
+    flex:0 0 36px!important;
+    margin:0!important;
+  }
+  .mb50-shell.is-collapsed .mb50-profile-menu{
+    position:fixed!important;
+    left:calc(var(--mb50-sidebar-width) + 10px)!important;
+    right:auto!important;
+    bottom:14px!important;
+    width:220px!important;
+    min-width:220px!important;
+    padding:8px!important;
+  }
+  .mb50-shell.is-collapsed .mb50-profile-menu a,
+  .mb50-shell.is-collapsed .mb50-profile-menu button{
+    width:100%!important;
+    min-height:42px!important;
+    justify-content:flex-start!important;
+  }
+  .mb50-shell.is-collapsed .mb50-profile-menu a span,
+  .mb50-shell.is-collapsed .mb50-profile-menu button span{
+    display:block!important;
+    width:auto!important;
+    max-width:none!important;
+    opacity:1!important;
+    transform:none!important;
+    overflow:visible!important;
+    white-space:nowrap!important;
+  }
+}
+
+/*
+ * Student workspace UI should behave like an application rather than a text
+ * document. Inputs/editors remain selectable so typing, editing and clipboard
+ * actions still work. The SAT runner is outside .mb50-shell, so its highlighter
+ * selection flow is intentionally untouched.
+ */
+.mb50-shell,
+.mb50-shell *{
+  -webkit-user-select:none!important;
+  user-select:none!important;
+}
+.mb50-shell input,
+.mb50-shell textarea,
+.mb50-shell select,
+.mb50-shell option,
+.mb50-shell [contenteditable="true"],
+.mb50-shell [contenteditable=""],
+.mb50-shell .mb50-allow-selection{
+  -webkit-user-select:text!important;
+  user-select:text!important;
+}
+.mb50-shell img,
+.mb50-shell a{
+  -webkit-user-drag:none;
+}
+
+/* V50.2.11 homework/course consistency */
+.v50210-filterbar .search{position:relative;display:flex;align-items:center}.v50210-filterbar .search>i{position:absolute;left:16px;z-index:2;opacity:.65}.v50210-filterbar .search input{padding-left:44px!important;color:var(--mb50-text)!important;background:var(--mb50-surface)!important}.v50210-filterbar select{color:var(--mb50-text)!important;background:var(--mb50-surface)!important;color-scheme:dark}.v50210-filterbar select option{background:#17131d;color:#fff}html[data-theme="light"] .v50210-filterbar select{color-scheme:light}html[data-theme="light"] .v50210-filterbar select option{background:#fff;color:#17131d}
+.v524-classroom-main{gap:18px!important}.v524-classroom-course{margin-top:18px!important}.v524-lesson-resources{gap:10px!important}.v524-lesson-resource,.v524-test-resource{min-height:58px!important;border-radius:14px!important;padding:11px 13px!important;background:var(--mb50-surface-2)!important;border:1px solid var(--mb50-border)!important}.v524-lesson-resource i,.v524-test-resource i{flex:0 0 auto}
+.v50211-preview-page{max-width:980px;margin:0 auto;padding:24px}.v50211-preview-card{border:1px solid var(--mb50-border);border-radius:26px;background:var(--mb50-surface);padding:32px;display:grid;gap:20px}.v50211-preview-card h1{font-size:clamp(34px,5vw,58px);margin:0}.v50211-preview-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.v50211-preview-meta>span{padding:16px;border-radius:16px;background:var(--mb50-surface-2);display:grid;gap:4px}.v50211-preview-meta strong{font-size:18px}.v50211-preview-meta small{color:var(--mb50-muted)}.v50211-warning{padding:14px 16px;border-radius:14px;background:rgba(245,158,11,.12);display:flex;gap:10px;align-items:center}
+@media(max-width:720px){.v50211-preview-meta{grid-template-columns:1fr}.v50210-filterbar{grid-template-columns:1fr!important}.v50210-filterbar>*{width:100%}}
+/* V50.2.11 classroom resources + dark native controls */
+.v524-lesson-timeline{gap:10px!important}.v524-lesson-card{margin:0!important}.v524-lesson-resources{gap:8px!important;margin-top:10px!important}
+.v50211-resource-card{display:grid!important;grid-template-columns:38px minmax(0,1fr) 22px;align-items:center;gap:11px;padding:11px 12px!important;border:1px solid var(--v523-border,#30283f)!important;border-radius:14px!important;background:rgba(124,58,237,.045)!important;color:inherit!important;text-decoration:none!important;min-height:60px}
+.v50211-resource-card:hover{border-color:rgba(139,92,246,.48)!important;background:rgba(124,58,237,.08)!important;transform:translateY(-1px)}
+.v50211-resource-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:rgba(124,58,237,.13);color:#a78bfa}.v50211-resource-copy{min-width:0}.v50211-resource-copy strong,.v50211-resource-copy small{display:block}.v50211-resource-copy strong{color:var(--v523-text,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.v50211-resource-copy small{margin-top:3px;color:var(--v523-muted,#aaa);font-size:11px;line-height:1.35}
+html[data-theme="dark"] .sf210-toolbar select,html[data-theme="dark"] .sf210-toolbar input,html[data-theme="dark"] .v50210-filterbar select,html[data-theme="dark"] .v50210-filterbar input{background:#1d1923!important;color:#fff!important;border-color:#40374d!important;color-scheme:dark}html[data-theme="dark"] select option{background:#1d1923!important;color:#fff!important}

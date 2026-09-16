@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}Practice Test Access{% endblock title-main %}
 {% block title %}Manage Practice Test Access{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <style>
   .form-wrap {
     max-width: 1000px;
@@ -118,7 +119,7 @@
 
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
       <button type="submit" class="btn-main">Save</button>
-      <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="btn-main btn-secondary">Cancel</a>
+      <a href="{% url 'teacher_classroom_root' classroom.id %}" class="btn-main btn-secondary">Cancel</a>
     </div>
   </form>
 </div>

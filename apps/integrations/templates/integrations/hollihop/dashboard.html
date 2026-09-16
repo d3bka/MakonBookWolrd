@@ -1,7 +1,8 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% block title-main %}Hollihop Integration{% endblock title-main %}
 {% block title %}Manager{% endblock title %}
 {% block style %}
+{{ block.super }}
 <style>
 .holli-shell{max-width:1240px;margin:0 auto;padding:8px 0 40px}.holli-hero,.holli-card{background:var(--bs-body-bg,#fff);border:1px solid rgba(148,163,184,.25);border-radius:20px;box-shadow:0 12px 35px rgba(15,23,42,.07)}
 .holli-hero{padding:28px;display:flex;align-items:flex-start;justify-content:space-between;gap:22px}.holli-hero h1{margin:5px 0 9px;font-size:30px}.holli-hero p{margin:0;color:#64748b;max-width:760px;line-height:1.55}.holli-status{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef2ff;font-weight:800;font-size:13px}.holli-dot{width:9px;height:9px;border-radius:50%;background:#64748b}.holli-dot.ok{background:#16a34a}.holli-dot.warn{background:#d97706}.holli-dot.off{background:#dc2626}
@@ -11,7 +12,7 @@
 {% endblock style %}
 {% block content %}
 <div class="holli-shell">
-  {% if messages %}{% for message in messages %}<div class="holli-alert">{{ message }}</div>{% endfor %}{% endif %}
+
 
   <section class="holli-hero">
     <div>
@@ -39,7 +40,7 @@
             <button class="holli-btn danger" type="submit">Full reconciliation</button>
           </form>
         {% endif %}
-        <a class="holli-btn secondary" href="{% url 'manager_dashboard' %}">Back to Manager Panel</a>
+        <a class="holli-btn secondary" href="{% url 'manager_dashboard_root' %}">Back to Manager Panel</a>
       </div>
 
       {% if not initial_sync_completed %}

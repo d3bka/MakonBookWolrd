@@ -1,276 +1,124 @@
-{% extends 'template.html' %}
+{% extends 'sat/student_workspace.html' %}
 {% load static %}
 
 {% block title-main %}{{ classroom.name }}{% endblock title-main %}
-{% block title %}Student Goal Dashboard{% endblock title %}
+{% block title %}{{ classroom.name }} · Classroom{% endblock title %}
 
-{% block style %}
-<link href="{% static 'assets/css/makon-classroom.css' %}" rel="stylesheet">
+{% block student_workspace_style %}
 <link href="{% static 'assets/css/student-goal-dashboard-v30.css' %}?v=37" rel="stylesheet">
-{% endblock style %}
+{% endblock student_workspace_style %}
 
 {% block content %}
-<div class="student-goal-dashboard" id="studentGoalDashboard">
-  <section class="sg-hero" data-sg-reveal>
-    <div class="sg-hero-copy">
-      <div class="sg-eyebrow">Student command center</div>
-      <h1 class="sg-title">
-        Build your score with a
-        <span class="sg-title-gradient">clear destination.</span>
-      </h1>
-      <p class="sg-subtitle">
-        Welcome, {{ request.user.first_name|default:request.user.username }}. Your classroom, SAT goal,
-        exam countdown, support lessons, and next actions now live in one focused screen.
-      </p>
-
-      <div class="sg-destination">
-        <span class="sg-destination-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9.5 12 4l9.5 5.5L12 15 2.5 9.5Z" fill="currentColor"/><path d="M6.5 12.1V16c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3v-3.9L12 15l-5.5-2.9Z" fill="currentColor" opacity=".82"/><path d="M21.5 10v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-        <div>
-          {% if goal.university_name %}
-            <strong>{{ goal.university_name }}</strong>
-            <span>
-              {% if goal.university_country %}{{ goal.university_country }}{% endif %}{% if goal.dream_university.qs_rank %}{% if goal.university_country %} · {% endif %}QS {{ goal.dream_university.ranking_year|default:"2027" }} #{{ goal.dream_university.qs_rank }}{% endif %}{% if goal.average_sat_score %} · SAT reference: {{ goal.average_sat_score }}{% else %} · SAT average not published{% endif %}
-            </span>
-          {% else %}
-            <strong>Choose your dream university</strong>
-            <span>Set the destination first, then build your score plan around it.</span>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="sg-actions">
-        <button type="button" class="sg-btn" data-goal-modal-open>
-          <svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>
-          {% if goal_is_configured %}Update SAT goal{% else %}Set my SAT goal{% endif %}
-        </button>
-        <a href="{% url 'classroom_chat' classroom.id %}" class="sg-btn sg-btn-secondary">
-          <i class="bi bi-chat-dots"></i>
-          Classroom chat
-        </a>
-      </div>
-
-      <div class="sg-motivation">
-        <div class="sg-motivation-timer" data-motivation-timer data-rotation-seconds="15">
-          <span data-motivation-seconds-left>15</span>
-        </div>
-        <div class="sg-motivation-copy">
-          <small>Live motivation</small>
-          <strong data-motivation-text>One focused session today moves you closer to your goal.</strong>
-        </div>
+<div class="v524-classroom-page" data-v524-classroom-course>
+  <header class="v524-classroom-hero v523-reveal" style="--reveal-index:0">
+    <div class="v524-classroom-hero-copy">
+      <span class="v523-kicker"><i class="bi bi-people"></i> {{ classroom.get_classroom_type_display }}</span>
+      <h1>{{ classroom.name }}</h1>
+      {% if classroom.description %}<p>{{ classroom.description }}</p>{% else %}<p>Your lessons, teacher-published materials, assignments and classroom activity in one place.</p>{% endif %}
+      <div class="v524-classroom-teacher">
+        <span class="v524-classroom-avatar">{{ classroom.teacher.first_name|default:classroom.teacher.username|slice:":1"|upper }}</span>
+        <span><small>Teacher</small><strong>{{ classroom.teacher.get_full_name|default:classroom.teacher.username }}</strong></span>
       </div>
     </div>
+    <div class="v524-classroom-hero-actions">
+      <a class="mb50-primary-btn" href="{% url 'student_messages_root' %}?classroom={{ classroom.id }}"><i class="bi bi-chat-left-text"></i> Message classroom</a>
+      <a class="mb50-secondary-btn" href="{% url 'student_homework_root' %}"><i class="bi bi-list-check"></i> Homework</a>
+    </div>
+  </header>
 
-    <div class="sg-hero-side">
-      <article class="sg-countdown-card" {% if goal.exam_date %}data-exam-countdown data-exam-date="{{ goal.exam_date|date:'Y-m-d' }}"{% endif %}>
-        <div class="sg-card-kicker">
-          <span><i class="bi bi-calendar-event"></i> SAT exam countdown</span>
-          <span class="sg-status-chip" data-tone="{{ pace_tone }}">{{ pace_label }}</span>
-        </div>
-        {% if goal.exam_date %}
-          <div class="sg-countdown-grid">
-            <div class="sg-countdown-unit"><strong data-countdown-days>{{ goal.days_remaining }}</strong><span>Days</span></div>
-            <div class="sg-countdown-unit"><strong data-countdown-hours>00</strong><span>Hours</span></div>
-            <div class="sg-countdown-unit"><strong data-countdown-minutes>00</strong><span>Minutes</span></div>
-            <div class="sg-countdown-unit"><strong data-countdown-seconds>00</strong><span>Seconds</span></div>
-          </div>
-          <div class="sg-progress-mini">
-            <div class="sg-progress-mini-head">
-              <span>Exam date</span>
-              <strong>{{ goal.exam_date|date:"F j, Y" }}</strong>
+  <section class="v524-classroom-overview v523-reveal" style="--reveal-index:1">
+    <article><span><i class="bi bi-easel2"></i></span><div><strong>{{ classroom_lessons|length }}</strong><small>Published units</small></div></article>
+    <article><span><i class="bi bi-list-check"></i></span><div><strong>{{ classroom_homework|length }}</strong><small>Current assignments</small></div></article>
+    <article><span><i class="bi bi-bullseye"></i></span><div><strong>{% if current_score is not None %}{{ current_score }}{% else %}—{% endif %}</strong><small>Latest SAT score</small></div></article>
+    <article><span><i class="bi bi-flag"></i></span><div><strong>{{ target_score }}</strong><small>Target score</small></div></article>
+  </section>
+
+  <section class="v524-classroom-grid">
+    <article class="v524-classroom-panel v524-classroom-lessons v523-reveal" style="--reveal-index:2">
+      <div class="v524-section-head">
+        <div><span class="v523-card-label">Course timeline</span><h2>Units &amp; materials</h2><p>Move through the classroom in the order your teacher publishes it.</p></div>
+        <span class="v524-count-chip">{{ classroom_lessons|length }} unit{{ classroom_lessons|length|pluralize }}</span>
+      </div>
+      <div class="v524-lesson-timeline">
+        {% for lesson in classroom_lessons %}
+          <article class="v524-lesson-card">
+            <div class="v524-lesson-number"><span>{{ lesson.order|stringformat:"02d" }}</span></div>
+            <div class="v524-lesson-body">
+              <div class="v524-lesson-title"><span>Unit {{ lesson.order }}</span><h3>{{ lesson.title }}</h3></div>
+              {% if lesson.summary %}<p>{{ lesson.summary }}</p>{% endif %}
+              <div class="v524-lesson-resources">
+                {% for resource in lesson.visible_resources %}
+                  {% if resource.resource_type == 'test' and resource.test_id %}
+                    <a class="v50211-resource-card" href="{% url 'student_lesson_test_preview_root' classroom.id resource.id %}">
+                      <span class="v50211-resource-icon"><i class="bi bi-clipboard2-check"></i></span>
+                      <span class="v50211-resource-copy"><strong>{{ resource.title }}</strong><small>SAT Test · {{ resource.test.name }} · {{ resource.question_count }} questions · {{ resource.total_points }} points{% if resource.access_code %} · code required{% endif %}</small></span>
+                      <i class="bi bi-chevron-right"></i>
+                    </a>
+                  {% elif resource.resource_type == 'vocabulary_quiz' and resource.vocabulary_unit_id %}
+                    <a class="v50211-resource-card" href="{% url 'student_lesson_vocabulary_quiz_root' classroom.id resource.id %}">
+                      <span class="v50211-resource-icon"><i class="bi bi-patch-question"></i></span>
+                      <span class="v50211-resource-copy"><strong>{{ resource.title }}</strong><small>Vocabulary Quiz · {{ resource.vocabulary_unit.name }} · {{ resource.vocabulary_question_count }} questions</small></span>
+                      <i class="bi bi-chevron-right"></i>
+                    </a>
+                  {% elif resource.target_url %}
+                    <a class="v50211-resource-card" href="{{ resource.target_url }}" {% if resource.resource_type == 'file' or resource.resource_type == 'presentation' %}download{% else %}target="_blank" rel="noopener"{% endif %}>
+                      <span class="v50211-resource-icon"><i class="bi {% if resource.resource_type == 'presentation' %}bi-easel2{% elif resource.resource_type == 'link' %}bi-link-45deg{% else %}bi-file-earmark-arrow-down{% endif %}"></i></span>
+                      <span class="v50211-resource-copy"><strong>{{ resource.title }}</strong><small>{{ resource.get_resource_type_display }}{% if resource.description %} · {{ resource.description }}{% endif %}</small></span>
+                      <i class="bi {% if resource.resource_type == 'link' %}bi-arrow-up-right{% else %}bi-download{% endif %}"></i>
+                    </a>
+                  {% endif %}
+                {% empty %}
+                  <span class="v524-no-resource">No published materials for this lesson yet.</span>
+                {% endfor %}
+              </div>
             </div>
-          </div>
-        {% else %}
-          <div class="sg-empty" style="margin-top:18px;">
-            Add your exam date to activate a live countdown and study pace.
-          </div>
-        {% endif %}
-      </article>
-
-      <article class="sg-score-card">
-        <div class="sg-card-kicker">
-          <span><i class="bi bi-graph-up-arrow"></i> Score journey</span>
-          <span class="sg-status-chip">Target {{ target_score }}</span>
-        </div>
-        <div class="sg-score-row">
-          <div class="sg-progress-ring" style="--progress: {{ goal_progress_percent }}%;">
-            <strong>{{ goal_progress_percent }}%</strong>
-          </div>
-          <div class="sg-score-copy">
-            <strong>{% if current_score is not None %}{{ current_score }}{% else %}—{% endif %}</strong>
-            <span>
-              {% if current_score is not None %}
-                Latest SAT score · {% if score_gap %}{{ score_gap }} points to target{% else %}target range reached{% endif %}
-              {% else %}
-                Complete a scored practice test to establish your baseline.
-              {% endif %}
-            </span>
-          </div>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  {{ motivation_messages|json_script:"student-motivation-messages" }}
-
-  <section class="sg-metrics" data-sg-reveal>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.4 2.5 5.8 13h5.1l-.4 8.5L18.2 11h-5.1l.3-8.5Z" fill="currentColor" stroke="currentColor" stroke-linejoin="round"/></svg></span></div>
-      <strong>{% if current_score is not None %}{{ current_score }}{% else %}—{% endif %}</strong>
-      <span>Latest score{% if latest_review %} · {{ latest_review.created_at|date:"M j" }}{% endif %}{% if best_score %} · best {{ best_score }}{% endif %}</span>
-    </article>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span></div>
-      <strong>{{ target_score }}</strong>
-      <span>Your personal SAT target</span>
-    </article>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17 10 12l3.2 3.2L20 8.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.8 8.4H20v5.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
-      <strong>{% if score_gap is not None %}{{ score_gap }}{% else %}—{% endif %}</strong>
-      <span>{% if score_gap == 0 %}Target gap closed{% else %}Points remaining to target{% endif %}</span>
-    </article>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.1 2.8c.8 4-2.6 5.1-2.6 8 0 1.2.7 2 1.7 2.5-.1-2 .9-3.2 2.2-4.4 2.1 1.9 3.6 4 3.6 6.6 0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8c0-4.4 3.2-7.2 7.1-12.7Z" fill="currentColor"/></svg></span></div>
-      <strong>{{ weekly_momentum }}</strong>
-      <span>Learning actions in 7 days · goal {{ goal.weekly_study_days_goal }} study days</span>
-    </article>
-  </section>
-
-  <section class="sg-layout">
-    <article class="sg-panel" data-sg-reveal>
-      <div class="sg-panel-head">
-        <div>
-          <h2 class="sg-panel-title">Today’s focus</h2>
-          <p class="sg-panel-subtitle">Three practical actions chosen from your enabled classroom tools and upcoming lessons.</p>
-        </div>
-        <span class="sg-status-chip">{{ goal.daily_study_minutes_goal }} min daily</span>
+          </article>
+        {% empty %}
+          <div class="v524-classroom-empty"><i class="bi bi-journal-plus"></i><div><strong>No published units yet.</strong><span>Your teacher can build a unit sequence and attach tests, slides, documents or links.</span></div></div>
+        {% endfor %}
       </div>
+    </article>
 
-      {% if focus_cards %}
-        <div class="sg-focus-list">
-          {% for focus in focus_cards %}
-            <a href="{{ focus.url }}" class="sg-focus-card">
-              <span class="sg-focus-icon"><i class="bi {{ focus.icon }}"></i></span>
-              <span class="sg-focus-copy">
-                <strong>{{ focus.title }}</strong>
-                <span>{{ focus.text }}</span>
-              </span>
-              <span class="sg-focus-label">{{ focus.label }} <i class="bi bi-arrow-right"></i></span>
+    <aside class="v524-classroom-side">
+      <section class="v524-classroom-panel v523-reveal" style="--reveal-index:3">
+        <div class="v524-section-head compact"><div><span class="v523-card-label">Assignments</span><h2>Due work</h2></div><a href="{% url 'student_homework_root' %}">View all</a></div>
+        <div class="v524-classroom-homework-list">
+          {% for item in classroom_homework %}
+            <a href="{% url 'student_homework_launch_root' item.id %}">
+              <span class="v524-homework-icon"><i class="bi {% if item.assignment_type == 'sat_test' %}bi-stopwatch{% elif item.assignment_type == 'vocabulary_quiz' %}bi-patch-question{% else %}bi-journal-bookmark{% endif %}"></i></span>
+              <span><strong>{{ item.title }}</strong><small>{{ item.get_assignment_type_display }}{% if item.due_at %} · Due {{ item.due_at|date:"M j, H:i" }}{% endif %}</small></span>
+              <i class="bi bi-chevron-right"></i>
             </a>
+          {% empty %}
+            <div class="v524-classroom-empty small"><i class="bi bi-check2-circle"></i><div><strong>No current homework.</strong><span>Your teacher has not assigned anything here yet.</span></div></div>
           {% endfor %}
         </div>
-      {% else %}
-        <div class="sg-empty" style="margin-top:20px;">Your teacher will unlock study sections here.</div>
-      {% endif %}
-    </article>
+      </section>
 
-    <aside class="sg-next-lesson" data-sg-reveal>
-      {% if next_support_lesson %}
-        <small>Next support class</small>
-        <h3>{{ next_support_lesson.teacher.name }}</h3>
-        <p>
-          {{ next_support_lesson.display_topic }}<br>
-          {{ next_support_lesson.start_at|date:"D, M j · H:i" }} · {{ next_support_lesson.duration_minutes }} minutes
-        </p>
-        <a href="{% url 'my_support_lessons' %}" class="sg-btn sg-btn-sm">
-          Open lesson <i class="bi bi-arrow-right"></i>
-        </a>
-      {% else %}
-        <small>Personal support</small>
-        <h3>Book a focused SAT lesson</h3>
-        <p>Choose a support teacher, select a title and topic, and let the teacher plan the best grouped class time.</p>
-        <a href="{% url 'support_teacher_list' %}" class="sg-btn sg-btn-sm">
-          Find a teacher <i class="bi bi-arrow-right"></i>
-        </a>
-      {% endif %}
+      <section class="v524-classroom-panel v523-reveal" style="--reveal-index:4">
+        <div class="v524-section-head compact"><div><span class="v523-card-label">SAT plan</span><h2>Your target</h2></div><button type="button" class="v524-inline-btn" data-goal-modal-open>Edit</button></div>
+        {% if goal_is_configured %}
+          <div class="v524-classroom-goal">
+            <div><small>University</small><strong>{{ goal.university_name|default:"Personal target" }}</strong></div>
+            <div class="v524-classroom-goal-score"><span><small>Latest</small><strong>{% if current_score is not None %}{{ current_score }}{% else %}—{% endif %}</strong></span><i class="bi bi-arrow-right"></i><span><small>Goal</small><strong>{{ target_score }}</strong></span></div>
+            {% if goal.exam_date %}<p><i class="bi bi-calendar-event"></i> {{ goal.exam_date|date:"M j, Y" }} · {{ goal.days_remaining }} days remaining</p>{% endif %}
+          </div>
+        {% else %}
+          <div class="v524-classroom-empty small"><i class="bi bi-bullseye"></i><div><strong>No SAT target yet.</strong><span>Set a destination without turning the classroom into another dashboard.</span></div></div>
+          <button class="mb50-primary-btn v524-full-btn" type="button" data-goal-modal-open>Set SAT goal</button>
+        {% endif %}
+      </section>
+
+      <section class="v524-classroom-panel v523-reveal" style="--reveal-index:5">
+        <div class="v524-section-head compact"><div><span class="v523-card-label">Classroom spaces</span><h2>Quick access</h2></div></div>
+        <div class="v524-classroom-links">
+          {% if access_map.practice_tests %}<a href="{% url 'practice_tests_root' %}"><i class="bi bi-clipboard2-check"></i><span><strong>Assigned tests</strong><small>Full SAT attempts</small></span><i class="bi bi-chevron-right"></i></a>{% endif %}
+          <a href="{% url 'student_messages_root' %}?classroom={{ classroom.id }}"><i class="bi bi-chat-dots"></i><span><strong>Messages</strong><small>Classroom conversation</small></span><i class="bi bi-chevron-right"></i></a>
+          <a href="{% url 'support_teacher_list_root' %}"><i class="bi bi-person-video3"></i><span><strong>Support session</strong><small>Book a focused lesson</small></span><i class="bi bi-chevron-right"></i></a>
+          {% if access_map.admissions %}<a href="{% url 'admissions_root' %}"><i class="bi bi-buildings"></i><span><strong>Admissions</strong><small>University preparation</small></span><i class="bi bi-chevron-right"></i></a>{% endif %}
+        </div>
+      </section>
     </aside>
-  </section>
-
-  <section class="sg-panel" style="margin-top:22px;" data-sg-reveal>
-    <div class="sg-panel-head">
-      <div>
-        <h2 class="sg-panel-title">Learning workspace</h2>
-        <p class="sg-panel-subtitle">Everything your teacher enables stays visible, with progress and the next action clearly separated.</p>
-      </div>
-      <span class="sg-status-chip">{{ classroom.name }}</span>
-    </div>
-
-    <div class="sg-sections">
-      {% if access_map.practice_tests %}
-        <a href="{% url 'classroom_practice_tests' classroom.id %}" class="sg-section-card">
-          <div>
-            <span class="sg-section-icon"><i class="bi bi-stopwatch"></i></span>
-            <h3>Practice Tests</h3>
-            <p>Timed modules, server autosave, question review, and score history.</p>
-            {% if practice_progress %}
-              <div class="sg-progress-mini">
-                <div class="sg-progress-mini-head"><span>Completion</span><strong>{{ practice_progress.completion_percent|floatformat:0 }}%</strong></div>
-                <div class="sg-progress-track"><span style="width:{{ practice_progress.completion_percent }}%"></span></div>
-              </div>
-            {% endif %}
-          </div>
-          <span class="sg-section-cta">Start practice <i class="bi bi-arrow-right"></i></span>
-        </a>
-      {% else %}
-        <div class="sg-section-card is-locked">
-          <div><span class="sg-section-icon"><i class="bi bi-lock"></i></span><h3>Practice Tests</h3><p>This section is not enabled for your account yet.</p></div>
-          <span class="sg-section-cta">Locked</span>
-        </div>
-      {% endif %}
-
-      {% if access_map.vocabulary %}
-        <a href="{% url 'classroom_vocabulary' classroom.id %}" class="sg-section-card">
-          <div>
-            <span class="sg-section-icon"><i class="bi bi-journal-text"></i></span>
-            <h3>Vocabulary</h3>
-            <p>Flashcards, mixed quizzes, weak-word recovery, and mastery tracking.</p>
-            {% if vocabulary_progress %}
-              <div class="sg-progress-mini">
-                <div class="sg-progress-mini-head"><span>Completion</span><strong>{{ vocabulary_progress.completion_percent|floatformat:0 }}%</strong></div>
-                <div class="sg-progress-track"><span style="width:{{ vocabulary_progress.completion_percent }}%"></span></div>
-              </div>
-            {% endif %}
-          </div>
-          <span class="sg-section-cta">Study words <i class="bi bi-arrow-right"></i></span>
-        </a>
-      {% else %}
-        <div class="sg-section-card is-locked">
-          <div><span class="sg-section-icon"><i class="bi bi-lock"></i></span><h3>Vocabulary</h3><p>Your teacher has not opened vocabulary work yet.</p></div>
-          <span class="sg-section-cta">Locked</span>
-        </div>
-      {% endif %}
-
-      {% if access_map.admissions %}
-        <a href="{% url 'classroom_admissions' classroom.id %}" class="sg-section-card">
-          <div>
-            <span class="sg-section-icon"><i class="bi bi-mortarboard"></i></span>
-            <h3>Admissions</h3>
-            <p>Connect test preparation with application planning and university guidance.</p>
-            {% if admissions_progress %}
-              <div class="sg-progress-mini">
-                <div class="sg-progress-mini-head"><span>Completion</span><strong>{{ admissions_progress.completion_percent|floatformat:0 }}%</strong></div>
-                <div class="sg-progress-track"><span style="width:{{ admissions_progress.completion_percent }}%"></span></div>
-              </div>
-            {% endif %}
-          </div>
-          <span class="sg-section-cta">Open guidance <i class="bi bi-arrow-right"></i></span>
-        </a>
-      {% else %}
-        <div class="sg-section-card is-locked">
-          <div><span class="sg-section-icon"><i class="bi bi-lock"></i></span><h3>Admissions</h3><p>Admissions tools are currently locked for this classroom.</p></div>
-          <span class="sg-section-cta">Locked</span>
-        </div>
-      {% endif %}
-
-      <a href="{% url 'classroom_chat' classroom.id %}" class="sg-section-card">
-        <div><span class="sg-section-icon"><i class="bi bi-chat-dots"></i></span><h3>Classroom Chat</h3><p>Ask questions, receive teacher updates, and share files securely.</p></div>
-        <span class="sg-section-cta">Open chat <i class="bi bi-arrow-right"></i></span>
-      </a>
-
-      <a href="{% url 'support_teacher_list' %}" class="sg-section-card">
-        <div><span class="sg-section-icon"><i class="bi bi-person-video3"></i></span><h3>Book Support Classes</h3><p>Choose a teacher and exact topic. Matching topic requests are grouped, and the support teacher plans the time.</p></div>
-        <span class="sg-section-cta">Book a lesson <i class="bi bi-arrow-right"></i></span>
-      </a>
-    </div>
   </section>
 </div>
 

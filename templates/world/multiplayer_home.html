@@ -1,0 +1,66 @@
+{% extends 'world/base.html' %}
+{% block world_content %}
+<div class="mw504-mp-home">
+  <header class="mw503-page-head mw504-mp-hero">
+    <div>
+      <span class="mw503-eyebrow">V50.4 MULTIPLAYER</span>
+      <h1>Choose your arena.</h1>
+      <p>Private 3–4 player SAT battles with a shared server-timed question set.</p>
+    </div>
+    <a class="mw504-back-duel" href="{% url 'world_home' %}"><i class="bi bi-arrow-left"></i> Back to 1v1</a>
+  </header>
+
+  {% if world_multiplayer_room %}
+  <section class="mw504-mp-resume">
+    <div><small>ACTIVE MULTIPLAYER ROOM</small><strong>{{ world_multiplayer_room.join_code }}</strong><span>{{ world_multiplayer_room.get_subject_display }} · {{ world_multiplayer_room.capacity }} seats</span></div>
+    <a class="mw503-primary" href="{% if world_multiplayer_room.status == 'active' %}{% url 'world_multiplayer_play' world_multiplayer_room.id %}{% else %}{% url 'world_multiplayer_room' world_multiplayer_room.id %}{% endif %}">Open room <i class="bi bi-arrow-right"></i></a>
+  </section>
+  {% else %}
+  <div class="mw504-mp-grid">
+    <form class="mw504-mp-card mw504-create-card" data-mp-create action="{% url 'world_multiplayer_create' %}" method="post">{% csrf_token %}
+      <div class="mw504-card-head"><span class="mw504-mp-icon"><i class="bi bi-people-fill"></i></span><div><small>CREATE PRIVATE ROOM</small><h2>Host a battle</h2></div></div>
+      <p>Pick the subject, arena size, and 5/10/15/20-question battle length, then invite your players.</p>
+
+      <div class="mw504-config-block">
+        <label class="mw504-config-title">01 · Subject</label>
+        <div class="mw504-choice-row">
+          <label class="mw504-choice is-active"><input type="radio" name="subject" value="math" checked><i class="bi bi-calculator"></i><span><strong>Math</strong><small>Shared Math rating context</small></span></label>
+          <label class="mw504-choice"><input type="radio" name="subject" value="rw"><i class="bi bi-book"></i><span><strong>Reading & Writing</strong><small>Shared RW question pool</small></span></label>
+        </div>
+      </div>
+
+      <div class="mw504-config-block">
+        <label class="mw504-config-title">02 · Multiplayer mode</label>
+        <div class="mw504-choice-row mw504-capacity-row">
+          <label class="mw504-choice"><input type="radio" name="capacity" value="3"><i class="bi bi-3-circle-fill"></i><span><strong>3 Player Sprint</strong><small>Fast free-for-all</small></span></label>
+          <label class="mw504-choice is-active"><input type="radio" name="capacity" value="4" checked><i class="bi bi-4-circle-fill"></i><span><strong>4 Player Arena</strong><small>Full free-for-all room</small></span></label>
+        </div>
+      </div>
+
+      <div class="mw504-config-block">
+        <label class="mw504-config-title">03 · Question count</label>
+        <div class="mw504-question-count" data-mp-question-count>
+          <label><input type="radio" name="question_count" value="5" checked><span>5</span><small>Quick</small></label>
+          <label><input type="radio" name="question_count" value="10"><span>10</span><small>Standard</small></label>
+          <label><input type="radio" name="question_count" value="15"><span>15</span><small>Long</small></label>
+          <label><input type="radio" name="question_count" value="20"><span>20</span><small>Marathon</small></label>
+        </div>
+      </div>
+
+      <div class="mw504-feature-strip"><span><i class="bi bi-shield-check"></i> Server scored</span><span><i class="bi bi-stopwatch"></i> Shared timer</span><span><i class="bi bi-bar-chart-fill"></i> Live standings</span></div>
+      <button class="mw503-primary" type="submit">Create room <i class="bi bi-arrow-right"></i></button>
+      <p class="mw503-form-status" data-mp-status></p>
+    </form>
+
+    <form class="mw504-mp-card mw504-join-card" data-mp-join action="{% url 'world_multiplayer_join' %}" method="post">{% csrf_token %}
+      <div class="mw504-card-head"><span class="mw504-mp-icon"><i class="bi bi-key-fill"></i></span><div><small>JOIN PRIVATE ROOM</small><h2>Enter room code</h2></div></div>
+      <p>Ask the host for the 6-character code. You will occupy the first open seat.</p>
+      <label class="mw504-code-input-label">Room code<input name="join_code" maxlength="6" autocomplete="off" placeholder="ABC123" required></label>
+      <button class="mw503-primary" type="submit">Join room <i class="bi bi-box-arrow-in-right"></i></button>
+      <p class="mw503-form-status" data-mp-status></p>
+      <div class="mw504-join-note"><i class="bi bi-info-circle"></i><span>Rooms require at least 3 players. Every player must press Ready before the host can start.</span></div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

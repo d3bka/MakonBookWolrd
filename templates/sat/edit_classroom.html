@@ -1,87 +1,12 @@
-{% extends 'template.html' %}
-{% load static %}
-
-{% block title-main %}Edit Classroom{% endblock title-main %}
-{% block title %}Edit Classroom{% endblock title %}
-
-{% block style %}
-<style>
-  .edit-wrap {
-    max-width: 760px;
-    margin: 0 auto;
-    background: #fff;
-    border-radius: 18px;
-    padding: 28px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 10px 24px rgba(0,0,0,0.08);
-  }
-
-  .form-group {
-    margin-bottom: 18px;
-  }
-
-  .form-group label {
-    display: block;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: #7c3aed;
-  }
-
-  .form-group input,
-  .form-group textarea {
-    width: 100%;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    padding: 12px 14px;
-  }
-
-  .actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-  }
-
-  .btn-main {
-    display: inline-block;
-    padding: 12px 18px;
-    border-radius: 999px;
-    background: #7c3aed;
-    color: #fff;
-    text-decoration: none;
-    font-weight: 700;
-    border: none;
-  }
-
-  .btn-secondary {
-    background: #475569;
-  }
-</style>
-{% endblock style %}
-
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Edit {{ classroom.name }} | MakonBook{% endblock %}
 {% block content %}
-<div class="edit-wrap">
-  <h2>Edit Classroom</h2>
-
-  <form method="post">
-    {% csrf_token %}
-
-    <div class="form-group">
-      <label for="name">Classroom Name</label>
-      <input type="text" id="name" name="name" value="{{ classroom.name }}" required>
-    </div>
-
-    <div class="form-group">
-      <label for="description">Description</label>
-      <textarea id="description" name="description" rows="5">{{ classroom.description }}</textarea>
-    </div>
-
-    <div class="actions">
-      <button type="submit" class="btn-main">Save Changes</button>
-      <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="btn-main btn-secondary">
-        Cancel
-      </a>
-    </div>
-  </form>
+<div class="sf27-form-page">
+  <section class="sf27-page-head"><div><small>Teacher · Classroom settings</small><h1>Edit {{ classroom.name }}</h1><p>Keep the classroom identity short and clear. Access, homework and lesson controls stay in their dedicated tools.</p></div><div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'teacher_classroom_root' classroom.id %}"><i class="bi bi-arrow-left"></i> Classroom</a></div></section>
+  <section class="sf27-card sf27-form-card"><form method="post" class="sf27-form-grid">{% csrf_token %}
+    <label class="sf27-field sf27-field-wide"><span>Classroom name</span><input type="text" name="name" value="{{ classroom.name }}" maxlength="255" required></label>
+    <label class="sf27-field sf27-field-wide"><span>Description</span><textarea name="description" rows="6" maxlength="10000">{{ classroom.description }}</textarea></label>
+    <div class="sf27-form-footer"><a href="{% url 'teacher_classroom_root' classroom.id %}" class="sf27-btn secondary">Cancel</a><button type="submit" class="sf27-btn"><i class="bi bi-check2"></i> Save changes</button></div>
+  </form></section>
 </div>
-{% endblock content %}
+{% endblock %}

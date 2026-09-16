@@ -191,7 +191,7 @@
       setBusy(button, true, 'Deleting…');
       try {
         const payload = await postForm(publishedDeleteForm);
-        window.location.assign(payload.redirect_url || publishedDeleteForm.dataset.redirectUrl || '/sat/test-imports/published/');
+        window.location.assign(payload.redirect_url || publishedDeleteForm.dataset.redirectUrl || '/manager/tests-import/published/');
       } catch (error) {
         setBusy(button, false);
         showNotice(error.message, 'error');

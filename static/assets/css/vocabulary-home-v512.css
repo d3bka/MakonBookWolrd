@@ -1,0 +1,284 @@
+/* V50.1.12 — design-only polish for the deck showcase. No carousel logic changes. */
+.vh506-feature-row{
+  grid-template-columns:minmax(0,1fr) 210px;
+  gap:14px;
+  align-items:stretch;
+}
+
+.vh511-deck-carousel{
+  min-height:248px;
+  padding:22px 24px 20px;
+  isolation:isolate;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 88% 22%,rgba(168,85,247,.18),transparent 26%),
+    radial-gradient(circle at 72% 120%,rgba(124,58,237,.10),transparent 34%),
+    linear-gradient(145deg,rgba(124,58,237,.085),rgba(255,255,255,.015) 58%),
+    var(--mb50-panel);
+  box-shadow:0 14px 34px rgba(76,29,149,.055);
+}
+.vh511-deck-carousel::before{
+  content:"";
+  position:absolute;
+  width:230px;
+  height:230px;
+  right:-64px;
+  top:-92px;
+  border-radius:50%;
+  border:1px solid rgba(168,85,247,.13);
+  box-shadow:0 0 0 30px rgba(168,85,247,.025),0 0 0 62px rgba(168,85,247,.018);
+  pointer-events:none;
+  z-index:-1;
+}
+.vh511-carousel-head{position:relative;z-index:2}
+.vh511-carousel-controls{
+  gap:7px;
+  padding:4px;
+  border:1px solid rgba(124,58,237,.12);
+  border-radius:14px;
+  background:color-mix(in srgb,var(--mb50-panel) 82%,transparent);
+  box-shadow:0 8px 24px rgba(31,20,52,.06);
+}
+.vh511-carousel-controls button{
+  width:34px;
+  height:34px;
+  min-width:34px!important;
+  min-height:34px!important;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  font-size:16px;
+}
+.vh511-carousel-controls button:hover{
+  background:var(--mb50-accent-soft);
+  color:var(--mb50-accent);
+}
+
+.vh511-deck-stage{
+  min-height:164px;
+  margin-top:6px;
+}
+.vh511-deck-slide{
+  min-height:164px;
+  align-items:center;
+  grid-template-columns:minmax(0,1fr) 154px;
+  gap:28px;
+}
+.vh511-deck-slide.is-active{display:grid}
+.vh512-deck-copy{min-width:0;padding:10px 0 2px}
+.vh512-deck-label{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:var(--mb50-accent);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.vh512-live-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#7c3aed,#d946ef);
+  box-shadow:0 0 0 4px rgba(124,58,237,.09);
+}
+.vh511-deck-slide h2{
+  margin:8px 0 10px;
+  font-size:30px;
+  line-height:1.03;
+  letter-spacing:-.045em;
+}
+.vh512-deck-stats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-bottom:12px;
+}
+.vh512-deck-stats span{
+  display:inline-flex;
+  align-items:baseline;
+  gap:4px;
+  min-height:27px;
+  padding:5px 9px;
+  border:1px solid rgba(124,58,237,.10);
+  border-radius:999px;
+  background:color-mix(in srgb,var(--mb50-panel) 80%,rgba(124,58,237,.08));
+  color:var(--mb50-muted);
+  font-size:9px;
+  font-weight:700;
+}
+.vh512-deck-stats b{color:var(--mb50-text);font-size:10px}
+.vh511-deck-slide .vh506-meter{
+  width:min(100%,520px);
+  height:7px;
+  margin:0;
+  background:rgba(124,58,237,.08);
+  box-shadow:inset 0 0 0 1px rgba(124,58,237,.035);
+}
+.vh511-deck-slide .vh506-meter span{
+  min-width:0;
+  box-shadow:0 0 14px rgba(168,85,247,.22);
+}
+.vh512-deck-actions{margin-top:14px}
+.vh512-deck-actions .vh506-light{
+  min-height:38px;
+  padding:0 13px;
+  border-radius:11px;
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+.vh512-deck-actions .vh506-light:hover{transform:translateY(-1px);border-color:rgba(124,58,237,.25)}
+.vh512-deck-actions .vh512-study-primary{
+  border-color:transparent;
+  background:linear-gradient(135deg,#7c3aed 0%,#a855f7 52%,#c026d3 100%);
+  color:#fff!important;
+  box-shadow:0 9px 20px rgba(124,58,237,.18);
+}
+.vh512-deck-actions .vh512-study-primary:hover{
+  border-color:transparent;
+  box-shadow:0 11px 24px rgba(124,58,237,.25);
+}
+
+.vh512-deck-art{
+  width:144px;
+  height:144px;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  align-self:center;
+  border:1px solid rgba(124,58,237,.12);
+  border-radius:30px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.22),rgba(124,58,237,.04)),
+    var(--mb50-panel-soft);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 18px 40px rgba(76,29,149,.07);
+  overflow:hidden;
+}
+.vh512-deck-art-ring{
+  position:absolute;
+  width:102px;
+  height:102px;
+  border-radius:50%;
+  border:1px solid rgba(168,85,247,.17);
+  box-shadow:0 0 0 14px rgba(168,85,247,.035),0 0 0 28px rgba(168,85,247,.02);
+}
+.vh512-deck-art-icon{
+  width:48px;
+  height:48px;
+  position:relative;
+  z-index:1;
+  display:grid;
+  place-items:center;
+  margin-bottom:8px;
+  border-radius:15px;
+  background:linear-gradient(145deg,#7c3aed,#b14cf0);
+  color:#fff;
+  font-size:21px;
+  box-shadow:0 10px 28px rgba(124,58,237,.24);
+}
+.vh512-deck-art strong,.vh512-deck-art small{position:relative;z-index:1;display:block}
+.vh512-deck-art strong{font-size:20px;letter-spacing:-.04em}
+.vh512-deck-art small{margin-top:1px;color:var(--mb50-muted);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+
+/* Keep indicators subtle and fix inherited global button sizing. */
+.vh511-carousel-dots{
+  position:relative;
+  z-index:2;
+  gap:6px;
+  min-height:10px;
+  margin-top:5px;
+}
+.vh511-carousel-dots button{
+  display:block;
+  flex:0 0 auto;
+  width:7px!important;
+  height:7px!important;
+  min-width:7px!important;
+  min-height:7px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:rgba(124,58,237,.18)!important;
+  box-shadow:none!important;
+  line-height:0;
+}
+.vh511-carousel-dots button.is-active{
+  width:24px!important;
+  min-width:24px!important;
+  background:linear-gradient(90deg,#7c3aed,#c026d3)!important;
+  box-shadow:0 4px 12px rgba(124,58,237,.18)!important;
+}
+
+.vh506-mydecks{
+  min-height:248px;
+  position:relative;
+  justify-content:flex-end;
+  overflow:hidden;
+  padding:20px;
+  background:
+    radial-gradient(circle at 82% 14%,rgba(168,85,247,.17),transparent 30%),
+    linear-gradient(155deg,rgba(124,58,237,.06),transparent 52%),
+    var(--mb50-panel);
+  box-shadow:0 14px 34px rgba(76,29,149,.045);
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.vh506-mydecks::before{
+  content:"";
+  position:absolute;
+  width:116px;
+  height:116px;
+  right:-26px;
+  top:-30px;
+  border-radius:30px;
+  border:1px solid rgba(124,58,237,.11);
+  transform:rotate(16deg);
+}
+.vh506-mydecks:hover{
+  transform:translateY(-2px);
+  border-color:rgba(124,58,237,.22);
+  box-shadow:0 18px 42px rgba(76,29,149,.08);
+}
+.vh506-mydecks .vh506-stack-icon{
+  width:48px;
+  height:48px;
+  margin-bottom:auto;
+  border-radius:15px;
+  background:linear-gradient(145deg,rgba(124,58,237,.14),rgba(192,38,211,.10));
+  box-shadow:inset 0 0 0 1px rgba(124,58,237,.08);
+}
+.vh506-mydecks strong{font-size:19px;letter-spacing:-.03em}
+.vh506-mydecks small{font-size:10px}
+.vh506-mydecks>i{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:var(--mb50-panel-soft);
+  color:var(--mb50-accent);
+  transition:transform .18s ease,background .18s ease;
+}
+.vh506-mydecks:hover>i{transform:translateX(3px);background:var(--mb50-accent-soft)}
+
+@media(max-width:980px){
+  .vh506-feature-row{grid-template-columns:minmax(0,1fr) 188px}
+  .vh511-deck-slide{grid-template-columns:minmax(0,1fr) 126px;gap:18px}
+  .vh512-deck-art{width:124px;height:124px;border-radius:25px}
+  .vh512-deck-art-ring{width:86px;height:86px}
+}
+@media(max-width:700px){
+  .vh506-feature-row{grid-template-columns:1fr}
+  .vh511-deck-carousel{min-height:0;padding:18px}
+  .vh511-deck-stage,.vh511-deck-slide{min-height:0}
+  .vh511-deck-slide.is-active{grid-template-columns:1fr}
+  .vh512-deck-art{display:none}
+  .vh511-deck-slide h2{font-size:25px}
+  .vh506-mydecks{min-height:132px}
+  .vh506-mydecks .vh506-stack-icon{margin-bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .vh512-deck-actions .vh506-light,.vh506-mydecks,.vh506-mydecks>i{transition:none!important}
+}

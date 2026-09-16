@@ -1,37 +1,4 @@
-{% extends 'template.html' %}
-{% load static %}
-
-{% block title %}Manage AP Tests{% endblock %}
-
+{% extends 'sat/staff_workspace.html' %}
 {% block content %}
-<div class="container py-4">
-  <h2>Manage AP Tests</h2>
-  <p><strong>Classroom:</strong> {{ classroom.name }}</p>
-  <p style="color:#64748b;">Select AP mock events that students in this AP classroom can open.</p>
-
-  <form method="post">
-    {% csrf_token %}
-
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:12px; margin-bottom:20px;">
-      {% for event in events %}
-        <label style="border:1px solid #ddd; border-radius:12px; padding:14px; display:block; background:#fff;">
-          <input type="checkbox" name="events" value="{{ event.pk }}"
-                 {% if event.pk|stringformat:"s" in selected_event_ids %}checked{% endif %}>
-          <strong>{{ event.title }}</strong>
-          <div style="margin-top:6px; color:#64748b; font-size:14px;">
-            {{ event.exam.title }}{% if event.exam.ap_class %} · {{ event.exam.ap_class.name }}{% endif %}<br>
-            Status: {{ event.status|title }} · {% if event.is_global %}Global{% else %}Classroom-limited{% endif %}
-          </div>
-        </label>
-      {% empty %}
-        <div style="border:1px solid #ddd; border-radius:12px; padding:18px; background:#fff;">
-          No AP events exist yet. Create AP events in the AP classes admin first.
-        </div>
-      {% endfor %}
-    </div>
-
-    <button type="submit" class="btn btn-primary">Save AP Tests</button>
-    <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="btn btn-secondary">Back</a>
-  </form>
-</div>
+<div class="sf29-page"><section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-layers"></i> Access · AP events</span><h1>Manage AP event access.</h1><p>{{ classroom.name }} is an AP classroom. Select the published AP mock events students may open.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'teacher_access_root' %}"><i class="bi bi-arrow-left"></i>Back to Access center</a></div></section><section class="sf29-card span-12"><form method="post">{% csrf_token %}<div class="sf29-grid">{% for event in events %}<label class="sf29-card sf29-check"><input type="checkbox" name="events" value="{{ event.pk }}" {% if event.pk|stringformat:'s' in selected_event_ids %}checked{% endif %}><span><strong>{{ event.title }}</strong><small>{{ event.exam.title }}{% if event.exam.ap_class %} · {{ event.exam.ap_class.name }}{% endif %} · {{ event.status|title }}</small></span></label>{% empty %}<div class="sf29-empty">No published AP events exist yet.</div>{% endfor %}</div><div class="sf28-actions"><button class="sf28-btn primary" type="submit">Save AP event access</button><a class="sf28-btn" href="{% url 'teacher_access_root' %}">Cancel</a></div></form></section></div>
 {% endblock %}

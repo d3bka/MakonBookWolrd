@@ -206,7 +206,7 @@ class SupportBookingV33Tests(TestCase):
         Classroom.objects.create(teacher=multi_role, name='Manager Teacher Classroom')
 
         self.client.force_login(multi_role)
-        response = self.client.get(reverse('sat_menu'))
+        response = self.client.get(reverse('student_dashboard_root'))
         self.assertRedirects(response, reverse('teacher_classroom_list'))
 
         manager_response = self.client.get(reverse('manager_dashboard'))

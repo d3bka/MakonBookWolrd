@@ -1,0 +1,47 @@
+<aside class="mw503-player-card" data-world-player-card>
+  <div class="mw503-player-head">
+    <span class="mw503-avatar">{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}{{ request.user.last_name|slice:':1'|upper }}</span>
+    <div>
+      <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+      <small>@{{ request.user.username }}</small>
+    </div>
+  </div>
+
+  <div class="mw503-rating-summary">
+    <span class="mw503-summary-label" data-world-rating-label>{{ world_selected_rating.get_subject_display }} rating</span>
+    <div class="mw503-rating-line">
+      <strong class="mw503-rating-number" data-world-rating-number data-world-count-to="{{ world_selected_rating.rating }}">0</strong>
+      <span class="mw503-tier mw503-tier-{{ world_selected_rating.tier|lower }}" data-world-rating-tier><i class="bi bi-award"></i><span data-world-rating-tier-text>{{ world_selected_rating.tier|upper }}</span></span>
+    </div>
+    <small>Global rank <b data-world-rating-rank>#{{ world_selected_rank }}</b></small>
+  </div>
+
+  <div class="mw503-record">
+    <span><strong data-world-record="wins" data-world-count-to="{{ world_selected_rating.wins }}">0</strong><small>Wins</small></span>
+    <span><strong data-world-record="losses" data-world-count-to="{{ world_selected_rating.losses }}">0</strong><small>Losses</small></span>
+    <span><strong data-world-record="draws" data-world-count-to="{{ world_selected_rating.draws }}">0</strong><small>Draws</small></span>
+    <span><strong data-world-record="streak" data-world-count-to="{{ world_selected_rating.streak|default:'0' }}">0</strong><small>Streak</small></span>
+  </div>
+
+  <span hidden data-world-rating-source
+        data-subject="math"
+        data-label="{{ world_math_rating.get_subject_display }}"
+        data-rating="{{ world_math_rating.rating }}"
+        data-tier="{{ world_math_rating.tier|upper }}"
+        data-rank="{{ world_math_rank }}"
+        data-wins="{{ world_math_rating.wins }}"
+        data-losses="{{ world_math_rating.losses }}"
+        data-draws="{{ world_math_rating.draws }}"
+        data-streak="{{ world_math_rating.streak|default:'0' }}"></span>
+  <span hidden data-world-rating-source
+        data-subject="rw"
+        data-label="{{ world_rw_rating.get_subject_display }}"
+        data-rating="{{ world_rw_rating.rating }}"
+        data-tier="{{ world_rw_rating.tier|upper }}"
+        data-rank="{{ world_rw_rank }}"
+        data-wins="{{ world_rw_rating.wins }}"
+        data-losses="{{ world_rw_rating.losses }}"
+        data-draws="{{ world_rw_rating.draws }}"
+        data-streak="{{ world_rw_rating.streak|default:'0' }}"></span>
+
+</aside>

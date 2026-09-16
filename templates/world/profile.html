@@ -1,0 +1,77 @@
+{% extends 'world/base.html' %}
+
+{% block world_content %}
+<div class="mw503-profile-page">
+  <header class="mw503-page-head mw503-profile-head">
+    <div>
+      <span class="mw503-eyebrow">PLAYER PROFILE</span>
+      <h1>{% if world_profile_is_me %}Your World profile{% else %}{{ world_profile_user.get_full_name|default:world_profile_user.username }}{% endif %}</h1>
+      <p>@{{ world_profile_user.username }} · Public World stats and recent duels.</p>
+    </div>
+    <a href="{% url 'world_leaderboard' %}?subject={{ world_subject }}" class="mw503-my-rank"><span>Back</span><strong>Leaderboard</strong><small>Return to ranks</small></a>
+  </header>
+
+  <section class="mw503-profile-hero">
+    <div class="mw503-profile-card">
+      <span class="mw503-avatar xl">{{ world_profile_user.first_name|default:world_profile_user.username|slice:':1'|upper }}</span>
+      <div>
+        <strong>{{ world_profile_user.get_full_name|default:world_profile_user.username }}</strong>
+        <small>@{{ world_profile_user.username }}</small>
+      </div>
+    </div>
+    <div class="mw503-profile-stats-grid">
+      <article><span>MATH</span><strong data-world-count-to="{{ world_profile_math_rating.rating }}">0</strong><small>{{ world_profile_math_rating.tier|upper }}</small></article>
+      <article><span>ENGLISH</span><strong data-world-count-to="{{ world_profile_rw_rating.rating }}">0</strong><small>{{ world_profile_rw_rating.tier|upper }}</small></article>
+      <article><span>LEVEL</span><strong data-world-count-to="{{ world_profile_xp.level }}">0</strong><small>{{ world_profile_xp.level_title }}</small></article>
+      <article><span>BEST STREAK</span><strong data-world-count-to="{{ world_profile_best_streak }}">0</strong><small>{{ world_profile_streak }} current</small></article>
+    </div>
+  </section>
+
+  <section class="mw503-profile-panels">
+    <article class="mw503-profile-panel">
+      <h2>World record</h2>
+      <div class="mw503-profile-record-grid">
+        <div><span>Math W / L / D</span><strong>{{ world_profile_math_rating.wins }} / {{ world_profile_math_rating.losses }} / {{ world_profile_math_rating.draws }}</strong></div>
+        <div><span>RW W / L / D</span><strong>{{ world_profile_rw_rating.wins }} / {{ world_profile_rw_rating.losses }} / {{ world_profile_rw_rating.draws }}</strong></div>
+        <div><span>XP total</span><strong data-world-count-to="{{ world_profile_xp.xp_total }}">0</strong></div>
+        <div><span>Matches played</span><strong data-world-count-to="{{ world_profile_total_completed }}">0</strong></div>
+      </div>
+    </article>
+
+    <article class="mw503-profile-panel">
+      <h2>Badges</h2>
+      <div class="mw503-badges-grid">
+        {% for badge in world_profile_achievements %}
+        <div class="mw503-badge-card is-unlocked"><i class="bi {{ badge.icon|default:"bi-trophy" }}"></i><strong>{{ badge.title }}</strong><small>{{ badge.description }}</small></div>
+        {% empty %}
+        <div class="mw503-empty">No unlocked badges yet.</div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="mw503-profile-panel">
+      <h2>Recent matches</h2>
+      <div class="mw503-profile-match-list">
+        {% for row in world_profile_recent_matches %}
+        <div class="mw503-profile-match-row">
+          <span>{{ row.get_subject_display }} · {{ row.get_mode_display }}</span>
+          <strong>
+            {% if row.winner_id == world_profile_user.id %}Win{% elif row.winner_id %}Loss{% else %}Draw{% endif %}
+          </strong>
+          <small>
+            {% if row.player1_id == world_profile_user.id %}
+              vs {{ row.player2.get_full_name|default:row.player2.username }}
+            {% else %}
+              vs {{ row.player1.get_full_name|default:row.player1.username }}
+            {% endif %}
+            · {{ row.completed_at|date:'d M Y H:i' }}
+          </small>
+        </div>
+        {% empty %}
+        <div class="mw503-empty">No public match history yet.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock world_content %}

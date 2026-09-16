@@ -48,7 +48,7 @@ class StudentGoalDashboardV32Tests(TestCase):
 
     def test_student_dashboard_modal_is_present_but_does_not_block_site(self):
         self.client.force_login(self.student)
-        response = self.client.get(reverse('sat_menu'))
+        response = self.client.get(reverse('student_dashboard_root'))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Student Dashboard')
@@ -64,7 +64,7 @@ class StudentGoalDashboardV32Tests(TestCase):
 
     def test_goal_query_opens_modal_explicitly(self):
         self.client.force_login(self.student)
-        response = self.client.get(f"{reverse('sat_menu')}?goal=1")
+        response = self.client.get(f"{reverse('student_dashboard_root')}?goal=1")
         self.assertContains(response, 'data-auto-open="1"')
         self.assertContains(response, 'aria-hidden="false"')
 
@@ -82,7 +82,7 @@ class StudentGoalDashboardV32Tests(TestCase):
                 'exam_date': exam_date.isoformat(),
                 'daily_study_minutes_goal': 60,
                 'weekly_study_days_goal': 6,
-                'next': reverse('sat_menu'),
+                'next': reverse('student_dashboard_root'),
             },
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
             HTTP_ACCEPT='application/json',
@@ -91,7 +91,7 @@ class StudentGoalDashboardV32Tests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(
             response.content,
-            {'ok': True, 'redirect_url': reverse('sat_menu')},
+            {'ok': True, 'redirect_url': reverse('student_dashboard_root')},
         )
         goal = StudentGoalProfile.objects.get(user=self.student)
         self.assertEqual(goal.dream_university, self.university)
@@ -175,12 +175,14 @@ class StudentGoalDashboardV32Tests(TestCase):
             200,
         )
 
-    def test_classroom_keeps_goal_command_center_and_closeable_modal(self):
+    def test_classroom_keeps_goal_editor_in_course_workspace_and_closeable_modal(self):
         self.client.force_login(self.student)
         response = self.client.get(reverse('student_classroom_home', args=[self.classroom.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Student command center')
+        self.assertContains(response, 'Course timeline')
+        self.assertContains(response, 'Lessons &amp; materials')
+        self.assertNotContains(response, 'Student command center')
         self.assertContains(response, 'data-goal-modal-open')
         self.assertContains(response, 'data-goal-modal-close')
         self.assertContains(response, 'Set your dream university')

@@ -1,11 +1,11 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
 
 {% block title-main %}{% if classroom %}{{ classroom.name }}{% else %}MakonBook{% endif %}{% endblock title-main %}
-{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
+{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
 {% block title %}Flashcards{% endblock title %}
 
-{% block style %}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}">{% endblock style %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=505">{% endblock style %}
 
 {% block content %}
 <div class="vocab-shell">
@@ -33,7 +33,7 @@
           {% if classroom %}
             <a class="{% if selected_unit and row.unit.id == selected_unit.id %}active{% endif %}" href="{% url 'classroom_vocabulary_section' classroom.id 'flashcards' %}?unit={{ row.unit.id }}">
           {% else %}
-            <a class="{% if selected_unit and row.unit.id == selected_unit.id %}active{% endif %}" href="{% url 'vocabulary_section' 'flashcards' %}?unit={{ row.unit.id }}">
+            <a class="{% if selected_unit and row.unit.id == selected_unit.id %}active{% endif %}" href="{% url 'vocabulary_section_root' 'flashcards' %}?unit={{ row.unit.id }}">
           {% endif %}
               <span>{{ row.unit.title }}</span><strong>{{ row.mastered_words }}/{{ row.word_count }}</strong>
             </a>
@@ -99,5 +99,5 @@
     </div>
   </section>
 </div>
-<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}"></script>
+<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}?v=505"></script>
 {% endblock content %}

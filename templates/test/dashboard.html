@@ -83,11 +83,11 @@
                 <img src="{% static 'assets/img/about.jpg' %}" alt="" class="img-fluid">
               </div>
               <h2 class="title">
-                <a href="/sat/practise/{{test.name}}">{{test.name}} Practice</a>
+                <a href="{% url 'practice_test_start_root' test.name %}">{{test.name}} Practice</a>
               </h2>
       
               <div class="d-flex align-items-center">
-                <a href="/sat/rankings/{{test.name}}"><button class="btn btn-primary">Rankings <i style='margin-left: 10px;;' class="bi bi-trophy-fill"></i></button></a>
+                <a href="{% url 'practice_test_rankings_root' test.name %}"><button class="btn btn-primary">Rankings <i style='margin-left: 10px;;' class="bi bi-trophy-fill"></i></button></a>
               </div>
       
             </article>

@@ -1,0 +1,79 @@
+{% extends 'world/base.html' %}
+{% block world_content %}
+<div class="mw504-room" data-mp-room data-room-id="{{ world_multiplayer_room.id }}" data-state-version="{{ world_multiplayer_payload.state_version|default:0 }}" data-my-ready="{% if world_multiplayer_payload.my_ready %}1{% else %}0{% endif %}" data-status-url="{% url 'world_multiplayer_status' world_multiplayer_room.id %}" data-heartbeat-url="{% url 'world_multiplayer_heartbeat' world_multiplayer_room.id %}" data-ready-url="{% url 'world_multiplayer_ready' world_multiplayer_room.id %}" data-start-url="{% url 'world_multiplayer_start' world_multiplayer_room.id %}" data-leave-url="{% url 'world_multiplayer_leave' world_multiplayer_room.id %}" data-leave-redirect-url="{% url 'world_multiplayer_home' %}?leaving={{ world_multiplayer_room.id }}" data-kick-url="{% url 'world_multiplayer_kick' world_multiplayer_room.id %}" data-access-url="{% url 'world_multiplayer_access' world_multiplayer_room.id %}" data-swap-request-url="{% url 'world_multiplayer_swap_request' world_multiplayer_room.id %}" data-swap-respond-url="{% url 'world_multiplayer_swap_respond' world_multiplayer_room.id %}" data-swap-cancel-url="{% url 'world_multiplayer_swap_cancel' world_multiplayer_room.id %}" data-play-url="{% url 'world_multiplayer_play' world_multiplayer_room.id %}" data-invite-url="{{ world_multiplayer_invite_url }}" data-game-mode="{{ world_multiplayer_room.game_mode }}">
+  <header class="mw504-room-head">
+    <div>
+      <a href="{% url 'world_multiplayer_home' %}"><i class="bi bi-arrow-left"></i> Multiplayer</a>
+      <span class="mw503-eyebrow" data-mp-access-label>{{ world_multiplayer_room.get_access_type_display|upper }} ARENA</span>
+      <h1>{{ world_multiplayer_room.get_subject_display }} · {% if world_multiplayer_payload.is_team_mode %}2v2 Team Battle{% elif world_multiplayer_room.capacity == 3 %}3 Player Sprint{% else %}4 Player Arena{% endif %}</h1>
+      <p>{{ world_multiplayer_room.question_count }} questions · shared server clock</p>
+    </div>
+    <button type="button" class="mw504-code" data-mp-private-only data-mp-copy data-copy-value="{{ world_multiplayer_room.join_code }}" {% if world_multiplayer_room.access_type != 'private' %}hidden{% endif %}><small>JOIN CODE</small><strong>{{ world_multiplayer_room.join_code }}</strong><i class="bi bi-copy"></i></button>
+    <div class="mw504-code mw504-public-code" data-mp-public-only {% if world_multiplayer_room.access_type != 'public' %}hidden{% endif %}><small>ROOM TYPE</small><strong>PUBLIC</strong><i class="bi bi-globe2"></i></div>
+  </header>
+
+  <section class="mw504-invite-panel" data-mp-private-only {% if world_multiplayer_room.access_type != 'private' %}hidden{% endif %}>
+    <div class="mw504-invite-copy"><span><i class="bi bi-link-45deg"></i></span><div><small>PRIVATE ROOM</small><strong>Invite by code or link</strong><p>{{ world_multiplayer_invite_url }}</p></div></div>
+    <div class="mw504-invite-actions">
+      <button type="button" class="mw503-result-action mw503-result-action-secondary" data-mp-copy data-copy-value="{{ world_multiplayer_invite_url }}"><i class="bi bi-copy"></i> Copy link</button>
+      <button type="button" class="mw503-result-action mw503-result-action-primary" data-mp-share data-share-url="{{ world_multiplayer_invite_url }}" data-share-code="{{ world_multiplayer_room.join_code }}"><i class="bi bi-person-plus-fill"></i> Invite friends</button>
+      {% if world_multiplayer_payload.is_host %}<form class="mw504-inline-action-form" data-mp-access-form method="post" action="{% url 'world_multiplayer_access' world_multiplayer_room.id %}">{% csrf_token %}<input type="hidden" name="access_type" value="public"><button type="submit" class="mw503-result-action mw504-access-toggle" data-mp-access-toggle data-access-type="public"><i class="bi bi-globe2"></i> Make public</button></form>{% endif %}
+    </div>
+  </section>
+  <section class="mw504-invite-panel mw504-public-invite-panel" data-mp-public-only {% if world_multiplayer_room.access_type != 'public' %}hidden{% endif %}>
+    <div class="mw504-invite-copy"><span><i class="bi bi-globe2"></i></span><div><small>PUBLIC ROOM</small><strong>Open multiplayer lobby</strong><p>{{ world_multiplayer_invite_url }}</p></div></div>
+    <div class="mw504-invite-actions">
+      <button type="button" class="mw503-result-action mw503-result-action-secondary" data-mp-copy data-copy-value="{{ world_multiplayer_invite_url }}"><i class="bi bi-copy"></i> Copy link</button>
+      <button type="button" class="mw503-result-action mw503-result-action-primary" data-mp-share data-share-url="{{ world_multiplayer_invite_url }}" data-share-code="{{ world_multiplayer_room.join_code }}"><i class="bi bi-person-plus-fill"></i> Invite friends</button>
+      {% if world_multiplayer_payload.is_host %}<form class="mw504-inline-action-form" data-mp-access-form method="post" action="{% url 'world_multiplayer_access' world_multiplayer_room.id %}">{% csrf_token %}<input type="hidden" name="access_type" value="private"><button type="submit" class="mw503-result-action mw504-access-toggle" data-mp-access-toggle data-access-type="private"><i class="bi bi-lock-fill"></i> Make private</button></form>{% endif %}
+    </div>
+  </section>
+
+
+  {% if world_multiplayer_payload.is_team_mode %}
+  <section class="mw504-team-lobby" data-mp-team-board>
+    {% for team in world_multiplayer_payload.team_standings %}
+    <article class="mw504-team-card is-team-{{ team.team }}{% if team.is_my_team %} is-mine{% endif %}">
+      <div><small>{{ team.label|upper }}</small><strong>{{ team.members|length }}/2 players</strong></div>
+      <div class="mw504-team-members">
+        {% for member in team.members %}<span title="{{ member.name }}"><b>{{ member.initials }}</b>{{ member.name }}</span>{% endfor %}
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <div class="mw504-lobby-progress"><span data-mp-progress style="width:{% widthratio world_multiplayer_payload.ready world_multiplayer_room.capacity 100 %}%"></span></div>
+
+  <section class="mw504-seat-grid" data-mp-seats>
+    {% for seat in world_multiplayer_seats %}
+    <article class="mw504-seat{% if seat.occupied %} is-occupied{% endif %}{% if seat.is_ready %} is-ready{% endif %}{% if world_multiplayer_payload.is_team_mode and seat.team %} is-team-{{ seat.team }}{% endif %}" data-seat-number="{{ seat.seat_number }}">
+      <span class="mw504-seat-no">{{ seat.seat_number }}</span>
+      {% if seat.occupied %}
+        <span class="mw503-avatar">{{ seat.initials }}</span>
+        <div class="mw504-seat-copy"><strong>{{ seat.name }}</strong><small>{% if world_multiplayer_payload.is_team_mode %}<em class="mw504-team-tag">TEAM {{ seat.team|upper }}</em> · {% endif %}{% if seat.is_host %}HOST · {% endif %}<span>{% if seat.is_ready %}READY{% else %}NOT READY{% endif %}</span></small></div>
+        <div class="mw504-seat-actions">
+          {% if world_multiplayer_payload.is_team_mode and not seat.is_me %}<button type="button" class="mw504-swap-seat" data-mp-swap-request data-user-id="{{ seat.user_id }}" title="Request seat swap"><i class="bi bi-arrow-left-right"></i><span>Swap</span></button>{% endif %}
+          {% if world_multiplayer_payload.is_host and not seat.is_host %}<button type="button" class="mw504-kick" data-mp-kick data-user-id="{{ seat.user_id }}" title="Remove player"><i class="bi bi-person-x-fill"></i><span>Kick</span></button>{% endif %}
+        </div>
+      {% else %}
+        <span class="mw504-empty-icon"><i class="bi bi-person-plus"></i></span><div class="mw504-seat-copy"><strong>Open seat</strong><small>Waiting for player</small></div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </section>
+
+  <aside class="mw504-swap-popover" data-mp-swap-popover hidden>
+    <div class="mw504-swap-icon"><i class="bi bi-arrow-left-right"></i></div>
+    <div class="mw504-swap-copy"><small>SEAT SWAP REQUEST</small><strong data-mp-swap-name>Player</strong><span data-mp-swap-text>wants to exchange seats with you.</span></div>
+    <div class="mw504-swap-actions"><button type="button" class="is-decline" data-mp-swap-decline>Decline</button><button type="button" class="is-accept" data-mp-swap-accept>Accept swap</button></div>
+  </aside>
+  <div class="mw504-swap-outgoing" data-mp-swap-outgoing hidden><span><i class="bi bi-arrow-left-right"></i><b data-mp-swap-outgoing-copy>Seat request sent</b></span><button type="button" data-mp-swap-cancel>Cancel</button></div>
+
+  <section class="mw504-room-control">
+    <div><small>LOBBY STATUS</small><strong data-mp-room-state>{{ world_multiplayer_payload.ready }}/{{ world_multiplayer_payload.occupied }} ready</strong><span data-mp-room-copy>{% if world_multiplayer_payload.can_start %}Everyone is ready. Host can start.{% elif world_multiplayer_payload.is_team_mode %}Need all 4 players and everyone ready.{% else %}Need at least 3 players and everyone ready.{% endif %}</span></div>
+    <div class="mw504-room-actions"><form class="mw504-inline-action-form" data-mp-leave-form method="post" action="{% url 'world_multiplayer_leave' world_multiplayer_room.id %}">{% csrf_token %}<button type="submit" class="mw503-result-action mw503-result-action-secondary" data-mp-leave>Leave</button></form><button type="button" class="mw503-result-action mw503-result-action-primary" data-mp-ready data-ready-state="{% if world_multiplayer_payload.my_ready %}1{% else %}0{% endif %}" aria-pressed="{% if world_multiplayer_payload.my_ready %}true{% else %}false{% endif %}">{% if world_multiplayer_payload.my_ready %}Not ready{% else %}Ready{% endif %}</button>{% if world_multiplayer_payload.is_host %}<button type="button" class="mw503-result-action mw503-result-action-primary" data-mp-start {% if not world_multiplayer_payload.can_start %}disabled{% endif %}><i class="bi bi-play-fill"></i> Start battle</button>{% endif %}</div>
+  </section>
+
+  <div class="mw504-room-banner"><i class="bi bi-shield-lock-fill"></i><div><strong>{% if world_multiplayer_payload.is_team_mode %}Two teams · one shared question clock.{% else %}One room · one shared question clock.{% endif %}</strong><span>{% if world_multiplayer_payload.is_team_mode %}Team score is the combined score of both players. Seats 1 & 3 are Team A; seats 2 & 4 are Team B. Players can request a seat swap before the battle starts.{% else %}When the host starts, everyone receives the same {{ world_multiplayer_room.question_count }} questions. After every round, a live animated ranking reveal shows who moved up or down before the next question starts.{% endif %}</span></div></div>
+</div>
+{% endblock %}

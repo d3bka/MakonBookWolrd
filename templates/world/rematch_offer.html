@@ -1,0 +1,25 @@
+{% extends 'world/base.html' %}
+{% block world_content %}
+<section class="mw503-rematch-offer" data-world-rematch-offer>
+  <div class="mw503-rematch-card">
+    <span class="mw503-eyebrow">REMATCH CHALLENGE</span>
+    <div class="mw503-rematch-players">
+      <div><span class="mw503-avatar large">{{ rematch_requester.first_name|default:rematch_requester.username|slice:':1'|upper }}</span><strong>{{ rematch_requester.get_full_name|default:rematch_requester.username }}</strong></div>
+      <b>VS</b>
+      <div><span class="mw503-avatar large">{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}</span><strong>You</strong></div>
+    </div>
+    <h1>Run it back?</h1>
+    <p>{{ rematch_invite.get_subject_display }} · {{ rematch_invite.get_mode_display }} · {{ rematch_invite.total_questions|default:5 }} questions</p>
+    {% if rematch_expired %}
+      <div class="mw503-rematch-expired">This rematch offer is no longer available.</div>
+      <a class="mw503-primary" href="{% url 'world_home' %}">Back to World</a>
+    {% else %}
+      <div class="mw503-rematch-actions">
+        <form method="post" action="{% url 'world_rematch_decline' rematch_invite.id %}" data-world-rematch-decline>{% csrf_token %}<button type="submit">Decline</button></form>
+        <form method="post" action="{% url 'world_rematch_accept' rematch_invite.id %}" data-world-rematch-accept>{% csrf_token %}<button class="mw503-primary" type="submit">Accept rematch <i class="bi bi-arrow-right"></i></button></form>
+      </div>
+      <p class="mw503-form-status" data-world-rematch-status></p>
+    {% endif %}
+  </div>
+</section>
+{% endblock world_content %}

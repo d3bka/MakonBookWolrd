@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 
@@ -13,6 +13,8 @@ from .models import RatingAssessment, RatingConfig
 class RatingEngineTests(TestCase):
     def setUp(self):
         self.teacher = User.objects.create_user("teacher", password="x")
+        teacher_group, _ = Group.objects.get_or_create(name="Teacher")
+        self.teacher.groups.add(teacher_group)
         self.student = User.objects.create_user("student", first_name="Test", last_name="Student", password="x")
         self.classroom = Classroom.objects.create(teacher=self.teacher, name="SAT Group A")
         ClassroomMembership.objects.create(classroom=self.classroom, user=self.student, role="student", status="approved")

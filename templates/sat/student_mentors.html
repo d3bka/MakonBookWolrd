@@ -1,0 +1,30 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}Mentors · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page v524-mentors-page" data-mentor-directory>
+  <section class="v523-hero v523-reveal"><span class="v523-kicker"><i class="bi bi-person-badge"></i> Mentors</span><h1>Teachers you can actually learn from.</h1><p>Main Teachers and Support Teachers are separated so you can find the right person faster. Scores, certificates and the mentor’s own note appear when they publish them; private lesson feedback stays private.</p>{% if is_teacher_account %}<a class="mb50-secondary-btn v523-hero-action" href="{% url 'mentor_profile_edit_root' %}"><i class="bi bi-pencil"></i> Edit my mentor profile</a>{% endif %}</section>
+
+  <div class="v526-mentor-switch v523-reveal" style="--reveal-index:1">
+    <div class="v526-mentor-tabs" role="tablist" aria-label="Mentor type"><button class="is-active" type="button" role="tab" aria-selected="true" data-mentor-tab="main">Main Teachers <span>{{ main_mentor_cards|length }}</span></button><button type="button" role="tab" aria-selected="false" data-mentor-tab="support">Support Teachers <span>{{ support_mentor_cards|length }}</span></button></div>
+    <span class="v526-mentor-hint"><i class="bi bi-arrow-left-right"></i> Swipe left or right to switch</span>
+  </div>
+
+  <div class="v526-mentor-viewport" data-mentor-viewport>
+    <div class="v526-mentor-track" data-mentor-track data-mentor-page="main">
+      <div class="v526-mentor-panel" data-mentor-panel="main">{% include 'sat/_student_mentor_cards.html' with cards=main_mentor_cards role_label='Main Teacher' empty_label='main teacher' show_support_action=False %}</div>
+      <div class="v526-mentor-panel" data-mentor-panel="support">{% include 'sat/_student_mentor_cards.html' with cards=support_mentor_cards role_label='Support Teacher' empty_label='support teacher' show_support_action=True %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}
+<script>
+(function(){
+  var root=document.querySelector('[data-mentor-directory]');if(!root)return;
+  var track=root.querySelector('[data-mentor-track]'),viewport=root.querySelector('[data-mentor-viewport]'),buttons=Array.prototype.slice.call(root.querySelectorAll('[data-mentor-tab]')),page='main',startX=null,startY=null;
+  function setPage(next){if(next!=='main'&&next!=='support')return;page=next;if(track)track.dataset.mentorPage=next;buttons.forEach(function(button){var active=button.dataset.mentorTab===next;button.classList.toggle('is-active',active);button.setAttribute('aria-selected',active?'true':'false');});}
+  buttons.forEach(function(button){button.addEventListener('click',function(){setPage(button.dataset.mentorTab);});});
+  if(viewport){viewport.addEventListener('touchstart',function(event){var touch=event.touches&&event.touches[0];if(!touch)return;startX=touch.clientX;startY=touch.clientY;},{passive:true});viewport.addEventListener('touchend',function(event){if(startX===null)return;var touch=event.changedTouches&&event.changedTouches[0];if(!touch){startX=startY=null;return;}var dx=touch.clientX-startX,dy=touch.clientY-startY;startX=startY=null;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.25)return;setPage(dx<0?'support':'main');},{passive:true});}
+})();
+</script>
+{% endblock %}

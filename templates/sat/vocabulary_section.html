@@ -7,7 +7,7 @@
 {% if classroom %}
 <li><a href="{% url 'classroom_vocabulary' classroom.id %}">Vocabulary</a></li>
 {% else %}
-<li><a href="{% url 'vocabulary' %}">Vocabulary</a></li>
+<li><a href="{% url 'vocabulary_root' %}">Vocabulary</a></li>
 {% endif %}
 {% endblock breadcrumb_parent %}
 
@@ -215,7 +215,7 @@
 {% block content %}
 <main class="main-content mk-learning mk-vocab-section-page" data-learning-page="vocabulary-section">
   <div class="section-page">
-    {% if classroom %}<a href="{% url 'classroom_vocabulary' classroom.id %}" class="back-btn">Back to Vocabulary</a>{% else %}<a href="{% url 'vocabulary' %}" class="back-btn">Back to Vocabulary</a>{% endif %}
+    {% if classroom %}<a href="{% url 'classroom_vocabulary' classroom.id %}" class="back-btn">Back to Vocabulary</a>{% else %}<a href="{% url 'vocabulary_root' %}" class="back-btn">Back to Vocabulary</a>{% endif %}
 
     <div class="section-hero">
       <h2>{{ section.title }}</h2>

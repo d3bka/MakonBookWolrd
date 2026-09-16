@@ -68,14 +68,14 @@
 
       {% if existing_attempt and existing_attempt.status == "in_progress" %}
         <div class="actions">
-          <a href="{% url 'global_event_attempt' existing_attempt.guest_token %}" class="primary-btn">Resume attempt</a>
+          <a href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}" class="primary-btn">Resume attempt</a>
         </div>
       {% elif existing_attempt and existing_attempt.status == "submitted" %}
         <div class="actions">
-          <a href="{% url 'global_event_result' existing_attempt.guest_token %}" class="primary-btn">View result</a>
+          <a href="{% url 'global_event_result_root' existing_attempt.guest_token %}" class="primary-btn">View result</a>
         </div>
       {% elif availability.can_start %}
-        <form action="{% url 'start_global_event' event.slug %}" method="POST" class="signin-form auth-form" data-guest-start-form>
+        <form action="{% url 'start_global_event_root' event.slug %}" method="POST" class="signin-form auth-form" data-guest-start-form>
           {% csrf_token %}
           {% if event.access_code %}
             <div class="form-group">
@@ -86,13 +86,13 @@
           <div class="actions">
             <button type="submit" class="primary-btn" data-start-event-button>Start event</button>
             {% if event.show_leaderboard %}
-              <a href="{% url 'global_event_leaderboard' event.slug %}" class="secondary-link">View leaderboard</a>
+              <a href="{% url 'global_event_leaderboard_root' event.slug %}" class="secondary-link">View leaderboard</a>
             {% endif %}
           </div>
         </form>
       {% else %}
         <div class="alert-box"><p>This event cannot be started yet. Current status: <strong>{{ availability.label }}</strong>.</p></div>
-        {% if event.show_leaderboard %}<div class="actions"><a href="{% url 'global_event_leaderboard' event.slug %}" class="secondary-link">View leaderboard</a></div>{% endif %}
+        {% if event.show_leaderboard %}<div class="actions"><a href="{% url 'global_event_leaderboard_root' event.slug %}" class="secondary-link">View leaderboard</a></div>{% endif %}
       {% endif %}
     </div>
 

@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}{{ classroom.name }}{% endblock title-main %}
 {% block title %}Progress Dashboard{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <link href="{% static 'assets/css/makon-classroom.css' %}" rel="stylesheet">
 <link href="{% static 'assets/css/makon-progress-dashboard-v2.css' %}" rel="stylesheet">
 {% endblock style %}
@@ -19,7 +20,7 @@
         <p>Vocabulary is calculated from saved flashcard reviews and quiz answers. Practice progress is refreshed on demand because it is more expensive to calculate.</p>
       </div>
       <div class="mk-hero-actions">
-        <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="mk-btn mk-btn-secondary"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        <a href="{% url 'teacher_classroom_root' classroom.id %}" class="mk-btn mk-btn-secondary"><i class="bi bi-arrow-left"></i> Dashboard</a>
         <a href="?refresh=1" class="mk-btn"><i class="bi bi-arrow-clockwise"></i> Recalculate all</a>
       </div>
     </div>
@@ -63,21 +64,21 @@
             <div class="progress-section-head"><h4>Practice tests</h4><strong>{% if row.practice_tests %}{{ row.practice_tests.completion_percent }}%{% else %}0%{% endif %}</strong></div>
             <div class="progress-meter"><span style="width:{% if row.practice_tests %}{{ row.practice_tests.completion_percent }}{% else %}0{% endif %}%"></span></div>
             <div class="progress-section-meta">{% if row.access_map.practice_tests %}Access enabled{% else %}Access disabled{% endif %}<br>Completed {% if row.practice_tests %}{{ row.practice_tests.completed_items }}/{{ row.practice_tests.total_items }}{% else %}0/0{% endif %}<br>Last {% if row.practice_tests and row.practice_tests.last_activity_at %}{{ row.practice_tests.last_activity_at|date:"M d, H:i" }}{% else %}—{% endif %}</div>
-            <div class="progress-section-actions"><a href="{% url 'classroom_student_practice_progress' classroom.id row.student.id %}" class="mk-btn mk-btn-ghost mk-btn-sm">Open practice detail</a></div>
+            <div class="progress-section-actions"><a href="{% url 'teacher_student_practice_progress_root' classroom.id row.student.id %}" class="mk-btn mk-btn-ghost mk-btn-sm">Open practice detail</a></div>
           </div>
 
           <div class="progress-section-card">
             <div class="progress-section-head"><h4>Vocabulary</h4><strong>{% if row.vocabulary %}{{ row.vocabulary.completion_percent }}%{% else %}0%{% endif %}</strong></div>
             <div class="progress-meter"><span style="width:{% if row.vocabulary %}{{ row.vocabulary.completion_percent }}{% else %}0{% endif %}%"></span></div>
             <div class="progress-section-meta">{% if row.access_map.vocabulary %}Access enabled{% else %}Access disabled{% endif %}<br>Mastered {% if row.vocabulary %}{{ row.vocabulary.completed_items }}/{{ row.vocabulary.total_items }}{% else %}0/0{% endif %}<br>Activity {% if row.vocabulary %}{{ row.vocabulary.activity_count }}{% else %}0{% endif %} · Last {% if row.vocabulary and row.vocabulary.last_activity_at %}{{ row.vocabulary.last_activity_at|date:"M d, H:i" }}{% else %}—{% endif %}</div>
-            <div class="progress-section-actions"><a href="{% url 'classroom_student_vocab_progress' classroom.id row.student.id %}" class="mk-btn mk-btn-ghost mk-btn-sm">Open vocabulary detail</a></div>
+            <div class="progress-section-actions"><a href="{% url 'teacher_student_vocab_progress_root' classroom.id row.student.id %}" class="mk-btn mk-btn-ghost mk-btn-sm">Open vocabulary detail</a></div>
           </div>
 
           <div class="progress-section-card">
             <div class="progress-section-head"><h4>Admissions</h4><strong>Not tracked</strong></div>
             <div class="progress-meter"><span style="width:0"></span></div>
             <div class="progress-section-meta">{% if row.access_map.admissions %}Access enabled{% else %}Access disabled{% endif %}<br>The current admissions module has no completion events yet. Showing 0% would be fake precision.</div>
-            <div class="progress-section-actions"><a href="{% url 'classroom_student_admission_progress' classroom.id row.student.id %}" class="mk-btn mk-btn-ghost mk-btn-sm">Open access detail</a></div>
+            <div class="progress-section-actions"><a href="{% url 'teacher_student_admission_progress_root' classroom.id row.student.id %}" class="mk-btn mk-btn-ghost mk-btn-sm">Open access detail</a></div>
           </div>
         </div>
       </article>

@@ -10,127 +10,68 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/landing.css' %}">
   <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-mobile-nav-fix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-desktop-restore.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-header-final-restore.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-light-polish.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-ratings.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-ratings-v523.css' %}?v=523">
 </head>
-<body>
-  <div id="top" class="landing-shell rating-shell">
-    <div class="ambient ambient-one"></div>
-    <div class="ambient ambient-two"></div>
-    <div class="ambient ambient-three"></div>
-    <div class="hero-noise rating-top-noise"></div>
-    <header class="site-header" data-header>
-      <div class="container nav-row">
-        <a href="/" class="brand"><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="MakonBook logo"><span>SAT Makon</span></a>
-        <button class="nav-toggle" type="button" aria-label="{{ parent_t.open_menu }}" aria-expanded="false" data-nav-toggle><span></span><span></span><span></span></button>
-        <nav class="site-nav" aria-label="{{ parent_t.main_navigation }}" data-nav>
-          <a href="/">{{ parent_t.home }}</a>
-          <a href="{% url 'rating_home' %}">{{ parent_t.student_rating }}</a>
-          <a href="{% url 'rating_parent_lookup' %}" aria-current="page">{{ parent_t.parent_access }}</a>
-
-          <div class="parent-language-mobile" aria-label="{{ parent_t.language }}">
-            <span class="parent-language-label">{{ parent_t.language }}</span>
-            <div class="parent-language-switcher">
-              {% for code, label in parent_languages %}
-                <a href="{% url 'rating_parent_lookup' %}?lang={{ code }}" class="parent-lang-option{% if parent_lang == code %} is-active{% endif %}"{% if parent_lang == code %} aria-current="true"{% endif %}>{{ label }}</a>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="site-nav-mobile-actions"><a href="{% url 'rating_home' %}" class="btn btn-ghost">{{ parent_t.leaderboard }}</a><a href="/" class="btn btn-primary">{{ parent_t.landing_page }}</a></div>
-        </nav>
-        <div class="nav-actions parent-nav-actions">
-          <div class="parent-language-switcher" aria-label="{{ parent_t.language }}">
-            {% for code, label in parent_languages %}
-              <a href="{% url 'rating_parent_lookup' %}?lang={{ code }}" class="parent-lang-option{% if parent_lang == code %} is-active{% endif %}"{% if parent_lang == code %} aria-current="true"{% endif %}>{{ code|upper }}</a>
-            {% endfor %}
-          </div>
-          {% include 'base/theme_toggle.html' %}
-          <a href="{% url 'rating_home' %}" class="btn btn-ghost">{{ parent_t.leaderboard }}</a>
-          <a href="/" class="btn btn-primary">{{ parent_t.back_to_makonbook }}</a>
-        </div>
+<body class="rating523-parent-body">
+  <div class="rating523-parent-shell">
+    <header class="rating523-parent-nav">
+      <a class="rating523-parent-brand" href="/"><span><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""></span><strong>SAT Makon</strong></a>
+      <nav>
+        <a href="/">{{ parent_t.home }}</a>
+        <a href="{% url 'rating_home' %}">{{ parent_t.leaderboard }}</a>
+        <a class="is-active" href="{% url 'rating_parent_lookup' %}">{{ parent_t.parent_access }}</a>
+      </nav>
+      <div class="rating523-parent-actions">
+        <div class="rating523-lang" aria-label="{{ parent_t.language }}">{% for code, label in parent_languages %}<a href="{% url 'rating_parent_lookup' %}?lang={{ code }}" class="{% if parent_lang == code %}is-active{% endif %}">{{ code|upper }}</a>{% endfor %}</div>
+        {% include 'base/theme_toggle.html' %}
+        <a class="rating523-back" href="/">{{ parent_t.back_to_makonbook }}</a>
       </div>
     </header>
-    <main>
-      <section class="hero-section rating-public-section">
-        <div class="container rating-page">
-          <section class="rating-hero">
-            <h1>{{ parent_t.parent_title }}</h1>
-            <p>{{ parent_t.parent_intro }}</p>
-            <div class="rating-actions">
-              <a class="btn btn-secondary btn-large" href="{% url 'rating_home' %}">{{ parent_t.public_leaderboard }}</a>
-            </div>
-          </section>
-          <section class="rating-card parent-code-card" style="margin-top:18px">
-            <form method="post">
-              {% csrf_token %}
-              <input type="hidden" name="lang" value="{{ parent_lang }}">
-              <div class="rating-field">
-                <label for="code">{{ parent_t.student_access_code }}</label>
-                <input id="code" name="code" maxlength="16" required autocomplete="one-time-code" placeholder="{{ parent_t.code_placeholder }}" style="max-width:360px;text-transform:uppercase">
-              </div>
-              <button class="rating-btn parent-open-rating" type="submit">{{ parent_t.open_rating }}</button>
-            </form>
-            {% for message in messages %}<p class="rating-help parent-message">{{ message }}</p>{% endfor %}
-          </section>
-          {% if profile %}
-            <section class="rating-card" style="margin-top:18px">
-              <h2>{{ profile.user.get_full_name|default:profile.user.username }}</h2>
-              <div class="rating-stat-grid">
-                <div class="rating-stat"><small>{{ parent_t.rank }}</small><strong>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</strong></div>
-                <div class="rating-stat"><small>{{ parent_t.rating }}</small><strong>{% if entry %}{{ entry.rating }}{% else %}—{% endif %}</strong></div>
-                <div class="rating-stat"><small>{{ parent_t.assessments }}</small><strong>{% if entry %}{{ entry.assessment_count }}{% else %}0{% endif %}</strong></div>
-                <div class="rating-stat"><small>{{ parent_t.classrooms }}</small><strong>{% if entry %}{{ entry.streams|length }}{% else %}0{% endif %}</strong></div>
-              </div>
-              <div class="rating-table-wrap" style="margin-top:20px">
-                <table class="rating-table">
-                  <thead><tr><th>{{ parent_t.date }}</th><th>{{ parent_t.classroom }}</th><th>{{ parent_t.homework }}</th><th>{{ parent_t.progress }}</th><th>{{ parent_t.activity }}</th><th>{{ parent_t.attendance }}</th><th>{{ parent_t.behavior }}</th><th>{{ parent_t.mean }}</th></tr></thead>
-                  <tbody>
-                    {% for item in history %}
-                      <tr>
-                        <td>{{ item.assessed_at|date:"d.m.Y" }}</td>
-                        <td>{{ item.classroom.name }}</td>
-                        <td>{{ item.homework }}</td>
-                        <td>{{ item.progress }}</td>
-                        <td>{{ item.activity }}</td>
-                        <td>{{ item.attendance }}</td>
-                        <td>{{ item.behavior }}</td>
-                        <td>{{ item.mean_score|floatformat:2 }}</td>
-                      </tr>
-                    {% empty %}
-                      <tr><td colspan="8" class="rating-empty">{{ parent_t.no_history }}</td></tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          {% endif %}
+
+    <main class="rating523-parent-main">
+      <section class="rating523-parent-hero">
+        <span class="rating523-parent-kicker">SAT MAKON · FAMILY VIEW</span>
+        <h1>{{ parent_t.parent_title }}</h1>
+        <p>{{ parent_t.parent_intro }}</p>
+        <div class="rating523-parent-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+      </section>
+
+      <section class="rating523-parent-access">
+        <div>
+          <span class="rating523-parent-kicker">PRIVATE ACCESS</span>
+          <h2>{{ parent_t.student_access_code }}</h2>
+          <p>{{ parent_t.parent_intro }}</p>
+        </div>
+        <form method="post">
+          {% csrf_token %}<input type="hidden" name="lang" value="{{ parent_lang }}">
+          <label for="code">{{ parent_t.student_access_code }}</label>
+          <div class="rating523-code-entry"><input id="code" name="code" maxlength="16" required autocomplete="one-time-code" placeholder="{{ parent_t.code_placeholder }}"><button type="submit">{{ parent_t.open_rating }} <span>→</span></button></div>
+          {% for message in messages %}<p class="rating523-parent-message">{{ message }}</p>{% endfor %}
+        </form>
+      </section>
+
+      {% if profile %}
+      <section class="rating523-parent-result">
+        <div class="rating523-parent-result-head"><div><span class="rating523-parent-kicker">STUDENT SNAPSHOT</span><h2>{{ profile.user.get_full_name|default:profile.user.username }}</h2></div><a href="{% url 'rating_home' %}">{{ parent_t.public_leaderboard }} →</a></div>
+        <div class="rating523-parent-stats">
+          <article><span>{{ parent_t.rank }}</span><strong>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</strong></article>
+          <article><span>{{ parent_t.rating }}</span><strong>{% if entry %}{{ entry.rating }}{% else %}—{% endif %}</strong></article>
+          <article><span>{{ parent_t.assessments }}</span><strong>{% if entry %}{{ entry.assessment_count }}{% else %}0{% endif %}</strong></article>
+          <article><span>{{ parent_t.classrooms }}</span><strong>{% if entry %}{{ entry.streams|length }}{% else %}0{% endif %}</strong></article>
+        </div>
+        <div class="rating523-parent-history">
+          <div class="rating523-parent-history-title"><h3>{{ parent_t.assessments }}</h3><span>{{ history|length }}</span></div>
+          {% for item in history %}
+          <article><time>{{ item.assessed_at|date:"d.m.Y" }}</time><span><strong>{{ item.classroom.name }}</strong><small>{{ parent_t.homework }} {{ item.homework }} · {{ parent_t.progress }} {{ item.progress }} · {{ parent_t.activity }} {{ item.activity }}</small></span><b>{{ item.mean_score|floatformat:2 }}</b></article>
+          {% empty %}<div class="rating523-parent-empty">{{ parent_t.no_history }}</div>{% endfor %}
         </div>
       </section>
+      {% endif %}
     </main>
-    <footer class="site-footer">
-      <div class="container footer-row">
-        <div>
-          <strong>SAT Makon</strong>
-          <p>{{ parent_t.footer_text }}</p>
-        </div>
-        <div class="footer-links">
-          <a href="/">{{ parent_t.home }}</a>
-          <a href="{% url 'rating_home' %}">{{ parent_t.leaderboard }}</a>
-          <a href="{% url 'rating_parent_lookup' %}">{{ parent_t.parent_access }}</a>
-        </div>
-      </div>
-    </footer>
-    <a class="back-to-top" href="#top" aria-label="{{ parent_t.back_to_top }}" data-back-to-top><span aria-hidden="true">↑</span></a>
+
+    <footer class="rating523-parent-footer"><span>© SAT Makon · MakonBook</span><span>{{ parent_t.footer_text }}</span></footer>
   </div>
-  <script src="{% static 'assets/js/landing.js' %}"></script>
   <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
-  {% include 'base/issue_report_widget.html' %}
 </body>
 </html>

@@ -1,0 +1,49 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Practice · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page">
+  <section class="v523-hero v523-reveal">
+    <span class="v523-kicker"><i class="bi bi-lightning-charge"></i> Practice</span>
+    <h1>Short reps. One skill at a time.</h1>
+    <p>Practice uses questions from tests your classroom has assigned. Vocabulary has its own workspace; full timed attempts stay in Tests.</p>
+  </section>
+
+  {% if practice_locked %}
+    <section class="v523-card v523-span-12 v523-reveal" style="margin-top:16px;--reveal-index:1">
+      <div class="v523-empty"><i class="bi bi-lock" style="font-size:28px;color:var(--mb50-accent)"></i><h2>Practice unlocks with a classroom.</h2><p>Your teacher controls which SAT test bank is available to you.</p><a class="mb50-primary-btn" href="{% url 'events' %}">Open Events <i class="bi bi-arrow-right"></i></a></div>
+    </section>
+  {% else %}
+    <section class="v523-practice-toolbar v523-reveal" style="--reveal-index:1"><div><strong>{{ practice_topics|length }}</strong><span>available topics</span></div><div><strong>{{ assigned_test_count }}</strong><span>assigned tests</span></div><a class="mb50-secondary-btn" href="{% url 'student_question_bank_root' %}"><i class="bi bi-card-checklist"></i> Question Bank</a><a class="mb50-secondary-btn" href="{% url 'practice_tests_root' %}"><i class="bi bi-stopwatch"></i> Full tests</a></section>
+    <section class="v525-practice-controls v523-reveal" style="--reveal-index:2" data-practice-controls>
+      <label class="v525-practice-search"><i class="bi bi-search"></i><input type="search" placeholder="Search skills or domains…" autocomplete="off" data-practice-search></label>
+      <div class="v525-practice-segment" role="group" aria-label="SAT section"><button class="is-active" type="button" data-practice-section="english">EBRW</button><button type="button" data-practice-section="math">MATH</button></div>
+      <select class="v525-practice-filter" data-practice-domain aria-label="Filter practice domain"><option value="">All domains</option></select>
+    </section>
+    <section class="v523-topic-grid" data-practice-grid>
+      {% for topic in practice_topics %}
+        <a class="v523-topic-card v523-reveal" data-practice-topic data-section="{{ topic.section }}" data-domain="{{ topic.domain|lower }}" data-domain-label="{{ topic.domain }}" data-search="{{ topic.name|lower }} {{ topic.domain|lower }}" style="--reveal-index:{{ forloop.counter }}" href="{% url 'student_topic_practice_root' topic.section topic.type_id %}">
+          <span class="v523-topic-icon"><i class="bi {{ topic.icon }}"></i></span>
+          <div><small>{{ topic.domain }}</small><h2>{{ topic.name }}</h2><p>{{ topic.count }} assigned question{{ topic.count|pluralize }} available</p></div>
+          <span class="v523-topic-cta">Start 10 <i class="bi bi-arrow-right"></i></span>
+        </a>
+      {% empty %}
+        <div class="v523-card v523-span-12"><div class="v523-empty">Your assigned tests do not contain categorized questions yet.</div></div>
+      {% endfor %}
+      <div class="v525-practice-empty" data-practice-empty hidden>No matching practice skills. Try another search or section.</div>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}
+<script>
+(function(){
+  var controls=document.querySelector('[data-practice-controls]');if(!controls)return;
+  var search=controls.querySelector('[data-practice-search]'),domain=controls.querySelector('[data-practice-domain]'),buttons=Array.prototype.slice.call(controls.querySelectorAll('[data-practice-section]')),topics=Array.prototype.slice.call(document.querySelectorAll('[data-practice-topic]')),empty=document.querySelector('[data-practice-empty]'),section='english';
+  function syncDomains(){var current=domain.value,seen={};Array.prototype.slice.call(domain.querySelectorAll('option:not(:first-child)')).forEach(function(option){option.remove();});topics.filter(function(card){return card.dataset.section===section;}).forEach(function(card){var value=card.dataset.domain||'',label=(card.dataset.domainLabel||value).trim();if(!value||seen[value])return;seen[value]=true;var option=document.createElement('option');option.value=value;option.textContent=label;domain.appendChild(option);});if(seen[current])domain.value=current;else domain.value='';}
+  function apply(){var q=(search.value||'').trim().toLowerCase(),d=domain.value||'',shown=0;topics.forEach(function(card){var visible=card.dataset.section===section&&(!d||card.dataset.domain===d)&&(!q||(card.dataset.search||'').indexOf(q)!==-1);card.classList.toggle('is-filtered-out',!visible);if(visible){shown++;card.classList.remove('v525-filter-in');void card.offsetWidth;card.classList.add('v525-filter-in');}});if(empty)empty.hidden=shown!==0;}
+  buttons.forEach(function(btn){btn.addEventListener('click',function(){if(section===btn.dataset.practiceSection)return;section=btn.dataset.practiceSection;buttons.forEach(function(x){x.classList.toggle('is-active',x===btn);});syncDomains();apply();});});
+  search.addEventListener('input',apply);domain.addEventListener('change',apply);syncDomains();apply();
+})();
+</script>
+{% endblock %}

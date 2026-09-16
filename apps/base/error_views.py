@@ -48,10 +48,10 @@ def build_error_navigation(request):
     The old template used ``javascript:history.back()``. That made the button
     unpredictable after redirects and often sent users back to the legacy
     ``/dashboard`` route. We now use a validated same-site referrer and fall
-    back to the canonical classroom entry page.
+    back to the canonical student dashboard.
     """
     if request.user.is_authenticated:
-        primary_url = reverse("sat_menu")
+        primary_url = reverse("student_dashboard_root")
         primary_label = "Open classrooms"
     else:
         primary_url = "/"

@@ -88,9 +88,9 @@ class StudentSupportAccessV25Tests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_student_without_classroom_stays_on_canonical_classroom_entry(self):
-        response = self.client.get(reverse("sat_menu"))
+        response = self.client.get(reverse("student_dashboard_root"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "join", html=False)
+        self.assertContains(response, "Join a classroom", html=False)
 
     def test_student_without_approved_classroom_cannot_open_support_urls(self):
         list_response = self.client.get(reverse("support_teacher_list"))
@@ -120,7 +120,7 @@ class StudentSupportAccessV25Tests(TestCase):
         )
         response = self.client.get(reverse("support_teacher_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Support Teacher")
+        self.assertContains(response, "Support teachers")
 
     def test_approved_student_sees_support_classes_on_classroom_home(self):
         ClassroomMembership.objects.create(
@@ -133,7 +133,7 @@ class StudentSupportAccessV25Tests(TestCase):
             reverse("student_classroom_home", args=[self.classroom.pk])
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Book Support Classes")
+        self.assertContains(response, "Support session")
 
 
 class HighlighterToggleStaticV25Tests(SimpleTestCase):

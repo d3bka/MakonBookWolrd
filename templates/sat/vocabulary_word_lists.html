@@ -1,11 +1,11 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
 
 {% block title-main %}{% if classroom %}{{ classroom.name }}{% else %}MakonBook{% endif %}{% endblock title-main %}
-{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
+{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
 {% block title %}Word Lists{% endblock title %}
 
-{% block style %}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}">{% endblock style %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=505">{% endblock style %}
 
 {% block content %}
 <div class="vocab-shell">
@@ -29,7 +29,7 @@
     <div class="vocab-toolbar">
       <input class="vocab-input" type="search" placeholder="Search a word, meaning, example, or unit..." data-vocab-search>
       <span class="vocab-badge" data-vocab-search-status>{{ unit_rows|length }} units available.</span>
-      {% if classroom %}<a class="vocab-btn vocab-btn-primary" href="{% url 'classroom_vocabulary_section' classroom.id 'flashcards' %}">Study flashcards</a>{% else %}<a class="vocab-btn vocab-btn-primary" href="{% url 'vocabulary_section' 'flashcards' %}">Study flashcards</a>{% endif %}
+      {% if classroom %}<a class="vocab-btn vocab-btn-primary" href="{% url 'classroom_vocabulary_section' classroom.id 'flashcards' %}">Study flashcards</a>{% else %}<a class="vocab-btn vocab-btn-primary" href="{% url 'vocabulary_section_root' 'flashcards' %}">Study flashcards</a>{% endif %}
     </div>
 
     {% for row in unit_rows %}
@@ -55,5 +55,5 @@
     {% endfor %}
   </section>
 </div>
-<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}"></script>
+<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}?v=505"></script>
 {% endblock content %}

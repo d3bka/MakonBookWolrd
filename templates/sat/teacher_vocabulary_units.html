@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}Vocabulary Management{% endblock title-main %}
 {% block title %}Vocabulary Units{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <style>
   .page-wrap {
     max-width: 1200px;
@@ -79,7 +80,7 @@
   <div class="top-bar">
     <h2>Vocabulary Units</h2>
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <a href="{% url 'teacher_classroom_list' %}" class="btn-main btn-secondary">Back to Classrooms</a>
+      <a href="{% url 'teacher_classrooms_root' %}" class="btn-main btn-secondary">Back to Classrooms</a>
       <a href="{% url 'create_vocabulary_unit' %}" class="btn-main">Add Vocabulary Unit</a>
       <a href="{% url 'bulk_import_vocabulary_words' %}" class="btn-main">Bulk Import</a>
     </div>

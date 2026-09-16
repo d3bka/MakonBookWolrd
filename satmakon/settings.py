@@ -88,6 +88,8 @@ INSTALLED_APPS = [
     "apps.sat.apps.SatConfig",
     "apps.apclasses.apps.ApClassesConfig",
     "apps.ratings.apps.RatingsConfig",
+    "apps.gamification.apps.GamificationConfig",
+    "apps.world.apps.WorldConfig",
     "apps.integrations.apps.IntegrationsConfig",
     "apps.telegram_bot",
 ]
@@ -125,6 +127,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.base.context_processors.site_meta",
                 "apps.base.context_processors.test_import_meta",
+                "apps.base.context_processors.staff_workspace_meta",
             ],
         },
     },
@@ -341,6 +344,19 @@ USE_X_FORWARDED_HOST = True
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
+# V50.2.5: localhost commonly hosts several Django projects and the default
+# ``sessionid`` cookie is shared by host (not port). A second localhost app can
+# therefore overwrite MakonBook's session and make a student appear randomly
+# logged out. Production keeps the historical cookie name unless overridden;
+# DEBUG uses an isolated name.
+SESSION_COOKIE_NAME = env_str(
+    "SESSION_COOKIE_NAME",
+    "makonbook_sessionid_v525" if DEBUG else "sessionid",
+)
+SESSION_COOKIE_PATH = "/"
+SESSION_COOKIE_AGE = int(os.getenv("SESSION_COOKIE_AGE", str(60 * 60 * 24 * 30)))
+SESSION_EXPIRE_AT_BROWSER_CLOSE = env_bool("SESSION_EXPIRE_AT_BROWSER_CLOSE", False)
+
 # v35 deliberately uses a new cookie name. Browsers can retain an old host-only
 # and an old domain-wide ``csrftoken`` at the same time; Django may then receive
 # the wrong value and reject an otherwise valid form. A versioned name starts
@@ -437,7 +453,7 @@ LOGGING = {
 }
 
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = 'sat_menu'
+LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 AUTHENTICATION_BACKENDS = [
@@ -448,7 +464,7 @@ AUTHENTICATION_BACKENDS = [
 SITE_ID = int(os.getenv("SITE_ID", "1"))
 
 LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/sat/"
+LOGIN_REDIRECT_URL = "/dashboard/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/login/"
 
 ACCOUNT_EMAIL_VERIFICATION = "none"

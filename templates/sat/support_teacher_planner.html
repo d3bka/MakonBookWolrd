@@ -1,4 +1,4 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}Support Teacher Planner{% endblock title-main %}
@@ -6,26 +6,25 @@
 {% block title %}Support Planner{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <link rel="stylesheet" href="{% static 'assets/css/support-booking-v33.css' %}?v=33">
 {% endblock style %}
 
 {% block content %}
 <div class="support-shell support-stack">
-  {% if messages %}{% for message in messages %}<div class="support-alert {{ message.tags|default:'info' }}"><i class="bi bi-info-circle"></i><span>{{ message }}</span></div>{% endfor %}{% endif %}
 
-  <section class="support-card support-hero">
-    <div class="support-hero-content">
-      <div>
-        <div class="support-eyebrow"><span class="support-eyebrow-dot"></span> Teacher-controlled scheduling</div>
-        <h1>{{ teacher.name }} · Topic Planner</h1>
-        <p>Students request a title and topic. You decide when that topic runs. Every pending student with the same topic can be grouped into one session automatically, and you can repeat the same topic later the same day.</p>
-        <div class="support-hero-actions">
-          {% if is_own_profile %}<a class="support-btn support-btn-light" href="{% url 'support_teacher_profile_edit' %}"><i class="bi bi-person-gear"></i> Edit profile</a>{% endif %}
-          <a class="support-btn support-btn-ghost-light" href="{% url 'support_teacher_list' %}"><i class="bi bi-eye"></i> Support teachers</a>
-        </div>
-      </div>
-      <aside class="support-next-card"><small>Planner rule</small><strong>One session = one exact topic</strong><span>Same topic can run more than once per day. Close enrollment in the first session before directing later requests to another session.</span></aside>
+
+  <section class="sf29-hero support-v50211-hero">
+    <div class="support-v50211-hero-copy">
+      <span class="sf28-kicker"><i class="bi bi-calendar2-week"></i> Support teaching</span>
+      <h1>Topic planner</h1>
+      <p>{{ teacher.name }} · Group students by exact topic, choose one session time, and manage the queue without the oversized legacy scheduling screen.</p>
     </div>
+    <div class="support-v50211-hero-actions">
+      {% if is_own_profile %}<a class="sf28-btn" href="{% url 'support_teacher_profile_edit_root' %}"><i class="bi bi-person-gear"></i>Edit profile</a>{% endif %}
+      <a class="sf28-btn" href="{% url 'support_teacher_list_root' %}"><i class="bi bi-people"></i>Support teachers</a>
+    </div>
+    <div class="support-v50211-rule"><i class="bi bi-lightning-charge"></i><div><strong>One session = one exact topic</strong><span>Matching requests can join the same session while enrollment remains open.</span></div></div>
   </section>
 
   {% if is_admin and teacher_choices %}
@@ -74,13 +73,13 @@
                 <div class="support-queue-student">
                   <span class="support-avatar support-avatar-xs">{{ booking.student.username|first|upper }}</span>
                   <div><strong>{{ booking.student.get_full_name|default:booking.student.username }}</strong><small>{% if booking.student_note %}{{ booking.student_note|truncatewords:18 }}{% else %}No preparation note{% endif %}</small></div>
-                  <form method="post" action="{% url 'manage_support_lesson' booking.id %}">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="support-icon-btn" type="submit" title="Cancel this request"><i class="bi bi-x"></i></button></form>
+                  <form method="post" action="{% url 'manage_support_lesson_root' booking.id %}">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="support-icon-btn" type="submit" title="Cancel this request"><i class="bi bi-x"></i></button></form>
                 </div>
               {% endfor %}
             </div>
 
             {% if group.lesson_topic %}
-              <form class="support-schedule-form" method="post" action="{% url 'schedule_support_topic_session' %}" data-support-lock-submit>
+              <form class="support-schedule-form" method="post" action="{% url 'schedule_support_topic_session_root' %}" data-support-lock-submit>
                 {% csrf_token %}
                 <input type="hidden" name="lesson_topic" value="{{ group.lesson_topic.id }}">
                 {% if is_admin %}<input type="hidden" name="teacher_id" value="{{ teacher.id }}">{% endif %}
@@ -101,7 +100,7 @@
 
       <section class="support-card support-card-pad">
         <div class="support-section-head"><div><h2>Create a topic session manually</h2><p>Use this when you want to publish the first class of the day before students request it, or when you want to run the same topic a second time.</p></div><span class="support-status support-status-scheduled">Repeat topics allowed</span></div>
-        <form method="post" action="{% url 'schedule_support_topic_session' %}" data-support-topic-picker data-support-lock-submit>
+        <form method="post" action="{% url 'schedule_support_topic_session_root' %}" data-support-topic-picker data-support-lock-submit>
           {% csrf_token %}{% if is_admin %}<input type="hidden" name="teacher_id" value="{{ teacher.id }}">{% endif %}
           <div class="support-booking-form-grid support-booking-form-grid-2">
             <div class="support-field"><label>Title</label><select class="support-select" data-support-title-select required><option value="">Choose a title</option>{% for title in lesson_titles %}<option value="{{ title.id }}">{{ title.name }}</option>{% endfor %}</select></div>
@@ -133,14 +132,14 @@
                   <div class="support-session-student-row">
                     <div><strong>{{ booking.student.get_full_name|default:booking.student.username }}</strong><small>{{ booking.get_status_display }}{% if booking.student_note %} · {{ booking.student_note|truncatewords:12 }}{% endif %}</small></div>
                     {% if booking.status == 'scheduled' %}
-                      <form method="post" action="{% url 'manage_support_lesson' booking.id %}">{% csrf_token %}<input type="hidden" name="action" value="no_show"><button class="support-btn support-btn-secondary support-btn-sm" type="submit"><i class="bi bi-person-x"></i> No-show</button></form>
+                      <form method="post" action="{% url 'manage_support_lesson_root' booking.id %}">{% csrf_token %}<input type="hidden" name="action" value="no_show"><button class="support-btn support-btn-secondary support-btn-sm" type="submit"><i class="bi bi-person-x"></i> No-show</button></form>
                     {% endif %}
                   </div>
                   {% endif %}
                 {% empty %}<p class="support-muted-copy">No students yet. Keep auto-join open and matching requests can join.</p>{% endfor %}
               </div>
 
-              <form class="support-session-update" method="post" action="{% url 'manage_support_session' session.id %}" data-support-lock-submit>
+              <form class="support-session-update" method="post" action="{% url 'manage_support_session_root' session.id %}" data-support-lock-submit>
                 {% csrf_token %}<input type="hidden" name="action" value="update">
                 <div class="support-field"><label>Meeting link</label><input class="support-input" type="url" name="meeting_link" value="{{ session.meeting_link }}"></div>
                 <div class="support-field"><label>Teacher note</label><input class="support-input" type="text" name="teacher_note" value="{{ session.teacher_note }}" maxlength="1200"></div>
@@ -149,9 +148,9 @@
               </form>
 
               <div class="support-lesson-actions">
-                {% if session.is_open_for_requests %}<form method="post" action="{% url 'manage_support_session' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="close"><button class="support-btn support-btn-secondary" type="submit"><i class="bi bi-lock"></i> Close auto-join</button></form>{% else %}<form method="post" action="{% url 'manage_support_session' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="open"><button class="support-btn support-btn-secondary" type="submit"><i class="bi bi-unlock"></i> Open auto-join</button></form>{% endif %}
-                <form method="post" action="{% url 'manage_support_session' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="complete"><button class="support-btn support-btn-success" type="submit"><i class="bi bi-check2-circle"></i> Complete group</button></form>
-                <form method="post" action="{% url 'manage_support_session' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="support-btn support-btn-danger" type="submit"><i class="bi bi-x-circle"></i> Cancel group</button></form>
+                {% if session.is_open_for_requests %}<form method="post" action="{% url 'manage_support_session_root' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="close"><button class="support-btn support-btn-secondary" type="submit"><i class="bi bi-lock"></i> Close auto-join</button></form>{% else %}<form method="post" action="{% url 'manage_support_session_root' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="open"><button class="support-btn support-btn-secondary" type="submit"><i class="bi bi-unlock"></i> Open auto-join</button></form>{% endif %}
+                <form method="post" action="{% url 'manage_support_session_root' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="complete"><button class="support-btn support-btn-success" type="submit"><i class="bi bi-check2-circle"></i> Complete group</button></form>
+                <form method="post" action="{% url 'manage_support_session_root' session.id %}">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="support-btn support-btn-danger" type="submit"><i class="bi bi-x-circle"></i> Cancel group</button></form>
               </div>
             </article>
           {% empty %}<div class="support-empty"><div class="support-empty-icon"><i class="bi bi-calendar2"></i></div><h3>No upcoming sessions</h3><p>Schedule a pending topic group or create a session manually.</p></div>{% endfor %}
@@ -159,7 +158,7 @@
       </section>
 
       {% if legacy_bookings %}
-      <section class="support-card support-card-pad"><div class="support-section-head"><div><h2>Legacy individual bookings</h2><p>Old records created before group sessions remain manageable and are not lost.</p></div></div>{% for booking in legacy_bookings %}<div class="support-session-student-row"><div><strong>{{ booking.student.username }} · {{ booking.display_topic }}</strong><small>{{ booking.start_at|date:'d M Y · H:i' }}–{{ booking.end_at|date:'H:i' }}</small></div><form method="post" action="{% url 'manage_support_lesson' booking.id %}">{% csrf_token %}<input type="hidden" name="action" value="complete"><button class="support-btn support-btn-secondary support-btn-sm" type="submit">Complete</button></form></div>{% endfor %}</section>
+      <section class="support-card support-card-pad"><div class="support-section-head"><div><h2>Legacy individual bookings</h2><p>Old records created before group sessions remain manageable and are not lost.</p></div></div>{% for booking in legacy_bookings %}<div class="support-session-student-row"><div><strong>{{ booking.student.username }} · {{ booking.display_topic }}</strong><small>{{ booking.start_at|date:'d M Y · H:i' }}–{{ booking.end_at|date:'H:i' }}</small></div><form method="post" action="{% url 'manage_support_lesson_root' booking.id %}">{% csrf_token %}<input type="hidden" name="action" value="complete"><button class="support-btn support-btn-secondary support-btn-sm" type="submit">Complete</button></form></div>{% endfor %}</section>
       {% endif %}
     </main>
 
@@ -174,11 +173,11 @@
       <section class="support-card support-card-pad">
         <div class="support-section-head"><div><h3>Weekly availability</h3><p>These windows define times you can use when creating group sessions.</p></div></div>
         {% for availability in availabilities %}
-          <div class="support-availability-row"><div><strong>{{ availability.get_day_of_week_display }}</strong><span>{{ availability.start_time|time:'H:i' }}–{{ availability.end_time|time:'H:i' }} · {{ availability.slot_duration_minutes }} min slots</span></div>{% if is_own_profile %}<form method="post" action="{% url 'support_teacher_availability_delete' availability.id %}">{% csrf_token %}<button class="support-icon-btn" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form>{% endif %}</div>
+          <div class="support-availability-row"><div><strong>{{ availability.get_day_of_week_display }}</strong><span>{{ availability.start_time|time:'H:i' }}–{{ availability.end_time|time:'H:i' }} · {{ availability.slot_duration_minutes }} min slots</span></div>{% if is_own_profile %}<form method="post" action="{% url 'support_teacher_availability_delete_root' availability.id %}">{% csrf_token %}<button class="support-icon-btn" type="submit" title="Delete"><i class="bi bi-trash"></i></button></form>{% endif %}</div>
         {% empty %}<p class="support-muted-copy">No availability configured.</p>{% endfor %}
 
         {% if availability_form %}
-          <form method="post" action="{% url 'support_teacher_availability_add' %}" class="support-stack" style="margin-top:18px;gap:10px;">{% csrf_token %}
+          <form method="post" action="{% url 'support_teacher_availability_add_root' %}" class="support-stack" style="margin-top:18px;gap:10px;">{% csrf_token %}
             <div class="support-field"><label>Day</label>{{ availability_form.day_of_week }}</div>
             <div class="support-booking-form-grid support-booking-form-grid-2"><div class="support-field"><label>Start</label>{{ availability_form.start_time }}</div><div class="support-field"><label>End</label>{{ availability_form.end_time }}</div></div>
             <div class="support-booking-form-grid support-booking-form-grid-2"><div class="support-field"><label>Slot minutes</label>{{ availability_form.slot_duration_minutes }}</div><div class="support-field"><label>Buffer minutes</label>{{ availability_form.buffer_minutes }}</div></div>

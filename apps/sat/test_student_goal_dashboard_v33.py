@@ -25,13 +25,13 @@ class StudentGoalDashboardV33CsrfTests(TestCase):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.student)
 
-        response = client.get(reverse('sat_menu'))
+        response = client.get(reverse('student_dashboard_root'))
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(settings.CSRF_COOKIE_NAME, response.cookies)
         self.assertContains(
             response,
-            f'action="{reverse("student_goal_settings")}"',
+            f'action="{reverse("student_goal_settings_root")}"',
         )
         self.assertContains(response, 'data-goal-form')
         self.assertContains(response, 'class="sg-goal-modal-body"')
@@ -75,7 +75,7 @@ class StudentGoalDashboardV33CsrfTests(TestCase):
                 'exam_date': next_official_sat_date().isoformat(),
                 'daily_study_minutes_goal': 60,
                 'weekly_study_days_goal': 6,
-                'next': reverse('sat_menu'),
+                'next': reverse('student_dashboard_root'),
             },
             HTTP_X_CSRFTOKEN=csrf_token,
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',

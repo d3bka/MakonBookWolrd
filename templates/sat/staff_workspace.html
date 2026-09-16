@@ -1,0 +1,112 @@
+{% extends 'template.html' %}
+{% load static %}
+
+{% block style %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v50.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v523.css' %}?v=50212">
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v524.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v525.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5261.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5262.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5263.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v527.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v528.css' %}?v=528">
+  <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v529.css' %}?v=529">
+  <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v50210.css' %}?v=502121">
+  {% block staff_workspace_style %}{% endblock staff_workspace_style %}
+{% endblock style %}
+
+{% block body %}
+<div class="mb50-shell sf28-shell" data-student-workspace data-staff-workspace data-staff-mode="{{ staff_workspace_mode|default:'teacher' }}" data-workspace-storage-scope="staff-{{ staff_workspace_mode|default:'teacher' }}" data-workspace-search-url="{% url 'workspace_search_root' %}">
+  <button class="mb50-mobile-scrim" type="button" aria-label="Close navigation" data-workspace-scrim></button>
+  <aside class="mb50-sidebar" aria-label="Staff navigation" data-workspace-sidebar>
+    <div class="mb50-sidebar-head">
+      <a class="mb50-brand" href="{% if staff_workspace_mode == 'manager' %}{% url 'manager_dashboard_root' %}{% elif staff_workspace_mode == 'support' %}{% url 'support_teacher_dashboard_root' %}{% else %}{% url 'teacher_dashboard_root' %}{% endif %}" aria-label="MakonBook staff home">
+        <span class="mb50-brand-mark"><img class="mb50-logo-dark" src="{% static 'assets/img/icons/white-icon-nobg.png' %}" alt=""><img class="mb50-logo-light" src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""></span>
+        <span class="mb50-brand-copy"><strong>MakonBook</strong><small>{% if staff_workspace_mode == 'manager' %}Manager workspace{% elif staff_workspace_mode == 'support' %}Support workspace{% else %}Teacher workspace{% endif %}</small></span>
+      </a>
+      <button class="mb50-collapse" type="button" aria-label="Collapse navigation" aria-expanded="true" data-workspace-collapse><i class="bi bi-chevron-left"></i></button>
+    </div>
+
+    {% if staff_role_count > 1 %}
+    <div class="sf28-role-switcher" aria-label="Switch role">
+      {% if staff_has_teacher %}<a href="{% url 'teacher_dashboard_root' %}" class="{% if staff_workspace_mode == 'teacher' %}is-active{% endif %}"><i class="bi bi-mortarboard"></i><span>Teacher</span></a>{% endif %}
+      {% if staff_has_manager or staff_has_admin %}<a href="{% url 'manager_dashboard_root' %}" class="{% if staff_workspace_mode == 'manager' %}is-active{% endif %}"><i class="bi bi-kanban"></i><span>Manager</span></a>{% endif %}
+      {% if staff_has_support %}<a href="{% url 'support_teacher_dashboard_root' %}" class="{% if staff_workspace_mode == 'support' %}is-active{% endif %}"><i class="bi bi-person-video3"></i><span>Support</span></a>{% endif %}
+    </div>
+    {% endif %}
+
+    <nav class="mb50-nav" aria-label="Primary">
+      <div class="mb50-nav-group mb50-utility-nav">
+        <button class="mb50-nav-item" type="button" data-workspace-command="search"><i class="bi bi-search"></i><span>Search</span><kbd>Ctrl K</kbd></button>
+        <button class="mb50-nav-item" type="button" data-workspace-command="notifications"><i class="bi bi-bell"></i><span>Notifications</span>{% if test_import_unread_notifications %}<b data-workspace-notice-badge>{{ test_import_unread_notifications }}</b>{% endif %}</button>
+      </div>
+
+      {% if staff_workspace_mode == 'teacher' %}
+      <div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="teaching"><span class="mb50-nav-label">Teaching</span>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'home' %} is-active{% endif %}" href="{% url 'teacher_dashboard_root' %}" data-sidebar-item data-nav-key="home" data-sidebar-default-group="teaching" data-sidebar-locked="1"><i class="bi bi-grid-1x2-fill"></i><span>Home</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'classrooms' %} is-active{% endif %}" href="{% url 'teacher_classrooms_root' %}" data-sidebar-item data-nav-key="classrooms" data-sidebar-default-group="teaching"><i class="bi bi-people"></i><span>Classrooms</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'homework' %} is-active{% endif %}" href="{% url 'teacher_homework_root' %}" data-sidebar-item data-nav-key="homework" data-sidebar-default-group="teaching"><i class="bi bi-list-check"></i><span>Homework</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'practice-tests' %} is-active{% endif %}" href="{% url 'teacher_practice_tests_root' %}" data-sidebar-item data-nav-key="practice-tests" data-sidebar-default-group="teaching"><i class="bi bi-clipboard2-check"></i><span>Practice Tests</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'lessons' %} is-active{% endif %}" href="{% url 'teacher_lessons_root' %}" data-sidebar-item data-nav-key="lessons" data-sidebar-default-group="teaching"><i class="bi bi-easel2"></i><span>Lessons</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'progress' %} is-active{% endif %}" href="{% url 'teacher_progress_root' %}" data-sidebar-item data-nav-key="progress" data-sidebar-default-group="teaching"><i class="bi bi-graph-up-arrow"></i><span>Progress</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'ratings' %} is-active{% endif %}" href="{% url 'teacher_assessments_root' %}" data-sidebar-item data-nav-key="ratings" data-sidebar-default-group="teaching"><i class="bi bi-star"></i><span>Assessments</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'access' %} is-active{% endif %}" href="{% url 'teacher_access_root' %}" data-sidebar-item data-nav-key="access" data-sidebar-default-group="teaching"><i class="bi bi-shield-check"></i><span>Access</span></a>
+      </div>
+      <div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="content"><span class="mb50-nav-label">Content</span>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'vocabulary' %} is-active{% endif %}" href="{% url 'teacher_vocabulary_units_root' %}" data-sidebar-item data-nav-key="vocabulary" data-sidebar-default-group="content"><i class="bi bi-journal-bookmark"></i><span>Vocabulary</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'ap' %} is-active{% endif %}" href="{% url 'apclasses:event_list' %}" data-sidebar-item data-nav-key="ap" data-sidebar-default-group="content"><i class="bi bi-layers"></i><span>AP Events</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'mentor-profile' %} is-active{% endif %}" href="{% url 'mentor_profile_edit_root' %}" data-sidebar-item data-nav-key="mentor-profile" data-sidebar-default-group="content"><i class="bi bi-person-vcard"></i><span>Mentor profile</span></a>
+      </div>
+      {% elif staff_workspace_mode == 'manager' %}
+      <div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="management"><span class="mb50-nav-label">Management</span>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'home' or staff_workspace_active == 'manager' %} is-active{% endif %}" href="{% url 'manager_dashboard_root' %}" data-sidebar-item data-nav-key="home" data-sidebar-default-group="management" data-sidebar-locked="1"><i class="bi bi-grid-1x2-fill"></i><span>Home</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'teachers' %} is-active{% endif %}" href="{% url 'manager_teacher_list_root' %}" data-sidebar-item data-nav-key="teachers" data-sidebar-default-group="management"><i class="bi bi-person-workspace"></i><span>Main teachers</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'support' %} is-active{% endif %}" href="{% url 'manager_support_teacher_list_root' %}" data-sidebar-item data-nav-key="support" data-sidebar-default-group="management"><i class="bi bi-person-video3"></i><span>Support teachers</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'hollihop' %} is-active{% endif %}" href="{% url 'hollihop_dashboard' %}" data-sidebar-item data-nav-key="hollihop" data-sidebar-default-group="management"><i class="bi bi-arrow-repeat"></i><span>Hollihop</span></a>
+      </div>
+      {% if test_import_center_allowed %}<div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="tests"><span class="mb50-nav-label">Tests</span><a class="mb50-nav-item{% if staff_workspace_active == 'imports' %} is-active{% endif %}" href="{% url 'manager_test_import_list_root' %}" data-sidebar-item data-nav-key="imports" data-sidebar-default-group="tests"><i class="bi bi-file-earmark-arrow-up"></i><span>Import center</span></a><a class="mb50-nav-item{% if staff_workspace_active == 'published-tests' %} is-active{% endif %}" href="{% url 'manager_managed_test_list_root' %}" data-sidebar-item data-nav-key="published-tests" data-sidebar-default-group="tests"><i class="bi bi-sliders"></i><span>Published tests</span></a></div>{% endif %}
+      {% else %}
+      <div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="support-teaching"><span class="mb50-nav-label">Support teaching</span>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'home' %} is-active{% endif %}" href="{% url 'support_teacher_dashboard_root' %}" data-sidebar-item data-nav-key="home" data-sidebar-default-group="support-teaching" data-sidebar-locked="1"><i class="bi bi-grid-1x2-fill"></i><span>Home</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'support' %} is-active{% endif %}" href="{% url 'support_teacher_planner_root' %}" data-sidebar-item data-nav-key="support" data-sidebar-default-group="support-teaching"><i class="bi bi-calendar2-week"></i><span>Planner</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'support-profile' %} is-active{% endif %}" href="{% url 'support_teacher_profile_edit_root' %}" data-sidebar-item data-nav-key="support-profile" data-sidebar-default-group="support-teaching"><i class="bi bi-person-badge"></i><span>Profile</span></a>
+        {% if test_import_center_allowed %}<a class="mb50-nav-item{% if staff_workspace_active == 'imports' %} is-active{% endif %}" href="{% url 'support_teacher_review_list_root' %}" data-sidebar-item data-nav-key="imports" data-sidebar-default-group="support-teaching"><i class="bi bi-clipboard-check"></i><span>Reviewer queue</span></a>{% endif %}
+      </div>
+      {% endif %}
+
+      <div class="mb50-nav-group mb50-nav-secondary" data-sidebar-sortable data-sidebar-group="account"><span class="mb50-nav-label">Account</span>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'account' %} is-active{% endif %}" href="{% url 'settings_page' %}?workspace={{ staff_workspace_mode }}" data-sidebar-item data-nav-key="account" data-sidebar-default-group="account"><i class="bi bi-gear"></i><span>Settings</span></a>
+        <a class="mb50-nav-item" href="{% url 'settings_page' %}?workspace={{ staff_workspace_mode }}#support" data-sidebar-item data-nav-key="help-support" data-sidebar-default-group="account"><i class="bi bi-headset"></i><span>Help &amp; Support</span></a>
+      </div>
+    </nav>
+
+    <div class="mb50-sidebar-foot">
+      <button class="mb50-profile-link" type="button" data-workspace-profile-toggle aria-expanded="false"><span class="mb50-avatar">{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}</span><span class="mb50-profile-copy"><strong>{{ request.user.get_full_name|default:request.user.username }}</strong><small>{% if staff_workspace_mode == 'manager' %}Manager{% elif staff_workspace_mode == 'support' %}Support Teacher{% else %}Teacher{% endif %}</small></span><i class="bi bi-chevron-up"></i></button>
+      <div class="mb50-profile-menu" data-workspace-profile-menu aria-hidden="true">
+        {% if staff_has_teacher %}<a href="{% url 'teacher_dashboard_root' %}"><i class="bi bi-mortarboard"></i><span>Teacher</span></a>{% endif %}{% if staff_has_manager or staff_has_admin %}<a href="{% url 'manager_dashboard_root' %}"><i class="bi bi-kanban"></i><span>Manager</span></a>{% endif %}{% if staff_has_support %}<a href="{% url 'support_teacher_dashboard_root' %}"><i class="bi bi-person-video3"></i><span>Support</span></a>{% endif %}
+        <a href="{% url 'edit_profile' %}?workspace={{ staff_workspace_mode }}"><i class="bi bi-person-circle"></i><span>Profile</span></a><a href="{% url 'settings_page' %}?workspace={{ staff_workspace_mode }}"><i class="bi bi-gear"></i><span>Settings</span></a><button type="button" data-workspace-theme-cycle><i class="bi bi-circle-half"></i><span>Switch theme</span></button><a href="{% url 'logout' %}"><i class="bi bi-box-arrow-right"></i><span>Log out</span></a>
+      </div>
+    </div>
+  </aside>
+
+  <div class="mb50-workspace"><header class="mb50-mobile-head"><button class="mb50-mobile-menu" type="button" data-workspace-mobile-open><i class="bi bi-list"></i></button><a class="mb50-mobile-brand" href="{% if staff_workspace_mode == 'manager' %}{% url 'manager_dashboard_root' %}{% elif staff_workspace_mode == 'support' %}{% url 'support_teacher_dashboard_root' %}{% else %}{% url 'teacher_dashboard_root' %}{% endif %}"><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""><strong>MakonBook</strong></a><button class="mb50-mobile-account" type="button" data-workspace-profile-toggle><span>{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}</span></button></header><main class="mb50-main sf28-main" id="main">{% include 'base/profile_name_prompt.html' %}{% block content %}{% endblock content %}</main></div>
+
+  <div class="mb50-command-layer" data-workspace-command-layer aria-hidden="true"><button class="mb50-command-scrim" type="button" data-workspace-command-close></button><section class="mb50-command-panel" role="dialog"><div class="mb50-command-title"><h2>Search</h2><button type="button" data-workspace-command-close><i class="bi bi-x-lg"></i></button></div><div class="mb50-command-head"><i class="bi bi-search"></i><input type="search" placeholder="Search MakonBook…" data-workspace-search-input></div><div class="mb50-command-results" data-workspace-command-results><div class="mb50-command-empty">Start typing at least 2 characters.</div></div></section></div>
+  <div class="mb50-notice-layer" data-workspace-notice-layer aria-hidden="true" data-read-url="{% url 'notifications_read_root' %}"><button class="mb50-command-scrim" type="button" data-workspace-notice-close></button><section class="mb50-notice-panel" role="dialog"><div class="mb50-more-head"><div><h2>Notifications</h2></div><div class="v50211-notice-head-actions"><button class="mb50-secondary-btn v50211-notice-compact-btn" type="button" data-v50211-read-all>Read all</button><button class="v50211-notice-close" type="button" data-workspace-notice-close aria-label="Close notifications"><i class="bi bi-x-lg"></i></button></div></div><div class="mb50-notice-list">{% for notice in test_import_notifications %}<a class="mb50-notice-item{% if not notice.is_read %} is-unread{% endif %}" href="{{ notice.url|default:'#' }}" data-notice-id="{{ notice.id }}"><strong>{{ notice.title }}</strong><span>{{ notice.message }}</span><small>{{ notice.created_at|timesince }} ago</small></a>{% empty %}<div class="mb50-command-empty">No notifications yet.</div>{% endfor %}</div></section></div>
+  <div class="mb50-customize-layer" data-workspace-sidebar-customize-layer aria-hidden="true"><button class="mb50-command-scrim" type="button" data-workspace-sidebar-customize-close aria-label="Close"></button><section class="mb50-customize-panel" role="dialog" aria-modal="true" aria-labelledby="sidebarCustomizeTitle"><div class="mb50-more-head"><div><h2 id="sidebarCustomizeTitle">Customize sidebar</h2><p>Drag items between sections, rename sections, or create your own. You can also drag directly in the expanded sidebar.</p></div><button type="button" data-workspace-sidebar-customize-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div><div class="mb50-sidebar-builder" data-sidebar-builder></div><div class="mb50-more-footer"><button class="mb50-secondary-btn" type="button" data-sidebar-reset>Reset</button><button class="mb50-primary-btn" type="button" data-sidebar-save>Save layout</button></div></section></div>
+  {% if messages %}<div class="v524-toast-stack" data-v524-toast-stack aria-live="polite">{% for message in messages %}<div class="v524-toast {{ message.tags|default:'info' }}" data-v524-toast><i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif message.tags == 'error' %}exclamation-octagon-fill{% else %}info-circle-fill{% endif %}"></i><span>{{ message }}</span><button type="button" data-v524-toast-close><i class="bi bi-x"></i></button></div>{% endfor %}</div>{% endif %}
+</div>
+{% endblock body %}
+{% block optional_vendor_styles %}{% endblock optional_vendor_styles %}
+{% block base_runtime_scripts %}
+<script src="{% static 'assets/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+<script src="{% static 'assets/js/profile-name-gate-v338.js' %}"></script>
+<script>
+(function(){var preloader=document.getElementById('preloader');if(preloader)preloader.remove();})();
+</script>
+{% endblock base_runtime_scripts %}
+{% block scripts %}{{ block.super }}<script src="{% static 'assets/js/student-workspace-v50.js' %}?v=50212"></script><script src="{% static 'assets/js/staff-workspace-v528.js' %}?v=528"></script><script src="{% static 'assets/js/staff-workspace-v529.js' %}?v=529"></script><script src="{% static 'assets/js/staff-workspace-v50210.js' %}?v=502126"></script><script src="{% static 'assets/js/workspace-v50211.js' %}?v=502125"></script>{% block staff_workspace_scripts %}{% endblock staff_workspace_scripts %}{% endblock scripts %}
+{% block issue_report_widget %}{% endblock issue_report_widget %}

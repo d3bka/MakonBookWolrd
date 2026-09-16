@@ -491,3 +491,50 @@ body.scroll-hide .question-progress.nav-button:hover {
   padding-top: 22px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
+
+/* V50.2.6.2 — dedicated dark-mode preloader.
+   Light mode intentionally keeps the original clean spinner from main.css. */
+html[data-theme="dark"] #preloader{
+  background:
+    radial-gradient(circle at 50% 46%,rgba(124,58,237,.14),transparent 190px),
+    radial-gradient(circle at 50% 54%,rgba(217,70,239,.08),transparent 260px),
+    #09070f;
+}
+html[data-theme="dark"] #preloader:before{
+  top:calc(50% - 32px);
+  left:calc(50% - 32px);
+  width:64px;
+  height:64px;
+  border:3px solid rgba(255,255,255,.08);
+  border-top-color:#a78bfa;
+  border-right-color:#d946ef;
+  border-bottom-color:rgba(96,165,250,.42);
+  box-shadow:0 0 0 1px rgba(167,139,250,.05),0 0 34px rgba(124,58,237,.22);
+  animation:makon-dark-preloader-orbit .92s cubic-bezier(.55,.08,.45,.92) infinite;
+}
+html[data-theme="dark"] #preloader:after{
+  content:"";
+  position:fixed;
+  z-index:1;
+  top:calc(50% - 7px);
+  left:calc(50% - 7px);
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#c4b5fd,#a855f7 55%,#ec4899);
+  box-shadow:0 0 26px rgba(168,85,247,.68);
+  animation:makon-dark-preloader-pulse 1.15s ease-in-out infinite;
+}
+@keyframes makon-dark-preloader-orbit{
+  0%{transform:rotate(0deg) scale(.94)}
+  50%{transform:rotate(180deg) scale(1.04)}
+  100%{transform:rotate(360deg) scale(.94)}
+}
+@keyframes makon-dark-preloader-pulse{
+  0%,100%{transform:scale(.72);opacity:.48}
+  50%{transform:scale(1.08);opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-theme="dark"] #preloader:before,
+  html[data-theme="dark"] #preloader:after{animation-duration:2.4s}
+}

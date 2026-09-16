@@ -1,0 +1,22 @@
+{% extends 'sat/staff_workspace.html' %}
+{% load static %}
+{% block page_title %}AP Events | MakonBook{% endblock %}
+{% block content %}
+<div class="sf27-form-page">
+  <section class="sf27-page-head">
+    <div><small>AP Events</small><h1>AP events</h1><p>Open global or classroom-scoped AP events without leaving the staff workspace. Exam authoring remains restricted to the configured admin workflow.</p></div>
+    {% if staff_has_teacher %}<div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'teacher_classrooms_root' %}"><i class="bi bi-people"></i> Classrooms</a></div>{% endif %}
+  </section>
+  <section class="sf27-card">
+    <div class="sf27-ap-list">
+      {% for event in events %}
+      <article class="sf27-ap-row">
+        <div class="sf27-ap-state {% if event.is_live_now %}is-live{% endif %}"><i class="bi bi-broadcast"></i></div>
+        <div class="sf27-ap-copy"><div class="sf27-ap-kicker">{% if event.is_live_now %}Live now{% elif event.always_live %}Always available{% else %}Scheduled{% endif %} · {% if event.is_global %}Global{% else %}Classroom scoped{% endif %}</div><h3>{{ event.title }}</h3><p>{{ event.exam.title }}{% if event.exam.ap_class %} · {{ event.exam.ap_class.name }}{% endif %}{% if not event.always_live and event.start_at %} · {{ event.start_at|date:'d M, H:i' }}{% endif %}</p></div>
+        <div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'apclasses:event_detail' event.slug %}">Open event <i class="bi bi-arrow-right"></i></a></div>
+      </article>
+      {% empty %}<div class="sf27-empty"><i class="bi bi-layers"></i><strong>No AP events yet.</strong><span>Published AP events will appear here.</span></div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}{{ unit.title }}{% endblock title-main %}
 {% block title %}Vocabulary Unit Detail{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <style>
   .page-wrap {
     max-width: 1200px;
@@ -75,7 +76,7 @@
     </div>
 
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <a href="{% url 'teacher_vocabulary_units' %}" class="btn-main btn-secondary">Back to Units</a>
+      <a href="{% url 'teacher_vocabulary_units_root' %}" class="btn-main btn-secondary">Back to Units</a>
       <a href="{% url 'create_vocabulary_word' unit.id %}" class="btn-main">Add Word</a>
       <a href="{% url 'create_vocabulary_question' unit.id %}" class="btn-main">Add Question</a>
     </div>

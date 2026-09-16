@@ -1,9 +1,9 @@
 from django.urls import path, include
+from django.views.generic.base import RedirectView
 from . import views, guest_views, test_import_views
 
 urlpatterns = [
-    path('', views.classroom_entry, name='sat_menu'),
-    path('', views.home, name="home"),
+    path('', RedirectView.as_view(pattern_name='student_dashboard_root', permanent=False), name='sat_menu'),
 
 
     path('clear/<str:test>/<str:section>/<str:module>/', views.clear),
@@ -27,11 +27,32 @@ urlpatterns = [
     path('dev/', include('apps.sat.urls_dev')),
     path('admin-panel/', include('apps.sat.urls_admin')),
 
+    path('learn/', views.student_learn, name='student_learn'),
+    path('practice/', views.student_practice, name='student_practice'),
+    path('practice/topic/<str:section>/<int:type_id>/', views.student_topic_practice, name='student_topic_practice'),
+    path('practice/check/', views.student_topic_check, name='student_topic_check'),
+    path('questions/', views.student_question_bank, name='student_question_bank'),
+    path('classrooms/', views.student_classrooms, name='student_classrooms'),
+    path('classrooms/join/', views.student_join_classroom_request, name='student_join_classroom_request'),
+    path('homework/', views.student_homework, name='student_homework'),
+    path('homework/<int:assignment_id>/open/', views.student_homework_launch, name='student_homework_launch'),
+    path('homework/<int:assignment_id>/vocabulary-quiz/result/', views.student_homework_vocab_quiz_result, name='student_homework_vocab_quiz_result'),
+    path('progress/', views.student_progress, name='student_progress'),
+    path('mentors/', views.student_mentors, name='student_mentors'),
+    path('messages/', views.student_messages, name='student_messages'),
+    path('messages/stickers/upload/', views.student_chat_sticker_upload, name='student_chat_sticker_upload'),
+    path('messages/sticker-packs/create/', views.student_chat_sticker_pack_create, name='student_chat_sticker_pack_create'),
+    path('messages/sticker-packs/<int:pack_id>/delete/', views.student_chat_sticker_pack_delete, name='student_chat_sticker_pack_delete'),
+    path('messages/stickers/<int:sticker_id>/delete/', views.student_chat_sticker_delete, name='student_chat_sticker_delete'),
+    path('workspace-search/', views.workspace_search, name='workspace_search'),
+    path('events/', views.student_events, name='student_events'),
+    path('placement-tests/', views.student_placement_tests, name='student_placement_tests'),
     path('practice_tests/', views.practice_tests, name='practice_tests'),
     path('vocabulary/', views.vocabulary, name='vocabulary'),
     path('admissions/', views.admissions, name='admissions'),
 
     # Support teacher planning
+    path('lessons/<int:lesson_id>/', views.lesson_detail, name='lesson_detail'),
     path('support-teachers/', views.support_teacher_list, name='support_teacher_list'),
     path('support-teachers/me/profile/', views.support_teacher_profile_edit, name='support_teacher_profile_edit'),
     path('support-teachers/me/availability/add/', views.support_teacher_availability_add, name='support_teacher_availability_add'),
@@ -70,6 +91,14 @@ urlpatterns = [
     path('support-lessons/<int:booking_id>/feedback/', views.leave_support_lesson_feedback, name='leave_support_lesson_feedback'),
     path('support-lessons/<int:booking_id>/manage/', views.manage_support_lesson, name='manage_support_lesson'),
 
+    path('vocabulary/decks/', views.vocabulary_decks, name='vocabulary_decks'),
+    path('vocabulary/decks/create/', views.vocabulary_deck_create, name='vocabulary_deck_create'),
+    path('vocabulary/decks/<int:deck_id>/', views.vocabulary_deck_detail, name='vocabulary_deck_detail'),
+    path('vocabulary/decks/<int:deck_id>/study/', views.vocabulary_deck_study, name='vocabulary_deck_study'),
+    path('vocabulary/decks/<int:deck_id>/arena/<slug:mode>/', views.vocabulary_deck_arena, name='vocabulary_deck_arena'),
+    path('vocabulary/decks/<int:deck_id>/mark/', views.vocabulary_deck_mark, name='vocabulary_deck_mark'),
+    path('vocabulary/library/', views.vocabulary_deck_library, name='vocabulary_deck_library'),
+    path('vocabulary/library/<int:unit_id>/add/', views.vocabulary_deck_clone_unit, name='vocabulary_deck_clone_unit'),
     path('vocabulary/practice-quiz/', views.vocabulary_practice_quiz, name='vocabulary_practice_quiz'),
     path('vocabulary/practice-quiz/start/', views.vocabulary_practice_quiz_start, name='vocabulary_practice_quiz_start'),
     path('vocabulary/practice-quiz/result/', views.vocabulary_practice_quiz_result, name='vocabulary_practice_quiz_result'),
@@ -81,6 +110,8 @@ urlpatterns = [
     path('teacher/classrooms/', views.teacher_classroom_list, name='teacher_classroom_list'),
     path('teacher/classrooms/create/', views.create_classroom, name='create_classroom'),
     path('teacher/classrooms/<int:classroom_id>/', views.teacher_classroom_dashboard, name='teacher_classroom_dashboard'),
+    path('teacher/classrooms/<int:classroom_id>/homework/', views.teacher_classroom_homework, name='teacher_classroom_homework'),
+    path('teacher/classrooms/<int:classroom_id>/lessons/', views.teacher_classroom_lessons, name='teacher_classroom_lessons'),
     path('teacher/classrooms/<int:classroom_id>/generate-code/', views.generate_classroom_join_code, name='generate_classroom_join_code'),
 
     path('join/', views.submit_classroom_join_request, name='submit_classroom_join_request'),
@@ -88,6 +119,7 @@ urlpatterns = [
     path('student/goals/csrf/', views.student_goal_csrf, name='student_goal_csrf'),
     path('student/goals/', views.student_goal_settings, name='student_goal_settings'),
     path('classroom/<int:classroom_id>/', views.student_classroom_home, name='student_classroom_home'),
+    path('classroom/<int:classroom_id>/materials/<int:resource_id>/test/', views.student_lesson_test_preview, name='student_lesson_test_preview'),
     path('classroom/<int:classroom_id>/goals/', views.student_goal_settings_legacy, name='student_goal_settings_legacy'),
     path('classroom/<int:classroom_id>/leave/', views.leave_classroom, name='leave_classroom'),
 

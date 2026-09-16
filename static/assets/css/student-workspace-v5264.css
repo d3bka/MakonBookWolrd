@@ -1,0 +1,175 @@
+/* MakonBook V50.2.6.4 — definitive chat room header/canvas separation. */
+
+/*
+ * The room header and the themed chat canvas are now separate grid rows.
+ * Theme backgrounds live only on .v5264-chat-canvas, so they cannot render
+ * above or behind the room header regardless of browser grid/sticky behavior.
+ */
+.v525-chat .v523-chat-thread.v5264-chat-thread-has-room{
+  position:relative!important;
+  display:grid!important;
+  grid-template-rows:72px minmax(0,1fr)!important;
+  align-content:stretch!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  background:var(--mb50-panel)!important;
+  background-image:none!important;
+}
+
+.mb50-shell .v525-chat .v523-chat-thread.v5264-chat-thread-has-room>.v5264-chat-room-head{
+  position:relative!important;
+  inset:auto!important;
+  grid-row:1!important;
+  z-index:50!important;
+  width:100%!important;
+  height:72px!important;
+  min-height:72px!important;
+  margin:0!important;
+  padding:10px 20px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  border:0!important;
+  border-bottom:1px solid var(--mb50-border)!important;
+  border-radius:0!important;
+  background:var(--mb50-panel)!important;
+  background-image:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  box-shadow:0 8px 24px rgba(26,14,39,.055)!important;
+}
+
+html[data-theme="dark"] .mb50-shell .v525-chat .v523-chat-thread.v5264-chat-thread-has-room>.v5264-chat-room-head{
+  background:#17141d!important;
+  background-image:none!important;
+  border-bottom-color:rgba(255,255,255,.09)!important;
+}
+
+.v525-chat .v5264-chat-canvas{
+  --chat-bg:var(--mb50-bg);
+  --chat-accent:#7c3aed;
+  position:relative!important;
+  grid-row:2!important;
+  min-width:0!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  display:grid!important;
+  grid-template-rows:minmax(0,1fr) auto!important;
+  align-content:stretch!important;
+  background-color:var(--chat-bg)!important;
+  background-image:none!important;
+  background-repeat:repeat!important;
+}
+
+.v525-chat .v5264-chat-canvas>.v523-chat-messages{
+  grid-row:1!important;
+  min-height:0!important;
+  padding-top:22px!important;
+}
+.v525-chat .v5264-chat-canvas>.v523-chat-compose{
+  grid-row:2!important;
+}
+.v525-chat .v5264-chat-canvas>.v524-chat-theme-panel{
+  top:14px!important;
+}
+
+/* Default Makon theme. */
+.v525-chat[data-chat-theme="makon"] .v5264-chat-canvas{
+  --chat-accent:#7c3aed;
+  background-color:color-mix(in srgb,var(--mb50-bg) 96%,#8b5cf6 4%)!important;
+  background-image:
+    radial-gradient(circle at 18px 18px,rgba(124,58,237,.08) 2px,transparent 2.5px),
+    linear-gradient(135deg,transparent 47%,rgba(124,58,237,.045) 48%,rgba(124,58,237,.045) 52%,transparent 53%),
+    radial-gradient(circle at 52px 52px,transparent 10px,rgba(217,70,239,.04) 11px,transparent 12px)!important;
+  background-size:72px 72px,96px 96px,110px 110px!important;
+}
+
+/* Notebook theme. */
+.v525-chat[data-chat-theme="paper"] .v5264-chat-canvas{
+  --chat-accent:#7c3aed;
+  background-color:#fbfaf6!important;
+  background-image:
+    linear-gradient(rgba(103,80,130,.08) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(124,58,237,.06) 1px,transparent 1px)!important;
+  background-size:100% 28px,28px 100%!important;
+}
+html[data-theme="dark"] .v525-chat[data-chat-theme="paper"] .v5264-chat-canvas{
+  background-color:#1d1b1f!important;
+  background-image:
+    linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(167,139,250,.045) 1px,transparent 1px)!important;
+}
+
+/* Midnight theme. */
+.v525-chat[data-chat-theme="midnight"] .v5264-chat-canvas{
+  --chat-accent:#a78bfa;
+  background-color:#0f1020!important;
+  background-image:
+    radial-gradient(circle at 18% 22%,rgba(255,255,255,.55) 1px,transparent 1.5px),
+    radial-gradient(circle at 72% 35%,rgba(167,139,250,.48) 1px,transparent 1.5px),
+    radial-gradient(circle at 44% 78%,rgba(96,165,250,.38) 1px,transparent 1.5px),
+    linear-gradient(28deg,transparent 49.4%,rgba(167,139,250,.05) 50%,transparent 50.6%)!important;
+  background-size:86px 86px,120px 120px,150px 150px,170px 170px!important;
+}
+.v525-chat[data-chat-theme="midnight"] .v5264-chat-canvas .v523-chat-compose{
+  background:rgba(15,16,32,.88)!important;
+  border-color:rgba(255,255,255,.08)!important;
+}
+.v525-chat[data-chat-theme="midnight"] .v5264-chat-room-head h2,
+.v525-chat[data-chat-theme="midnight"] .v5264-chat-room-head p,
+.v525-chat[data-chat-theme="midnight"] .v5264-chat-canvas textarea{
+  color:#f6f2ff!important;
+}
+.v525-chat[data-chat-theme="midnight"] .v5264-chat-room-head p,
+.v525-chat[data-chat-theme="midnight"] .v5264-chat-canvas small{
+  color:#aaa3b8!important;
+}
+
+/* Focus Blue theme. */
+.v525-chat[data-chat-theme="blue"] .v5264-chat-canvas{
+  --chat-accent:#2563eb;
+  background-color:color-mix(in srgb,var(--mb50-bg) 94%,#60a5fa 6%)!important;
+  background-image:
+    radial-gradient(ellipse at 20% 10%,transparent 0 18px,rgba(37,99,235,.07) 19px 20px,transparent 21px),
+    radial-gradient(ellipse at 80% 70%,transparent 0 28px,rgba(14,165,233,.06) 29px 30px,transparent 31px),
+    linear-gradient(35deg,transparent 47%,rgba(59,130,246,.04) 48% 52%,transparent 53%)!important;
+  background-size:120px 80px,160px 110px,130px 130px!important;
+}
+
+/* Custom color/pattern theme. */
+.v525-chat[data-chat-theme="custom"] .v5264-chat-canvas{
+  --chat-accent:var(--v525-chat-custom-accent,#7c3aed);
+  background-color:var(--v525-chat-custom-base,#f5f1ff)!important;
+}
+.v525-chat[data-chat-theme="custom"][data-chat-custom-pattern="dots"] .v5264-chat-canvas{
+  background-image:radial-gradient(circle,var(--v525-chat-custom-accent,#7c3aed) 1px,transparent 1.5px)!important;
+  background-size:28px 28px!important;
+}
+.v525-chat[data-chat-theme="custom"][data-chat-custom-pattern="grid"] .v5264-chat-canvas{
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--v525-chat-custom-accent) 13%,transparent) 1px,transparent 1px),
+    linear-gradient(90deg,color-mix(in srgb,var(--v525-chat-custom-accent) 13%,transparent) 1px,transparent 1px)!important;
+  background-size:32px 32px!important;
+}
+.v525-chat[data-chat-theme="custom"][data-chat-custom-pattern="waves"] .v5264-chat-canvas{
+  background-image:radial-gradient(ellipse at 50% 100%,transparent 0 20px,color-mix(in srgb,var(--v525-chat-custom-accent) 12%,transparent) 21px 22px,transparent 23px)!important;
+  background-size:70px 42px!important;
+}
+.v525-chat[data-chat-theme="custom"][data-chat-custom-pattern="none"] .v5264-chat-canvas{
+  background-image:none!important;
+}
+.v525-chat[data-chat-theme="custom"][data-chat-custom-pattern="image"] .v5264-chat-canvas{
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--v525-chat-custom-base,#f5f1ff) 20%,transparent),color-mix(in srgb,var(--v525-chat-custom-base,#f5f1ff) 20%,transparent)),
+    var(--v526-chat-custom-image)!important;
+  background-size:cover!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+}
+
+/* Prevent legacy themed thread backgrounds from showing around the canvas. */
+.v525-chat[data-chat-theme] .v523-chat-thread.v5264-chat-thread-has-room{
+  background:var(--mb50-panel)!important;
+  background-image:none!important;
+}

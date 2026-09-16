@@ -17,7 +17,7 @@
       </button>
     </div>
 
-    <form method="post" action="{% url 'student_goal_settings' %}" class="sg-goal-modal-form" data-goal-form novalidate>
+    <form method="post" action="{% url 'student_goal_settings_root' %}" class="sg-goal-modal-form" data-goal-form novalidate>
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ goal_form_next }}">
 

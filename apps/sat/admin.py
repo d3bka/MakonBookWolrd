@@ -795,6 +795,29 @@ class VocabularyWordAdmin(admin.ModelAdmin):
     ordering = ('unit', 'id')
 
 
+class VocabularyDeckWordInline(admin.TabularInline):
+    model = VocabularyDeckWord
+    extra = 0
+    fields = ('word', 'meaning', 'example', 'order')
+
+
+@admin.register(VocabularyDeck)
+class VocabularyDeckAdmin(admin.ModelAdmin):
+    list_display = ('title', 'owner', 'source_unit', 'new_cards_per_day', 'max_reviews_per_day', 'updated_at')
+    list_filter = ('source_unit', 'created_at')
+    search_fields = ('title', 'description', 'owner__username', 'owner__first_name', 'owner__last_name')
+    readonly_fields = ('created_at', 'updated_at')
+    inlines = [VocabularyDeckWordInline]
+
+
+@admin.register(VocabularyDeckWordProgress)
+class VocabularyDeckWordProgressAdmin(admin.ModelAdmin):
+    list_display = ('user', 'word', 'status', 'times_seen', 'correct_count', 'incorrect_count', 'last_reviewed_at')
+    list_filter = ('status',)
+    search_fields = ('user__username', 'word__word', 'word__deck__title')
+    readonly_fields = ('created_at', 'updated_at', 'last_reviewed_at', 'mastered_at')
+
+
 @admin.register(VocabularyQuestion)
 class VocabularyQuestionAdmin(admin.ModelAdmin):
     list_display = ('short_question', 'unit', 'correct_answer', 'is_active', 'created_at')

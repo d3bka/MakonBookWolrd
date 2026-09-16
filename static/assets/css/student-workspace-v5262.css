@@ -1,0 +1,33 @@
+/* MakonBook V50.2.6.2 — chat header, compact profile spacing, visual polish. */
+
+/* Messages: keep the room header flush at the very top of the conversation pane. */
+.v525-chat .v523-chat-thread{
+  grid-template-rows:72px minmax(0,1fr) auto!important;
+  align-content:stretch!important;
+}
+.v525-chat .v523-chat-thread>header{
+  position:sticky!important;
+  top:0!important;
+  inset-block-start:0!important;
+  z-index:30!important;
+  grid-row:1!important;
+  align-self:stretch!important;
+  width:100%!important;
+  min-height:72px!important;
+  height:72px!important;
+  margin:0!important;
+  border-radius:0!important;
+  box-shadow:0 1px 0 color-mix(in srgb,var(--mb50-border) 78%,transparent),0 10px 28px rgba(37,20,54,.035);
+}
+.v525-chat .v523-chat-messages{grid-row:2!important;min-height:0!important}
+.v525-chat .v523-chat-compose{grid-row:3!important}
+.v525-chat .v524-chat-theme-panel{top:72px!important}
+
+/* Profile: the cards should read as one compact cluster instead of isolated islands. */
+.v525-profile-page{gap:8px!important}
+.v525-profile-page>.v524-profile-heading{padding-block:15px!important;margin:0!important}
+.v525-profile-page>.v524-profile-grid{gap:8px!important;margin:0!important}
+.v526-profile-lower{gap:8px!important;margin:0!important}
+.v524-profile-identity,.v524-profile-goal{min-height:184px!important}
+.v526-profile-card-actions{margin-top:7px!important;padding-top:9px!important}
+@media(max-width:980px){.v525-profile-page,.v526-profile-lower{gap:8px!important}}

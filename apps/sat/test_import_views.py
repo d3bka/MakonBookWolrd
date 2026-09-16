@@ -1,6 +1,8 @@
+import re
 from django.contrib import messages
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import FileResponse, HttpResponseForbidden, JsonResponse
 from django.db import transaction
 from django.db.models import Count, Exists, IntegerField, OuterRef, Q, Subquery, Value
@@ -51,6 +53,23 @@ def _wants_json(request):
     )
 
 
+def _managed_test_is_listable(test):
+    """Hide obsolete DAY61+ rows from current management libraries."""
+    name = str(test.name or '').strip()
+    match = re.fullmatch(r'(?i)day\s*0*(\d+)', name)
+    return not match or 1 <= int(match.group(1)) <= 60
+
+
+def _managed_test_sort_key(test):
+    name = str(test.name or '').strip()
+    match = re.fullmatch(r'(?i)day\s*0*(\d+)', name)
+    if match and 1 <= int(match.group(1)) <= 60:
+        return (0, int(match.group(1)), '')
+    parts = re.split(r'(\d+)', name.casefold())
+    natural = tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts)
+    return (1, 0, natural)
+
+
 def _annotate_import_queue(queryset):
     """Attach queue-card counters in one SQL query instead of N+1 lookups."""
     return queryset.annotate(
@@ -79,6 +98,12 @@ def _reviewer_allowed(user, job):
 
 def _job_allowed(user, job):
     return _manager_allowed(user) or _reviewer_allowed(user, job)
+
+
+def _review_ui_url(request, manager_route, support_route, *, args=None, kwargs=None):
+    """Return the canonical staff URL for the current reviewer workspace."""
+    route = manager_route if _manager_allowed(request.user) else support_route
+    return reverse(route, args=args, kwargs=kwargs)
 
 
 def _recover_stale_local_processing(job, *, stale_after_seconds=300):
@@ -165,27 +190,45 @@ def managed_test_list(request):
 
     # Important: this is a read-only listing page. Never create/upload default
     # icons from GET; that used to turn a simple page load into serial R2 writes.
-    tests = list(
+    query = (request.GET.get("q") or "").strip()[:120]
+    state = (request.GET.get("state") or "all").strip().lower()
+    source = (request.GET.get("source") or "all").strip().lower()
+    queryset = (
         Test.objects
         .prefetch_related("groups")
         .annotate(
-            english_count=Coalesce(
-                Subquery(english_count_sq, output_field=IntegerField()),
-                Value(0),
-            ),
-            math_count=Coalesce(
-                Subquery(math_count_sq, output_field=IntegerField()),
-                Value(0),
-            ),
+            english_count=Coalesce(Subquery(english_count_sq, output_field=IntegerField()), Value(0)),
+            math_count=Coalesce(Subquery(math_count_sq, output_field=IntegerField()), Value(0)),
             has_import_source=Exists(imported_sq),
         )
-        .order_by("-published_at", "-created", "name")
     )
+    if query:
+        queryset = queryset.filter(Q(name__icontains=query))
+    if state == "open":
+        queryset = queryset.filter(is_available=True)
+    elif state == "closed":
+        queryset = queryset.filter(is_available=False)
+    if source == "imported":
+        queryset = queryset.filter(has_import_source=True)
+    elif source == "manual":
+        queryset = queryset.filter(has_import_source=False)
+    tests_ordered = sorted((test for test in queryset if _managed_test_is_listable(test)), key=_managed_test_sort_key)
+    try:
+        per_page = int(request.GET.get('per_page') or 24)
+    except (TypeError, ValueError):
+        per_page = 24
+    if per_page not in {12, 24, 48, 60}:
+        per_page = 24
+    paginator = Paginator(tests_ordered, per_page)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    tests = list(page_obj.object_list)
     for test in tests:
         test.total_question_count = int(test.english_count or 0) + int(test.math_count or 0)
         test.group_count = len(test.groups.all())
 
-    return render(request, "sat/test_import/published_list.html", {"tests": tests})
+    return render(request, "sat/test_import/published_list.html", {
+        "tests": tests, "page_obj": page_obj, "query": query, "state": state, "source": source, "per_page": per_page,
+    })
 
 
 @login_required(login_url="/login/")
@@ -200,7 +243,7 @@ def managed_test_toggle_availability(request, test_name):
         if _wants_json(request):
             return JsonResponse({"ok": False, "error": "Invalid test availability state."}, status=400)
         messages.error(request, "Invalid test availability state.")
-        return redirect("managed_test_list")
+        return redirect("manager_managed_test_list_root")
 
     is_available = requested == "open"
     set_test_availability(test, is_available=is_available)
@@ -225,8 +268,8 @@ def managed_test_toggle_availability(request, test_name):
     else:
         messages.warning(request, message)
     if request.POST.get("return_to") == "edit":
-        return redirect("managed_test_edit", test_name=test.pk)
-    return redirect("managed_test_list")
+        return redirect("manager_managed_test_edit_root", test_name=test.pk)
+    return redirect("manager_managed_test_list_root")
 
 
 @login_required(login_url="/login/")
@@ -246,7 +289,7 @@ def managed_test_edit(request, test_name):
                 remove_icon=bool(form.cleaned_data.get("remove_icon")),
             )
             messages.success(request, "Published test settings were updated.")
-            return redirect("managed_test_edit", test_name=test.pk)
+            return redirect("manager_managed_test_edit_root", test_name=test.pk)
         except Exception as exc:
             form.add_error(None, str(exc))
 
@@ -288,7 +331,7 @@ def managed_test_question_edit(request, test_name, section, question_id):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, f"{section_label} question #{question.number} was updated.")
-        return redirect("managed_test_edit", test_name=test.pk)
+        return redirect("manager_managed_test_edit_root", test_name=test.pk)
     return render(request, "sat/test_import/published_question_form.html", {
         "test": test,
         "question": question,
@@ -324,11 +367,11 @@ def managed_test_delete(request, test_name):
                 if _wants_json(request):
                     return JsonResponse({
                         "ok": True,
-                        "redirect_url": reverse("managed_test_list"),
+                        "redirect_url": reverse("manager_managed_test_list_root"),
                         "message": message,
                     })
                 messages.success(request, message)
-                return redirect("managed_test_list")
+                return redirect("manager_managed_test_list_root")
             except Exception as exc:
                 error = str(exc)
                 if _wants_json(request):
@@ -368,7 +411,7 @@ def test_import_delete(request, job_id):
         if _wants_json(request):
             return JsonResponse({"ok": False, "error": message}, status=409)
         messages.error(request, message)
-    return redirect("test_import_list")
+    return redirect("manager_test_import_list_root")
 
 
 @login_required(login_url="/login/")
@@ -412,7 +455,7 @@ def test_import_clear_failed(request):
         messages.warning(request, f"Skipped {skipped} import(s) that could not be safely deleted.")
     if not deleted and not skipped:
         messages.info(request, "There are no failed staging imports to clean up.")
-    return redirect("test_import_list")
+    return redirect("manager_test_import_list_root")
 
 
 @login_required(login_url="/login/")
@@ -434,7 +477,7 @@ def test_import_create(request):
             active_job = None
         if active_job:
             messages.info(request, "You already have a structured import processing. Opened it instead of creating a duplicate.")
-            return redirect("test_import_detail", job_id=active_job.pk)
+            return redirect("manager_test_import_detail_root", job_id=active_job.pk)
 
         submit_limit = check_test_import_submit_limit(request)
         if not submit_limit.allowed:
@@ -462,7 +505,7 @@ def test_import_create(request):
             job.error_message = "The structured PDF filenames were not persisted. Please upload the files again."
             job.save(update_fields=["status", "error_message", "updated_at"])
             messages.error(request, job.error_message)
-            return redirect("test_import_detail", job_id=job.pk)
+            return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
 
         try:
             # Structured v2 parsing is deterministic and fast enough to run in
@@ -472,7 +515,7 @@ def test_import_create(request):
             messages.success(request, "Structured PDFs parsed locally. The staging test is ready for review.")
         except Exception as exc:
             messages.error(request, f"Structured import failed: {exc}")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect("manager_test_import_detail_root", job_id=job.pk)
     return render(request, "sat/test_import/create.html", {"form": form})
 
 
@@ -497,7 +540,7 @@ def test_import_preview(request, job_id):
     questions = list(job.questions.all().order_by("section", "module", "number", "pk"))
     if not questions:
         messages.info(request, "This staging import has no questions to preview yet.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
 
     module_order = {
         ("english", "module_1"): 0,
@@ -549,11 +592,11 @@ def test_import_preview(request, job_id):
         })
 
     source_urls = {
-        "english": (reverse("test_import_pdf", args=[job.pk]) + "?section=english") if job.english_pdf else "",
-        "math": (reverse("test_import_pdf", args=[job.pk]) + "?section=math") if job.math_pdf else "",
+        "english": (_review_ui_url(request, "manager_test_import_pdf_root", "support_teacher_review_pdf_root", args=[job.pk]) + "?section=english") if job.english_pdf else "",
+        "math": (_review_ui_url(request, "manager_test_import_pdf_root", "support_teacher_review_pdf_root", args=[job.pk]) + "?section=math") if job.math_pdf else "",
     }
     if not source_urls["english"] and not source_urls["math"] and job.source_pdf:
-        legacy = reverse("test_import_pdf", args=[job.pk])
+        legacy = _review_ui_url(request, "manager_test_import_pdf_root", "support_teacher_review_pdf_root", args=[job.pk])
         source_urls = {"english": legacy, "math": legacy}
 
     return render(request, "sat/test_import/preview.html", {
@@ -572,7 +615,15 @@ def test_import_detail(request, job_id):
         _recover_stale_local_processing(job)
     if not _job_allowed(request.user, job):
         return HttpResponseForbidden("Test review access required.")
-    MakonNotification.objects.filter(user=request.user, type=MakonNotification.TYPE_TEST_REVIEW, url=reverse("test_import_detail", args=[job.pk])).update(is_read=True)
+    MakonNotification.objects.filter(
+        user=request.user,
+        type=MakonNotification.TYPE_TEST_REVIEW,
+        url__in=[
+            reverse("manager_test_import_detail_root", args=[job.pk]),
+            reverse("support_teacher_review_detail_root", args=[job.pk]),
+            reverse("test_import_detail", args=[job.pk]),
+        ],
+    ).update(is_read=True)
     questions = list(job.questions.all())
     grouped = {}
     for question in questions:
@@ -618,16 +669,16 @@ def test_import_process(request, job_id):
     job = get_object_or_404(TestImportJob, pk=job_id)
     if job.status in {TestImportJob.STATUS_PUBLISHED, TestImportJob.STATUS_PUBLISHING}:
         messages.error(request, "A published import cannot be processed again.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect("manager_test_import_detail_root", job_id=job.pk)
     if job.status == TestImportJob.STATUS_PROCESSING and not _recover_stale_local_processing(job):
         messages.info(request, "This import is already processing in another request.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect("manager_test_import_detail_root", job_id=job.pk)
     try:
         process_import_job(job.pk, run_audit=False)
         messages.success(request, "Structured PDFs were re-parsed locally. Previous approvals were reset.")
     except Exception as exc:
         messages.error(request, f"Structured import failed: {exc}")
-    return redirect("test_import_detail", job_id=job.pk)
+    return redirect("manager_test_import_detail_root", job_id=job.pk)
 
 
 @login_required(login_url="/login/")
@@ -787,7 +838,7 @@ def test_import_question_edit(request, job_id, question_id):
         job.status = TestImportJob.STATUS_REVIEW_REQUIRED if not job.has_blocking_errors else TestImportJob.STATUS_CHANGES_REQUESTED
         job.save(update_fields=["status", "updated_at"])
         messages.success(request, f"{question.display_code} updated. Previous approvals were reset because the test changed.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
     return render(request, "sat/test_import/question_form.html", {"job": job, "question": question, "form": form})
 
 
@@ -797,7 +848,7 @@ def test_import_review(request, job_id):
     job = get_object_or_404(TestImportJob, pk=job_id)
     if job.status in {TestImportJob.STATUS_QUEUED, TestImportJob.STATUS_PROCESSING}:
         messages.error(request, "Wait for local PDF parsing to finish before reviewing this import.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
     review = job.reviews.filter(reviewer=request.user).first()
     if not _manager_allowed(request.user) and not is_support_teacher(request.user):
         return HttpResponseForbidden("Support Teacher group membership is required to review tests.")
@@ -808,21 +859,21 @@ def test_import_review(request, job_id):
     verdict = request.POST.get("verdict")
     if verdict not in {TestImportReview.VERDICT_APPROVED, TestImportReview.VERDICT_CHANGES}:
         messages.error(request, "Invalid review action.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
     if verdict == TestImportReview.VERDICT_APPROVED and job.has_blocking_errors:
         messages.error(request, "This test still has blocking validation errors and cannot be approved.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
     note = (request.POST.get("note") or "").strip()[:3000]
     if verdict == TestImportReview.VERDICT_CHANGES and not note:
         messages.error(request, "Explain what needs to be changed.")
-        return redirect("test_import_detail", job_id=job.pk)
+        return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
     review.verdict = verdict
     review.note = note
     review.reviewed_at = timezone.now()
     review.save(update_fields=["verdict", "note", "reviewed_at", "updated_at"])
     job.refresh_review_status()
     messages.success(request, "Review saved.")
-    return redirect("test_import_detail", job_id=job.pk)
+    return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
 
 
 @login_required(login_url="/login/")
@@ -836,7 +887,7 @@ def test_import_publish(request, job_id):
         messages.success(request, f"{test.name} is published and visible according to existing access rules.")
     except Exception as exc:
         messages.error(request, f"Could not publish: {exc}")
-    return redirect("test_import_detail", job_id=job.pk)
+    return redirect("manager_test_import_detail_root", job_id=job.pk)
 
 
 @login_required(login_url="/login/")
@@ -869,5 +920,25 @@ def test_import_pdf(request, job_id):
 @login_required(login_url="/login/")
 @require_POST
 def test_import_notifications_read(request):
-    MakonNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
-    return JsonResponse({"ok": True, "unread": 0})
+    """Mark notifications read without forcing a page reload.
+
+    When ``ids`` are supplied, only the notices currently rendered in the
+    notification center are marked read.  An empty request keeps the explicit
+    "Read all" behavior and marks every unread notice for the user.
+    """
+    unread_qs = MakonNotification.objects.filter(user=request.user, is_read=False)
+    raw_ids = request.POST.getlist("ids") or request.POST.getlist("ids[]")
+    notice_ids = []
+    for raw_id in raw_ids:
+        try:
+            notice_ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+    # If the caller explicitly supplied an id filter, keep that scope even
+    # when every value is malformed.  Invalid ids must never fall through to
+    # the destructive "read all" path.
+    if raw_ids:
+        unread_qs = unread_qs.filter(pk__in=notice_ids)
+    updated = unread_qs.update(is_read=True)
+    remaining = MakonNotification.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({"ok": True, "updated": updated, "unread": remaining})

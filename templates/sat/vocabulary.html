@@ -1,93 +1,98 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
-
-{% block title-main %}{% if classroom %}{{ classroom.name }}{% else %}MakonBook{% endif %}{% endblock title-main %}
-{% block title-subtitle %}<p class="page-title-subtitle">Vocabulary</p>{% endblock title-subtitle %}
-{% block title %}Vocabulary{% endblock title %}
-
-{% block style %}
-<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}">
-{% endblock style %}
-
+{% block page_title %}Vocabulary | MakonBook{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-home-v507.css' %}?v=510"><link rel="stylesheet" href="{% static 'assets/css/vocabulary-home-v511.css' %}?v=511"><link rel="stylesheet" href="{% static 'assets/css/vocabulary-home-v512.css' %}?v=512"><link rel="stylesheet" href="{% static 'assets/css/vocabulary-decks-v50.css' %}?v=506">{% endblock %}
 {% block content %}
-<div class="vocab-shell">
-  <section class="vocab-hero">
-    <div class="vocab-hero-grid">
-      <div>
-        <span class="vocab-eyebrow">Vocabulary workspace</span>
-        <h2 class="vocab-title">Learn words, prove recall, and see real progress.</h2>
-        <p class="vocab-copy">Word lists are for reference. Flashcards and quizzes are what move words from new to learning and finally mastered.</p>
-        <div class="vocab-actions">
-          {% if classroom %}
-            <a class="vocab-btn vocab-btn-primary" href="{% url 'classroom_vocabulary_section' classroom.id 'flashcards' %}">Study flashcards</a>
-            <a class="vocab-btn" href="{% url 'classroom_vocabulary_section' classroom.id 'practice-quiz' %}">Build a quiz</a>
-          {% else %}
-            <a class="vocab-btn vocab-btn-primary" href="{% url 'vocabulary_section' 'flashcards' %}">Study flashcards</a>
-            <a class="vocab-btn" href="{% url 'vocabulary_practice_quiz' %}">Build a quiz</a>
+<div class="vh506-page" data-vocab-home>
+  <header class="vh506-title"><div><span class="vh506-kicker">Vocabulary</span><h1>Vocabulary</h1></div><div class="vh506-head-actions"><a href="{% url 'vocabulary_decks_root' %}"><i class="bi bi-collection"></i> My decks <b>{{ personal_decks|length }}</b></a><a href="{% url 'vocabulary_deck_library_root' %}"><i class="bi bi-compass"></i> Library</a></div></header>
+
+  <div class="vh506-layout">
+    <main class="vh506-main">
+      <section class="vh506-queue">
+        <div><strong>{{ deck_due_total }}</strong><span>cards waiting for you today</span><small>{% if vocab_activity.learning_total %}{{ vocab_activity.learning_total }} learning{% else %}Start a deck to build your queue{% endif %}</small></div>
+        {% if focus_deck and focus_deck.word_count %}<a class="vh506-primary" href="{% url 'vocabulary_deck_study_root' focus_deck.id %}"><i class="bi bi-play-fill"></i> Start studying</a>{% else %}<a class="vh506-primary" href="{% url 'vocabulary_deck_library_root' %}"><i class="bi bi-plus-lg"></i> Choose a deck</a>{% endif %}
+      </section>
+
+      <section class="vh506-feature-row">
+        <article class="vh506-feature vh511-deck-carousel" data-deck-carousel>
+          <div class="vh511-carousel-head">
+            <span class="vh506-kicker">Your decks</span>
+            {% if personal_decks|length > 1 %}
+            <div class="vh511-carousel-controls" aria-label="Deck carousel controls">
+              <button type="button" data-deck-prev aria-label="Previous deck"><i class="bi bi-chevron-left"></i></button>
+              <button type="button" data-deck-next aria-label="Next deck"><i class="bi bi-chevron-right"></i></button>
+            </div>
+            {% endif %}
+          </div>
+          <div class="vh511-deck-stage">
+            {% for deck in personal_decks %}
+            <section class="vh511-deck-slide{% if forloop.first %} is-active{% endif %}" data-deck-slide data-deck-index="{{ forloop.counter0 }}" aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}">
+              <div class="vh512-deck-copy">
+                <div class="vh512-deck-label"><span class="vh512-live-dot"></span>Ready to study</div>
+                <h2>{{ deck.title }}</h2>
+                <div class="vh512-deck-stats" aria-label="Deck progress">
+                  <span><b>{{ deck.word_count }}</b> words</span>
+                  <span><b>{{ deck.mastered_count }}</b> mastered</span>
+                  <span><b>{{ deck.due_count }}</b> due</span>
+                </div>
+                <div class="vh506-meter" aria-label="{{ deck.mastery_percent }} percent mastered"><span style="width:{{ deck.mastery_percent }}%"></span></div>
+                <div class="vh506-actions vh512-deck-actions"><a class="vh506-light" href="{% url 'vocabulary_deck_detail_root' deck.id %}"><i class="bi bi-grid"></i> Open deck</a>{% if deck.word_count %}<a class="vh506-light vh512-study-primary" href="{% url 'vocabulary_deck_study_root' deck.id %}"><i class="bi bi-play-fill"></i> Study now</a>{% endif %}</div>
+              </div>
+              <div class="vh512-deck-art" aria-hidden="true">
+                <span class="vh512-deck-art-ring"></span>
+                <span class="vh512-deck-art-icon"><i class="bi bi-journal-bookmark-fill"></i></span>
+                <strong>{{ deck.mastery_percent }}%</strong>
+                <small>mastered</small>
+              </div>
+            </section>
+            {% empty %}
+            <section class="vh511-deck-slide is-active vh512-empty-slide" data-deck-slide data-deck-index="0" aria-hidden="false"><div class="vh512-deck-copy"><div class="vh512-deck-label"><span class="vh512-live-dot"></span>Start here</div><h2>Build your vocabulary shelf.</h2><p>Add an official MakonBook set or create a private deck with your own words.</p><div class="vh506-actions vh512-deck-actions"><a class="vh506-light vh512-study-primary" href="{% url 'vocabulary_deck_library_root' %}"><i class="bi bi-compass"></i> Browse library</a><a class="vh506-light" href="{% url 'vocabulary_decks_root' %}"><i class="bi bi-plus-lg"></i> Create deck</a></div></div><div class="vh512-deck-art" aria-hidden="true"><span class="vh512-deck-art-ring"></span><span class="vh512-deck-art-icon"><i class="bi bi-plus-lg"></i></span><strong>New</strong><small>deck</small></div></section>
+            {% endfor %}
+          </div>
+          {% if personal_decks|length > 1 %}
+          <div class="vh511-carousel-dots" aria-label="Choose deck">{% for deck in personal_decks %}<button type="button" class="{% if forloop.first %}is-active{% endif %}" data-deck-dot data-deck-index="{{ forloop.counter0 }}" aria-label="Show {{ deck.title }}" aria-current="{% if forloop.first %}true{% else %}false{% endif %}"></button>{% endfor %}</div>
           {% endif %}
-        </div>
-      </div>
-
-      <div class="vocab-summary-grid">
-        <div class="vocab-stat"><small>Mastered</small><strong>{{ summary.mastered_words }}/{{ summary.total_words }}</strong><span>{{ summary.completion_percent }}% mastery</span></div>
-        <div class="vocab-stat"><small>Studied</small><strong>{{ summary.studied_words }}</strong><span>{{ summary.unseen_words }} unseen</span></div>
-        <div class="vocab-stat"><small>Recall accuracy</small><strong>{{ summary.accuracy_percent }}%</strong><span>{{ summary.review_count }} reviews</span></div>
-        <div class="vocab-stat"><small>Quiz attempts</small><strong>{{ summary.quiz_count }}</strong><span>{% if summary.best_quiz_percent != None %}Best {{ summary.best_quiz_percent }}%{% else %}No quiz yet{% endif %}</span></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="vocab-section">
-    <div class="vocab-section-head"><div><h2>Choose a study mode</h2><p>Each mode has a different job. Do not treat browsing as mastery.</p></div></div>
-    <div class="vocab-feature-grid">
-      {% if classroom %}
-        <a class="vocab-feature-card" href="{% url 'classroom_vocabulary_section' classroom.id 'word_lists' %}">
-      {% else %}
-        <a class="vocab-feature-card" href="{% url 'vocabulary_section' 'word_lists' %}">
-      {% endif %}
-          <span class="vocab-feature-icon"><i class="fa fa-book"></i></span><h3>Word lists</h3><p>Search definitions and examples across every active unit.</p><span class="vocab-feature-link">Browse words →</span>
-        </a>
-      {% if classroom %}
-        <a class="vocab-feature-card" href="{% url 'classroom_vocabulary_section' classroom.id 'flashcards' %}">
-      {% else %}
-        <a class="vocab-feature-card" href="{% url 'vocabulary_section' 'flashcards' %}">
-      {% endif %}
-          <span class="vocab-feature-icon"><i class="fa fa-clone"></i></span><h3>Flashcards</h3><p>Rate recall with Again, Learning, or Know it. Two strong recalls can master a word.</p><span class="vocab-feature-link">Start reviewing →</span>
-        </a>
-      {% if classroom %}
-        <a class="vocab-feature-card" href="{% url 'classroom_vocabulary_section' classroom.id 'practice-quiz' %}">
-      {% else %}
-        <a class="vocab-feature-card" href="{% url 'vocabulary_practice_quiz' %}">
-      {% endif %}
-          <span class="vocab-feature-icon"><i class="fa fa-check-square-o"></i></span><h3>Practice quiz</h3><p>Test word-to-meaning, meaning-to-word, or mixed recall and save every attempt.</p><span class="vocab-feature-link">Create a quiz →</span>
-        </a>
-    </div>
-  </section>
-
-  <section class="vocab-section">
-    <div class="vocab-section-head"><div><h2>Unit progress</h2><p>Mastery is based on recorded recall, not page visits.</p></div></div>
-    <div class="vocab-unit-grid">
-      {% for row in unit_rows %}
-        <article class="vocab-unit-card">
-          <div class="vocab-unit-top"><div><h3>{{ row.unit.title }}</h3><p>{{ row.unit.description|default:"Vocabulary unit" }}</p></div><span class="vocab-badge">{{ row.word_count }} words</span></div>
-          <div class="vocab-meter"><span style="width:{{ row.mastery_percent }}%"></span></div>
-          <div class="vocab-unit-meta"><span>{{ row.mastered_words }} mastered</span><span>{{ row.studied_words }} studied</span><span>{{ row.mastery_percent }}%</span></div>
         </article>
-      {% empty %}
-        <div class="vocab-empty">No active vocabulary units yet.</div>
-      {% endfor %}
-    </div>
-  </section>
+        <a class="vh506-mydecks" href="{% url 'vocabulary_decks_root' %}"><span class="vh506-stack-icon"><i class="bi bi-collection"></i></span><span><strong>My decks</strong><small>{{ personal_decks|length }} decks</small></span><i class="bi bi-arrow-right"></i></a>
+      </section>
 
-  {% if recent_attempts %}
-  <section class="vocab-section vocab-panel">
-    <div class="vocab-section-head"><div><h2>Recent quizzes</h2><p>Your latest saved attempts.</p></div></div>
-    <div class="vocab-recent-list">
-      {% for attempt in recent_attempts %}
-      <div class="vocab-attempt-row"><div><strong>{{ attempt.score }}/{{ attempt.total_questions }} correct</strong><small>{{ attempt.get_mode_display }} · {{ attempt.completed_at|date:"M d, Y H:i" }}</small></div><strong>{{ attempt.percentage }}%</strong></div>
-      {% endfor %}
+      <section class="vh506-section" id="studyModes">
+        <div class="vh506-section-head"><div><h2>Study modes</h2><p>Pick the type of recall you want, then choose a deck.</p></div></div>
+        <div class="vh506-modes">
+          <button type="button" data-vocab-mode="memory"><span class="vh506-mode-icon memory"><i class="bi bi-layers"></i></span><span><strong>Memory Layers</strong><small>Flip, recall, repeat</small></span><i class="bi bi-arrow-right"></i></button>
+          <button type="button" data-vocab-mode="animated"><span class="vh506-mode-icon animated"><i class="bi bi-stars"></i></span><span><strong>Animated Immersion</strong><small>Meaning and example in guided steps</small></span><i class="bi bi-arrow-right"></i></button>
+          <button type="button" data-vocab-mode="bounce"><span class="vh506-mode-icon bounce"><i class="bi bi-controller"></i></span><span><strong>Word Bounce</strong><small>Rebuild the word from memory</small></span><i class="bi bi-arrow-right"></i></button>
+          <button type="button" data-vocab-mode="meaning"><span class="vh506-mode-icon visual"><i class="bi bi-bullseye"></i></span><span><strong>Meaning Match</strong><small>Choose the precise definition</small></span><i class="bi bi-arrow-right"></i></button>
+        </div>
+      </section>
+
+      <section class="vh506-progress">
+        <div class="vh506-section-head"><div><h2>Your progress</h2><p>Only saved personal-deck reviews are counted here.</p></div><a href="{% url 'vocabulary_decks_root' %}">View decks <i class="bi bi-arrow-right"></i></a></div>
+        <div class="vh506-progress-top"><strong>{{ vocab_activity.mastered_total }}</strong><span>mastered</span><b>{{ vocab_activity.learning_total }} learning</b></div>
+        <div class="vh506-meter"><span style="width:{% if vocab_activity.mastered_total or vocab_activity.learning_total %}{% widthratio vocab_activity.mastered_total vocab_activity.mastered_total|add:vocab_activity.learning_total 100 %}{% else %}0{% endif %}%"></span></div>
+      </section>
+
+      {% if featured_units %}<section class="vh506-section vh506-library-preview"><div class="vh506-section-head"><div><h2>From the MakonBook Library</h2><p>Add a ready-made deck without leaving this page.</p></div><a href="{% url 'vocabulary_deck_library_root' %}">Browse all</a></div><div class="vh506-library-grid">{% for unit in featured_units %}<article data-library-card><div><span class="vh506-kicker">Official</span><h3>{{ unit.title }}</h3><p>{{ unit.active_word_count }} words</p></div><form method="post" action="{% url 'vocabulary_deck_clone_unit_root' unit.id %}" data-deck-clone-form>{% csrf_token %}<button type="submit" class="vh506-add"><i class="bi bi-plus-lg"></i> Add</button></form></article>{% endfor %}</div></section>{% endif %}
+    </main>
+
+    <aside class="vh506-side">
+      <section class="vh510-rank-card">
+        <div class="vh506-side-head"><h3>Vocabulary rank</h3><span>{{ vocab_activity.points }} pts</span></div>
+        <div class="vh510-rank-body"><span class="vh510-rank-ring"><b>{% if vocab_activity.rank %}#{{ vocab_activity.rank }}{% else %}—{% endif %}</b></span><div><strong>{% if vocab_activity.rank %}Top {{ vocab_activity.rank_percent }}%{% else %}Start learning to rank{% endif %}</strong><small>{% if vocab_activity.rank_total %}{{ vocab_activity.rank_total }} active learners{% else %}No ranked learners yet{% endif %}</small></div></div>
+      </section>
+      <section><div class="vh506-side-head"><h3>Daily challenge</h3><span>+{{ vocab_activity.daily_goal_points }} pts</span></div><div class="vh506-goal"><span class="vh506-fire"><i class="bi bi-fire"></i></span><div><strong>Master {{ vocab_activity.daily_goal }} words today</strong><small>{% if vocab_activity.daily_goal_done >= vocab_activity.daily_goal %}Complete for today{% else %}{{ vocab_activity.daily_goal_remaining }} to go{% endif %}</small></div></div><div class="vh506-meter"><span style="width:{{ vocab_activity.daily_goal_percent }}%"></span></div><p>{{ vocab_activity.daily_goal_done }} / {{ vocab_activity.daily_goal }} mastered today</p></section>
+      <section><div class="vh506-side-head"><h3>This week</h3><span>{{ vocab_activity.reviewed_week }} words</span></div><div class="vh506-week">{% for day in vocab_activity.week %}<div><small>{{ day.label }}</small><span class="{% if day.active %}active{% endif %}{% if day.today %} today{% endif %}">{% if day.active %}<i class="bi bi-check"></i>{% endif %}</span></div>{% endfor %}</div><p>{% if vocab_activity.streak %}<i class="bi bi-fire"></i> {{ vocab_activity.streak }}-day streak{% if vocab_activity.next_streak_badge %} · {{ vocab_activity.streak_to_next_badge }} to {{ vocab_activity.next_streak_badge }}-day badge{% endif %}{% else %}Review today to start a streak{% endif %}</p></section>
+      <section class="vh510-leaderboard"><div class="vh506-side-head"><h3>Leaderboard</h3><span><i class="bi bi-trophy"></i></span></div><ol>{% for row in vocab_activity.leaderboard %}<li><span class="vh510-rank-number">{{ forloop.counter }}</span><span class="vh510-leader-name">{{ row.display_name }}</span><strong>{{ row.points }}</strong></li>{% empty %}<li class="vh510-empty-rank">Complete reviews to start the board.</li>{% endfor %}</ol>{% if vocab_activity.rank and vocab_activity.rank > 3 %}<div class="vh510-you-row"><span>#{{ vocab_activity.rank }}</span><strong>You</strong><b>{{ vocab_activity.points }}</b></div>{% endif %}</section>
+    </aside>
+  </div>
+
+  <dialog class="vh506-dialog" data-vocab-deck-dialog>
+    <div class="vh506-dialog-card"><header><div><span class="vh506-kicker" data-mode-kicker>Study mode</span><h2 data-mode-title>Choose a deck</h2><p>Pick the deck you want to use.</p></div><button type="button" data-vocab-dialog-close aria-label="Close"><i class="bi bi-x-lg"></i></button></header>
+      <div class="vh506-deck-choices is-scrollable">
+        {% for deck in personal_decks %}<a href="#" data-vocab-deck-choice style="--vh511-index:{{ forloop.counter0 }}" data-memory-url="{% url 'vocabulary_deck_study_root' deck.id %}" data-animated-url="{% url 'vocabulary_deck_arena_root' deck.id 'animated-immersion' %}" data-bounce-url="{% url 'vocabulary_deck_arena_root' deck.id 'word-bounce' %}" data-meaning-url="{% url 'vocabulary_deck_arena_root' deck.id 'meaning-match' %}"><span class="vh506-deck-letter">{{ deck.title|slice:":1"|upper }}</span><span><strong>{{ deck.title }}</strong><small>{{ deck.word_count }} words · {{ deck.due_count }} due</small></span><i class="bi bi-chevron-right"></i></a>{% empty %}<div class="vh506-dialog-empty"><strong>No decks yet.</strong><p>Add a library deck first.</p><a href="{% url 'vocabulary_deck_library_root' %}">Open Library</a></div>{% endfor %}
+      </div>
     </div>
-  </section>
-  {% endif %}
+  </dialog>
 </div>
-{% endblock content %}
+{% endblock %}
+{% block student_workspace_scripts %}{{ block.super }}<script src="{% static 'assets/js/vocabulary-decks-v50.js' %}?v=506"></script><script src="{% static 'assets/js/vocabulary-home-v511.js' %}?v=511"></script>{% endblock %}

@@ -80,7 +80,7 @@ class ClassroomApprovalVisibilityTests(TestCase):
 
         student_client = Client()
         student_client.force_login(self.student)
-        response = student_client.get(reverse("sat_menu"))
+        response = student_client.get(reverse("student_dashboard_root"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Visible Classroom")
         self.assertContains(response, "Open classroom")
@@ -89,7 +89,7 @@ class ClassroomApprovalVisibilityTests(TestCase):
     def test_pending_request_page_contains_auto_refresh_watcher(self):
         student_client = Client()
         student_client.force_login(self.student)
-        response = student_client.get(reverse("sat_menu"))
+        response = student_client.get(reverse("student_dashboard_root"))
         self.assertContains(response, 'data-membership-status-watch')
         self.assertContains(response, "Pending")
 
@@ -1028,7 +1028,7 @@ class MakeupTestFlowV18Tests(TestCase):
         self.assertEqual(first.status_code, 200)
         second = self.submit('math', 'm1', self.math_q, 'B')
         self.assertEqual(second.status_code, 200)
-        self.assertEqual(second.json()['redirect_url'], reverse('sat_menu'))
+        self.assertEqual(second.json()['redirect_url'], reverse('student_dashboard_root'))
         self.stage.refresh_from_db()
         self.assertEqual(self.stage.stage, 3)
 

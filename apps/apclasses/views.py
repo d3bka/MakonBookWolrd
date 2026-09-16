@@ -11,7 +11,8 @@ from django.views.decorators.http import require_POST
 
 from .models import APExamAnswer, APExamAttempt, APExamEvent, APFRQSubmission, APMultipleChoiceQuestion
 from apps.sat.models import GuestParticipant
-from apps.sat.roles import is_teacher as has_teacher_access
+from apps.sat.roles import is_teacher as has_teacher_access, is_manager, is_support_teacher, is_platform_admin
+from apps.sat.student_workspace import should_use_student_workspace, student_workspace_context
 
 
 AP_PART_FIELDS = {
@@ -193,6 +194,26 @@ def _get_visible_event_or_404(request, slug):
 
 def ap_event_list_view(request):
     events = _visible_events_queryset(request)
+    if should_use_student_workspace(request.user):
+        student_events = list(events)
+        live_events = [event for event in student_events if event.is_live_now]
+        upcoming_events = sorted(
+            [event for event in student_events if not event.is_live_now and event.start_at and event.start_at >= timezone.now()],
+            key=lambda event: event.start_at,
+        )
+        featured_event = (live_events or upcoming_events or student_events or [None])[0]
+        context = {
+            "events": student_events,
+            "ap_featured_event": featured_event,
+            "ap_live_count": len(live_events),
+            "ap_scheduled_count": sum(1 for event in student_events if not event.is_live_now),
+            "ap_global_count": sum(1 for event in student_events if event.is_global),
+            "ap_code_count": sum(1 for event in student_events if event.requires_secret_code),
+        }
+        context.update(student_workspace_context(request.user, active="ap"))
+        return render(request, "apclasses/event_list_student.html", context)
+    if request.user.is_authenticated and (has_teacher_access(request.user) or is_manager(request.user) or is_support_teacher(request.user) or is_platform_admin(request.user)):
+        return render(request, "apclasses/event_list_staff.html", {"events": list(events)})
     return render(request, "apclasses/event_list.html", {"events": events})
 
 
@@ -210,19 +231,21 @@ def ap_event_detail_view(request, slug):
         messages.error(request, "Wrong secret code.")
         return redirect("apclasses:event_detail", slug=slug)
 
-    return render(
-        request,
-        "apclasses/event_detail.html",
-        {
-            "event": event,
-            "existing_attempt": existing_attempt,
-            "attempts": attempts,
-            "attempts_used": attempts.count(),
-            "attempts_remaining": max(0, int(event.max_attempts or 1) - attempts.count()),
-            "can_start_new_attempt": _can_start_new_attempt(request, event, attempts),
-            "secret_unlocked": _is_secret_unlocked(request, event),
-        },
-    )
+    context = {
+        "event": event,
+        "existing_attempt": existing_attempt,
+        "attempts": attempts,
+        "attempts_used": attempts.count(),
+        "attempts_remaining": max(0, int(event.max_attempts or 1) - attempts.count()),
+        "can_start_new_attempt": _can_start_new_attempt(request, event, attempts),
+        "secret_unlocked": _is_secret_unlocked(request, event),
+    }
+    if should_use_student_workspace(request.user):
+        context.update(student_workspace_context(request.user, active="ap"))
+        return render(request, "apclasses/event_detail_student.html", context)
+    if request.user.is_authenticated and (has_teacher_access(request.user) or is_manager(request.user) or is_support_teacher(request.user) or is_platform_admin(request.user)):
+        return render(request, "apclasses/event_detail_staff.html", context)
+    return render(request, "apclasses/event_detail.html", context)
 
 
 @require_POST

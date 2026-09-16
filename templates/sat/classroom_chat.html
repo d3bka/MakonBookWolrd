@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}{{ classroom.name }}{% endblock title-main %}
 {% block title %}Classroom Chat{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <style>
   .chat-page {
     max-width: 1350px;
@@ -361,7 +362,7 @@
 
       <div class="chat-side-actions">
         {% if role == 'teacher' or role == 'admin' %}
-          <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="btn-main btn-secondary">
+          <a href="{% url 'teacher_classroom_root' classroom.id %}" class="btn-main btn-secondary">
             Back to Dashboard
           </a>
         {% else %}
@@ -381,7 +382,7 @@
 
         <div class="chat-header-actions">
           {% if role == 'teacher' or role == 'admin' %}
-            <a href="{% url 'classroom_progress_dashboard' classroom.id %}" class="btn-main">
+            <a href="{% url 'teacher_classroom_progress_root' classroom.id %}" class="btn-main">
               View Progress
             </a>
           {% endif %}

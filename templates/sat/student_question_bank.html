@@ -1,0 +1,70 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Question Bank · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page v523-qbank-page v524-qbank-page">
+  <section class="v523-hero v523-qbank-hero v523-reveal">
+    <span class="v523-kicker"><i class="bi bi-card-checklist"></i> Question Bank</span>
+    <h1>Find a skill. Open a real question.</h1>
+    <p>Only questions from tests explicitly assigned through your approved classrooms appear here. Search stays inside one bank for both EBRW and Math.</p>
+  </section>
+
+  {% if question_bank_locked %}
+    <section class="v523-card v523-reveal" style="margin-top:16px;--reveal-index:1"><div class="v523-empty"><i class="bi bi-lock"></i><h2>Question Bank is locked.</h2><p>Join a classroom and wait for a teacher to assign SAT material.</p><a class="mb50-primary-btn" href="{% url 'events' %}">Open Events &amp; access <i class="bi bi-arrow-right"></i></a></div></section>
+  {% else %}
+    <form class="v524-qbank-toolbar v523-reveal" method="get" style="--reveal-index:1" data-qbank-filter>
+      <div class="v524-qbank-subjects" role="tablist" aria-label="SAT section">
+        <button type="button" data-qbank-subject="all" class="{% if question_subject == 'all' %}is-active{% endif %}">All</button>
+        <button type="button" data-qbank-subject="english" class="{% if question_subject == 'english' %}is-active{% endif %}">EBRW</button>
+        <button type="button" data-qbank-subject="math" class="{% if question_subject == 'math' %}is-active{% endif %}">MATH</button>
+      </div>
+      <input type="hidden" name="subject" value="{{ question_subject }}" data-qbank-subject-input>
+      <label class="v524-qbank-search"><i class="bi bi-search"></i><input name="q" value="{{ question_query }}" placeholder="Search by question, domain or skill…" autocomplete="off"><kbd>/</kbd></label>
+      <div class="v524-qbank-selects">
+        <label><span>Module</span><select name="module" data-qbank-auto><option value="all"{% if question_module == 'all' %} selected{% endif %}>All modules</option><option value="m1"{% if question_module == 'm1' %} selected{% endif %}>Module 1</option><option value="m2"{% if question_module == 'm2' %} selected{% endif %}>Module 2</option></select><i class="bi bi-chevron-down"></i></label>
+        <label><span>Skill</span><select name="type" data-qbank-auto><option value="">All skills</option>{% for type in question_types %}<option value="{{ type.id }}"{% if question_type_id == type.id|stringformat:'s' %} selected{% endif %}>{{ type.domain.name|default:"SAT" }} · {{ type.name }}</option>{% endfor %}</select><i class="bi bi-chevron-down"></i></label>
+        <button class="mb50-primary-btn" type="submit"><i class="bi bi-funnel"></i> Apply</button>
+      </div>
+    </form>
+
+    <section class="v523-qbank-summary v523-reveal" style="--reveal-index:2">
+      <div><strong>{{ question_total_accessible }}</strong><span>accessible</span></div><div><strong>{{ question_totals.english }}</strong><span>EBRW</span></div><div><strong>{{ question_totals.math }}</strong><span>Math</span></div><div><strong>{{ question_totals.m1 }}</strong><span>Module 1</span></div><div><strong>{{ question_totals.m2 }}</strong><span>Module 2</span></div>
+    </section>
+
+    <section class="v523-qbank-grid v524-qbank-grid">
+      {% for row in question_page %}
+        {% with q=row.question %}
+        {% if q.type_id %}<a class="v523-qbank-card v524-qbank-card v523-reveal" href="{% url 'student_topic_practice_root' row.section q.type_id %}?question={{ q.id }}" style="--reveal-index:{{ forloop.counter|add:2 }}">{% else %}<article class="v523-qbank-card v524-qbank-card v523-reveal" style="--reveal-index:{{ forloop.counter|add:2 }}">{% endif %}
+          <div class="v523-qbank-meta"><span class="is-{{ row.section }}">{% if row.section == 'math' %}Math{% else %}EBRW{% endif %}</span><span>{{ q.get_module_display|default:q.module }}</span>{% if q.type %}<span>{{ q.type.name }}</span>{% endif %}</div>
+          <h2>#{{ q.number|default:"—" }} · {{ q.test.name }}</h2>
+          {% if q.passage %}<div class="v523-qbank-passage">{{ q.passage|safe|truncatechars_html:420 }}</div>{% endif %}
+          <p class="v523-qbank-question">{{ q.question|safe|truncatechars_html:360 }}</p>
+          <div class="v523-qbank-foot"><span>{{ q.domain.name|default:"SAT" }}</span>{% if q.type_id %}<span class="v524-card-open">Open question <i class="bi bi-arrow-up-right"></i></span>{% endif %}</div>
+        {% if q.type_id %}</a>{% else %}</article>{% endif %}
+        {% endwith %}
+      {% empty %}
+        <div class="v523-card"><div class="v523-empty"><i class="bi bi-search"></i><h2>No questions match those filters.</h2><p>Try a broader section, module, or search phrase.</p></div></div>
+      {% endfor %}
+    </section>
+
+    {% if question_page.paginator.num_pages > 1 %}
+    <nav class="v523-pagination" aria-label="Question pages">
+      {% if question_page.has_previous %}<a href="?q={{ question_query|urlencode }}&subject={{ question_subject }}&module={{ question_module }}&type={{ question_type_id }}&page={{ question_page.previous_page_number }}"><i class="bi bi-chevron-left"></i> Previous</a>{% endif %}
+      <span>Page {{ question_page.number }} of {{ question_page.paginator.num_pages }}</span>
+      {% if question_page.has_next %}<a href="?q={{ question_query|urlencode }}&subject={{ question_subject }}&module={{ question_module }}&type={{ question_type_id }}&page={{ question_page.next_page_number }}">Next <i class="bi bi-chevron-right"></i></a>{% endif %}
+    </nav>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}
+<script>
+(function(){
+  var form=document.querySelector('[data-qbank-filter]'); if(!form)return;
+  var hidden=form.querySelector('[data-qbank-subject-input]');
+  form.querySelectorAll('[data-qbank-subject]').forEach(function(btn){btn.addEventListener('click',function(){hidden.value=btn.dataset.qbankSubject;form.querySelectorAll('[data-qbank-subject]').forEach(function(b){b.classList.toggle('is-active',b===btn);});form.classList.add('is-switching');setTimeout(function(){form.submit();},150);});});
+  form.querySelectorAll('[data-qbank-auto]').forEach(function(el){el.addEventListener('change',function(){form.classList.add('is-switching');setTimeout(function(){form.submit();},120);});});
+  document.addEventListener('keydown',function(e){if(e.key==='/'&&!/input|textarea|select/i.test((document.activeElement||{}).tagName||'')){e.preventDefault();var q=form.querySelector('input[name=q]');if(q)q.focus();}});
+})();
+</script>
+{% endblock %}

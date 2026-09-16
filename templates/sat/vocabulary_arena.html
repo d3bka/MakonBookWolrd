@@ -1,0 +1,32 @@
+{% extends 'template.html' %}
+{% load static %}
+{% block title-main %}{{ arena_config.title }}{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=510">{% endblock %}
+{% block body %}
+<div class="va509-shell" data-vocab-arena data-mode="{{ arena_mode }}" data-mark-url="{{ mark_url }}" data-deck-url="{% url 'vocabulary_deck_detail_root' deck.id %}" data-lives="3">
+  <div class="va509-topbar">
+    <div class="va509-top-inner">
+      <a class="va509-back" href="{% url 'vocabulary_deck_detail_root' deck.id %}" aria-label="Back to deck"><i class="bi bi-arrow-left"></i></a>
+      <div class="va509-title">
+        <strong>{{ arena_config.title }}</strong>
+        <small>{{ deck.title }}</small>
+      </div>
+      <div class="va509-status" data-arena-toast aria-live="polite"></div>
+      <div class="va509-hud" aria-label="Session status">
+        <span class="va509-stat"><small>Score</small><b data-arena-score>0</b></span>
+        <span class="va509-stat"><small>Streak</small><b data-arena-streak>0</b></span>
+        <span class="va509-stat va509-lives-stat" data-arena-lives-wrap hidden><small>Lives</small><b data-arena-lives></b></span>
+        <span class="va509-counter" data-arena-counter>1 / {{ arena_words|length }}</span>
+      </div>
+    </div>
+    <div class="va509-progress" aria-hidden="true"><span data-arena-progress></span></div>
+  </div>
+
+  <main class="va509-stage">
+    <section class="va509-card" data-arena-card aria-live="polite"></section>
+  </main>
+  <div class="va509-footer" data-arena-footer></div>
+  {{ arena_words|json_script:"vocab-arena-data" }}
+</div>
+{% endblock %}
+{% block scripts %}{{ block.super }}<script src="{% static 'assets/js/vocabulary-arena-v509.js' %}?v=509"></script>{% endblock %}

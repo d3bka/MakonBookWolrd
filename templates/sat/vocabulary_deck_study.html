@@ -1,0 +1,78 @@
+{% extends 'template.html' %}
+{% load static %}
+{% block title-main %}Memory Layers | MakonBook{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=510">{% endblock %}
+{% block body %}
+<div class="va509-shell va509-memory-shell" data-memory-layers data-mark-url="{{ mark_url }}" data-deck-url="{% url 'vocabulary_deck_detail_root' deck.id %}" data-study-all-url="{% url 'vocabulary_deck_study_root' deck.id %}?all=1">
+  <div class="va509-topbar">
+    <div class="va509-top-inner">
+      <a class="va509-back" href="{% url 'vocabulary_deck_detail_root' deck.id %}" aria-label="Back to deck"><i class="bi bi-arrow-left"></i></a>
+      <div class="va509-title">
+        <strong>Memory Layers</strong>
+        <small>{{ deck.title }}</small>
+      </div>
+      <div class="va509-status" data-memory-toast aria-live="polite"></div>
+      <div class="va509-hud" aria-label="Session status">
+        <span class="va509-stat"><small>Strong</small><b data-memory-known>0</b></span>
+        <span class="va509-stat"><small>Again</small><b data-memory-again>0</b></span>
+        <span class="va509-counter" data-memory-counter>{% if cards %}1 / {{ cards|length }}{% else %}0 / 0{% endif %}</span>
+      </div>
+    </div>
+    <div class="va509-progress" aria-hidden="true"><span data-memory-progress></span></div>
+  </div>
+
+  <main class="va509-stage">
+    {% if cards %}
+    <section class="va509-card va509-memory-card" tabindex="0" role="button" aria-label="Flip flashcard" data-study-stage>
+      <div class="va509-card-head">
+        <span class="va509-kicker">Memory Layers</span>
+        <span class="va509-pill">Space to flip</span>
+      </div>
+      {% for item in cards %}
+      <article class="va509-memory-item" data-study-item data-word-id="{{ item.word.id }}" data-status="{{ item.status }}" hidden>
+        <div class="va509-memory-inner">
+          <div class="va509-memory-side va509-memory-front">
+            <span class="va509-memory-status">{{ item.status }}</span>
+            <div class="va509-memory-word">{{ item.word.word }}</div>
+            <div class="va509-memory-prompt"><i class="bi bi-arrow-repeat"></i> Recall first, then reveal.</div>
+          </div>
+          <div class="va509-memory-side va509-memory-back">
+            <span class="va509-memory-status">Answer</span>
+            <div class="va509-memory-back-word">{{ item.word.word }}</div>
+            <div class="va509-memory-meaning">{{ item.word.meaning }}</div>
+            {% if item.word.example %}<div class="va509-memory-example"><span>Example</span>{{ item.word.example }}</div>{% endif %}
+            <div class="va509-memory-prompt">Rate the recall you had before flipping.</div>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="va509-card">
+      <div class="va509-center va509-result">
+        <span class="va509-icon-orb"><i class="bi bi-check-lg"></i></span>
+        <span class="va509-kicker">Queue clear</span>
+        <h2>Nothing is due right now.</h2>
+        <p>You have cleared today's new and learning queue.</p>
+      </div>
+    </section>
+    {% endif %}
+  </main>
+
+  <div class="va509-footer va509-memory-footer">
+    {% if cards %}
+      <div class="va509-memory-actions" data-rate>
+        <button class="va509-btn danger" type="button" data-outcome="again" disabled><span class="va509-key">1</span> Again</button>
+        <button class="va509-btn helper" type="button" data-outcome="learning" disabled><span class="va509-key">2</span> Still learning</button>
+        <button class="va509-btn primary va509-memory-primary" type="button" data-outcome="known" disabled><span class="va509-key">3</span> Know it</button>
+      </div>
+      <span class="va509-footer-note" data-memory-instruction><i class="bi bi-keyboard"></i> Space to flip · 1 / 2 / 3 to rate</span>
+      <span class="va509-sync-state" data-save-state>Saved</span>
+    {% else %}
+      <a class="va509-btn" href="{% url 'vocabulary_deck_detail_root' deck.id %}">Back to deck</a>
+      {% if total_word_count %}<a class="va509-btn primary" href="{% url 'vocabulary_deck_study_root' deck.id %}?all=1">Review anyway</a>{% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}{{ block.super }}{% if cards %}<script src="{% static 'assets/js/vocabulary-memory-v509.js' %}?v=510"></script>{% endif %}{% endblock %}

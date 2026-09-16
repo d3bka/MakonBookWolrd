@@ -1,4 +1,4 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
 
 {% block title-main %}Book Support Classes{% endblock title-main %}
@@ -6,16 +6,12 @@
 {% block title %}Support Teachers{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <link rel="stylesheet" href="{% static 'assets/css/support-booking-v33.css' %}?v=33">
 {% endblock style %}
 
 {% block content %}
 <div class="support-shell support-stack">
-  {% if messages %}
-    {% for message in messages %}
-      <div class="support-alert {{ message.tags|default:'info' }}"><i class="bi bi-info-circle"></i><span>{{ message }}</span></div>
-    {% endfor %}
-  {% endif %}
 
   <section class="support-card support-hero">
     <div class="support-hero-content">
@@ -25,10 +21,10 @@
         <p>You no longer compete for random time slots. Choose a support teacher, then choose a title and a specific topic. Students requesting the same topic are grouped into the same lesson, while the support teacher controls the schedule.</p>
         <div class="support-hero-actions">
           {% if can_book %}
-            <a class="support-btn support-btn-light" href="{% url 'my_support_lessons' %}"><i class="bi bi-calendar2-check"></i> My requests & lessons</a>
+            <a class="support-btn support-btn-light" href="{% url 'my_support_lessons_root' %}"><i class="bi bi-calendar2-check"></i> My requests & lessons</a>
           {% endif %}
           {% if is_support_teacher_role %}
-            <a class="support-btn support-btn-ghost-light" href="{% url 'support_teacher_planner' %}"><i class="bi bi-grid-1x2"></i> Teacher planner</a>
+            <a class="support-btn support-btn-ghost-light" href="{% url 'support_teacher_planner_root' %}"><i class="bi bi-grid-1x2"></i> Teacher planner</a>
           {% endif %}
         </div>
       </div>
@@ -57,7 +53,7 @@
     <section class="support-card support-card-pad">
       <div class="support-section-head">
         <div><h2>Your upcoming schedule</h2><p>Your already planned support sessions.</p></div>
-        <a class="support-btn support-btn-secondary" href="{% url 'my_support_lessons' %}">View all</a>
+        <a class="support-btn support-btn-secondary" href="{% url 'my_support_lessons_root' %}">View all</a>
       </div>
       <div class="support-lesson-list">
         {% for booking in my_upcoming_bookings %}
@@ -131,7 +127,7 @@
             <div class="support-grouping-note"><i class="bi bi-people-fill"></i><div><strong>Smart topic grouping</strong><span>Students with the same topic are placed into the same planned session.</span></div></div>
 
             <div class="support-card-footer">
-              <a class="support-btn support-btn-primary" href="{% url 'support_teacher_detail' teacher.id %}"><i class="bi bi-list-check"></i> Choose topic</a>
+              <a class="support-btn support-btn-primary" href="{% url 'support_teacher_detail_root' teacher.id %}"><i class="bi bi-list-check"></i> Choose topic</a>
               {% if teacher.clean_telegram_username %}<a class="support-btn support-btn-secondary" href="{{ teacher.telegram_url }}" target="_blank" rel="noopener" aria-label="Open Telegram"><i class="bi bi-telegram"></i></a>{% endif %}
             </div>
           </article>
@@ -139,7 +135,7 @@
         {% endfor %}
       </div>
     {% else %}
-      <div class="support-card support-empty"><div class="support-empty-icon"><i class="bi bi-person-x"></i></div><h3>No teachers match these filters</h3><p>Clear the search or choose another subject.</p><a class="support-btn support-btn-secondary" href="{% url 'support_teacher_list' %}">Reset filters</a></div>
+      <div class="support-card support-empty"><div class="support-empty-icon"><i class="bi bi-person-x"></i></div><h3>No teachers match these filters</h3><p>Clear the search or choose another subject.</p><a class="support-btn support-btn-secondary" href="{% url 'support_teacher_list_root' %}">Reset filters</a></div>
     {% endif %}
   </section>
 </div>

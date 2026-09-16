@@ -1,0 +1,34 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}{{ practice_type.name }} · Practice{% endblock %}
+{% block content %}
+<div class="v523-page v523-drill" data-topic-drill data-check-url="{% url 'student_topic_check_root' %}" data-section="{{ practice_section }}">
+  <header class="v523-drill-head"><a href="{% url 'student_practice_root' %}" class="mb50-secondary-btn"><i class="bi bi-arrow-left"></i> Practice</a><div><span>{{ practice_type.domain.name }}</span><h1>{{ practice_type.name }}</h1></div><strong data-drill-progress>1 / {{ practice_questions|length }}</strong></header>
+  {% if practice_questions %}
+    <div class="v523-drill-track"><span data-drill-track style="width:{% widthratio 1 practice_questions|length 100 %}%"></span></div>
+    <section class="v523-drill-stage">
+      {% for q in practice_questions %}
+        <article class="v523-question-slide{% if forloop.first %} is-active{% endif %}" data-question-slide data-question-id="{{ q.id }}" data-index="{{ forloop.counter0 }}" data-open="{% if practice_section == 'english' and q.is_open_text %}1{% elif practice_section == 'math' and q.written %}1{% else %}0{% endif %}">
+          <div class="v523-question-meta"><span>{{ q.test.name }}</span><span>{{ q.get_module_display }}</span><span>#{{ q.number }}</span></div>
+          {% if q.passage %}<div class="v523-question-passage">{{ q.passage|linebreaksbr }}</div>{% endif %}
+          {% if q.image %}<img class="v523-question-image" src="{{ q.image.url }}" alt="Question visual">{% endif %}
+          <h2>{{ q.question|linebreaksbr }}</h2>
+          <div class="v523-answer-zone">
+            {% if practice_section == 'english' and q.is_open_text or practice_section == 'math' and q.written %}
+              <input class="v523-open-answer" type="text" placeholder="Type your answer" data-open-answer autocomplete="off">
+            {% else %}
+              {% if q.a %}<button type="button" data-choice="A"><b>A</b><span>{{ q.a }}</span></button>{% endif %}
+              {% if q.b %}<button type="button" data-choice="B"><b>B</b><span>{{ q.b }}</span></button>{% endif %}
+              {% if q.c %}<button type="button" data-choice="C"><b>C</b><span>{{ q.c }}</span></button>{% endif %}
+              {% if q.d %}<button type="button" data-choice="D"><b>D</b><span>{{ q.d }}</span></button>{% endif %}
+            {% endif %}
+          </div>
+          <div class="v523-answer-feedback" data-feedback hidden></div>
+        </article>
+      {% endfor %}
+    </section>
+    <footer class="v523-drill-actions"><button class="mb50-secondary-btn" type="button" data-drill-prev disabled><i class="bi bi-arrow-left"></i> Previous</button><button class="mb50-primary-btn" type="button" data-drill-check>Check answer</button><button class="mb50-primary-btn" type="button" data-drill-next hidden>Next <i class="bi bi-arrow-right"></i></button></footer>
+  {% else %}<div class="v523-card"><div class="v523-empty">No assigned questions are available for this topic.</div></div>{% endif %}
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}<script src="{% static 'assets/js/student-topic-practice-v523.js' %}?v=523"></script>{% endblock %}

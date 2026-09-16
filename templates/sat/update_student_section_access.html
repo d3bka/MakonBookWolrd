@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}Update Access{% endblock title-main %}
 {% block title %}Student Access{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <style>
   .access-wrap {
     max-width: 700px;
@@ -35,7 +36,7 @@
 {% block content %}
 <div class="mk-learning mk-access-page" data-learning-page="student-section-access">
   <div class="access-wrap">
-    <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="back-link">← Back to Dashboard</a>
+    <a href="{% url 'teacher_classroom_root' classroom.id %}" class="back-link">← Back to Dashboard</a>
     <div class="access-hero">
       <h2>Update Student Access</h2>
       <p>{{ membership.user.get_full_name|default:membership.user.username }} · {{ classroom.name }}</p>

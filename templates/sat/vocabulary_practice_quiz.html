@@ -1,11 +1,11 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
 
 {% block title-main %}{% if classroom %}{{ classroom.name }}{% else %}MakonBook{% endif %}{% endblock title-main %}
-{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
+{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
 {% block title %}Practice Quiz{% endblock title %}
 
-{% block style %}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}">{% endblock style %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=505">{% endblock style %}
 
 {% block content %}
 <div class="vocab-shell">
@@ -24,7 +24,7 @@
   {% if messages %}<section class="vocab-section">{% for message in messages %}<div class="vocab-panel" style="margin-bottom:10px">{{ message }}</div>{% endfor %}</section>{% endif %}
 
   <section class="vocab-section vocab-quiz-layout">
-    <form class="vocab-panel" method="post" action="{% if classroom %}{% url 'classroom_vocabulary_practice_quiz_start' classroom.id %}{% else %}{% url 'vocabulary_practice_quiz_start' %}{% endif %}" data-vocab-quiz-builder>
+    <form class="vocab-panel" method="post" action="{% if classroom %}{% url 'classroom_vocabulary_practice_quiz_start' classroom.id %}{% else %}{% url 'vocabulary_practice_quiz_start_root' %}{% endif %}" data-vocab-quiz-builder>
       {% csrf_token %}
       <div class="vocab-section-head"><div><h2>Select units</h2><p><span data-selected-units>0</span> selected · <span data-available-words>0</span> available words</p></div><div class="vocab-actions" style="margin:0"><button class="vocab-btn" type="button" data-select-all>Select all</button><button class="vocab-btn" type="button" data-clear-all>Clear</button></div></div>
       <div class="vocab-quiz-unit-list">
@@ -52,5 +52,5 @@
     </aside>
   </section>
 </div>
-<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}"></script>
+<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}?v=505"></script>
 {% endblock content %}

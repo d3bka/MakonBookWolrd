@@ -1,0 +1,10 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block content %}
+<div class="sf29-page">
+  <section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-person-video3"></i> Support teachers</span><h1>Support team.</h1><p>Search by name, account, email or specialty. Switch between list and card view without losing the filter.</p></section>
+  <section class="sf29-card span-12">
+    <form class="sf210-toolbar sf210-directory-toolbar" method="get" action="{% url 'manager_support_teacher_list_root' %}" data-v50211-live-form data-v50211-region="manager-support-teachers"><label class="sf210-search grow"><i class="bi bi-search"></i><input type="search" name="q" value="{{ query }}" placeholder="Search support teachers…" autocomplete="off"></label><span class="sf210-live-status" data-v50211-result-count>{{ support_teachers|length }} result{{ support_teachers|length|pluralize }}</span><div class="sf29-view-toggle" data-sf29-view-toggle="support-teachers" data-sf29-target="#support-teacher-directory"><button type="button" data-view="list" aria-label="List view"><i class="bi bi-list-ul"></i></button><button type="button" data-view="grid" aria-label="Card view"><i class="bi bi-grid-3x3-gap"></i></button></div></form>
+    <div data-v50211-live-region="manager-support-teachers"><div class="sf29-directory is-list sf29-list" id="support-teacher-directory">{% for t in support_teachers %}<a class="sf29-row" href="{% url 'support_teacher_detail_root' t.id %}"><span class="mb50-avatar">{{ t.name|first|upper }}</span><div class="grow"><strong>{{ t.name }}</strong><small>{{ t.headline|default:'Support Teacher' }}{% if t.subjects %} · {{ t.subjects }}{% endif %}</small>{% if t.user.email %}<small>{{ t.user.email }}</small>{% endif %}</div><i class="bi bi-chevron-right"></i></a>{% empty %}<div class="sf29-empty">No support teachers match this search.</div>{% endfor %}</div></div>
+  </section>
+</div>
+{% endblock %}

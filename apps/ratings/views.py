@@ -7,11 +7,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.sat.roles import is_teacher as has_teacher_access
-from apps.sat.models import Classroom, ClassroomMembership
+from apps.sat.models import Classroom, ClassroomMembership, MakonNotification
 
 from .engine import build_board, student_rating
 from .forms import RatingAssessmentForm
@@ -237,13 +239,22 @@ def rating_home(request):
     if request.user.is_authenticated and not request.user.is_staff and not request.user.is_superuser:
         entry = student_rating(request.user)
         history = RatingAssessment.objects.filter(student=request.user).select_related("classroom", "teacher")[:100]
-        return render(request, "ratings/student_dashboard.html", {
+        context = {
             "entry": entry,
             "history": history,
             "board": board,
             "config": config,
             "profile": RatingProfile.objects.get_or_create(user=request.user)[0],
-        })
+        }
+        # Ranking is deliberately separate from the student's own learning
+        # Progress page. Merge the complete workspace context so the shell
+        # keeps real level/sidebar/classroom state instead of rendering zeros.
+        try:
+            from apps.sat.student_workspace import student_workspace_context
+            context.update(student_workspace_context(request.user, active="ranking"))
+        except Exception:
+            context["student_workspace_active"] = "ranking"
+        return render(request, "ratings/student_dashboard.html", context)
     return render(request, "ratings/public_board.html", {"board": board, "config": config})
 
 
@@ -299,9 +310,82 @@ def teacher_classroom_ratings(request, classroom_id):
     classroom = get_object_or_404(Classroom, pk=classroom_id)
     if not _is_teacher_for(request.user, classroom):
         raise PermissionDenied
-    memberships = ClassroomMembership.objects.filter(classroom=classroom, role="student", status="approved").select_related("user").order_by("user__first_name", "user__last_name", "user__username")
+    memberships = list(ClassroomMembership.objects.filter(classroom=classroom, role="student", status="approved").select_related("user").order_by("user__first_name", "user__last_name", "user__username"))
+    for index, membership in enumerate(memberships):
+        membership.previous_student_id = memberships[index - 1].user_id if index > 0 else None
+        membership.next_student_id = memberships[index + 1].user_id if index + 1 < len(memberships) else None
     recent = RatingAssessment.objects.filter(classroom=classroom, teacher=request.user).select_related("student")[:30]
-    return render(request, "ratings/teacher_classroom.html", {"classroom": classroom, "memberships": memberships, "recent": recent, "config": RatingConfig.get_solo()})
+    return render(request, "ratings/teacher_classroom.html", {
+        "classroom": classroom,
+        "memberships": memberships,
+        "recent": recent,
+        "config": RatingConfig.get_solo(),
+        "assessment_form": RatingAssessmentForm(),
+    })
+
+
+@login_required
+@require_POST
+def save_assessment_deck(request, classroom_id):
+    classroom = get_object_or_404(Classroom, pk=classroom_id)
+    if not _is_teacher_for(request.user, classroom):
+        raise PermissionDenied
+    memberships = {
+        row.user_id: row
+        for row in ClassroomMembership.objects.filter(
+            classroom=classroom, role="student", status="approved"
+        ).select_related("user")
+    }
+    selected_ids = []
+    for raw_id in request.POST.getlist("student_ids"):
+        try:
+            student_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if student_id in memberships and request.POST.get(f"include_{student_id}") == "1":
+            selected_ids.append(student_id)
+    if not selected_ids:
+        messages.error(request, "Enter or change at least one student's assessment before saving the deck.")
+        return redirect("teacher_classroom_assessments_root", classroom_id=classroom.id)
+
+    prepared = []
+    for student_id in selected_ids:
+        payload = {
+            "homework": request.POST.get(f"homework_{student_id}"),
+            "progress": request.POST.get(f"progress_{student_id}"),
+            "activity": request.POST.get(f"activity_{student_id}"),
+            "attendance": request.POST.get(f"attendance_{student_id}"),
+            "behavior": request.POST.get(f"behavior_{student_id}"),
+            "comment": request.POST.get(f"comment_{student_id}", ""),
+        }
+        form = RatingAssessmentForm(payload)
+        if not form.is_valid():
+            messages.error(request, f"Check the scores for {memberships[student_id].user.get_full_name() or memberships[student_id].user.username}.")
+            return redirect("teacher_classroom_assessments_root", classroom_id=classroom.id)
+        prepared.append((student_id, form))
+
+    created = []
+    with transaction.atomic():
+        for student_id, form in prepared:
+            assessment = form.save(commit=False)
+            assessment.classroom = classroom
+            assessment.student_id = student_id
+            assessment.teacher = request.user
+            assessment.full_clean()
+            assessment.save()
+            created.append(assessment)
+        MakonNotification.objects.bulk_create([
+            MakonNotification(
+                user_id=assessment.student_id,
+                type=MakonNotification.TYPE_ASSESSMENT,
+                title=f"New assessment: {classroom.name}",
+                message=f"Your teacher saved a new classroom assessment. Mean: {assessment.mean_score:.1f}/10.",
+                url=reverse("student_progress_root"),
+            )
+            for assessment in created
+        ])
+    messages.success(request, f"Assessment deck saved for {len(created)} student(s).")
+    return redirect("teacher_classroom_assessments_root", classroom_id=classroom.id)
 
 
 @login_required
@@ -330,11 +414,14 @@ def assess_student(request, classroom_id, student_id):
         form = RatingAssessmentForm()
     student_ids = list(ClassroomMembership.objects.filter(classroom=classroom, role="student", status="approved").order_by("user__first_name", "user__last_name", "user__username").values_list("user_id", flat=True))
     next_student_id = None
+    previous_student_id = None
     if student.pk in student_ids:
         index = student_ids.index(student.pk)
+        if index > 0:
+            previous_student_id = student_ids[index - 1]
         if index + 1 < len(student_ids):
             next_student_id = student_ids[index + 1]
-    return render(request, "ratings/assess_student.html", {"classroom": classroom, "student_obj": student, "form": form, "next_student_id": next_student_id})
+    return render(request, "ratings/assess_student.html", {"classroom": classroom, "student_obj": student, "form": form, "next_student_id": next_student_id, "previous_student_id": previous_student_id})
 
 
 @login_required

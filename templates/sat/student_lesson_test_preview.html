@@ -1,0 +1,25 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}{{ resource.title }} · MakonBook{% endblock %}
+{% block content %}
+<div class="v50210-course-test">
+  <a class="v50210-back" href="{% url 'student_classroom_home_root' classroom.id %}"><i class="bi bi-arrow-left"></i>{{ classroom.name }}</a>
+  <section class="v50210-test-preview v523-reveal">
+    <span class="v523-kicker"><i class="bi bi-clipboard2-check"></i> SAT TEST MATERIAL</span>
+    <h1>{{ resource.title }}</h1>
+    <p>{{ resource.description|default:'Review the test details before you start. Your teacher may require an access code.' }}</p>
+    <div class="v50210-test-facts">
+      <article><small>Test</small><strong>{{ test_obj.name }}</strong></article>
+      <article><small>Questions</small><strong>{{ question_count }}</strong></article>
+      <article><small>Classroom points</small><strong>{{ resource.total_points }}</strong></article>
+    </div>
+    {% if question_count <= 0 %}
+      <div class="v50210-test-warning"><i class="bi bi-exclamation-triangle"></i><div><strong>This test has no questions yet.</strong><span>Your teacher needs to finish the test before it can be started.</span></div></div>
+    {% else %}
+      <div class="v50210-test-policy"><i class="bi bi-eye"></i><span>{% if resource.score_visibility == 'hidden' %}Classroom points are hidden by your teacher.{% elif resource.score_visibility == 'scheduled' %}Classroom points become visible {% if resource.score_visible_at %}{{ resource.score_visible_at|date:'d M Y, H:i' }}{% else %}later{% endif %}.{% else %}Classroom points can be shown immediately after completion.{% endif %}</span></div>
+      <form method="post" class="v50210-test-start">{% csrf_token %}
+        {% if resource.access_code %}<label><span>Access code</span><div class="v50210-codebox"><input name="access_code" type="password" autocomplete="off" placeholder="Enter the code from your teacher" required><button class="mb50-primary-btn" type="submit">Continue <i class="bi bi-arrow-right"></i></button></div>{% if code_error %}<small class="v50210-error">{{ code_error }}</small>{% endif %}</label>{% else %}<button class="mb50-primary-btn" type="submit">Start test <i class="bi bi-arrow-right"></i></button>{% endif %}
+      </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

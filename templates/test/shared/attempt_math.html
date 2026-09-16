@@ -1,20 +1,20 @@
 {% load static %}
 {% if attempt %}
-    {% url 'save_global_event_answer' guest_token=attempt.guest_token as form_action %}
-    {% url 'submit_global_event' guest_token=attempt.guest_token as submit_url %}
-    {% url 'global_event_submit_status' guest_token=attempt.guest_token as submit_status_url %}
-    {% url 'global_event_list' as home_url %}
+    {% url 'save_global_event_answer_root' guest_token=attempt.guest_token as form_action %}
+    {% url 'submit_global_event_root' guest_token=attempt.guest_token as submit_url %}
+    {% url 'global_event_submit_status_root' guest_token=attempt.guest_token as submit_status_url %}
+    {% url 'events' as home_url %}
 {% else %}
-    {% url 'check_the_answers' as form_action %}
+    {% url 'practice_test_check_answers_root' as form_action %}
     {% if classroom %}
-        {% url 'classroom_test' classroom.id test.name as next_url %}
-        {% url 'classroom_practice_tests' classroom.id as home_url %}
+        {% url 'student_classroom_test_module_root' classroom.id test.name as next_url %}
+        {% url 'classroom_practice_tests_root' classroom.id as home_url %}
     {% elif is_makeup %}
-        {% url 'makeup_test_module' pk=test.name as next_url %}
-        {% url 'practice_tests' as home_url %}
+        {% url 'makeup_test_module_root' pk=test.name as next_url %}
+        {% url 'practice_tests_root' as home_url %}
     {% else %}
-        {% url 'test' pk=test.name as next_url %}
-        {% url 'practice_tests' as home_url %}
+        {% url 'practice_test_module_root' pk=test.name as next_url %}
+        {% url 'practice_tests_root' as home_url %}
     {% endif %}
 {% endif %}
 <!DOCTYPE html>

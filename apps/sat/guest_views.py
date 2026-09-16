@@ -71,9 +71,49 @@ def is_guest_mode(request):
     return bool(request.session.get("guest_mode") and request.session.get("guest_id"))
 
 
+def _event_home_redirect(request):
+    """Return the correct events home without exposing guest UX to students."""
+    return redirect("events" if getattr(request.user, "is_authenticated", False) else "global_event_list")
+
+
+def ensure_authenticated_event_participant(request):
+    """Bridge authenticated MakonBook users to the proven event attempt engine.
+
+    V50.2.4 removes the guest *product flow* from the student workspace.  The
+    existing GlobalEvent tables still use GuestParticipant as their historical
+    attempt owner, so authenticated users receive an invisible session-scoped
+    participant instead of being asked for a second name/guest login.
+    """
+    if not getattr(request.user, "is_authenticated", False):
+        return None
+    existing = get_guest_from_session(request)
+    if existing is not None:
+        request.session["guest_mode"] = True
+        return existing
+    if not request.session.session_key:
+        request.session.create()
+    full_name = (request.user.get_full_name() or request.user.get_username() or "MakonBook student")[:255]
+    guest = GuestParticipant.objects.create(
+        full_name=full_name,
+        display_name=full_name,
+        session_key=request.session.session_key or "",
+        first_ip=get_client_ip(request),
+        user_agent=(request.META.get("HTTP_USER_AGENT") or "")[:2000],
+    )
+    request.session["guest_mode"] = True
+    request.session["guest_id"] = str(guest.guest_id)
+    request.session["guest_name"] = full_name
+    request.session.modified = True
+    return guest
+
+
 def guest_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
+        if getattr(request.user, "is_authenticated", False):
+            if ensure_authenticated_event_participant(request) is None:
+                return redirect("login")
+            return view_func(request, *args, **kwargs)
         if not is_guest_mode(request) or get_guest_from_session(request) is None:
             return redirect("guest_entry")
         return view_func(request, *args, **kwargs)
@@ -129,9 +169,9 @@ def next_module_redirect_url(attempt, section, module):
     except ValueError:
         return None
     if index == len(sequence) - 1:
-        return reverse("global_event_result", kwargs={"guest_token": attempt.guest_token})
+        return reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token})
     next_section, next_module = sequence[index + 1]
-    base = reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token})
+    base = reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})
     return f"{base}?section={next_section}&module={module_query_name(next_module)}"
 
 
@@ -520,8 +560,8 @@ def _complete_guest_module_locked(attempt, section, module):
     current = get_guest_current_step(attempt)
     if current is None:
         finalize_attempt(attempt)
-        return reverse("global_event_result", kwargs={"guest_token": attempt.guest_token})
-    base = reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token})
+        return reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token})
+    base = reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})
     return f"{base}?section={current[0]}&module={module_query_name(current[1])}"
 
 
@@ -1030,6 +1070,12 @@ def auto_submit_attempt(attempt):
 
 
 def guest_entry_view(request):
+    # Authenticated students never see the old guest identity screen.  Keep the
+    # legacy anonymous endpoint for backwards compatibility while normal
+    # MakonBook navigation stays account-backed.
+    if getattr(request.user, "is_authenticated", False):
+        ensure_authenticated_event_participant(request)
+        return redirect("events")
     if request.method == "POST":
         full_name = " ".join(request.POST.get("full_name", "").replace("\x00", "").split())[:255]
         display_name = " ".join(request.POST.get("display_name", "").replace("\x00", "").split())[:255]
@@ -1054,6 +1100,11 @@ def guest_entry_view(request):
 
 
 def guest_logout_view(request):
+    if getattr(request.user, "is_authenticated", False):
+        for key in ("guest_mode", "guest_id", "guest_name"):
+            request.session.pop(key, None)
+        request.session.modified = True
+        return redirect("events")
     request.session.flush()
     return redirect("guest_entry")
 
@@ -1073,7 +1124,7 @@ def _serialize_sat_global_event(event, now=None):
         "end_at": event.end_at,
         "english_duration_minutes": event.english_duration_minutes,
         "math_duration_minutes": event.math_duration_minutes,
-        "detail_url": reverse("global_event_detail", kwargs={"slug": event.slug}),
+        "detail_url": reverse("global_event_detail_root", kwargs={"slug": event.slug}),
     }
 
 
@@ -1108,6 +1159,8 @@ def _serialize_ap_global_event(request, event):
 
 @guest_required
 def global_event_list_view(request):
+    if getattr(request.user, "is_authenticated", False):
+        return redirect("events")
     now = timezone.now()
     sat_events = []
     for event in GlobalEvent.objects.filter(is_public=True, status__in=["live", "scheduled"]).select_related("test"):
@@ -1149,17 +1202,22 @@ def global_event_detail_view(request, slug):
             and (_event_hard_ended(event) or timezone.now() >= existing_attempt.expires_at)
         ):
             existing_attempt = _finalize_guest_attempt_safely(existing_attempt.pk)
-    return render(request, "sat/guest/event_detail.html", {
+    context = {
         "event": event,
         "existing_attempt": existing_attempt,
         "availability": _event_availability(event),
-    })
+    }
+    if getattr(request.user, "is_authenticated", False):
+        from .student_workspace import student_workspace_context
+        context.update(student_workspace_context(request.user, active='events'))
+        return render(request, "sat/student_event_detail.html", context)
+    return render(request, "sat/guest/event_detail.html", context)
 
 
 @guest_required
 def start_global_event_view(request, slug):
     if request.method != "POST":
-        return redirect("global_event_detail", slug=slug)
+        return redirect("global_event_detail_root", slug=slug)
     event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug, is_public=True)
     guest = get_guest_from_session(request)
     if not guest:
@@ -1168,22 +1226,22 @@ def start_global_event_view(request, slug):
     key, _, now_ts, blocked_until = _guest_access_failure_state(request, event)
     if blocked_until > now_ts:
         messages.error(request, "Too many incorrect access-code attempts. Try again in 15 minutes.")
-        return redirect("global_event_detail", slug=slug)
+        return redirect("global_event_detail_root", slug=slug)
     if not event.is_live_now:
         messages.error(request, "This event is not available right now.")
-        return redirect("global_event_detail", slug=slug)
+        return redirect("global_event_detail_root", slug=slug)
 
     submitted_code = request.POST.get("access_code", "").strip()
     if event.access_code and submitted_code != event.access_code:
         _record_guest_access_failure(request, event)
         messages.error(request, "Invalid access code.")
-        return redirect("global_event_detail", slug=slug)
+        return redirect("global_event_detail_root", slug=slug)
     _clear_guest_access_failures(request, event)
 
     sequence = get_test_sequence(event.test)
     if not sequence:
         messages.error(request, "This test has no supported modules or questions.")
-        return redirect("global_event_detail", slug=slug)
+        return redirect("global_event_detail_root", slug=slug)
 
     existing_attempt = GlobalEventAttempt.objects.filter(event=event, guest=guest).first()
     if existing_attempt:
@@ -1191,17 +1249,17 @@ def start_global_event_view(request, slug):
         if existing_attempt.status == "expired":
             _sync_all_guest_drafts(existing_attempt)
             finalize_attempt(existing_attempt)
-            return redirect("global_event_result", guest_token=existing_attempt.guest_token)
+            return redirect("global_event_result_root", guest_token=existing_attempt.guest_token)
         if existing_attempt.status == "submitted":
-            return redirect("global_event_result", guest_token=existing_attempt.guest_token)
+            return redirect("global_event_result_root", guest_token=existing_attempt.guest_token)
         if existing_attempt.status == "in_progress" and event.allow_resume:
             current_step = get_guest_current_step(existing_attempt)
             if current_step is None:
                 finalize_attempt(existing_attempt)
-                return redirect("global_event_result", guest_token=existing_attempt.guest_token)
-            return redirect("global_event_attempt", guest_token=existing_attempt.guest_token)
+                return redirect("global_event_result_root", guest_token=existing_attempt.guest_token)
+            return redirect("global_event_attempt_root", guest_token=existing_attempt.guest_token)
         messages.error(request, "Another attempt is not allowed for this event.")
-        return redirect("global_event_detail", slug=slug)
+        return redirect("global_event_detail_root", slug=slug)
 
     total_questions = sum(len(_questions_for_step(event.test, section, module)) for section, module in sequence)
     attempt = GlobalEventAttempt.objects.create(
@@ -1210,7 +1268,7 @@ def start_global_event_view(request, slug):
         expires_at=_guest_attempt_expiry(event, sequence),
         total_questions=total_questions,
     )
-    return redirect("global_event_attempt", guest_token=attempt.guest_token)
+    return redirect("global_event_attempt_root", guest_token=attempt.guest_token)
 
 
 @guest_required
@@ -1221,23 +1279,23 @@ def global_event_attempt_view(request, guest_token):
     )
     guest = get_guest_from_session(request)
     if not guest or attempt.guest_id != guest.id:
-        return redirect("global_event_list")
+        return _event_home_redirect(request)
     if attempt.status == "submitted":
-        return redirect("global_event_result", guest_token=attempt.guest_token)
+        return redirect("global_event_result_root", guest_token=attempt.guest_token)
     if attempt.status == "expired":
         _finalize_guest_attempt_safely(attempt.pk)
-        return redirect("global_event_result", guest_token=attempt.guest_token)
+        return redirect("global_event_result_root", guest_token=attempt.guest_token)
 
     _repair_guest_attempt_expiry(attempt)
     now = timezone.now()
     if _event_hard_ended(attempt.event, now) or now >= attempt.expires_at:
         _finalize_guest_attempt_safely(attempt.pk)
-        return redirect("global_event_result", guest_token=attempt.guest_token)
+        return redirect("global_event_result_root", guest_token=attempt.guest_token)
 
     current_step = get_guest_current_step(attempt)
     if current_step is None:
         _finalize_guest_attempt_safely(attempt.pk)
-        return redirect("global_event_result", guest_token=attempt.guest_token)
+        return redirect("global_event_result_root", guest_token=attempt.guest_token)
     section, module = current_step
     questions = _questions_for_step(attempt.event.test, section, module, formatted=(section == "english"))
     if not questions:
@@ -1300,7 +1358,7 @@ def save_global_event_answer_view(request, guest_token):
             return JsonResponse({
                 "ok": False,
                 "error": "Attempt already closed",
-                "redirect_url": reverse("global_event_result", kwargs={"guest_token": attempt.guest_token}),
+                "redirect_url": reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token}),
             }, status=409)
 
         _repair_guest_attempt_expiry(attempt)
@@ -1310,7 +1368,7 @@ def save_global_event_answer_view(request, guest_token):
             return JsonResponse({
                 "ok": False,
                 "error": "The event has ended.",
-                "redirect_url": reverse("global_event_result", kwargs={"guest_token": attempt.guest_token}),
+                "redirect_url": reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token}),
             }, status=409)
 
         current_step = get_guest_current_step(attempt)
@@ -1318,7 +1376,7 @@ def save_global_event_answer_view(request, guest_token):
             return JsonResponse({
                 "ok": False,
                 "error": "This module is no longer active.",
-                "redirect_url": reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token}),
+                "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token}),
             }, status=409)
 
         draft = GlobalEventModuleDraft.objects.select_for_update().filter(
@@ -1330,7 +1388,7 @@ def save_global_event_answer_view(request, guest_token):
             return JsonResponse({
                 "ok": False,
                 "error": "Open the active module before saving it.",
-                "redirect_url": reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token}),
+                "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token}),
             }, status=409)
         if _draft_remaining_seconds(draft) <= 0:
             return JsonResponse({"ok": False, "error": "Time is over", "time_over": True}, status=409)
@@ -1368,26 +1426,26 @@ def submit_global_event_view(request, guest_token):
         if not guest or attempt.guest_id != guest.id:
             return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
         if attempt.status == "submitted":
-            return JsonResponse({"ok": True, "already_submitted": True, "redirect_url": reverse("global_event_result", kwargs={"guest_token": attempt.guest_token})})
+            return JsonResponse({"ok": True, "already_submitted": True, "redirect_url": reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token})})
 
         _repair_guest_attempt_expiry(attempt)
         if _event_hard_ended(attempt.event) or timezone.now() >= attempt.expires_at:
             _sync_all_guest_drafts(attempt)
             finalize_attempt(attempt)
-            return JsonResponse({"ok": True, "redirect_url": reverse("global_event_result", kwargs={"guest_token": attempt.guest_token})})
+            return JsonResponse({"ok": True, "redirect_url": reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token})})
 
         section = str(payload.get("section") or "").strip().lower()
         module = normalize_module_name(payload.get("module"))
         current_step = get_guest_current_step(attempt)
         if current_step != (section, module):
             if (section, module) in _completed_guest_module_pairs(attempt):
-                target = reverse("global_event_result", kwargs={"guest_token": attempt.guest_token}) if get_guest_current_step(attempt) is None else reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token})
+                target = reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token}) if get_guest_current_step(attempt) is None else reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})
                 return JsonResponse({"ok": True, "already_submitted": True, "redirect_url": target})
-            return JsonResponse({"ok": False, "error": "This module is no longer active.", "redirect_url": reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token})}, status=409)
+            return JsonResponse({"ok": False, "error": "This module is no longer active.", "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})}, status=409)
 
         draft = GlobalEventModuleDraft.objects.filter(attempt=attempt, section=section, module=module).first()
         if not draft:
-            return JsonResponse({"ok": False, "error": "Open the active module before submitting it.", "redirect_url": reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token})}, status=409)
+            return JsonResponse({"ok": False, "error": "Open the active module before submitting it.", "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})}, status=409)
 
         submitted_after_deadline = _draft_remaining_seconds(draft) <= 0
         recovered_deadline_snapshot = False
@@ -1433,7 +1491,7 @@ def global_event_submit_status_view(request, guest_token):
     if section not in VALID_SECTIONS or module not in VALID_MODULES:
         return JsonResponse({"ok": False, "error": "Invalid module."}, status=400)
 
-    result_url = reverse("global_event_result", kwargs={"guest_token": attempt.guest_token})
+    result_url = reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token})
     if attempt.status == "submitted":
         return JsonResponse({"ok": True, "state": "completed", "redirect_url": result_url})
 
@@ -1443,7 +1501,7 @@ def global_event_submit_status_view(request, guest_token):
         if current is None:
             redirect_url = result_url
         else:
-            base = reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token})
+            base = reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})
             redirect_url = f"{base}?section={current[0]}&module={module_query_name(current[1])}"
         return JsonResponse({"ok": True, "state": "completed", "redirect_url": redirect_url})
 
@@ -1464,7 +1522,7 @@ def global_event_submit_status_view(request, guest_token):
     return JsonResponse({
         "ok": True,
         "state": "moved",
-        "redirect_url": reverse("global_event_attempt", kwargs={"guest_token": attempt.guest_token}),
+        "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token}),
     })
 
 
@@ -1477,7 +1535,7 @@ def global_event_result_view(request, guest_token):
             guest_token=guest_token,
         )
         if not guest or attempt.guest_id != guest.id:
-            return redirect("global_event_list")
+            return _event_home_redirect(request)
 
         _repair_guest_attempt_expiry(attempt)
         if attempt.status == "expired":
@@ -1490,7 +1548,7 @@ def global_event_result_view(request, guest_token):
                 _sync_all_guest_drafts(attempt)
                 finalize_attempt(attempt)
             else:
-                return redirect("global_event_attempt", guest_token=attempt.guest_token)
+                return redirect("global_event_attempt_root", guest_token=attempt.guest_token)
         else:
             apply_attempt_score(attempt, submit=False)
 
@@ -1523,15 +1581,15 @@ def _guest_review_access_or_redirect(request, guest_token):
     )
     guest = get_guest_from_session(request)
     if not guest or attempt.guest_id != guest.id:
-        return None, redirect("global_event_list")
+        return None, _event_home_redirect(request)
     if attempt.status != "submitted":
-        return None, redirect("global_event_attempt", guest_token=attempt.guest_token)
+        return None, redirect("global_event_attempt_root", guest_token=attempt.guest_token)
     if not attempt.event.show_score_immediately:
         messages.info(
             request,
             "Question review is not available until the event owner releases scores.",
         )
-        return None, redirect("global_event_result", guest_token=attempt.guest_token)
+        return None, redirect("global_event_result_root", guest_token=attempt.guest_token)
     apply_attempt_score(attempt, submit=False)
     return attempt, None
 
@@ -1632,7 +1690,7 @@ def global_event_review_question_view(request, guest_token, section, module, id)
     section = str(section or "").strip().lower()
     module = normalize_module_name(module)
     if section not in VALID_SECTIONS or module not in VALID_MODULES:
-        return redirect("global_event_review", guest_token=attempt.guest_token)
+        return redirect("global_event_review_root", guest_token=attempt.guest_token)
 
     question_model = _question_model(section)
     question = get_object_or_404(
@@ -1658,7 +1716,7 @@ def global_event_review_question_view(request, guest_token, section, module, id)
     ]
     current_key = (section, module, question.id)
     if current_key not in ordered_keys:
-        return redirect("global_event_review", guest_token=attempt.guest_token)
+        return redirect("global_event_review_root", guest_token=attempt.guest_token)
     current_index = ordered_keys.index(current_key)
     prev_url = rows[current_index - 1]["review_url"] if current_index > 0 else ""
     next_url = rows[current_index + 1]["review_url"] if current_index + 1 < len(rows) else ""
@@ -1689,8 +1747,8 @@ def global_event_review_question_view(request, guest_token, section, module, id)
         "prev": prev_url,
         "next": next_url,
         "test": attempt.event.test,
-        "results_url": reverse("global_event_result", args=[attempt.guest_token]),
-        "review_overview_url": reverse("global_event_review", args=[attempt.guest_token]),
+        "results_url": reverse("global_event_result_root", args=[attempt.guest_token]),
+        "review_overview_url": reverse("global_event_review_root", args=[attempt.guest_token]),
         "is_guest_review": True,
         "guest_attempt": attempt,
         "guest_event": attempt.event,
@@ -1713,7 +1771,7 @@ def global_event_leaderboard_view(request, slug):
     event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug, is_public=True)
     if not event.show_leaderboard or not event.show_score_immediately:
         messages.info(request, "The leaderboard is not available until scores are released.")
-        return redirect("global_event_detail", slug=slug)
+        return redirect("global_event_detail_root", slug=slug)
     submitted = list(event.attempts.filter(status="submitted").select_related("guest", "event", "event__test"))
     for item in submitted:
         if item.score is None:

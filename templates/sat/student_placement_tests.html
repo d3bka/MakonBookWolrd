@@ -1,0 +1,8 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}Placement Tests · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page v524-placement-page">
+  <section class="v523-hero v523-reveal"><span class="v523-kicker"><i class="bi bi-ui-checks-grid"></i> Placement Tests</span><h1>Start with the right level.</h1><p>Placement and level checks are separated from normal classroom tests. A configured test can still require teacher assignment before you can open it.</p></section>
+  <section class="v524-placement-grid">{% for row in placement_tests %}{% if row.assigned %}<a class="v524-placement-test v523-reveal" href="{{ row.url }}" style="--reveal-index:{{ forloop.counter }}">{% else %}<article class="v524-placement-test is-locked v523-reveal" style="--reveal-index:{{ forloop.counter }}">{% endif %}<span class="v524-placement-icon"><i class="bi {% if row.assigned %}bi-play-fill{% else %}bi-lock-fill{% endif %}"></i></span><div><span class="v523-card-label">{% if row.assigned %}Ready{% else %}Locked{% endif %}</span><h2>{{ row.test.name }}</h2><p>{% if row.assigned %}Your classroom has assigned this diagnostic.{% else %}Ask your teacher to assign this placement test.{% endif %}</p></div><i class="bi bi-chevron-right"></i>{% if row.assigned %}</a>{% else %}</article>{% endif %}{% empty %}<div class="v523-card"><div class="v523-empty"><i class="bi bi-ui-checks-grid"></i><h2>No placement tests configured.</h2><p>When an administrator marks placement or level-check tests available, they will appear here.</p></div></div>{% endfor %}</section>
+</div>
+{% endblock %}

@@ -388,7 +388,7 @@ def assign_reviewers(job: TestImportJob):
             user_id=user_id,
             type=MakonNotification.TYPE_TEST_REVIEW,
             title=f"New test requires review: {job.name}",
-            url=reverse("test_import_detail", args=[job.pk]),
+            url=reverse("support_teacher_review_detail_root", args=[job.pk]),
             defaults={"message": f"Structured PDF import finished. Review {job.questions.count()} questions and approve or request changes."},
         )
         if not created:
@@ -1491,7 +1491,7 @@ def publish_import_job(job_id: int, *, published_by=None):
                 type=MakonNotification.TYPE_TEST_PUBLISHED,
                 title=f"Test published: {job.name}",
                 message="The reviewed test is now live in MakonBook.",
-                url=reverse("test_import_detail", args=[job.pk]),
+                url=reverse("support_teacher_review_detail_root", args=[job.pk]),
             )
             for user_id in reviewer_ids
         ])

@@ -1,93 +1,16 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
-
-{% block title-main %}Makon Book{% endblock title-main %}
-
-{% block breadcrumb_parent %}
-{% if classroom %}
-<li><a href="{% url 'classroom_admissions' classroom.id %}">Admissions</a></li>
-{% else %}
-<li><a href="{% url 'admissions' %}">Admissions</a></li>
-{% endif %}
-{% endblock breadcrumb_parent %}
-
-{% block title %}{{ section.title }}{% endblock title %}
-
-{% block style %}
-<style>
-  .section-page {
-    max-width: 1100px;
-    margin: 0 auto;
-  }
-
-  .section-card {
-    background: #fff;
-    border-radius: 18px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-    padding: 28px;
-    margin-bottom: 22px;
-  }
-
-  .section-card h2 {
-    color: #7c3aed;
-    margin-bottom: 10px;
-  }
-
-  .section-card h3 {
-    margin-bottom: 10px;
-    color: #1f2937;
-  }
-
-  .section-card ul {
-    margin: 0;
-    padding-left: 20px;
-  }
-
-  .section-card li {
-    margin-bottom: 8px;
-  }
-
-  .back-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 150px;
-    height: 44px;
-    padding: 0 20px;
-    border-radius: 999px;
-    background: #7c3aed;
-    color: #fff !important;
-    text-decoration: none;
-    font-weight: 600;
-    margin-bottom: 20px;
-  }
-</style>
-<link rel="stylesheet" href="{% static 'assets/css/makon-vocab-admissions.css' %}">
-{% endblock style %}
-
+{% block title %}{{ section.title }}{% endblock %}
+{% block title-main %}{% if not use_student_workspace %}Makon Book{% endif %}{% endblock %}
+{% block breadcrumb_parent %}{% if not use_student_workspace %}<li><a href="{% url 'admissions_root' %}">Admissions</a></li>{% endif %}{% endblock %}
 {% block content %}
-<main class="main-content mk-learning mk-admissions-section-page" data-learning-page="admissions-section">
-  <div class="section-page">
-    {% if classroom %}<a href="{% url 'classroom_admissions' classroom.id %}" class="back-btn">Back to Admissions</a>{% else %}<a href="{% url 'admissions' %}" class="back-btn">Back to Admissions</a>{% endif %}
-
-    <div class="section-card">
-      <h2>{{ section.title }}</h2>
-      <p>{{ section.description }}</p>
-    </div>
-
-    {% for item in section.items %}
-      <div class="section-card">
-        {% if item.title %}<h3>{{ item.title }}</h3>{% endif %}
-        {% if item.content %}
-          <ul>
-            {% for line in item.content %}
-              <li>{{ line }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      </div>
-    {% endfor %}
-  </div>
-</main>
-{% endblock content %}
+{% if use_student_workspace %}
+<div class="v523-page v524-admissions-section">
+  <a class="v524-back-link" href="{% url 'admissions_root' %}"><i class="bi bi-arrow-left"></i> Admissions</a>
+  <section class="v523-hero v523-reveal"><span class="v523-kicker"><i class="bi bi-buildings"></i> Application workspace</span><h1>{{ section.title }}</h1><p>{{ section.description }}</p></section>
+  <section class="v524-admissions-content">{% for item in section.items %}<article class="v523-card v523-reveal" style="--reveal-index:{{ forloop.counter }}"><span class="v524-content-index">{{ forloop.counter|stringformat:"02d" }}</span>{% if item.title %}<h2>{{ item.title }}</h2>{% endif %}{% if item.content %}<ul>{% for line in item.content %}<li><i class="bi bi-check2"></i><span>{{ line }}</span></li>{% endfor %}</ul>{% endif %}</article>{% endfor %}</section>
+</div>
+{% else %}
+<main class="main-content mk-learning"><div class="section-page"><a href="{% url 'admissions_root' %}" class="back-btn">Back to Admissions</a><div class="section-card"><h2>{{ section.title }}</h2><p>{{ section.description }}</p></div>{% for item in section.items %}<div class="section-card">{% if item.title %}<h3>{{ item.title }}</h3>{% endif %}{% if item.content %}<ul>{% for line in item.content %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}</div>{% endfor %}</div></main>
+{% endif %}
+{% endblock %}

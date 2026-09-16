@@ -54,7 +54,7 @@
             <button type="button" class="tic-test-header-btn" data-overview-toggle title="Question overview" aria-label="Question overview">
               <i class="fa fa-th" aria-hidden="true"></i>
             </button>
-            <a href="{% url 'test_import_detail' job.id %}" class="tic-test-header-btn" title="Back to import review" aria-label="Back to import review">
+            <a href="{% if staff_workspace_mode == 'support' %}{% url 'support_teacher_review_detail_root' job.id %}{% else %}{% url 'manager_test_import_detail_root' job.id %}{% endif %}" class="tic-test-header-btn" title="Back to import review" aria-label="Back to import review">
               <i class="fa fa-times" aria-hidden="true"></i>
             </a>
           </div>
@@ -150,7 +150,7 @@
   <script>
     window.TEST_IMPORT_PREVIEW = {
       jobId: {{ job.id }},
-      editUrlTemplate: "{% url 'test_import_question_edit' job.id 999999999 %}".replace("999999999", "__QUESTION_ID__")
+      editUrlTemplate: "{% if staff_workspace_mode == 'support' %}{% url 'support_teacher_review_question_edit_root' job.id 999999999 %}{% else %}{% url 'manager_test_import_question_edit_root' job.id 999999999 %}{% endif %}".replace("999999999", "__QUESTION_ID__")
     };
   </script>
   <script src="{% static 'assets/js/test-import-preview.js' %}?v=6" defer></script>

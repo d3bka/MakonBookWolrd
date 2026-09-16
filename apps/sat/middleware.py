@@ -43,7 +43,7 @@ class ClientSoftwareMiddleware:
         # restrict software pages to client only
         if request.path.startswith("/software/"):
             if ua != self.expected_agent:
-                return redirect("sat_menu")
+                return redirect("student_dashboard_root")
 
         return self.get_response(request)
 

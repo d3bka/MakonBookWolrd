@@ -1,96 +1,16 @@
-{% extends 'template.html' %}
-{% load static %}
-
-{% block title-main %}Create Classroom{% endblock title-main %}
-
-{% block breadcrumb_parent %}
-<li><a href="{% url 'teacher_classroom_list' %}">Classrooms</a></li>
-{% endblock breadcrumb_parent %}
-
-{% block title %}Create Classroom{% endblock title %}
-
-{% block style %}
-<style>
-  .form-wrap {
-    max-width: 700px;
-    margin: 0 auto;
-    background: #fff;
-    border-radius: 18px;
-    padding: 28px;
-    box-shadow: 0 10px 24px rgba(0,0,0,0.08);
-    border: 1px solid #e5e7eb;
-  }
-
-  .form-group {
-    margin-bottom: 18px;
-  }
-
-  .form-group label {
-    display: block;
-    font-weight: 700;
-    margin-bottom: 8px;
-  }
-
-  .form-group input,
-  .form-group textarea {
-    width: 100%;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    padding: 12px 14px;
-  }
-
-  .submit-btn {
-    border: none;
-    background: #7c3aed;
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 999px;
-    font-weight: 700;
-  }
-</style>
-{% endblock style %}
-
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Create Classroom | MakonBook{% endblock %}
 {% block content %}
-<div class="form-wrap">
-  <h2>Create New Classroom</h2>
-
-  <form method="post" id="create-classroom-form">
-    {% csrf_token %}
-    <input type="hidden" name="submission_token" value="{{ submission_token }}">
-
-    <div class="form-group">
-      <label>Classroom Name</label>
-      <input type="text" name="name" maxlength="255" autocomplete="off" required>
-    </div>
-
-    <div class="form-group">
-      <label>Description</label>
-      <textarea name="description" rows="4" maxlength="10000"></textarea>
-    </div>
-
-    <div class="form-group">
-      <label>Classroom Type</label>
-      <select name="classroom_type" required style="width:100%; border:1px solid #d1d5db; border-radius:12px; padding:12px 14px;">
-        {% for value, label in classroom_type_choices %}
-          <option value="{{ value }}">{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <button type="submit" class="submit-btn" id="create-classroom-submit">Create Classroom</button>
-  </form>
+<div class="sf27-form-page">
+  <section class="sf27-page-head"><div><small>Teacher · Classrooms</small><h1>Create a classroom</h1><p>Choose SAT or AP once, add a clear name, then manage students, lessons, assignments and access from the classroom workspace.</p></div><div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'teacher_classrooms_root' %}"><i class="bi bi-arrow-left"></i> All classrooms</a></div></section>
+  <section class="sf27-card sf27-form-card">
+    <form method="post" id="create-classroom-form" class="sf27-form-grid">{% csrf_token %}<input type="hidden" name="submission_token" value="{{ submission_token }}">
+      <label class="sf27-field sf27-field-wide"><span>Classroom name</span><input type="text" name="name" maxlength="255" autocomplete="off" required placeholder="Example: SAT Advanced · September"></label>
+      <label class="sf27-field"><span>Classroom type</span><select name="classroom_type" required>{% for value,label in classroom_type_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label class="sf27-field sf27-field-wide"><span>Description</span><textarea name="description" rows="5" maxlength="10000" placeholder="What is this classroom for? What should students expect?"></textarea></label>
+      <div class="sf27-form-footer"><span class="sf27-form-hint"><i class="bi bi-shield-check"></i> Double-submit protection is enabled.</span><button class="sf27-btn" type="submit" id="create-classroom-submit"><i class="bi bi-plus-circle"></i> Create classroom</button></div>
+    </form>
+  </section>
 </div>
-<script>
-  (() => {
-    const form = document.getElementById('create-classroom-form');
-    const button = document.getElementById('create-classroom-submit');
-    if (!form || !button) return;
-    form.addEventListener('submit', () => {
-      if (form.dataset.submitted === '1') return;
-      form.dataset.submitted = '1';
-      button.disabled = true;
-      button.textContent = 'Creating…';
-    });
-  })();
-</script>
-{% endblock content %}
+<script>(function(){var f=document.getElementById('create-classroom-form'),b=document.getElementById('create-classroom-submit');if(!f||!b)return;f.addEventListener('submit',function(){if(f.dataset.submitted==='1')return;f.dataset.submitted='1';b.disabled=true;b.innerHTML='<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Creating…';});})();</script>
+{% endblock %}

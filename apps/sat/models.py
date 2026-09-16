@@ -926,6 +926,93 @@ class VocabularyWord(models.Model):
         return f"{self.unit.title} - {self.word}"
 
 
+class VocabularyDeck(models.Model):
+    """A student's personal vocabulary deck.
+
+    Official MakonBook units can be cloned into a deck; students can also create
+    private decks and add their own words. Public/community publishing is kept
+    out of V50.1 so the first version stays moderation-safe.
+    """
+
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='vocabulary_decks',
+    )
+    title = models.CharField(max_length=180)
+    description = models.CharField(max_length=500, blank=True)
+    source_unit = models.ForeignKey(
+        VocabularyUnit,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cloned_decks',
+    )
+    new_cards_per_day = models.PositiveSmallIntegerField(default=20)
+    max_reviews_per_day = models.PositiveSmallIntegerField(default=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-id']
+        indexes = [models.Index(fields=['owner', '-updated_at'], name='vocab_deck_owner_updated')]
+
+    def __str__(self):
+        return f"{self.owner.username} · {self.title}"
+
+
+class VocabularyDeckWord(models.Model):
+    deck = models.ForeignKey(
+        VocabularyDeck,
+        on_delete=models.CASCADE,
+        related_name='words',
+    )
+    word = models.CharField(max_length=255)
+    meaning = models.TextField()
+    example = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['deck', 'word'], name='unique_vocab_deck_word'),
+        ]
+
+    def __str__(self):
+        return f"{self.deck.title} · {self.word}"
+
+
+class VocabularyDeckWordProgress(models.Model):
+    STATUS_NEW = 'new'
+    STATUS_LEARNING = 'learning'
+    STATUS_MASTERED = 'mastered'
+    STATUS_CHOICES = (
+        (STATUS_NEW, 'New'),
+        (STATUS_LEARNING, 'Learning'),
+        (STATUS_MASTERED, 'Mastered'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vocabulary_deck_progress')
+    word = models.ForeignKey(VocabularyDeckWord, on_delete=models.CASCADE, related_name='progress')
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW)
+    times_seen = models.PositiveIntegerField(default=0)
+    correct_count = models.PositiveIntegerField(default=0)
+    incorrect_count = models.PositiveIntegerField(default=0)
+    consecutive_correct = models.PositiveIntegerField(default=0)
+    last_reviewed_at = models.DateTimeField(blank=True, null=True)
+    mastered_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'word'], name='unique_vocab_deck_progress')]
+        indexes = [models.Index(fields=['user', 'status'], name='vocab_deck_prog_status')]
+
+    def __str__(self):
+        return f"{self.user.username} · {self.word.word} · {self.status}"
+
+
 class VocabularyQuestion(models.Model):
     unit = models.ForeignKey(
         VocabularyUnit,
@@ -1254,6 +1341,28 @@ class SupportTeacherProfile(BaseModel):
         if self.sat_total_score or self.sat_math_score or self.sat_reading_writing_score:
             filled += 1
         return round((filled / 8) * 100)
+
+
+class SupportTeacherProfileSection(models.Model):
+    """Teacher-defined public profile block (LinkedIn-style, intentionally generic)."""
+    profile = models.ForeignKey(
+        SupportTeacherProfile,
+        on_delete=models.CASCADE,
+        related_name='custom_sections',
+    )
+    title = models.CharField(max_length=120)
+    body = models.TextField(blank=True, max_length=2000)
+    url = models.URLField(blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+    is_visible = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at', 'id']
+
+    def __str__(self):
+        return f"{self.profile.name} · {self.title}"
 
 
 class SupportTeacherAvailability(BaseModel):
@@ -1965,6 +2074,167 @@ class ClassroomMembership(models.Model):
         return f"{self.user.username} - {self.classroom.name} - {self.status}"
 
 
+class ClassroomLesson(models.Model):
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='lessons')
+    title = models.CharField(max_length=220)
+    summary = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=1, db_index=True)
+    is_published = models.BooleanField(default=True, db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_classroom_lessons')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        unique_together = ('classroom', 'order')
+
+    def __str__(self):
+        return f"{self.classroom.name} · Lesson {self.order}: {self.title}"
+
+
+class ClassroomLessonResource(models.Model):
+    RESOURCE_FILE = 'file'
+    RESOURCE_LINK = 'link'
+    RESOURCE_PRESENTATION = 'presentation'
+    RESOURCE_TEST = 'test'
+    RESOURCE_VOCAB_QUIZ = 'vocabulary_quiz'
+    RESOURCE_CHOICES = (
+        (RESOURCE_FILE, 'File'),
+        (RESOURCE_LINK, 'Link'),
+        (RESOURCE_PRESENTATION, 'Presentation'),
+        (RESOURCE_TEST, 'SAT Test'),
+        (RESOURCE_VOCAB_QUIZ, 'Vocabulary Quiz'),
+    )
+    SCORE_HIDDEN = 'hidden'
+    SCORE_IMMEDIATE = 'immediate'
+    SCORE_SCHEDULED = 'scheduled'
+    SCORE_VISIBILITY_CHOICES = (
+        (SCORE_HIDDEN, 'Do not show classroom points'),
+        (SCORE_IMMEDIATE, 'Show classroom points immediately'),
+        (SCORE_SCHEDULED, 'Show classroom points on a scheduled date'),
+    )
+
+    lesson = models.ForeignKey(ClassroomLesson, on_delete=models.CASCADE, related_name='resources')
+    title = models.CharField(max_length=220)
+    resource_type = models.CharField(max_length=20, choices=RESOURCE_CHOICES, default=RESOURCE_FILE)
+    file = models.FileField(upload_to='classroom_lessons/%Y/%m/', blank=True, null=True, storage=PublicStorage())
+    url = models.URLField(blank=True)
+    test = models.ForeignKey('Test', on_delete=models.SET_NULL, null=True, blank=True, related_name='classroom_lesson_resources')
+    vocabulary_unit = models.ForeignKey('VocabularyUnit', on_delete=models.SET_NULL, null=True, blank=True, related_name='classroom_lesson_resources')
+    vocabulary_question_count = models.PositiveSmallIntegerField(default=10, validators=[MinValueValidator(1), MaxValueValidator(100)])
+    vocabulary_quiz_mode = models.CharField(max_length=32, choices=VocabularyQuizAttempt.MODE_CHOICES, default=VocabularyQuizAttempt.MODE_MIXED)
+    access_code = models.CharField(max_length=50, blank=True)
+    total_points = models.PositiveSmallIntegerField(default=100, validators=[MinValueValidator(1), MaxValueValidator(10000)])
+    score_visibility = models.CharField(max_length=20, choices=SCORE_VISIBILITY_CHOICES, default=SCORE_IMMEDIATE)
+    score_visible_at = models.DateTimeField(null=True, blank=True)
+    description = models.CharField(max_length=300, blank=True)
+    is_visible = models.BooleanField(default=True, db_index=True)
+    order = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+    @property
+    def target_url(self):
+        if self.file:
+            return self.file.url
+        return self.url
+
+    @property
+    def classroom_points_visible_now(self):
+        if self.score_visibility == self.SCORE_IMMEDIATE:
+            return True
+        if self.score_visibility == self.SCORE_SCHEDULED and self.score_visible_at:
+            return timezone.now() >= self.score_visible_at
+        return False
+
+    def clean(self):
+        super().clean()
+        if self.resource_type == self.RESOURCE_TEST:
+            if not self.test_id:
+                raise ValidationError({'test': 'Choose a SAT test for this resource.'})
+            if self.score_visibility == self.SCORE_SCHEDULED and not self.score_visible_at:
+                raise ValidationError({'score_visible_at': 'Choose when classroom points become visible.'})
+        elif self.resource_type == self.RESOURCE_VOCAB_QUIZ:
+            if not self.vocabulary_unit_id:
+                raise ValidationError({'vocabulary_unit': 'Choose a vocabulary unit for this quiz.'})
+        elif not self.file and not self.url:
+            raise ValidationError('Add a file or a link for this lesson resource.')
+
+    def __str__(self):
+        return f"{self.lesson} · {self.title}"
+
+
+class ClassroomHomeworkAssignment(models.Model):
+    TYPE_TEST = 'sat_test'
+    TYPE_VOCAB = 'vocabulary_unit'
+    TYPE_VOCAB_QUIZ = 'vocabulary_quiz'
+    TYPE_CHOICES = (
+        (TYPE_TEST, 'SAT test'),
+        (TYPE_VOCAB, 'Vocabulary practice'),
+        (TYPE_VOCAB_QUIZ, 'Vocabulary quiz'),
+    )
+    VOCAB_MEMORY = 'memory'
+    VOCAB_ANIMATED = 'animated-immersion'
+    VOCAB_BOUNCE = 'word-bounce'
+    VOCAB_MATCH = 'meaning-match'
+    VOCAB_MODE_CHOICES = (
+        (VOCAB_MEMORY, 'Memory Layers'),
+        (VOCAB_ANIMATED, 'Animated Immersion'),
+        (VOCAB_BOUNCE, 'Word Bounce'),
+        (VOCAB_MATCH, 'Meaning Match'),
+    )
+
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='homework_assignments')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_homework_assignments')
+    title = models.CharField(max_length=220)
+    instructions = models.TextField(blank=True)
+    assignment_type = models.CharField(max_length=24, choices=TYPE_CHOICES)
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, null=True, blank=True, related_name='classroom_homework_assignments')
+    vocabulary_unit = models.ForeignKey('VocabularyUnit', on_delete=models.CASCADE, null=True, blank=True, related_name='classroom_homework_assignments')
+    vocabulary_mode = models.CharField(max_length=32, choices=VOCAB_MODE_CHOICES, default=VOCAB_MEMORY)
+    vocabulary_quiz_mode = models.CharField(
+        max_length=24,
+        choices=VocabularyQuizAttempt.MODE_CHOICES,
+        default=VocabularyQuizAttempt.MODE_MIXED,
+    )
+    question_count = models.PositiveSmallIntegerField(default=10, validators=[MinValueValidator(1), MaxValueValidator(100)])
+    assign_all = models.BooleanField(default=True)
+    assigned_students = models.ManyToManyField(User, blank=True, related_name='classroom_homework')
+    due_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['due_at', '-created_at']
+
+    def clean(self):
+        super().clean()
+        if self.assignment_type == self.TYPE_TEST and not self.test_id:
+            raise ValidationError({'test': 'Choose a SAT test.'})
+        if self.assignment_type in {self.TYPE_VOCAB, self.TYPE_VOCAB_QUIZ} and not self.vocabulary_unit_id:
+            raise ValidationError({'vocabulary_unit': 'Choose a vocabulary unit.'})
+
+    def __str__(self):
+        return f"{self.classroom.name} · {self.title}"
+
+
+
+
+@receiver(models.signals.post_save, sender=ClassroomMembership)
+def activate_referral_after_classroom_join(sender, instance, **kwargs):
+    """Referrals count only after a referred student becomes an approved classroom member."""
+    if instance.role != 'student' or instance.status != 'approved':
+        return
+    try:
+        from apps.base.models import ReferralInvite
+        ReferralInvite.objects.filter(referred_user=instance.user, activated_at__isnull=True).update(activated_at=timezone.now())
+    except Exception:
+        # Referral accounting must never block classroom enrollment.
+        return
+
 class StudentSectionAccess(models.Model):
     SECTION_CHOICES = (
         ('practice_tests', 'Practice Tests'),
@@ -2046,6 +2316,54 @@ class StudentProgress(models.Model):
         return f"{self.student.username} - {self.section} - {self.completion_percent}%"
 
 
+class UserChatStickerPack(models.Model):
+    """A named personal sticker pack used by the standalone student inbox."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chat_sticker_packs',
+    )
+    title = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'title'], name='sat_chat_pack_user_title_uniq'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} · {self.title}"
+
+
+class UserChatSticker(models.Model):
+    """Reusable image sticker uploaded by a student for the standalone inbox."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chat_stickers',
+    )
+    pack = models.ForeignKey(
+        UserChatStickerPack,
+        on_delete=models.SET_NULL,
+        related_name='stickers',
+        blank=True,
+        null=True,
+    )
+    image = models.ImageField(
+        upload_to='classroom_chat_stickers/',
+        storage=PublicStorage(),
+    )
+    title = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"{self.user.username} sticker #{self.pk}"
+
+
 class ChatMessage(models.Model):
     classroom = models.ForeignKey(
         Classroom,
@@ -2059,6 +2377,13 @@ class ChatMessage(models.Model):
     )
     message = models.TextField(blank=True, null=True)
     file = models.FileField(upload_to='classroom_chat_files/', blank=True, null=True)
+    sticker = models.ForeignKey(
+        UserChatSticker,
+        on_delete=models.SET_NULL,
+        related_name='messages',
+        blank=True,
+        null=True,
+    )
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -2564,9 +2889,21 @@ class TestImportReview(models.Model):
 class MakonNotification(models.Model):
     TYPE_TEST_REVIEW = 'test_review'
     TYPE_TEST_PUBLISHED = 'test_published'
+    TYPE_HOMEWORK = 'homework'
+    TYPE_CLASSROOM = 'classroom'
+    TYPE_LESSON = 'lesson'
+    TYPE_ACCESS = 'access'
+    TYPE_ASSESSMENT = 'assessment'
+    TYPE_SUPPORT = 'support'
     TYPE_CHOICES = (
         (TYPE_TEST_REVIEW, 'Test review'),
         (TYPE_TEST_PUBLISHED, 'Test published'),
+        (TYPE_HOMEWORK, 'Homework'),
+        (TYPE_CLASSROOM, 'Classroom'),
+        (TYPE_LESSON, 'Lesson'),
+        (TYPE_ACCESS, 'Access'),
+        (TYPE_ASSESSMENT, 'Assessment'),
+        (TYPE_SUPPORT, 'Support lesson'),
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='makon_notifications')
     type = models.CharField(max_length=32, choices=TYPE_CHOICES)

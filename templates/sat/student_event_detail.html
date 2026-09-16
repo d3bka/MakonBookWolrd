@@ -1,0 +1,44 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}{{ event.title }} · Events · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page v524-events-page">
+  <section class="v523-hero v523-reveal">
+    <a class="v523-kicker" href="{% url 'events' %}"><i class="bi bi-arrow-left"></i> Events</a>
+    <h1>{{ event.title }}</h1>
+    <p>{% if event.description %}{{ event.description }}{% else %}Review timing and rules before you start. This event stays connected to your MakonBook account.{% endif %}</p>
+  </section>
+
+  <section class="v524-events-grid v524-event-detail-grid">
+    <article class="v523-card v523-reveal" style="--reveal-index:1">
+      <div class="v523-card-headline"><div><span class="v523-card-label">Status</span><h2>{{ availability.label }}</h2></div><span class="v524-event-state{% if availability.can_start %} is-live{% endif %}">{% if event.always_live %}24/7{% else %}{{ event.get_status_display }}{% endif %}</span></div>
+      <div class="v524-event-facts">
+        <div><span>English</span><strong>{{ event.english_duration_minutes }} min</strong></div>
+        <div><span>Math</span><strong>{{ event.math_duration_minutes }} min</strong></div>
+        {% if not event.always_live %}<div><span>Starts</span><strong>{{ event.start_at|date:"M j · H:i" }}</strong></div><div><span>Ends</span><strong>{{ event.end_at|date:"M j · H:i" }}</strong></div>{% endif %}
+      </div>
+      {% if event.rules %}<div class="v524-event-rules"><span>Rules</span>{{ event.rules|linebreaks }}</div>{% endif %}
+    </article>
+
+    <article class="v523-card v523-reveal v524-event-action-card" style="--reveal-index:2">
+      <span class="v523-card-label">Your attempt</span>
+      {% if existing_attempt and existing_attempt.status == 'in_progress' %}
+        <h2>Continue where you stopped.</h2><p>Your saved answers and remaining event state are waiting.</p>
+        <a class="mb50-primary-btn" href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}">Resume attempt <i class="bi bi-arrow-right"></i></a>
+      {% elif existing_attempt and existing_attempt.status == 'submitted' %}
+        <h2>Attempt completed.</h2><p>Your submitted result is ready to review.</p>
+        <a class="mb50-primary-btn" href="{% url 'global_event_result_root' existing_attempt.guest_token %}">View result <i class="bi bi-arrow-right"></i></a>
+      {% elif availability.can_start %}
+        <h2>Ready when you are.</h2><p>Starting creates one official attempt for this event.</p>
+        <form action="{% url 'start_global_event_root' event.slug %}" method="post" class="v524-event-start-form">{% csrf_token %}
+          {% if event.access_code %}<label><span>Event access code</span><input type="password" name="access_code" autocomplete="one-time-code" required placeholder="Enter code"></label>{% endif %}
+          <button class="mb50-primary-btn" type="submit">Start event <i class="bi bi-arrow-right"></i></button>
+        </form>
+      {% else %}
+        <h2>Not open yet.</h2><p>This event cannot be started while its status is {{ availability.label|lower }}.</p>
+        <a class="mb50-secondary-btn" href="{% url 'events' %}">Back to Events</a>
+      {% endif %}
+      {% if event.show_leaderboard %}<a class="v523-text-action" href="{% url 'global_event_leaderboard_root' event.slug %}">Open leaderboard <i class="bi bi-arrow-right"></i></a>{% endif %}
+    </article>
+  </section>
+</div>
+{% endblock %}

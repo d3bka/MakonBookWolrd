@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title-main %}{{ classroom.name }}{% endblock title-main %}
 {% block title %}Admissions Progress{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <style>
   .detail-shell { max-width: 1180px; margin: 0 auto; }
   .detail-card { background:#fff; border:1px solid #e5e7eb; border-radius:24px; padding:28px; box-shadow:0 16px 36px rgba(15,23,42,.08); }
@@ -37,7 +38,7 @@
         <h2 class="title">{{ student_obj.get_full_name|default:student_obj.username }}</h2>
         <p class="subtitle">@{{ student_obj.username }} · {{ classroom.name }}</p>
       </div>
-      <a href="{% url 'classroom_progress_dashboard' classroom.id %}" class="back-btn">Back to Progress</a>
+      <a href="{% url 'teacher_classroom_progress_root' classroom.id %}" class="back-btn">Back to Progress</a>
     </div>
 
     {% if not access_map.admissions %}

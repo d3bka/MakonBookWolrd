@@ -81,6 +81,7 @@
 
         <form action="" method="POST" class="signin-form auth-form" data-registration-form>
           {% csrf_token %}
+          {% if referral_code %}<input type="hidden" name="referral_code" value="{{ referral_code }}">{% endif %}
 
           <div class="form-group">
             <label class="form-label" for="username-field">Username</label>

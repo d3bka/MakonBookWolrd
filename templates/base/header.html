@@ -45,7 +45,7 @@
 
               {% if request.user|has_group:"Manager" %}
               <li>
-                <a href="{% url 'manager_dashboard' %}">
+                <a href="{% url 'manager_dashboard_root' %}">
                   <i class="fa fa-briefcase"></i> Manager Panel
                 </a>
               </li>
@@ -59,7 +59,7 @@
 
               {% if test_import_center_allowed %}
               <li>
-                <a href="{% url 'test_import_list' %}">
+                <a href="{% url 'test_import_list_root' %}">
                   <i class="fa fa-file-pdf-o"></i> Test Import Center{% if test_import_pending_reviews %} <strong style="margin-left:6px">{{ test_import_pending_reviews }}</strong>{% endif %}
                 </a>
               </li>
@@ -102,7 +102,7 @@
   </div>
 </header>
 {% if request.user.is_authenticated and test_import_center_allowed %}
-<div class="makon-notice-layer" data-notice-layer aria-hidden="true" data-read-url="{% url 'test_import_notifications_read' %}">
+<div class="makon-notice-layer" data-notice-layer aria-hidden="true" data-read-url="{% url 'notifications_read_root' %}">
   <form hidden data-notice-csrf-form>{% csrf_token %}</form>
   <button class="makon-notice-scrim" type="button" aria-label="Close notifications" data-notice-close></button>
   <section class="makon-notice-panel" role="dialog" aria-modal="true" aria-label="Notifications">
@@ -115,7 +115,7 @@
     </div>
     <div class="makon-notice-list">
       {% for notice in test_import_notifications %}
-        <a class="makon-notice-item{% if not notice.is_read %} is-unread{% endif %}" href="{{ notice.url|default:'#' }}">
+        <a class="makon-notice-item{% if not notice.is_read %} is-unread{% endif %}" href="{{ notice.url|default:'#' }}" data-notice-id="{{ notice.id }}">
           <span class="makon-notice-icon"><i class="bi {% if notice.type == 'test_published' %}bi-check2-circle{% else %}bi-file-earmark-check{% endif %}"></i></span>
           <span class="makon-notice-copy">
             <strong>{{ notice.title }}</strong>
@@ -127,7 +127,7 @@
         <div class="makon-notice-empty"><i class="bi bi-bell-slash"></i><strong>No notifications yet</strong><small>New test-review requests will appear here.</small></div>
       {% endfor %}
     </div>
-    <a class="makon-notice-footer" href="{% url 'test_import_list' %}">Open Test Import Center <i class="bi bi-arrow-right"></i></a>
+    <a class="makon-notice-footer" href="{% url 'test_import_list_root' %}">Open Test Import Center <i class="bi bi-arrow-right"></i></a>
   </section>
 </div>
 {% endif %}

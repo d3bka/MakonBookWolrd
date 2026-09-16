@@ -1,9 +1,9 @@
-{% extends 'template.html' %}{% load static %}
+{% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block page_title %}Import Structured Test | MakonBook{% endblock %}{% block title-main %}Import a test{% endblock %}{% block title-subtitle %}<span>Structured PDFs stay in staging until publication</span>{% endblock %}{% block title %}New import{% endblock %}
-{% block style %}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
 {% block content %}
 <div class="tic-shell narrow">
-  <a class="tic-back" href="{% url 'test_import_list' %}"><i class="bi bi-arrow-left"></i> Import Center</a>
+  <a class="tic-back" href="{% url 'manager_test_import_list_root' %}"><i class="bi bi-arrow-left"></i> Import Center</a>
   <section class="tic-card tic-format-card">
     <div class="tic-card-head">
       <div><span class="tic-kicker">Before upload</span><h2>MakonBook Structured PDF v2</h2><p>Convert the original test with an external AI first. V2.1 keeps tables, graphs, and diagrams as deterministic visual regions, removes PDF-only line wrapping, and preserves underlines, blanks, emphasis, and KaTeX-ready math with explicit markers.</p></div>

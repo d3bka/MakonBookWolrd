@@ -209,12 +209,12 @@
         </div>
         <footer class="footer">
             {% if classroom %}
-            <a href="{% url 'classroom_practice_tests' classroom.id %}" class="btn">Back</a>
+            <a href="{% url 'classroom_practice_tests_root' classroom.id %}" class="btn">Back</a>
             {% else %}
-            <a href="{% url 'practice_tests' %}" class="btn">Back</a>
+            <a href="{% url 'practice_tests_root' %}" class="btn">Back</a>
             {% endif %}
             
-            <a class="btn" href="/sat/makeup-test-module/{{ makeup_test }}">Next</a>
+            <a class="btn" href="{% url 'makeup_test_module_root' pk=makeup_test.name %}">Next</a>
         </footer>
     </div>
 

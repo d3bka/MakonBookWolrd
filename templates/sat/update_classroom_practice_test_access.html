@@ -1,79 +1,9 @@
-{% extends 'template.html' %}
-{% load static %}
-
-{% block title-main %}Practice Test Access{% endblock title-main %}
-{% block title %}Manage Practice Tests{% endblock %}
-
+{% extends 'sat/staff_workspace.html' %}
 {% block content %}
-<div class="mk-learning mk-access-page" data-learning-page="classroom-practice-access">
-  <div class="access-wrap">
-    <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="back-link">← Back to Dashboard</a>
-
-    <div class="access-hero">
-      <h2>Manage Practice Tests</h2>
-      <p>
-        Classroom: <strong>{{ classroom.name }}</strong>. This is a persistent classroom rule: current students are updated now, and students approved later inherit the same test access automatically.
-      </p>
-    </div>
-
-    <div class="access-stat">
-      <p style="margin: 0;">
-        Approved students: <strong>{{ total_students_count }}</strong><br>
-        Eligible current students: <strong>{{ eligible_count }}</strong><br>
-        Future approved students: <strong>inherit automatically</strong>
-      </p>
-    </div>
-
-    <form method="post">
-      {% csrf_token %}
-
-      <div class="section-block">
-        <h3>Access Mode</h3>
-
-        <label class="radio-row">
-          <input type="radio" name="access_mode" value="all" {% if access_mode == 'all' %}checked{% endif %}>
-          <span>Allow all practice tests</span>
-        </label>
-
-        <label class="radio-row">
-          <input type="radio" name="access_mode" value="selected" {% if access_mode == 'selected' %}checked{% endif %}>
-          <span>Allow only selected practice tests</span>
-        </label>
-      </div>
-
-      <div id="tests-box" class="section-block" style="display:none;">
-        <h3>Select Tests</h3>
-
-        <div class="tests-grid">
-          {% for test in tests %}
-            <label class="test-card check-row">
-              <input type="checkbox" name="tests" value="{{ test.pk }}" {% if test.pk|stringformat:"s" in selected_test_ids %}checked{% endif %}>
-              <span>{{ test.name }}</span>
-            </label>
-          {% empty %}
-            <div class="test-card">No tests found.</div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:20px;">
-        <button type="submit" class="btn-main">Save Access</button>
-        <a href="{% url 'teacher_classroom_dashboard' classroom.id %}" class="btn-main btn-secondary">Cancel</a>
-      </div>
-    </form>
-  </div>
+<div class="sf29-page">
+  <section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-journal-check"></i> Access · SAT tests</span><h1>Manage practice test access.</h1><p>{{ classroom.name }} · This policy applies to current eligible students and is inherited by newly approved students.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'teacher_access_root' %}"><i class="bi bi-arrow-left"></i>Back to Access center</a></div></section>
+  <section class="sf29-card span-12"><div class="sf29-grid"><article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-people"></i></span><div><strong>{{ total_students_count }}</strong><small>approved students</small></div></div></article><article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-person-check"></i></span><div><strong>{{ eligible_count }}</strong><small>eligible now</small></div></div></article><article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-arrow-repeat"></i></span><div><strong>Auto</strong><small>future inheritance</small></div></div></article></div></section>
+  <section class="sf29-card span-12"><form method="post">{% csrf_token %}<div class="sf29-section-head"><div><small>Policy</small><h2>Access mode</h2></div></div><div class="sf29-list"><label class="sf29-row sf29-check"><input type="radio" name="access_mode" value="all" {% if access_mode == 'all' %}checked{% endif %}><span><strong>Allow all published practice tests</strong><small>Students can open every SAT test currently in the platform.</small></span></label><label class="sf29-row sf29-check"><input type="radio" name="access_mode" value="selected" {% if access_mode == 'selected' %}checked{% endif %}><span><strong>Allow only selected tests</strong><small>Choose individual tests below.</small></span></label></div><div id="tests-box" style="margin-top:18px"><div class="sf29-section-head"><div><small>Published tests</small><h2>Select tests</h2></div></div><div class="sf29-grid">{% for test in tests %}<label class="sf29-card sf29-check"><input type="checkbox" name="tests" value="{{ test.pk }}" {% if test.pk|stringformat:'s' in selected_test_ids %}checked{% endif %}><span>{{ test.name }}</span></label>{% empty %}<div class="sf29-empty">No tests found.</div>{% endfor %}</div></div><div class="sf28-actions"><button class="sf28-btn primary" type="submit"><i class="bi bi-check2-circle"></i>Save access</button><a class="sf28-btn" href="{% url 'teacher_access_root' %}">Cancel</a></div></form></section>
 </div>
-
-<script>
-  const radios = document.querySelectorAll('input[name="access_mode"]');
-  const testsBox = document.getElementById('tests-box');
-
-  function toggleTestsBox() {
-    const selected = document.querySelector('input[name="access_mode"]:checked');
-    testsBox.style.display = selected && selected.value === 'selected' ? 'block' : 'none';
-  }
-
-  radios.forEach(r => r.addEventListener('change', toggleTestsBox));
-  toggleTestsBox();
-</script>
+<script>(function(){var box=document.getElementById('tests-box'),radios=document.querySelectorAll('input[name="access_mode"]');function sync(){var selected=document.querySelector('input[name="access_mode"]:checked');box.hidden=!!selected&&selected.value==='all';}radios.forEach(function(r){r.addEventListener('change',sync)});sync();})();</script>
 {% endblock %}

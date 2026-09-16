@@ -1,36 +1,24 @@
-{% extends 'template.html' %}{% load static %}
+{% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block page_title %}Published Tests | MakonBook{% endblock %}
-{% block title-main %}Published Tests{% endblock %}{% block title-subtitle %}<span>Manager test bank</span>{% endblock %}{% block title %}Published tests{% endblock %}
-{% block style %}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
 {% block content %}
-<div class="tic-shell">
-  {% if messages %}{% for message in messages %}<div class="tic-alert {{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
-  <div class="tic-toolbar">
-    <div><a class="tic-back" href="{% url 'test_import_list' %}"><i class="bi bi-arrow-left"></i> Import Center</a><h2>Live test bank</h2><p>Edit a published test without rebuilding the staging import, or permanently remove it with impact confirmation.</p></div>
-    <a class="tic-btn primary" href="{% url 'test_import_create' %}"><i class="bi bi-plus-circle"></i> Import new test</a>
-  </div>
-  <div class="tic-published-grid">
-    {% for test in tests %}
-    <article class="tic-card tic-published-card" data-published-test-card>
-      <div class="tic-published-head">
-        <div>
-          <div class="tic-published-badges">{% if test.is_available %}<span class="tic-mini-badge" data-availability-badge>MAKONBOOK OPEN</span>{% else %}<span class="tic-status failed" data-availability-badge>MAKONBOOK CLOSED</span>{% endif %}{% if test.is_new %}<span class="tic-status review_required">NEW</span>{% endif %}{% if test.has_import_source %}<span class="tic-mini-badge">Imported</span>{% else %}<span class="tic-mini-badge">Legacy/manual</span>{% endif %}</div>
-          <h3>{{ test.name }}</h3>
-          <p>{{ test.total_question_count }} questions · {{ test.english_count }} EBRW · {{ test.math_count }} Math</p>
-        </div>
-        <div class="tic-published-icon">{% if test.icon %}<img src="{{ test.icon.url }}" alt="">{% else %}<i class="bi bi-journal-check"></i>{% endif %}</div>
-      </div>
-      <div class="tic-published-meta"><span><i class="bi bi-calendar3"></i> {% if test.published_at %}{{ test.published_at|date:'d M Y, H:i' }}{% else %}Legacy publication{% endif %}</span><span><i class="bi bi-people"></i> {% if test.group_count %}{{ test.group_count }} group{{ test.group_count|pluralize }}{% else %}No group restriction{% endif %}</span></div>
-      <div class="tic-published-actions">
-        <form method="post" action="{% url 'managed_test_toggle_availability' test.pk %}" data-tic-availability-form data-test-name="{{ test.name|escape }}" data-current-state="{% if test.is_available %}open{% else %}closed{% endif %}">{% csrf_token %}
-          <input type="hidden" name="state" value="{% if test.is_available %}closed{% else %}open{% endif %}">
-          <button class="tic-btn {% if test.is_available %}danger{% else %}primary{% endif %}" type="submit" data-availability-button><i class="bi {% if test.is_available %}bi-lock-fill{% else %}bi-unlock-fill{% endif %}"></i> <span>{% if test.is_available %}Close MakonBook access{% else %}Open MakonBook access{% endif %}</span></button>
-        </form>
-        <a class="tic-btn ghost" href="{% url 'managed_test_edit' test.pk %}"><i class="bi bi-pencil-square"></i> Edit</a><a class="tic-btn danger" href="{% url 'managed_test_delete' test.pk %}"><i class="bi bi-trash3"></i> Delete</a>
-      </div>
-    </article>
-    {% empty %}<div class="tic-card tic-empty"><i class="bi bi-journal-x"></i><h3>No published tests</h3><p>Publish an approved staging import first.</p></div>{% endfor %}
-  </div>
+<div class="sf29-page">
+  <section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-journal-check"></i> Published tests</span><h1>Manage the live test bank.</h1><p>Search by name, filter availability and import source, then switch between list and card view. The page is paginated so the manager does not have to scroll through the entire catalog.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'manager_test_import_list_root' %}"><i class="bi bi-arrow-left"></i>Import Center</a><a class="sf28-btn primary" href="{% url 'manager_test_import_create_root' %}"><i class="bi bi-plus-circle"></i>Import new test</a></div></section>
+  <section class="sf29-card span-12">
+    <form method="get" action="{% url 'manager_managed_test_list_root' %}" class="sf210-toolbar sf210-homework-filterbar sf210-published-filterbar" data-v50211-live-form data-v50211-region="published-tests">
+      <label class="sf210-search grow"><i class="bi bi-search"></i><input type="search" name="q" value="{{ query }}" placeholder="Search published tests…" autocomplete="off"></label>
+      <select name="state"><option value="all" {% if state == 'all' %}selected{% endif %}>All states</option><option value="open" {% if state == 'open' %}selected{% endif %}>Open</option><option value="closed" {% if state == 'closed' %}selected{% endif %}>Closed</option></select>
+      <select name="source"><option value="all" {% if source == 'all' %}selected{% endif %}>All sources</option><option value="imported" {% if source == 'imported' %}selected{% endif %}>Imported</option><option value="manual" {% if source == 'manual' %}selected{% endif %}>Legacy/manual</option></select>
+      <select name="per_page" aria-label="Tests per page"><option value="12" {% if per_page == 12 %}selected{% endif %}>12 / page</option><option value="24" {% if per_page == 24 %}selected{% endif %}>24 / page</option><option value="48" {% if per_page == 48 %}selected{% endif %}>48 / page</option><option value="60" {% if per_page == 60 %}selected{% endif %}>60 / page</option></select>
+    </form>
+  </section>
+  <div data-v50211-live-region="published-tests">
+  <section class="sf29-card span-12"><div class="sf29-toolbar" style="margin-top:16px"><small data-v50211-result-count>{{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}</small><div class="sf29-view-toggle" data-sf29-view-toggle="published-tests" data-sf29-target="#published-test-directory"><button type="button" data-view="list" aria-label="List view"><i class="bi bi-list-ul"></i></button><button type="button" data-view="grid" aria-label="Card view"><i class="bi bi-grid-3x3-gap"></i></button></div></div>
+  </section>
+  <section class="sf29-card span-12"><div class="sf29-directory is-list sf29-list" id="published-test-directory">{% for test in tests %}<article class="sf29-row"><div class="sf29-stat-icon"><i class="bi bi-journal-check"></i></div><div class="grow"><div><span class="sf28-chip">{% if test.is_available %}Open{% else %}Closed{% endif %}</span>{% if test.has_import_source %}<span class="sf28-chip">Imported</span>{% else %}<span class="sf28-chip">Manual</span>{% endif %}</div><strong style="margin-top:7px">{{ test.name }}</strong><small>{{ test.total_question_count }} questions · {{ test.english_count }} EBRW · {{ test.math_count }} Math · {% if test.group_count %}{{ test.group_count }} group{{ test.group_count|pluralize }}{% else %}no group restriction{% endif %}</small></div><div class="sf28-actions" style="margin-top:0"><form method="post" action="{% url 'manager_managed_test_toggle_availability_root' test.pk %}" data-tic-availability-form data-test-name="{{ test.name|escape }}" data-current-state="{% if test.is_available %}open{% else %}closed{% endif %}">{% csrf_token %}<input type="hidden" name="state" value="{% if test.is_available %}closed{% else %}open{% endif %}"><button class="sf28-btn" type="submit"><i class="bi {% if test.is_available %}bi-lock{% else %}bi-unlock{% endif %}"></i>{% if test.is_available %}Close{% else %}Open{% endif %}</button></form><a class="sf28-btn" href="{% url 'manager_managed_test_edit_root' test.pk %}"><i class="bi bi-pencil-square"></i>Edit</a><a class="sf28-btn" href="{% url 'manager_managed_test_delete_root' test.pk %}"><i class="bi bi-trash3"></i>Delete</a></div></article>{% empty %}<div class="sf29-empty">No published tests match these filters.</div>{% endfor %}</div>
+    {% if page_obj.paginator.num_pages > 1 %}<nav class="sf29-pagination" aria-label="Published tests pages">{% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&state={{ state }}&source={{ source }}&per_page={{ per_page }}&page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&state={{ state }}&source={{ source }}&per_page={{ per_page }}&page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
+  </section>
+    </div>
 </div>
 <script src="{% static 'assets/js/test-import-center-fast.js' %}?v=2" defer></script>
 {% endblock %}

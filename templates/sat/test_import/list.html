@@ -1,21 +1,21 @@
-{% extends 'template.html' %}{% load static %}
+{% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block page_title %}Test Import Center | MakonBook{% endblock %}
 {% block title-main %}Test Import Center{% endblock %}{% block title-subtitle %}<span>Structured PDF → Parse → Audit → Review → Publish</span>{% endblock %}{% block title %}Test imports{% endblock %}
-{% block style %}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
 {% block content %}
 <div class="tic-shell">
-  {% if messages %}{% for message in messages %}<div class="tic-alert {{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
+
   <div class="tic-toolbar">
     <div><h2>Publishing queue</h2><p>Draft imports only. Published staging records are hidden from this queue.</p></div>
     {% if can_create %}
     <div class="tic-toolbar-actions">
       {% if failed_count %}
-      <form method="post" action="{% url 'test_import_clear_failed' %}" data-tic-clear-failed data-failed-count="{{ failed_count }}">
+      <form method="post" action="{% url 'manager_test_import_clear_failed_root' %}" data-tic-clear-failed data-failed-count="{{ failed_count }}">
         {% csrf_token %}<button class="tic-btn danger" type="submit"><i class="bi bi-trash3"></i> Clear failed ({{ failed_count }})</button>
       </form>
       {% endif %}
-      <a class="tic-btn ghost" href="{% url 'managed_test_list' %}"><i class="bi bi-sliders"></i> Published tests</a>
-      <a class="tic-btn primary" href="{% url 'test_import_create' %}"><i class="bi bi-file-earmark-arrow-up"></i> Import PDF</a>
+      <a class="tic-btn ghost" href="{% url 'manager_managed_test_list_root' %}"><i class="bi bi-sliders"></i> Published tests</a>
+      <a class="tic-btn primary" href="{% url 'manager_test_import_create_root' %}"><i class="bi bi-file-earmark-arrow-up"></i> Import PDF</a>
     </div>
     {% endif %}
   </div>
@@ -23,7 +23,7 @@
   <div class="tic-list">
     {% for job in jobs %}
     <div class="tic-job" data-import-job data-job-status="{{ job.status }}" data-job-id="{{ job.id }}">
-      <a class="tic-job-main" href="{% url 'test_import_detail' job.id %}">
+      <a class="tic-job-main" href="{% if staff_workspace_mode == 'support' %}{% url 'support_teacher_review_detail_root' job.id %}{% else %}{% url 'manager_test_import_detail_root' job.id %}{% endif %}">
         <div class="tic-job-copy">
           <span class="tic-status {{ job.status }}">{{ job.get_status_display }}</span>
           <h3>{{ job.name }}</h3>
@@ -39,7 +39,7 @@
         </div>
       </a>
       {% if can_manage and job.status != 'queued' and job.status != 'processing' and job.status != 'publishing' %}
-      <form class="tic-draft-delete-form" method="post" action="{% url 'test_import_delete' job.id %}" data-tic-draft-delete data-job-name="{{ job.name|escape }}" data-question-count="{{ job.ui_question_count }}">
+      <form class="tic-draft-delete-form" method="post" action="{% url 'manager_test_import_delete_root' job.id %}" data-tic-draft-delete data-job-name="{{ job.name|escape }}" data-question-count="{{ job.ui_question_count }}">
         {% csrf_token %}
         <button class="tic-icon-btn danger" type="submit" title="Delete staging draft" aria-label="Delete staging draft {{ job.name }}"><i class="bi bi-trash3"></i></button>
       </form>

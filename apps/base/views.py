@@ -1,9 +1,10 @@
 # base/views.py
 from django.shortcuts import render, redirect
+from django.http import HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.contrib.auth.forms import SetPasswordForm
+from django.contrib.auth.forms import SetPasswordForm, PasswordChangeForm
 from django.core.mail import EmailMultiAlternatives
 from django.utils.crypto import get_random_string
 from django.urls import reverse
@@ -23,20 +24,133 @@ from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
 import unicodedata
 
+
+@login_required(login_url='/login/')
+def legacy_sat_test_import_redirect(request, rest=''):
+    """Keep old /sat/test-imports links as compatibility redirects only.
+
+    New workspace pages never render under the implementation prefix.
+    """
+    groups = set(request.user.groups.values_list('name', flat=True))
+    is_manager = request.user.is_superuser or request.user.is_staff or 'Manager' in groups
+    base = '/manager/tests-import/' if is_manager else '/support-teacher/reviewer/'
+    safe_rest = rest or ''
+    if not is_manager and safe_rest.startswith(('published/', 'new/', 'clear-failed/')):
+        safe_rest = ''
+    target = base + safe_rest
+    if request.META.get('QUERY_STRING'):
+        target += '?' + request.META['QUERY_STRING']
+    if request.method not in {'GET', 'HEAD'}:
+        response = HttpResponse(status=307)
+        response['Location'] = target
+        return response
+    return redirect(target)
+
+
+@login_required(login_url='/login/')
+def legacy_sat_goal_redirect(request):
+    if request.method == 'POST':
+        from apps.sat.views import student_goal_settings
+        return student_goal_settings(request)
+    target = reverse('student_dashboard_root') + '?goal=1'
+    return redirect(target)
+
 def software(request):
     return render(request, 'software.html')
 
 @login_required(login_url='/login/')
 def edit_profile(request):
     user = request.user
-    if request.method == 'POST':
+    action = (request.POST.get('profile_action') or 'profile').strip().lower() if request.method == 'POST' else ''
+    profile_modal_open = ''
+
+    if request.method == 'POST' and action == 'password':
+        form = EditProfileForm(instance=user)
+        password_form = PasswordChangeForm(user=user, data=request.POST)
+        if password_form.is_valid():
+            password_user = password_form.save()
+            update_session_auth_hash(request, password_user)
+            messages.success(request, 'Password updated. You are still signed in on this device.')
+            return redirect('edit_profile')
+        profile_modal_open = 'password'
+    elif request.method == 'POST':
         form = EditProfileForm(request.POST, instance=user)
+        password_form = PasswordChangeForm(user=user)
         if form.is_valid():
             form.save()
-            return redirect('sat_menu')
+            messages.success(request, 'Profile updated.')
+            return redirect('edit_profile')
+        profile_modal_open = 'profile'
     else:
         form = EditProfileForm(instance=user)
-    return render(request, 'base/edit_profile.html', {'form': form})
+        password_form = PasswordChangeForm(user=user)
+
+    context = {
+        'form': form,
+        'password_form': password_form,
+        'profile_modal_open': profile_modal_open,
+    }
+    use_workspace = False
+    try:
+        from apps.sat.student_workspace import student_workspace_context
+        workspace_context = student_workspace_context(user, active='profile')
+        context.update(workspace_context)
+        use_workspace = bool(workspace_context.get('use_student_workspace'))
+    except Exception:
+        pass
+    if use_workspace:
+        try:
+            from .models import ReferralInvite
+            from apps.gamification.services import gamification_shell_context
+            from apps.sat.models import ClassroomMembership, StudentGoalProfile
+            referral = ReferralInvite.objects.filter(referrer=user).order_by('created_at').first()
+            if referral is None:
+                referral = ReferralInvite.objects.create(referrer=user)
+            context['referral'] = referral
+            context['referral_url'] = request.build_absolute_uri(reverse('register') + f'?ref={referral.code}')
+            context['referral_earned'] = ReferralInvite.objects.filter(referrer=user, activated_at__isnull=False).count()
+            context['referral_pending'] = ReferralInvite.objects.filter(referrer=user, referred_user__isnull=False, activated_at__isnull=True).count()
+            context['profile_classrooms'] = ClassroomMembership.objects.filter(user=user, role='student', status='approved').select_related('classroom', 'classroom__teacher')[:6]
+            context['student_goal'] = StudentGoalProfile.objects.filter(user=user).select_related('dream_university').first()
+            context['profile_user_profile'] = getattr(user, 'profile', None)
+            context.update(gamification_shell_context(user))
+        except Exception:
+            pass
+
+    if use_workspace:
+        template_name = 'base/edit_profile.html'
+    else:
+        # Keep operational users inside the unified V50.2.7 staff shell instead
+        # of dropping them back into the legacy public-page profile layout.
+        try:
+            from apps.sat.roles import is_teacher, is_manager, is_support_teacher, is_platform_admin
+            use_staff_workspace = bool(
+                is_teacher(user) or is_manager(user) or is_support_teacher(user) or is_platform_admin(user)
+            )
+        except Exception:
+            use_staff_workspace = False
+        template_name = 'base/edit_profile_staff_v527.html' if use_staff_workspace else 'base/edit_profile_legacy_v523.html'
+    return render(request, template_name, context)
+
+
+@login_required(login_url='/login/')
+def settings_page(request):
+    """One Settings experience for students and every staff role."""
+    try:
+        from apps.sat.student_workspace import student_workspace_context
+        context = student_workspace_context(request.user, active='settings')
+    except Exception:
+        context = {'use_student_workspace': False}
+    if not context.get('use_student_workspace'):
+        try:
+            from apps.sat.roles import is_teacher, is_manager, is_support_teacher, is_platform_admin
+            if is_teacher(request.user) or is_manager(request.user) or is_support_teacher(request.user) or is_platform_admin(request.user):
+                context['settings_base_template'] = 'sat/staff_workspace.html'
+            else:
+                context['settings_base_template'] = 'template.html'
+        except Exception:
+            context['settings_base_template'] = 'template.html'
+    return render(request, 'base/settings.html', context)
 
 PROFILE_NAME_APOSTROPHES = {"'", "’", "‘", "ʻ", "ʼ", "`", "´"}
 PROFILE_NAME_SEPARATORS = PROFILE_NAME_APOSTROPHES | {"-", " "}
@@ -122,7 +236,7 @@ def complete_profile_name(request):
 def home(request):
     """Public landing page for guests; dashboard entry for logged-in users."""
     if request.user.is_authenticated:
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
     return render(request, 'landing/home.html')
 
 @unauthenticated_user
@@ -142,7 +256,7 @@ def loginUser(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
-                return redirect("sat_menu")
+                return redirect("student_dashboard_root")
             messages.error(request, "Your account is not active. Please contact support.")
         else:
             messages.error(request, "Username, email, phone, or password is incorrect.")
@@ -156,6 +270,11 @@ def logoutUser(request):
 
 @unauthenticated_user
 def register(request):
+    from .models import ReferralInvite
+    referral_code = (request.GET.get('ref') or request.POST.get('referral_code') or request.session.get('makonbook_referral_code') or '').strip().upper()
+    if referral_code and ReferralInvite.objects.filter(code=referral_code).exists():
+        request.session['makonbook_referral_code'] = referral_code
+
     if request.method == "POST":
         form = UserRegistrationForm(request.POST)
         rate = check_registration_rate_limit(
@@ -194,6 +313,18 @@ def register(request):
                 }
             )
 
+            # Referrals are recorded now but become earned only after the new
+            # student is approved into a classroom (handled in the SAT app).
+            referral_code = (request.session.pop('makonbook_referral_code', '') or '').strip().upper()
+            if referral_code:
+                source_invite = ReferralInvite.objects.filter(code=referral_code).select_related('referrer').first()
+                if source_invite and source_invite.referrer_id != user.id:
+                    if source_invite.referred_user_id is None:
+                        source_invite.referred_user = user
+                        source_invite.save(update_fields=['referred_user'])
+                    else:
+                        ReferralInvite.objects.create(referrer=source_invite.referrer, referred_user=user)
+
             # # Send the activation email
             # subject = 'Activate Your MakonBook Account'
             # message = f'Hi {user.username},\n\nThank you for registering! Please click the link below to activate your account:\n\n{activation_url}\n\nThis link will expire in 24 hours.\n\nThanks,\nThe MakonBook Team'
@@ -214,7 +345,7 @@ def register(request):
                     messages.error(request, f"{field.capitalize()}: {error}")
     else:
         form = UserRegistrationForm()
-    return render(request, 'base/register.html', {'form': form})
+    return render(request, 'base/register.html', {'form': form, 'referral_code': request.session.get('makonbook_referral_code', '')})
 
 
 
@@ -363,7 +494,7 @@ def password_reset_confirm(request):
 @login_required(login_url="login")
 def change_temporary_password(request):
     if not getattr(request.user.profile, "must_change_password", False):
-        return redirect("sat_menu")
+        return redirect("student_dashboard_root")
     if request.method == "POST":
         rate = check_auth_rate_limit(request, action="temporary_password", identifier=str(request.user.pk))
         if not rate.allowed:
@@ -380,7 +511,7 @@ def change_temporary_password(request):
             user.profile.credentials_delivery_status = "completed"
             user.profile.save(update_fields=["must_change_password", "credentials_delivery_status", "updated_at"])
             messages.success(request, "Your password has been changed successfully.")
-            return redirect("sat_menu")
+            return redirect("student_dashboard_root")
     else:
         form = SetPasswordForm(request.user)
     return render(request, "base/change_temporary_password.html", {"form": form})
@@ -440,6 +571,15 @@ def submit_general_issue_report(request):
         except (TypeError, ValueError, json.JSONDecodeError):
             context_payload = {}
 
+    attachment = request.FILES.get('attachment')
+    if attachment:
+        if attachment.size > 8 * 1024 * 1024:
+            return JsonResponse({"ok": False, "error": "Attachment must be 8 MB or smaller."}, status=400)
+        allowed_types = {'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'}
+        content_type = (getattr(attachment, 'content_type', '') or '').lower()
+        if content_type not in allowed_types:
+            return JsonResponse({"ok": False, "error": "Attach PNG, JPG, WEBP, GIF, or PDF."}, status=400)
+
     report = GeneralIssueReport.objects.create(
         reporter=request.user if request.user.is_authenticated else None,
         reporter_name=(request.POST.get("reporter_name") or "")[:160].strip(),
@@ -450,6 +590,7 @@ def submit_general_issue_report(request):
         page_title=(request.POST.get("page_title") or "")[:300],
         user_agent=(request.META.get("HTTP_USER_AGENT") or "")[:1000],
         context_data=context_payload,
+        attachment=attachment,
     )
     recent.append(now_ts)
     request.session["issue_report_times"] = recent

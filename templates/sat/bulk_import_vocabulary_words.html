@@ -1,4 +1,4 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
 {% block title %}Bulk Import Vocabulary{% endblock %}
@@ -23,7 +23,7 @@
 
         <div style="margin-top: 16px; display: flex; gap: 12px;">
             <button type="submit" class="btn btn-primary">Import words</button>
-            <a href="{% url 'teacher_vocabulary_units' %}" class="btn btn-secondary">Back</a>
+            <a href="{% url 'teacher_vocabulary_units_root' %}" class="btn btn-secondary">Back</a>
         </div>
     </form>
 

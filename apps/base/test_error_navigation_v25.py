@@ -19,7 +19,7 @@ class ErrorNavigationV25Tests(TestCase):
         navigation = build_error_navigation(
             self._request("http://testserver/sat/dashboard/")
         )
-        self.assertEqual(navigation["error_back_url"], reverse("sat_menu"))
+        self.assertEqual(navigation["error_back_url"], reverse("student_dashboard_root"))
 
     def test_safe_same_site_referrer_is_preserved(self):
         navigation = build_error_navigation(
@@ -34,7 +34,7 @@ class ErrorNavigationV25Tests(TestCase):
         navigation = build_error_navigation(
             self._request("https://evil.example/phishing")
         )
-        self.assertEqual(navigation["error_back_url"], reverse("sat_menu"))
+        self.assertEqual(navigation["error_back_url"], reverse("student_dashboard_root"))
 
     def test_anonymous_fallback_goes_home(self):
         request = self.factory.get("/missing-page/")

@@ -1,11 +1,12 @@
-{% extends 'template.html' %}
+{% extends 'sat/staff_workspace.html' %}
 {% load static %}
 
-{% block title-main %}Edit Support Teacher Profile{% endblock title-main %}
-{% block title-subtitle %}<span>Control what students see before they book</span>{% endblock title-subtitle %}
+{% block title-main %}Edit Mentor Profile{% endblock title-main %}
+{% block title-subtitle %}<span>Control what students see in the mentor directory</span>{% endblock title-subtitle %}
 {% block title %}Public Profile{% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <link rel="stylesheet" href="{% static 'assets/css/support-booking-v33.css' %}?v=33">
 {% endblock style %}
 
@@ -20,12 +21,11 @@
   <section class="support-card support-hero">
     <div class="support-hero-content">
       <div>
-        <div class="support-eyebrow"><span class="support-eyebrow-dot"></span> Support Teacher Profile</div>
+        <div class="support-eyebrow"><span class="support-eyebrow-dot"></span> Mentor Profile</div>
         <h1>Build a profile students can trust.</h1>
-        <p>Update your public details, teaching experience, SAT scores, lesson links, and booking rules. Score changes remove the verified badge until an administrator checks them again.</p>
+        <p>Update your public details, teaching experience, certificates and SAT scores. {% if is_support_teacher_profile %}You can also manage lesson-delivery details here. {% endif %}Score changes remove the verified badge until an administrator checks them again.</p>
         <div class="support-hero-actions">
-          <a class="support-btn support-btn-light" href="{% url 'support_teacher_planner' %}"><i class="bi bi-layout-text-window-reverse"></i> Back to planner</a>
-          <a class="support-btn support-btn-ghost-light" href="{% url 'support_teacher_detail' teacher.id %}"><i class="bi bi-eye"></i> Preview public profile</a>
+          {% if is_support_teacher_profile %}<a class="support-btn support-btn-light" href="{% url 'support_teacher_planner_root' %}"><i class="bi bi-layout-text-window-reverse"></i> Back to planner</a><a class="support-btn support-btn-ghost-light" href="{% url 'support_teacher_detail_root' teacher.id %}"><i class="bi bi-eye"></i> Preview booking profile</a>{% else %}<a class="support-btn support-btn-light" href="{% url 'teacher_classrooms_root' %}"><i class="bi bi-arrow-left"></i> Back to teacher workspace</a>{% endif %}
         </div>
       </div>
       <aside class="support-next-card">
@@ -80,7 +80,7 @@
       </div>
 
       <aside class="support-stack">
-        <section class="support-card support-card-pad">
+        {% if is_support_teacher_profile %}<section class="support-card support-card-pad">
           <div class="support-section-head"><div><h2>Lesson delivery</h2><p>These settings apply to new bookings.</p></div></div>
           <div class="support-field"><label for="{{ form.meeting_link.id_for_label }}">Default meeting link</label>{{ form.meeting_link }}{{ form.meeting_link.errors }}</div>
           <div class="support-field" style="margin-top:14px;"><label for="{{ form.booking_instructions.id_for_label }}">Instructions before booking</label>{{ form.booking_instructions }}{{ form.booking_instructions.errors }}</div>
@@ -88,8 +88,19 @@
             <div class="support-field"><label for="{{ form.min_booking_notice_hours.id_for_label }}">Minimum booking notice (hours)</label>{{ form.min_booking_notice_hours }}{{ form.min_booking_notice_hours.errors }}</div>
             <div class="support-field"><label for="{{ form.cancellation_notice_hours.id_for_label }}">Cancellation notice (hours)</label>{{ form.cancellation_notice_hours }}{{ form.cancellation_notice_hours.errors }}</div>
           </div>
-        </section>
+        </section>{% endif %}
 
+
+        <section class="support-card support-card-pad">
+          <div class="support-section-head"><div><h2>Custom profile sections</h2><p>Add public blocks such as Projects, Awards, Courses, Publications, Portfolio or anything else relevant to students.</p></div></div>
+          <div class="support-stack" style="gap:10px">
+            {% for section in custom_sections %}<article class="sf29-row"><div class="grow"><strong>{{ section.title }}</strong>{% if section.body %}<small>{{ section.body|truncatewords:24 }}</small>{% endif %}{% if section.url %}<small>{{ section.url }}</small>{% endif %}</div><button class="sf28-btn" type="submit" name="section_id" value="{{ section.id }}" onclick="this.form.querySelector('[name=profile_action]').value='delete_custom_section'">Remove</button></article>{% empty %}<div class="sf29-empty">No custom sections yet.</div>{% endfor %}
+          </div>
+          <div class="support-field" style="margin-top:16px"><label>Section title</label><input class="support-input" name="section_title" maxlength="120" placeholder="Projects, Awards, Portfolio…"></div>
+          <div class="support-field" style="margin-top:12px"><label>Description</label><textarea class="support-input" name="section_body" rows="4" maxlength="2000" placeholder="What should students know?"></textarea></div>
+          <div class="support-field" style="margin-top:12px"><label>Optional link</label><input class="support-input" type="url" name="section_url" placeholder="https://..."></div>
+          <button class="support-btn support-btn-secondary" style="margin-top:14px" type="submit" onclick="this.form.querySelector('[name=profile_action]').value='add_custom_section'"><i class="bi bi-plus-circle"></i> Add profile section</button>
+        </section>
         <section class="support-card support-profile-preview-card">
           <small>Live preview</small>
           <div class="support-profile-row" style="margin-top:14px;">
@@ -110,9 +121,10 @@
       </aside>
     </div>
 
+    <input type="hidden" name="profile_action" value="profile">
     <div class="support-sticky-save">
       <span>Changes become visible to students immediately.</span>
-      <button class="support-btn support-btn-primary" type="submit" data-loading-label="Saving profile…"><i class="bi bi-save"></i> Save profile</button>
+      <button class="support-btn support-btn-primary" type="submit" onclick="this.form.querySelector('[name=profile_action]').value='profile'" data-loading-label="Saving profile…"><i class="bi bi-save"></i> Save profile</button>
     </div>
   </form>
 </div>

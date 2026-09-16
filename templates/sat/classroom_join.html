@@ -1,243 +1,162 @@
-{% extends 'template.html' %}
+{% extends 'sat/student_workspace.html' %}
 {% load static %}
-
-{% block title-main %}Student Dashboard{% endblock title-main %}
-{% block breadcrumb_parent %}<li><a href="{% url 'sat_menu' %}">Dashboard</a></li>{% endblock breadcrumb_parent %}
-{% block title %}Student Dashboard{% endblock title %}
-
-{% block style %}
-<link rel="stylesheet" href="{% static 'assets/css/makon-classroom-membership.css' %}">
+{% block page_title %}Home · MakonBook{% endblock page_title %}
+{% block student_workspace_style %}
 <link rel="stylesheet" href="{% static 'assets/css/student-goal-dashboard-v30.css' %}?v=37">
-{% endblock style %}
+<link rel="stylesheet" href="{% static 'assets/css/student-dashboard-v523.css' %}?v=524">
+{% endblock student_workspace_style %}
 
 {% block content %}
-<div class="student-goal-dashboard sg-global-dashboard" id="studentGoalDashboard">
-  <section class="sg-hero sg-global-hero" data-sg-reveal>
-    <div class="sg-hero-copy">
-      <div class="sg-eyebrow">Student dashboard</div>
-      <h1 class="sg-title">
-        Your SAT plan starts with a
-        <span class="sg-title-gradient">clear destination.</span>
-      </h1>
-      <p class="sg-subtitle">
-        Welcome, {{ request.user.first_name|default:request.user.username }}. Manage your dream university,
-        target score, exam countdown, and classrooms from one dashboard.
-      </p>
+<div class="v523-home" id="studentDashboardV523">
+  <header class="v523-home-head">
+    <div><span aria-label="Student Dashboard">STUDENT DASHBOARD</span><h1>Hi, {{ request.user.first_name|default:request.user.username }} <b aria-hidden="true">👋</b></h1><p>{% now "l, F j" %} · Finish one useful thing well.</p></div>
+    <button class="mb50-secondary-btn v523-customize" type="button" data-dashboard-customize-open><i class="bi bi-sliders2"></i> Customize</button>
+  </header>
 
-      <div class="sg-destination">
-        <span class="sg-destination-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9.5 12 4l9.5 5.5L12 15 2.5 9.5Z" fill="currentColor"/><path d="M6.5 12.1V16c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3v-3.9L12 15l-5.5-2.9Z" fill="currentColor" opacity=".82"/><path d="M21.5 10v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-        <div>
-          {% if goal.university_name %}
-            <strong>{{ goal.university_name }}</strong>
-            <span>
-              {% if goal.university_country %}{{ goal.university_country }}{% endif %}{% if goal.dream_university.qs_rank %}{% if goal.university_country %} · {% endif %}QS {{ goal.dream_university.ranking_year|default:"2027" }} #{{ goal.dream_university.qs_rank }}{% endif %}{% if goal.average_sat_score %} · SAT reference: {{ goal.average_sat_score }}{% else %} · SAT average not published{% endif %}
-            </span>
-          {% else %}
-            <strong>Choose your dream university</strong>
-            <span>Select a university once and MakonBook will fill its reference information automatically.</span>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="sg-actions">
-        <button type="button" class="sg-btn" data-goal-modal-open>
-          <svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>
-          {% if goal_is_configured %}Update SAT goal{% else %}Set my SAT goal{% endif %}
-        </button>
-        {% if approved_memberships %}
-          <a href="#studentClassrooms" class="sg-btn sg-btn-secondary">
-            <i class="bi bi-grid"></i>
-            Open classrooms
-          </a>
-        {% endif %}
-        {% if request.user.profile.hollihop_client_id %}
-          <a href="{% url 'hollihop_my_attendance' %}" class="sg-btn sg-btn-secondary">
-            <i class="bi bi-calendar-check"></i>
-            My attendance
-          </a>
-        {% endif %}
-      </div>
-
-      <div class="sg-motivation">
-        <div class="sg-motivation-timer" data-motivation-timer data-rotation-seconds="15">
-          <span data-motivation-seconds-left>15</span>
-        </div>
-        <div class="sg-motivation-copy">
-          <small>Live motivation</small>
-          <strong data-motivation-text>One focused session today moves you closer to your goal.</strong>
-        </div>
-      </div>
-    </div>
-
-    <div class="sg-hero-side">
-      <article class="sg-countdown-card" {% if goal.exam_date %}data-exam-countdown data-exam-date="{{ goal.exam_date|date:'Y-m-d' }}"{% endif %}>
-        <div class="sg-card-kicker">
-          <span><i class="bi bi-calendar-event"></i> SAT exam countdown</span>
-          <span class="sg-status-chip" data-tone="{{ pace_tone }}">{{ pace_label }}</span>
-        </div>
-        {% if goal.exam_date %}
-          <div class="sg-countdown-grid">
-            <div class="sg-countdown-unit"><strong data-countdown-days>{{ goal.days_remaining }}</strong><span>Days</span></div>
-            <div class="sg-countdown-unit"><strong data-countdown-hours>00</strong><span>Hours</span></div>
-            <div class="sg-countdown-unit"><strong data-countdown-minutes>00</strong><span>Minutes</span></div>
-            <div class="sg-countdown-unit"><strong data-countdown-seconds>00</strong><span>Seconds</span></div>
-          </div>
-          <div class="sg-progress-mini">
-            <div class="sg-progress-mini-head">
-              <span>Exam date</span>
-              <strong>{{ goal.exam_date|date:"F j, Y" }}</strong>
-            </div>
-          </div>
-        {% else %}
-          <div class="sg-empty sg-dashboard-empty">
-            Choose your exam date to activate the live countdown.
-          </div>
-        {% endif %}
-      </article>
-
-      <article class="sg-score-card">
-        <div class="sg-card-kicker">
-          <span><i class="bi bi-graph-up-arrow"></i> Score journey</span>
-          <span class="sg-status-chip">Target {{ target_score }}</span>
-        </div>
-        <div class="sg-score-row">
-          <div class="sg-progress-ring" style="--progress: {{ goal_progress_percent }}%;">
-            <strong>{{ goal_progress_percent }}%</strong>
-          </div>
-          <div class="sg-score-copy">
-            <strong>{% if current_score is not None %}{{ current_score }}{% else %}—{% endif %}</strong>
-            <span>
-              {% if current_score is not None %}
-                Latest SAT score · {% if score_gap %}{{ score_gap }} points to target{% else %}target range reached{% endif %}
-              {% else %}
-                Your scored practice tests will appear here automatically.
-              {% endif %}
-            </span>
-          </div>
-        </div>
-      </article>
-    </div>
+  {% if gamification %}
+  <section class="mb52-progression-v2" data-v50-gamification>
+    <button class="mb52-progression-main" type="button" data-gamification-open aria-label="Open MakonBook progression">
+      <span class="mb52-rank-mark"><small>LEVEL</small><strong data-gamification-count="{{ gamification.level }}">{{ gamification.level }}</strong></span>
+      <span class="mb52-progression-copy">
+        <span><strong>{{ gamification.level_title }}</strong><em>{{ gamification.xp_total }} XP</em></span>
+        <i class="mb52-progression-track"><b style="width:{{ gamification.level_percent }}%"></b></i>
+        <small>{{ gamification.xp_remaining }} XP until Level {{ gamification.level|add:'1' }}</small>
+      </span>
+      <span class="mb52-progression-metric"><i class="bi bi-fire"></i><b data-gamification-count="{{ gamification.current_streak }}">{{ gamification.current_streak }}</b><small>day streak</small></span>
+      <span class="mb52-progression-metric"><i class="bi bi-check2-square"></i><b>{{ gamification.daily_completed }}/{{ gamification.daily_total }}</b><small>daily quests</small></span>
+      <span class="mb52-progression-open"><i class="bi bi-arrow-up-right"></i></span>
+    </button>
   </section>
+  {% endif %}
 
-  {{ motivation_messages|json_script:"student-motivation-messages" }}
+  <section class="v523-home-grid">
+    <article class="v523-home-card v523-target v523-reveal" data-dashboard-widget="target" data-dashboard-label="Target university" style="--reveal-index:0">
+      <div class="v523-home-label"><i class="bi bi-bullseye"></i> Target university</div>
+      {% if goal and goal.university_name %}
+        <button class="v523-edit-goal" type="button" data-goal-modal-open aria-label="Edit SAT goal"><i class="bi bi-pencil"></i></button>
+        <h2>{{ goal.university_name }}</h2>
+        <p>{% if target_score %}Target {{ target_score }}{% else %}Set a target SAT score{% endif %}{% if goal.exam_date %} · {{ goal.exam_date|date:"M j, Y" }}{% endif %}</p>
+        <div class="v523-target-progress"><span style="width:{{ goal_progress_percent|default:0 }}%"></span></div>
+        <small>{% if current_score %}Current {{ current_score }} · {{ score_gap }} points to go{% else %}Take your first scored test to start the climb.{% endif %}</small>
+      {% else %}
+        <h2>Set your target</h2><p>Pick a university, score and exam date.</p><button class="v523-text-action" type="button" data-goal-modal-open>Set SAT goal <i class="bi bi-arrow-right"></i></button>
+      {% endif %}
+    </article>
 
-  <section class="sg-metrics" data-sg-reveal>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.4 2.5 5.8 13h5.1l-.4 8.5L18.2 11h-5.1l.3-8.5Z" fill="currentColor" stroke="currentColor" stroke-linejoin="round"/></svg></span></div>
-      <strong>{% if current_score is not None %}{{ current_score }}{% else %}—{% endif %}</strong>
-      <span>Latest score{% if latest_review %} · {{ latest_review.created_at|date:"M j" }}{% endif %}{% if best_score %} · best {{ best_score }}{% endif %}</span>
+    <article class="v523-home-card v523-continue v523-reveal" data-dashboard-widget="continue" data-dashboard-label="Continue" style="--reveal-index:1">
+      <div class="v523-home-label"><i class="bi {{ dashboard_continue.icon }}"></i> Continue</div>
+      <span class="v523-mini">{{ dashboard_continue.kind }}</span>
+      <h2>{{ dashboard_continue.title }}</h2><p>{{ dashboard_continue.meta }}</p>
+      <a class="mb50-primary-btn" href="{{ dashboard_continue.url }}">Continue <i class="bi bi-arrow-right"></i></a>
     </article>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span></div>
-      <strong>{{ target_score }}</strong>
-      <span>Your manually entered SAT target</span>
+
+    <article class="v523-home-card v523-roadmap v523-reveal" data-dashboard-widget="roadmap" data-dashboard-label="Roadmap" style="--reveal-index:2">
+      <div class="v523-home-label"><i class="bi bi-signpost-split"></i> Roadmap</div>
+      <div class="v523-roadmap-top"><div><h2>{{ dashboard_roadmap.title }}</h2><p>{{ dashboard_roadmap.completed }} / {{ dashboard_roadmap.total }} tracked items</p></div><strong>{{ dashboard_roadmap.progress }}%</strong></div>
+      <div class="v523-roadmap-track"><span style="width:{{ dashboard_roadmap.progress }}%"></span></div>
+      <a class="v523-text-action" href="{{ dashboard_roadmap.url }}">Open roadmap <i class="bi bi-arrow-right"></i></a>
     </article>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17 10 12l3.2 3.2L20 8.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.8 8.4H20v5.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
-      <strong>{% if score_gap is not None %}{{ score_gap }}{% else %}—{% endif %}</strong>
-      <span>{% if score_gap == 0 %}Target gap closed{% else %}Points remaining to target{% endif %}</span>
+
+    <article class="v523-home-card v523-due v523-reveal" data-dashboard-widget="due" data-dashboard-label="Due work" style="--reveal-index:3">
+      <div class="v523-home-label"><i class="bi bi-calendar2-check"></i> Due work</div>
+      <div class="v523-home-list">
+        {% for item in dashboard_due_items %}
+          <a href="{{ item.url }}"><span><i class="bi {{ item.icon }}"></i></span><div><strong>{{ item.title }}</strong><small>{{ item.kind }} · {{ item.meta }}</small></div><i class="bi bi-chevron-right"></i></a>
+        {% empty %}<div class="v523-home-empty"><i class="bi bi-check2-circle"></i><span><strong>Nothing urgent.</strong><small>Your current queue is clear.</small></span></div>{% endfor %}
+      </div>
+      <a class="v523-text-action" href="{% url 'student_homework_root' %}">Open Homework <i class="bi bi-arrow-right"></i></a>
     </article>
-    <article class="sg-metric-card">
-      <div class="sg-metric-top"><span class="sg-metric-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.1 2.8c.8 4-2.6 5.1-2.6 8 0 1.2.7 2 1.7 2.5-.1-2 .9-3.2 2.2-4.4 2.1 1.9 3.6 4 3.6 6.6 0 3.3-2.7 5.8-6 5.8s-6-2.5-6-5.8c0-4.4 3.2-7.2 7.1-12.7Z" fill="currentColor"/></svg></span></div>
-      <strong>{{ weekly_momentum }}</strong>
-      <span>Learning actions completed in the last 7 days</span>
+
+    <article class="v523-home-card v523-weak v523-reveal" data-dashboard-widget="weak" data-dashboard-label="Weak topics" style="--reveal-index:4">
+      <div class="v523-home-label"><i class="bi bi-activity"></i> Weak topics</div>
+      {% if dashboard_weak_topics %}
+        <div class="v523-weak-list">{% for topic in dashboard_weak_topics %}<div><span><strong>{{ topic.name }}</strong><small>{{ topic.wrong }} wrong · {{ topic.total }} answered</small></span><b>{{ topic.accuracy }}%</b><i><em style="width:{{ topic.accuracy }}%"></em></i></div>{% endfor %}</div>
+      {% else %}<div class="v523-home-empty"><i class="bi bi-bar-chart"></i><span><strong>Not enough SAT data yet.</strong><small>Complete assigned practice to reveal weak topics.</small></span></div>{% endif %}
+      <a class="v523-text-action" href="{% url 'student_progress_root' %}">Open Progress <i class="bi bi-arrow-right"></i></a>
+    </article>
+
+    <article class="v523-home-card v524-optional-widget v523-reveal" data-dashboard-widget="score" data-dashboard-label="Score trajectory" data-dashboard-default-hidden="1" hidden>
+      <div class="v523-home-label"><i class="bi bi-graph-up-arrow"></i> Score trajectory</div>
+      <h2>{% if current_score %}{{ current_score }}{% else %}—{% endif %}</h2>
+      <p>{% if target_score %}Target {{ target_score }}{% else %}Set a SAT target to track the gap.{% endif %}</p>
+      <a class="v523-text-action" href="{% url 'student_progress_root' %}">Open Progress <i class="bi bi-arrow-right"></i></a>
+    </article>
+
+    <article class="v523-home-card v524-optional-widget v523-reveal" data-dashboard-widget="vocabulary" data-dashboard-label="Vocabulary" data-dashboard-default-hidden="1" hidden>
+      <div class="v523-home-label"><i class="bi bi-journal-bookmark"></i> Vocabulary</div>
+      <h2>{{ dashboard_vocabulary.mastered|default:0 }} mastered</h2>
+      <p>{{ dashboard_vocabulary.learning|default:0 }} learning · {{ dashboard_vocabulary.due|default:0 }} due</p>
+      <a class="v523-text-action" href="{% url 'vocabulary_root' %}">Open Vocabulary <i class="bi bi-arrow-right"></i></a>
+    </article>
+
+    <article class="v523-home-card v524-optional-widget v523-reveal" data-dashboard-widget="activity" data-dashboard-label="Activity" data-dashboard-default-hidden="1" hidden>
+      <div class="v523-home-label"><i class="bi bi-fire"></i> Activity</div>
+      <h2>{% if gamification %}{{ gamification.current_streak }} day{{ gamification.current_streak|pluralize }}{% else %}0 days{% endif %}</h2>
+      <p>{% if gamification %}{{ gamification.daily_completed }}/{{ gamification.daily_total }} daily quests complete{% else %}Start a learning action to build a streak.{% endif %}</p>
+    </article>
+
+    <article class="v523-home-card v524-optional-widget v523-reveal" data-dashboard-widget="ranking" data-dashboard-label="Ranking" data-dashboard-default-hidden="1" hidden>
+      <div class="v523-home-label"><i class="bi bi-trophy"></i> Ranking</div>
+      <h2>Teacher rating</h2>
+      <p>Keep academic progress separate from classroom rating.</p>
+      <a class="v523-text-action" href="{% url 'rating_home' %}">Open Ranking <i class="bi bi-arrow-right"></i></a>
     </article>
   </section>
 </div>
 
-<div class="classroom-membership-page sg-classroom-list" id="studentClassrooms">
-  <section class="membership-hero">
-    <div>
-      <span class="membership-eyebrow">Student classrooms</span>
-      <h2>Your classrooms</h2>
-      <p>Every classroom opens through its own command center, so your goal and next actions stay visible before you start studying.</p>
-    </div>
-    {% if approved_memberships %}
-      <span class="membership-status approved">{{ approved_memberships|length }} approved</span>
-    {% endif %}
+<div class="v524-dashboard-layer" data-dashboard-customize-layer aria-hidden="true">
+  <button class="mb50-command-scrim" type="button" data-dashboard-customize-close aria-label="Close"></button>
+  <section class="v524-dashboard-panel" role="dialog" aria-modal="true" aria-labelledby="dashboardCustomizeTitle">
+    <div class="mb50-more-head"><div><h2 id="dashboardCustomizeTitle">Customize dashboard</h2><p>Drag widgets to reorder them. Hide what you do not use; your learning data is never deleted.</p></div><button type="button" data-dashboard-customize-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div>
+    <div class="v524-dashboard-builder" data-dashboard-builder></div>
+    <div class="mb50-more-footer"><button class="mb50-secondary-btn" type="button" data-dashboard-reset>Reset</button><button class="mb50-primary-btn" type="button" data-dashboard-save>Save dashboard</button></div>
   </section>
-
-  {% if approved_memberships %}
-    <section class="membership-panel">
-      <div class="membership-panel-head">
-        <div>
-          <h3>Approved classrooms</h3>
-          <p>Open a classroom to see the tools, chat, progress, and study actions enabled by your teacher.</p>
-        </div>
-      </div>
-      <div class="membership-grid">
-        {% for membership in approved_memberships %}
-          <article class="membership-card is-approved">
-            <div>
-              <span class="membership-status approved">Approved</span>
-              <h4>{{ membership.classroom.name }}</h4>
-              <p>{{ membership.classroom.description|default:"Classroom access is active." }}</p>
-            </div>
-            <div class="membership-actions">
-              <a href="{% url 'student_classroom_home' membership.classroom.id %}" class="membership-btn primary">Open classroom</a>
-            </div>
-          </article>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
-
-  {% if pending_memberships %}
-    <section class="membership-panel" data-membership-status-watch data-refresh-ms="5000">
-      <div class="membership-panel-head">
-        <div>
-          <h3>Pending requests</h3>
-          <p>These requests are waiting for teacher approval.</p>
-        </div>
-      </div>
-      <div class="membership-grid">
-        {% for membership in pending_memberships %}
-          <article class="membership-card is-pending">
-            <div>
-              <span class="membership-status pending">Pending</span>
-              <h4>{{ membership.classroom.name }}</h4>
-              <p>Requested {{ membership.requested_at|date:"d M Y, H:i" }}</p>
-            </div>
-          </article>
-        {% endfor %}
-      </div>
-      <div class="membership-waiting-note">This page checks the request status automatically every few seconds.</div>
-    </section>
-  {% endif %}
-
-  <section class="membership-panel">
-    <div class="membership-panel-head">
-      <div>
-        <h3>Join another classroom</h3>
-        <p>Enter the active six-digit code generated by your teacher.</p>
-      </div>
-    </div>
-    <form method="post" action="{% url 'submit_classroom_join_request' %}" class="membership-form">
-      {% csrf_token %}
-      <input type="text" inputmode="numeric" pattern="[0-9]{6}" name="join_code" maxlength="6" class="membership-input" placeholder="000000" autocomplete="one-time-code" required>
-      <button type="submit" class="membership-btn primary">Send request</button>
-    </form>
-  </section>
-
-  {% if rejected_memberships %}
-    <section class="membership-panel">
-      <div class="membership-panel-head"><div><h3>Rejected requests</h3></div></div>
-      <div class="membership-grid">
-        {% for membership in rejected_memberships %}
-          <article class="membership-card is-rejected">
-            <div>
-              <span class="membership-status rejected">Rejected</span>
-              <h4>{{ membership.classroom.name }}</h4>
-              <p>You may submit a new request later using an active classroom code.</p>
-            </div>
-          </article>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
 </div>
 
+{% if gamification %}
+<div class="mb52-panel-layer" data-gamification-panel aria-hidden="true">
+  <button class="mb52-panel-scrim" type="button" data-gamification-close aria-label="Close progression"></button>
+  <section class="mb52-panel mb52-panel-v2" role="dialog" aria-modal="true" aria-labelledby="mb52PanelTitle">
+    <div class="mb52-panel-head-v2">
+      <div><span>MAKONBOOK PROGRESSION</span><h2 id="mb52PanelTitle">Your consistency, measured.</h2><p>XP tracks learning activity. Academic SAT/AP scores stay separate.</p></div>
+      <button class="mb52-panel-close" type="button" data-gamification-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="mb52-panel-body-v2">
+      <section class="mb52-summary-grid">
+        <article class="mb52-summary-level"><span>Level {{ gamification.level }}</span><strong>{{ gamification.level_title }}</strong><div><i><b style="width:{{ gamification.level_percent }}%"></b></i><em>{{ gamification.xp_total }} / {{ gamification.next_level_xp }} XP</em></div></article>
+        <article><i class="bi bi-fire"></i><strong data-gamification-count="{{ gamification.current_streak }}">{{ gamification.current_streak }}</strong><span>Current streak</span><small>Best · {{ gamification.best_streak }} days</small></article>
+        <article><i class="bi bi-check2-square"></i><strong>{{ gamification.daily_completed }}/{{ gamification.daily_total }}</strong><span>Daily quests</span><small>Up to +{{ gamification.daily_reward }} XP</small></article>
+        <article><i class="bi bi-award"></i><strong>{{ gamification.achievement_count }}/{{ gamification.achievement_total }}</strong><span>Achievements</span><small>Permanent milestones</small></article>
+      </section>
+
+      <section class="mb52-v2-section">
+        <div class="mb52-v2-title"><div><span>TODAY</span><strong>Daily quests</strong></div><small>Resets at midnight</small></div>
+        <div class="mb52-quest-list-v2">{% for quest in gamification.daily_quests %}<article class="mb52-quest-v2{% if quest.completed_at %} is-complete{% endif %}"><div class="mb52-quest-v2-icon"><i class="bi {% if quest.completed_at %}bi-check-lg{% else %}bi-circle{% endif %}"></i></div><div><div><strong>{{ quest.title }}</strong><em>+{{ quest.reward_xp }} XP</em></div><span><i><b style="width:{{ quest.percent }}%"></b></i><small>{{ quest.progress }} / {{ quest.target }}</small></span></div></article>{% endfor %}</div>
+      </section>
+
+      <section class="mb52-v2-section">
+        <div class="mb52-v2-title"><div><span>THIS WEEK</span><strong>Weekly quests</strong></div><small>Resets Monday · up to +{{ gamification.weekly_reward }} XP</small></div>
+        <div class="mb52-quest-list-v2">{% for quest in gamification.weekly_quests %}<article class="mb52-quest-v2{% if quest.completed_at %} is-complete{% endif %}"><div class="mb52-quest-v2-icon"><i class="bi {% if quest.completed_at %}bi-check-lg{% else %}bi-circle{% endif %}"></i></div><div><div><strong>{{ quest.title }}</strong><em>+{{ quest.reward_xp }} XP</em></div><span><i><b style="width:{{ quest.percent }}%"></b></i><small>{{ quest.progress }} / {{ quest.target }}</small></span></div></article>{% endfor %}</div>
+      </section>
+
+      <section class="mb52-v2-section">
+        <div class="mb52-v2-title"><div><span>MILESTONES</span><strong>Achievements</strong></div><small>{{ gamification.achievement_count }} unlocked</small></div>
+        <div class="mb52-achievement-grid-v2">{% for badge in gamification.achievement_catalog %}<article class="mb52-achievement-v2{% if badge.unlocked %} is-earned{% endif %}" title="{{ badge.description }}"><div><i class="bi {% if badge.unlocked %}{{ badge.icon }}{% else %}bi-lock{% endif %}"></i></div><span><strong>{{ badge.title }}</strong><small>{{ badge.description }}</small><i><b style="width:{{ badge.percent }}%"></b></i><em>{% if badge.unlocked %}Unlocked{% else %}{{ badge.progress }} / {{ badge.target }}{% endif %}</em></span></article>{% endfor %}</div>
+      </section>
+
+      {% if gamification.recent_events %}<section class="mb52-v2-section mb52-recent-v2">
+        <div class="mb52-v2-title"><div><span>RECENT</span><strong>XP activity</strong></div><small>Latest rewards</small></div>
+        <div>{% for event in gamification.recent_events %}<article><span><i class="bi bi-plus-circle"></i><strong>{{ event.title }}</strong></span><b>+{{ event.amount }} XP</b></article>{% endfor %}</div>
+      </section>{% endif %}
+    </div>
+  </section>
+</div>
+{% endif %}
 {% include 'sat/_student_goal_modal.html' %}
-<script src="{% static 'assets/js/makon-classroom-membership.js' %}"></script>
-<script src="{% static 'assets/js/student-goal-dashboard-v30.js' %}?v=37"></script>
 {% endblock content %}
+
+{% block student_workspace_scripts %}
+<script src="{% static 'assets/js/student-goal-dashboard-v30.js' %}?v=37"></script>
+<script src="{% static 'assets/js/gamification-v52.js' %}?v=50213"></script>
+<script src="{% static 'assets/js/student-dashboard-v524.js' %}?v=525"></script>
+{% endblock student_workspace_scripts %}

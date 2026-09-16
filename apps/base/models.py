@@ -15,6 +15,11 @@ def password_reset_expiry():
     return timezone.now() + timedelta(minutes=10)
 
 
+def referral_code_default():
+    # Short enough to share manually, random enough to avoid predictable IDs.
+    return uuid.uuid4().hex[:10].upper()
+
+
 class EmailVerification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -131,6 +136,7 @@ class GeneralIssueReport(models.Model):
     page_title = models.CharField(max_length=300, blank=True)
     user_agent = models.CharField(max_length=1000, blank=True)
     context_data = models.JSONField(default=dict, blank=True)
+    attachment = models.FileField(upload_to="issue_reports/%Y/%m/", blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="new", db_index=True)
     admin_note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -142,3 +148,27 @@ class GeneralIssueReport(models.Model):
 
     def __str__(self):
         return f"Issue #{self.pk} - {self.get_category_display()}"
+
+
+class ReferralInvite(models.Model):
+    """A referral becomes earned only after the invited student joins a classroom."""
+    referrer = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_referral_invites"
+    )
+    referred_user = models.OneToOneField(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="referral_invite"
+    )
+    code = models.CharField(max_length=12, unique=True, default=referral_code_default, db_index=True)
+    activated_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def is_activated(self):
+        return bool(self.activated_at)
+
+    def __str__(self):
+        state = "active" if self.activated_at else "pending"
+        return f"{self.referrer.username} · {self.code} · {state}"

@@ -109,12 +109,12 @@ class ProfileNameGateV338Tests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_template_contains_prompt_for_missing_name(self):
-        response = self.client.get(reverse('sat_menu'))
+        response = self.client.get(reverse('student_dashboard_root'))
         self.assertContains(response, 'data-profile-name-gate')
 
     def test_template_hides_prompt_after_completion(self):
         self.user.first_name = 'Islom'
         self.user.last_name = 'Bakhtiyorov'
         self.user.save(update_fields=['first_name', 'last_name'])
-        response = self.client.get(reverse('sat_menu'))
+        response = self.client.get(reverse('student_dashboard_root'))
         self.assertNotContains(response, 'data-profile-name-gate')

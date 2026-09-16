@@ -1,4 +1,4 @@
-{% extends 'template.html' %}
+{% extends student_workspace_base_template|default:'template.html' %}
 {% load static %}
 
 {% block page_title %}Practice Tests | MakonBook{% endblock page_title %}
@@ -7,7 +7,8 @@
 {% block title %}Practice Tests{% endblock title %}
 
 {% block style %}
-<link rel="stylesheet" href="{% static 'assets/css/makon-practice-tests.css' %}?v=13">
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'assets/css/makon-practice-tests.css' %}?v=15">
 {% endblock style %}
 
 {% block content %}
@@ -52,6 +53,18 @@
     </div>
   </section>
 
+  {% if tests_locked %}
+    <section class="practice-info-banner v523-test-lock" data-practice-reveal>
+      <span class="practice-info-icon"><i class="bi bi-lock"></i></span>
+      <div><strong>Tests unlock after you join a classroom.</strong><p>Your teacher decides which full SAT tests are assigned to your account. Practice topics and the Question Bank use the same access policy.</p><a class="mb50-primary-btn" href="{% url 'events' %}">Enter classroom code <i class="bi bi-arrow-right"></i></a></div>
+    </section>
+  {% elif tests_unassigned %}
+    <section class="practice-info-banner v523-test-lock" data-practice-reveal>
+      <span class="practice-info-icon"><i class="bi bi-hourglass-split"></i></span>
+      <div><strong>No SAT tests assigned yet.</strong><p>You are connected to a classroom, but your teacher has not enabled a full SAT test for you yet.</p></div>
+    </section>
+  {% endif %}
+
   {% if is_teacher_view %}
     <div class="practice-info-banner" data-practice-reveal>
       <span class="practice-info-icon" aria-hidden="true"><i class="bi bi-eye"></i></span>
@@ -62,7 +75,7 @@
     </div>
   {% endif %}
 
-  <section class="practice-library" data-practice-group="tests" data-practice-reveal>
+  <section class="practice-library" id="practiceTestsLibrary" data-practice-group="tests" data-practice-reveal>
     <div class="practice-library-head">
       <div>
         <span class="practice-section-kicker">SAT practice</span>
@@ -172,9 +185,18 @@
                     <button type="button" class="practice-action is-disabled" disabled><i class="bi bi-lock-fill" aria-hidden="true"></i> Closed in MakonBook</button>
                   {% elif test.card_state == 'unavailable' %}
                     <button type="button" class="practice-action is-disabled" disabled>Unavailable</button>
+                  {% elif test.workspace_classroom %}
+                    <a
+                      href="{% url 'student_classroom_test_start_root' test.workspace_classroom.id test.name %}"
+                      class="practice-action"
+                      data-practice-navigate
+                    >
+                      <span>{{ test.action_label }}</span>
+                      <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </a>
                   {% elif classroom %}
                     <a
-                      href="{% url 'classroom_practise' classroom.id test.name %}"
+                      href="{% url 'student_classroom_test_start_root' classroom.id test.name %}"
                       class="practice-action"
                       data-practice-navigate
                     >
@@ -183,7 +205,7 @@
                     </a>
                   {% else %}
                     <a
-                      href="{% url 'practise' test.name %}"
+                      href="{% if is_teacher_view %}{% url 'teacher_practice_test_start_root' test.name %}{% else %}{% url 'practice_test_start_root' test.name %}{% endif %}"
                       class="practice-action"
                       data-practice-navigate
                     >
@@ -246,7 +268,7 @@
 
                 <div class="practice-card-actions">
                   <a
-                    href="{% url 'results' test.name %}{% if test.latest_review_key or classroom %}?{% if test.latest_review_key %}review_key={{ test.latest_review_key }}{% if classroom %}&{% endif %}{% endif %}{% if classroom %}classroom_id={{ classroom.id }}{% endif %}{% endif %}"
+                    href="{% url 'practice_test_results_root' test.name %}{% if test.latest_review_key or classroom or test.workspace_classroom %}?{% if test.latest_review_key %}review_key={{ test.latest_review_key }}{% if classroom or test.workspace_classroom %}&{% endif %}{% endif %}{% if test.workspace_classroom %}classroom_id={{ test.workspace_classroom.id }}{% elif classroom %}classroom_id={{ classroom.id }}{% endif %}{% endif %}"
                     class="practice-action is-secondary"
                     data-practice-navigate
                   >
@@ -274,7 +296,7 @@
   </section>
 
   {% if show_lessons %}
-    <section class="practice-library practice-lessons-library" data-practice-group="lessons" data-practice-reveal>
+    <section class="practice-library practice-lessons-library" id="learningPlans" data-practice-group="lessons" data-practice-reveal>
       <div class="practice-library-head">
         <div>
           <span class="practice-section-kicker">Learning plans</span>
@@ -295,7 +317,7 @@
               {% for lesson in active_lessons %}
                 <article class="practice-lesson-card" style="--card-index:{{ forloop.counter0 }}">
                   {% if lesson.package.image %}<img src="{{ lesson.package.image.url }}" alt="{{ lesson.package.name }}" loading="lazy">{% else %}<img src="{% static 'assets/img/icons/original-big-icon.png' %}" alt="" loading="lazy">{% endif %}
-                  <div><span>Active lesson</span><h3>{{ lesson.name }}</h3><a href="{% url 'lesson_detail' lesson.pk %}" data-practice-navigate>Start lesson <i class="bi bi-arrow-right"></i></a></div>
+                  <div><span>Active lesson</span><h3>{{ lesson.name }}</h3><a href="{% url 'lesson_detail_root' lesson.pk %}" data-practice-navigate>Start lesson <i class="bi bi-arrow-right"></i></a></div>
                 </article>
               {% empty %}
                 <div class="practice-empty-state"><span><i class="bi bi-book"></i></span><h3>No active lessons</h3><p>You have no lessons to study right now.</p></div>
@@ -307,7 +329,7 @@
               {% for lesson in past_lessons %}
                 <article class="practice-lesson-card" style="--card-index:{{ forloop.counter0 }}">
                   {% if lesson.package.image %}<img src="{{ lesson.package.image.url }}" alt="{{ lesson.package.name }}" loading="lazy">{% else %}<img src="{% static 'assets/img/icons/original-big-icon.png' %}" alt="" loading="lazy">{% endif %}
-                  <div><span>Completed lesson</span><h3>{{ lesson.name }}</h3><a href="{% url 'lesson_detail' lesson.pk %}" data-practice-navigate>Review lesson <i class="bi bi-arrow-right"></i></a></div>
+                  <div><span>Completed lesson</span><h3>{{ lesson.name }}</h3><a href="{% url 'lesson_detail_root' lesson.pk %}" data-practice-navigate>Review lesson <i class="bi bi-arrow-right"></i></a></div>
                 </article>
               {% empty %}
                 <div class="practice-empty-state"><span><i class="bi bi-journal-check"></i></span><h3>No completed lessons</h3><p>Finished lessons will appear here.</p></div>

@@ -45,12 +45,17 @@ from django.urls import reverse
 from django.templatetags.static import static as static_url
 from django.db import close_old_connections
 from django.contrib.auth import authenticate, login, logout
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.html import strip_tags
 from django.core.exceptions import ValidationError
+from django.core.files.images import get_image_dimensions
+from django.core.paginator import Paginator
 from .support_forms import SupportTeacherSelfAvailabilityForm, SupportTeacherSelfProfileForm
 from .student_goal_forms import StudentGoalProfileForm
 from .test_icon_service import ensure_default_test_icon
+from .student_workspace import student_workspace_context, should_use_student_workspace
+from apps.gamification.services import gamification_context, ensure_gamification_profile, record_vocabulary_review
 from .roles import (
     can_manage_classroom,
     is_manager as role_is_manager,
@@ -72,7 +77,7 @@ except Exception:  # keeps SAT views import-safe if AP app is unavailable
 def home(request):
 
     if request.user.is_authenticated:
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
 
     return render(request, "landing/home.html")
 
@@ -81,7 +86,7 @@ def home(request):
 def loginPage(request):
 
     if request.user.is_authenticated:
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
 
     if request.method == "POST":
 
@@ -94,7 +99,7 @@ def loginPage(request):
 
             login(request, user)
 
-            return redirect("sat_menu")
+            return redirect("student_dashboard_root")
 
     return render(request, "login.html")
 
@@ -143,8 +148,8 @@ def restart(request, pk):
 
     if response:
         if classroom:
-            return redirect('classroom_test', classroom_id=classroom.id, pk=test.name)
-        return redirect('test', pk=test.name)
+            return redirect('student_classroom_test_module_root', classroom_id=classroom.id, pk=test.name)
+        return redirect('practice_test_module_root', pk=test.name)
     else:
         # Retake limit exceeded
         user_group = 'OFFLINE' if user.groups.filter(name='OFFLINE').exists() else 'Standard'
@@ -608,8 +613,8 @@ def _complete_makeup_answers_from_draft(makeup_test, section, module, draft):
 def _makeup_redirect_url(makeup_test, stage):
     sequence = get_makeup_test_sequence(makeup_test)
     if 1 <= stage.stage <= len(sequence):
-        return reverse('makeup_test_module', kwargs={'pk': makeup_test.name})
-    return reverse('sat_menu')
+        return reverse('makeup_test_module_root', kwargs={'pk': makeup_test.name})
+    return reverse('student_dashboard_root')
 
 
 def _submit_makeup_module_locked(stage, section, module, canonical_answers):
@@ -673,11 +678,11 @@ def _regular_module_redirect_url(test_obj, stage, classroom=None):
     if current_step is None:
         return _results_url_for_test(test_obj, classroom=classroom)
     if classroom:
-        return reverse('classroom_test', kwargs={
+        return reverse('student_classroom_test_module_root', kwargs={
             'classroom_id': classroom.id,
             'pk': test_obj.name,
         })
-    return reverse('test', kwargs={'pk': test_obj.name})
+    return reverse('practice_test_module_root', kwargs={'pk': test_obj.name})
 
 
 def _ensure_regular_module_draft(stage, section, module, classroom=None):
@@ -974,8 +979,8 @@ def _test_attempts_open(test_obj, user=None):
 
 def _test_closed_redirect_url(classroom=None):
     if classroom is not None:
-        return reverse('classroom_practice_tests', kwargs={'classroom_id': classroom.id})
-    return reverse('practice_tests')
+        return reverse('classroom_practice_tests_root', kwargs={'classroom_id': classroom.id})
+    return reverse('practice_tests_root')
 
 
 def _closed_test_json(test_obj, *, classroom=None):
@@ -1055,7 +1060,7 @@ def _get_classroom_context_from_id(user, classroom_id, test_obj=None):
 
 
 def _results_url_for_test(test_obj, classroom=None, review_key=None):
-    base_url = reverse('results', kwargs={'test': test_obj.name})
+    base_url = reverse('practice_test_results_root', kwargs={'test': test_obj.name})
     params = []
     if review_key:
         params.append(f"review_key={review_key}")
@@ -1081,7 +1086,7 @@ def _review_results_url(review, classroom=None, student=None):
 
     if classroom is not None and student is not None:
         base_url = reverse(
-            'classroom_student_review_results',
+            'teacher_classroom_student_review_root',
             args=[classroom.id, student.id, review.test.name]
         )
         return f"{base_url}?review_key={review.key}"
@@ -1115,11 +1120,11 @@ def _review_question_url(review, section, module, question_id, classroom=None, s
 
     if classroom is not None and student is not None:
         return reverse(
-            'classroom_student_review_question',
+            'teacher_classroom_student_review_question_root',
             args=[classroom.id, student.id, review.key, section, module, question_id]
         )
 
-    return reverse('question', args=[review.key, section, module, question_id])
+    return reverse('practice_test_review_question_root', args=[review.key, section, module, question_id])
 
 
 def _build_review_attempt_options(attempts, selected_review=None, *, section=None, module=None, question_id=None, classroom=None, student=None):
@@ -1731,6 +1736,73 @@ def _resolve_test_card_image(test):
 
 # Create your views here.
 
+
+def _sort_vocabulary_decks(decks):
+    """Keep official cloned units in syllabus order, then custom decks by title.
+
+    V50.1 previously used ``-updated_at`` which made Unit 4/5/6 jump ahead of
+    Unit 1/2/3 whenever a deck was studied or cloned later. That is useful for
+    an activity feed, but wrong for a study shelf and deck picker.
+    """
+    def key(deck):
+        unit = getattr(deck, 'source_unit', None)
+        if unit is not None:
+            return (
+                0,
+                int(getattr(unit, 'order', 0) or 0),
+                int(getattr(unit, 'id', 0) or 0),
+                str(deck.title or '').casefold(),
+                int(deck.id or 0),
+            )
+        return (1, 0, 0, str(deck.title or '').casefold(), int(deck.id or 0))
+
+    return sorted(decks, key=key)
+
+
+def _student_hub_decks(user, limit=3):
+    decks = list(
+        VocabularyDeck.objects.filter(owner=user)
+        .select_related('source_unit')
+        .annotate(word_count=Count('words'))
+    )
+    decks = _sort_vocabulary_decks(decks)
+    _decorate_vocabulary_decks(user, decks)
+    return decks[:limit]
+
+
+@login_required(login_url='/login/')
+def student_learn(request):
+    """Long-form learning hub: classrooms, lessons, vocabulary and AP.
+
+    This is intentionally separate from Practice and Tests. Learn is about
+    structured material and assigned paths, not mock-exam browsing.
+    """
+    context = student_workspace_context(request.user, active='learn')
+    context.update({
+        'learn_decks': _student_hub_decks(request.user, limit=3),
+        'lesson_package_count': PurchasedLessonPackage.objects.filter(user=request.user).count(),
+        'vocabulary_unit_count': VocabularyUnit.objects.filter(is_active=True).count(),
+    })
+    return render(request, 'sat/student_learn.html', context)
+
+
+@login_required(login_url='/login/')
+def _legacy_v501_vocabulary_practice_hub(request):
+    """Deprecated V50.1 vocabulary-centric Practice screen kept for rollback only.
+
+    The active ``student_practice`` view lives with the V50.2 workspace routes
+    below and uses assigned SAT questions instead of duplicating Vocabulary.
+    """
+    decks = _student_hub_decks(request.user, limit=4)
+    context = student_workspace_context(request.user, active='practice')
+    context.update({
+        'practice_decks': decks,
+        'practice_due_total': sum(deck.due_count for deck in decks),
+        'has_vocabulary_units': VocabularyUnit.objects.filter(is_active=True, words__is_active=True).exists(),
+    })
+    return render(request, 'sat/student_practice.html', context)
+
+
 @login_required(login_url='/login/')
 def practice_tests(request):
     classroom_response = _redirect_or_deny_classroom_section(
@@ -1743,21 +1815,7 @@ def practice_tests(request):
         return classroom_response
 
     user = request.user
-    tests = list(Test.objects.all().distinct())
-    tests = [test for test in tests if user_has_test_access(user, test)]
-
-    def get_day_number(test):
-        try:
-            name = str(test.name).strip().lower()
-            if name.startswith('day'):
-                digits = ''.join(ch for ch in name if ch.isdigit())
-                if digits:
-                    return int(digits)
-            return 999999
-        except Exception:
-            return 999999
-
-    tests = sorted(tests, key=lambda t: (get_day_number(t), str(t.name)))
+    tests = [test for test in _sorted_tests(Test.objects.all().distinct()) if user_has_test_access(user, test)]
 
     active_tests, past_tests = _split_tests_by_user_progress(user, tests)
 
@@ -1804,6 +1862,7 @@ def practice_tests(request):
         'show_lessons': True,
     }
     context.update(lessons_context)
+    context.update(student_workspace_context(request.user, active='tests'))
 
     return render(request, 'sat/practice_tests.html', context)
 
@@ -1842,7 +1901,7 @@ def save_test_module_draft(request):
                 return JsonResponse({
                     'ok': False,
                     'error': 'This makeup-test tab belongs to an old attempt.',
-                    'redirect_url': reverse('makeup_test_module', kwargs={'pk': makeup_test.name}),
+                    'redirect_url': reverse('makeup_test_module_root', kwargs={'pk': makeup_test.name}),
                 }, status=409)
             sequence = get_makeup_test_sequence(makeup_test)
             current_step = sequence[stage.stage - 1] if 1 <= stage.stage <= len(sequence) else None
@@ -2054,7 +2113,7 @@ def check_the_answers(request):
                     return JsonResponse({
                         'ok': False,
                         'error': 'This makeup-test tab belongs to an old attempt.',
-                        'redirect_url': reverse('makeup_test_module', kwargs={'pk': makeup_test_obj.name}),
+                        'redirect_url': reverse('makeup_test_module_root', kwargs={'pk': makeup_test_obj.name}),
                     }, status=409)
 
                 sequence = get_makeup_test_sequence(makeup_test_obj)
@@ -2073,9 +2132,9 @@ def check_the_answers(request):
                 ).first()
                 if existing_module:
                     redirect_url = (
-                        reverse('makeup_test_module', kwargs={'pk': makeup_test_obj.name})
+                        reverse('makeup_test_module_root', kwargs={'pk': makeup_test_obj.name})
                         if current_step is not None
-                        else reverse('sat_menu')
+                        else reverse('student_dashboard_root')
                     )
                     return JsonResponse({
                         'ok': True,
@@ -2088,7 +2147,7 @@ def check_the_answers(request):
                     return JsonResponse({
                         'ok': False,
                         'error': 'This makeup module is no longer active.',
-                        'redirect_url': reverse('makeup_test_module', kwargs={'pk': makeup_test_obj.name}),
+                        'redirect_url': reverse('makeup_test_module_root', kwargs={'pk': makeup_test_obj.name}),
                     }, status=409)
 
                 active_draft = MakeupTestModuleDraft.objects.select_for_update().filter(
@@ -2102,7 +2161,7 @@ def check_the_answers(request):
                     return JsonResponse({
                         'ok': False,
                         'error': 'Open the active makeup module before submitting it.',
-                        'redirect_url': reverse('makeup_test_module', kwargs={'pk': makeup_test_obj.name}),
+                        'redirect_url': reverse('makeup_test_module_root', kwargs={'pk': makeup_test_obj.name}),
                     }, status=409)
                 submitted_after_deadline = active_draft.deadline_at <= timezone.now()
                 if submitted_after_deadline:
@@ -2367,8 +2426,8 @@ def results(request, test):
         stage = _get_resumable_stage(user, test_obj, classroom=classroom)
         if stage:
             if classroom:
-                return redirect('classroom_test', classroom_id=classroom.id, pk=test_obj.name)
-            return redirect('test', pk=test_obj.name)
+                return redirect('student_classroom_test_module_root', classroom_id=classroom.id, pk=test_obj.name)
+            return redirect('practice_test_module_root', pk=test_obj.name)
         return HttpResponse("The attempt is incomplete and cannot be scored yet.", status=409)
 
     questions = {
@@ -2576,7 +2635,7 @@ def start_Practise(request, pk):
 
     resumable_stage = _get_resumable_stage(user, test)
     if resumable_stage:
-        return redirect('test', pk=test.name)
+        return redirect('practice_test_module_root', pk=test.name)
 
     completed_review = TestReview.objects.filter(
         user=user,
@@ -2596,6 +2655,7 @@ def start_Practise(request, pk):
         {
             'test': test,
             'has_active_attempt': has_active_attempt,
+            'start_url': reverse('practice_test_module_root', kwargs={'pk': test.name}),
             **_build_test_start_overview(test, user),
         }
     )
@@ -2779,7 +2839,7 @@ def question(request, key, section, module, id):
     # Review exists, but was invalidated because retake has started
     if review.score is None:
         if request.user == review.user and review.test:
-            return redirect('test', pk=review.test.name)
+            return redirect('practice_test_module_root', pk=review.test.name)
         return HttpResponse('Review is unavailable because a retake is currently in progress.')
 
     module_obj = TestModule.objects.filter(
@@ -2793,7 +2853,7 @@ def question(request, key, section, module, id):
 
     if not module_obj:
         if request.user == review.user and review.test:
-            return redirect('test', pk=review.test.name)
+            return redirect('practice_test_module_root', pk=review.test.name)
         return HttpResponse('Review for this section is unavailable because a retake is currently in progress.')
     if not _module_contains_question(module_obj, id):
         raise Http404('This question is not part of the selected attempt module.')
@@ -2803,8 +2863,8 @@ def question(request, key, section, module, id):
         prev, answer, new = _review_prev_answer_next(module_obj, review_question_model, id)
     else:
         prev, answer, new = module_obj.find_answer(question_id=id)
-    prev = f'/sat/question/{key}/{section}/{module}/{prev}' if prev else ''
-    new = f'/sat/question/{key}/{section}/{module}/{new}' if new else ''
+    prev = reverse('practice_test_review_question_root', args=[key, section, module, prev]) if prev else ''
+    new = reverse('practice_test_review_question_root', args=[key, section, module, new]) if new else ''
 
     attempts = list(TestReview.objects.filter(
         user=review.user,
@@ -2889,7 +2949,7 @@ def start_makeup_test(request, pk):
 
     test_stage = TestStage.objects.filter(user=user, makeup_test=makeup_test, test_type='makeup')
     if test_stage.exists():
-        return redirect('makeup_test_module', pk=makeup_test.name)
+        return redirect('makeup_test_module_root', pk=makeup_test.name)
 
     classroom = None
     approved_membership = ClassroomMembership.objects.filter(
@@ -2931,7 +2991,7 @@ def makeup_test_module(request, pk):
         test_stage.save(update_fields=['stage', 'updated_at'])
 
     if test_stage.stage > len(sequence):
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
 
     section, module = sequence[test_stage.stage - 1]
 
@@ -2946,10 +3006,10 @@ def makeup_test_module(request, pk):
 
     if existing_module.exists():
         if test_stage.stage >= len(sequence):
-            return redirect('sat_menu')
+            return redirect('student_dashboard_root')
         test_stage.stage += 1
         test_stage.save(update_fields=['stage', 'updated_at'])
-        return redirect('makeup_test_module', pk=makeup_test.name)
+        return redirect('makeup_test_module_root', pk=makeup_test.name)
 
     module_name = f'module_{module[1]}'
 
@@ -3032,7 +3092,7 @@ def module_test(request, pk):
     current_step = get_current_test_step(test_stage)
 
     if current_step is None:
-        return redirect('results', test=test)
+        return redirect('practice_test_results_root', test=test)
 
     section, module = current_step
 
@@ -3051,7 +3111,7 @@ def module_test(request, pk):
         finished = advance_test_stage(test_stage)
 
         if finished:
-            return redirect('results', test=test)
+            return redirect('practice_test_results_root', test=test)
 
         return module_test(request, pk=test.name)
 
@@ -3081,7 +3141,7 @@ def module_test(request, pk):
             finished = advance_test_stage(test_stage)
 
             if finished:
-                return redirect('results', test=test)
+                return redirect('practice_test_results_root', test=test)
 
             return module_test(request, pk=test.name)
 
@@ -3111,7 +3171,7 @@ def module_test(request, pk):
             finished = advance_test_stage(test_stage)
 
             if finished:
-                return redirect('results', test=test)
+                return redirect('practice_test_results_root', test=test)
 
             return module_test(request, pk=test.name)
 
@@ -3508,8 +3568,8 @@ def enter_secret_code(request):
                 if secret_code.test:
                     return redirect('practise', pk=secret_code.test.name)  # Redirect to start_test if test exists
                 elif secret_code.makeup_test:
-                    return redirect('start_makeup_test', pk=secret_code.makeup_test.name)  # Existing makeup_test redirection
-                return redirect('sat_menu')  # Return to the canonical classroom entry page
+                    return redirect('makeup_test_start_root', pk=secret_code.makeup_test.name)  # Existing makeup_test redirection
+                return redirect('student_dashboard_root')  # Return to the canonical classroom entry page
             except SecretCode.DoesNotExist:
                 ap_event = None
                 if APExamEvent is not None:
@@ -3559,8 +3619,8 @@ def restart_section(request, pk, section):
 
     if response:
         if classroom:
-            return redirect('classroom_test', classroom_id=classroom.id, pk=test.name)
-        return redirect('test', pk=test.name)
+            return redirect('student_classroom_test_module_root', classroom_id=classroom.id, pk=test.name)
+        return redirect('practice_test_module_root', pk=test.name)
     else:
         # Retake limit exceeded
         user_group = 'OFFLINE' if user.groups.filter(name='OFFLINE').exists() else 'Standard'
@@ -3575,16 +3635,106 @@ def restart_section(request, pk, section):
         })
 
 
+def _personal_vocabulary_dashboard_stats(user):
+    """Small, honest activity summary for the deck-first vocabulary home.
+
+    V50.1 deliberately avoids a global XP/rank formula here; competitive XP
+    belongs to V50.2. These counters come only from saved vocabulary reviews.
+    """
+    qs = VocabularyDeckWordProgress.objects.filter(user=user, word__deck__owner=user)
+    today = timezone.localdate()
+    mastered_today = qs.filter(mastered_at__date=today).count()
+    reviewed_today = qs.filter(last_reviewed_at__date=today).count()
+    mastered_total = qs.filter(status=VocabularyDeckWordProgress.STATUS_MASTERED).count()
+    learning_total = qs.filter(status=VocabularyDeckWordProgress.STATUS_LEARNING).count()
+
+    active_dates = set(
+        qs.filter(last_reviewed_at__date__gte=today - timedelta(days=6))
+        .values_list('last_reviewed_at__date', flat=True)
+    )
+    labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    week = []
+    for offset in range(6, -1, -1):
+        day = today - timedelta(days=offset)
+        week.append({
+            'label': labels[day.weekday()],
+            'active': day in active_dates,
+            'today': day == today,
+        })
+
+    streak = 0
+    cursor = today
+    # If the user has not reviewed today, show the streak ending yesterday.
+    if cursor not in active_dates:
+        cursor -= timedelta(days=1)
+    historical_dates = set(
+        qs.filter(last_reviewed_at__date__gte=cursor - timedelta(days=60))
+        .values_list('last_reviewed_at__date', flat=True)
+    )
+    while cursor in historical_dates:
+        streak += 1
+        cursor -= timedelta(days=1)
+
+    reviewed_week = qs.filter(last_reviewed_at__date__gte=today - timedelta(days=6)).count()
+
+    # Vocabulary points are intentionally stable: progress state, not repeat-click volume.
+    # This keeps the leaderboard meaningful without introducing V50.2 XP persistence yet.
+    current_points = (mastered_total * 20) + (learning_total * 5)
+    competition_rows = list(
+        VocabularyDeckWordProgress.objects
+        .values('user_id', 'user__username', 'user__first_name', 'user__last_name')
+        .annotate(
+            mastered_count=Count('id', filter=Q(status=VocabularyDeckWordProgress.STATUS_MASTERED)),
+            learning_count=Count('id', filter=Q(status=VocabularyDeckWordProgress.STATUS_LEARNING)),
+        )
+    )
+    for row in competition_rows:
+        row['points'] = (row['mastered_count'] * 20) + (row['learning_count'] * 5)
+        full_name = f"{row.get('user__first_name', '')} {row.get('user__last_name', '')}".strip()
+        row['display_name'] = 'You' if row['user_id'] == user.id else (full_name or row.get('user__username') or f"Learner {row['user_id']}")
+    competition_rows = [row for row in competition_rows if row['points'] > 0]
+    competition_rows.sort(key=lambda row: (-row['points'], row['user_id']))
+    rank_total = len(competition_rows)
+    rank = next(
+        (index for index, row in enumerate(competition_rows, start=1) if row['user_id'] == user.id),
+        None,
+    )
+    leaderboard = competition_rows[:3]
+
+    badge_thresholds = (3, 7, 14, 30, 60, 100)
+    next_badge = next((value for value in badge_thresholds if value > streak), None)
+
+    return {
+        'reviewed_today': reviewed_today,
+        'reviewed_week': reviewed_week,
+        'mastered_today': mastered_today,
+        'mastered_total': mastered_total,
+        'learning_total': learning_total,
+        'daily_goal': 5,
+        'daily_goal_done': min(5, mastered_today),
+        'daily_goal_remaining': max(0, 5 - mastered_today),
+        'daily_goal_percent': min(100, mastered_today * 20),
+        'daily_goal_points': 100,
+        'week': week,
+        'streak': streak,
+        'next_streak_badge': next_badge,
+        'streak_to_next_badge': max(0, next_badge - streak) if next_badge else 0,
+        'points': current_points,
+        'rank': rank,
+        'rank_total': rank_total,
+        'rank_percent': max(1, round((rank / rank_total) * 100)) if rank and rank_total else None,
+        'leaderboard': leaderboard,
+    }
+
+
 @login_required(login_url='/login/')
 def vocabulary(request):
-    classroom_response = _redirect_or_deny_classroom_section(
-        request,
-        'vocabulary',
-        'classroom_vocabulary',
-        'You do not have access to Vocabulary.'
-    )
-    if classroom_response:
-        return classroom_response
+    # V50.2.4: Vocabulary is account-owned, not a classroom sub-app.
+    # Students use one standalone history and teachers read the resulting
+    # progress from classroom progress tools without duplicating review state.
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
 
     units = list(
         VocabularyUnit.objects.filter(is_active=True)
@@ -3598,11 +3748,498 @@ def vocabulary(request):
         classroom__isnull=True,
     )[:5]
 
-    return render(request, 'sat/vocabulary.html', {
+    personal_decks = list(
+        VocabularyDeck.objects.filter(owner=request.user)
+        .select_related('source_unit')
+        .annotate(word_count=Count('words'))
+    )
+    personal_decks = _sort_vocabulary_decks(personal_decks)
+    _decorate_vocabulary_decks(request.user, personal_decks)
+    cloned_unit_ids = set(
+        VocabularyDeck.objects.filter(owner=request.user, source_unit__isnull=False)
+        .values_list('source_unit_id', flat=True)
+    )
+    featured_units = list(
+        VocabularyUnit.objects.filter(is_active=True, words__is_active=True)
+        .exclude(id__in=cloned_unit_ids)
+        .annotate(active_word_count=Count('words', filter=Q(words__is_active=True)))
+        .distinct()
+        .order_by('order', 'id')[:3]
+    )
+    context = {
         'units': units,
         'summary': summary,
         'unit_rows': unit_rows,
         'recent_attempts': recent_attempts,
+        'personal_decks': personal_decks,
+        'focus_deck': personal_decks[0] if personal_decks else None,
+        'deck_due_total': sum(deck.due_count for deck in personal_decks),
+        'featured_units': featured_units,
+        'vocab_activity': _personal_vocabulary_dashboard_stats(request.user),
+    }
+    context.update(student_workspace_context(request.user, active='vocabulary'))
+    return render(request, 'sat/vocabulary.html', context)
+
+
+
+def _personal_vocabulary_access_response(request):
+    """Vocabulary is account-owned and no longer depends on classroom section access.
+
+    Keep the helper so older call sites remain stable while V50.2.4 removes the
+    last classroom gate from the standalone Vocabulary workspace.
+    """
+    return None
+
+
+def _decorate_vocabulary_decks(user, decks):
+    """Attach lightweight progress counters used by the V50 vocabulary UI."""
+    deck_ids = [deck.id for deck in decks]
+    if not deck_ids:
+        return decks
+
+    progress_rows = VocabularyDeckWordProgress.objects.filter(
+        user=user,
+        word__deck_id__in=deck_ids,
+    ).values('word__deck_id', 'status').annotate(total=Count('id'))
+    by_deck = defaultdict(lambda: defaultdict(int))
+    for row in progress_rows:
+        by_deck[row['word__deck_id']][row['status']] = row['total']
+
+    for deck in decks:
+        counts = by_deck[deck.id]
+        word_count = int(getattr(deck, 'word_count', 0) or deck.words.count())
+        mastered = counts[VocabularyDeckWordProgress.STATUS_MASTERED]
+        learning = counts[VocabularyDeckWordProgress.STATUS_LEARNING]
+        new_count = max(0, word_count - mastered - learning)
+        deck.mastered_count = mastered
+        deck.learning_count = learning
+        deck.new_count = new_count
+        deck.mastery_percent = round((mastered / word_count) * 100) if word_count else 0
+        # V50.1 uses a simple daily queue: learning first, then a bounded number of new cards.
+        deck.due_count = min(
+            int(deck.max_reviews_per_day or 200),
+            learning + min(new_count, int(deck.new_cards_per_day or 20)),
+        )
+    return decks
+
+
+def _vocabulary_deck_context(user, *, active='vocabulary'):
+    decks = list(
+        VocabularyDeck.objects.filter(owner=user)
+        .select_related('source_unit')
+        .annotate(word_count=Count('words'))
+    )
+    decks = _sort_vocabulary_decks(decks)
+    _decorate_vocabulary_decks(user, decks)
+    context = {
+        'decks': decks,
+        'deck_count': len(decks),
+        'deck_due_total': sum(deck.due_count for deck in decks),
+    }
+    context.update(student_workspace_context(user, active=active))
+    return context
+
+
+@login_required(login_url='/login/')
+def vocabulary_decks(request):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
+    context = _vocabulary_deck_context(request.user)
+    context['official_units'] = list(
+        VocabularyUnit.objects.filter(is_active=True)
+        .annotate(active_word_count=Count('words', filter=Q(words__is_active=True)))
+        .order_by('order', 'id')[:4]
+    )
+    context['cloned_unit_ids'] = set(
+        VocabularyDeck.objects.filter(owner=request.user, source_unit__isnull=False)
+        .values_list('source_unit_id', flat=True)
+    )
+    return render(request, 'sat/vocabulary_decks.html', context)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def vocabulary_deck_create(request):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
+
+    title = (request.POST.get('title') or '').strip()[:180]
+    description = (request.POST.get('description') or '').strip()[:500]
+    if not title:
+        messages.error(request, 'Give the deck a name.')
+        return redirect('vocabulary_decks_root')
+
+    def bounded_int(name, default, minimum, maximum):
+        try:
+            value = int(request.POST.get(name) or default)
+        except (TypeError, ValueError):
+            value = default
+        return max(minimum, min(maximum, value))
+
+    deck = VocabularyDeck.objects.create(
+        owner=request.user,
+        title=title,
+        description=description,
+        new_cards_per_day=bounded_int('new_cards_per_day', 20, 1, 200),
+        max_reviews_per_day=bounded_int('max_reviews_per_day', 200, 1, 1000),
+    )
+    messages.success(request, 'Deck created. Add your first words.')
+    return redirect('vocabulary_deck_detail_root', deck_id=deck.id)
+
+
+@login_required(login_url='/login/')
+def vocabulary_deck_detail(request, deck_id):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
+    deck = get_object_or_404(VocabularyDeck, id=deck_id, owner=request.user)
+
+    if request.method == 'POST':
+        action = (request.POST.get('action') or 'add_word').strip()
+        if action == 'add_word':
+            word = (request.POST.get('word') or '').strip()[:255]
+            meaning = (request.POST.get('meaning') or '').strip()
+            example = (request.POST.get('example') or '').strip()
+            if not word or not meaning:
+                messages.error(request, 'Word and meaning are required.')
+            elif deck.words.filter(word__iexact=word).exists():
+                messages.error(request, 'That word is already in this deck.')
+            else:
+                VocabularyDeckWord.objects.create(
+                    deck=deck,
+                    word=word,
+                    meaning=meaning,
+                    example=example,
+                    order=(deck.words.aggregate(value=Max('order')).get('value') or 0) + 1,
+                )
+                deck.save(update_fields=['updated_at'])
+                messages.success(request, f'Added “{word}”.')
+        elif action == 'delete_word':
+            word_obj = get_object_or_404(VocabularyDeckWord, id=request.POST.get('word_id'), deck=deck)
+            label = word_obj.word
+            word_obj.delete()
+            deck.save(update_fields=['updated_at'])
+            messages.success(request, f'Removed “{label}”.')
+        elif action == 'delete_deck':
+            title = deck.title
+            deck.delete()
+            messages.success(request, f'Deleted “{title}”.')
+            return redirect('vocabulary_decks_root')
+        return redirect('vocabulary_deck_detail_root', deck_id=deck.id)
+
+    words = list(deck.words.all())
+    progress = {
+        row.word_id: row
+        for row in VocabularyDeckWordProgress.objects.filter(user=request.user, word__deck=deck)
+    }
+    mastered = sum(1 for row in progress.values() if row.status == VocabularyDeckWordProgress.STATUS_MASTERED)
+    learning = sum(1 for row in progress.values() if row.status == VocabularyDeckWordProgress.STATUS_LEARNING)
+    new_count = max(0, len(words) - mastered - learning)
+    due_count = min(
+        int(deck.max_reviews_per_day or 200),
+        learning + min(new_count, int(deck.new_cards_per_day or 20)),
+    )
+    context = {
+        'deck': deck,
+        'deck_words': words,
+        'word_count': len(words),
+        'mastered_count': mastered,
+        'learning_count': learning,
+        'new_count': new_count,
+        'due_count': due_count,
+        'mastery_percent': round((mastered / len(words)) * 100) if words else 0,
+    }
+    context.update(student_workspace_context(request.user, active='vocabulary'))
+    return render(request, 'sat/vocabulary_deck_detail.html', context)
+
+
+@login_required(login_url='/login/')
+def vocabulary_deck_library(request):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
+    units = list(
+        VocabularyUnit.objects.filter(is_active=True)
+        .annotate(active_word_count=Count('words', filter=Q(words__is_active=True)))
+        .order_by('order', 'id')
+    )
+    cloned_unit_ids = set(
+        VocabularyDeck.objects.filter(owner=request.user, source_unit__isnull=False)
+        .values_list('source_unit_id', flat=True)
+    )
+    context = {
+        'library_units': units,
+        'cloned_unit_ids': cloned_unit_ids,
+    }
+    context.update(student_workspace_context(request.user, active='vocabulary'))
+    return render(request, 'sat/vocabulary_deck_library.html', context)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def vocabulary_deck_clone_unit(request, unit_id):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
+    unit = get_object_or_404(VocabularyUnit, id=unit_id, is_active=True)
+    wants_json = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        or 'application/json' in (request.headers.get('Accept') or '')
+    )
+
+    existing = VocabularyDeck.objects.filter(owner=request.user, source_unit=unit).first()
+    if existing:
+        payload = {
+            'ok': True,
+            'added': False,
+            'already_added': True,
+            'deck_id': existing.id,
+            'deck_title': existing.title,
+            'open_url': reverse('vocabulary_deck_detail_root', args=[existing.id]),
+            'study_url': reverse('vocabulary_deck_study_root', args=[existing.id]) if existing.words.exists() else '',
+        }
+        if wants_json:
+            return JsonResponse(payload)
+        messages.info(request, f'“{existing.title}” is already in My decks.')
+        return redirect('vocabulary_deck_library_root')
+
+    active_words = list(unit.words.filter(is_active=True).order_by('id'))
+    if not active_words:
+        if wants_json:
+            return JsonResponse({'ok': False, 'error': 'This library deck has no active words yet.'}, status=400)
+        messages.error(request, 'This library deck has no active words yet.')
+        return redirect('vocabulary_deck_library_root')
+
+    with transaction.atomic():
+        deck = VocabularyDeck.objects.create(
+            owner=request.user,
+            title=unit.title[:180],
+            description=(unit.description or 'Added from the MakonBook vocabulary library.')[:500],
+            source_unit=unit,
+        )
+        VocabularyDeckWord.objects.bulk_create([
+            VocabularyDeckWord(
+                deck=deck,
+                word=item.word,
+                meaning=item.meaning,
+                example=item.example or '',
+                order=index,
+            )
+            for index, item in enumerate(active_words, start=1)
+        ])
+
+    payload = {
+        'ok': True,
+        'added': True,
+        'already_added': False,
+        'deck_id': deck.id,
+        'deck_title': deck.title,
+        'word_count': len(active_words),
+        'open_url': reverse('vocabulary_deck_detail_root', args=[deck.id]),
+        'study_url': reverse('vocabulary_deck_study_root', args=[deck.id]),
+    }
+    if wants_json:
+        return JsonResponse(payload, status=201)
+    messages.success(request, f'Added “{deck.title}” to My decks.')
+    return redirect('vocabulary_deck_library_root')
+
+
+@login_required(login_url='/login/')
+@ensure_csrf_cookie
+def vocabulary_deck_study(request, deck_id):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
+    deck = get_object_or_404(VocabularyDeck, id=deck_id, owner=request.user)
+    words = list(deck.words.all())
+    progress = {
+        row.word_id: row
+        for row in VocabularyDeckWordProgress.objects.filter(user=request.user, word__deck=deck)
+    }
+
+    def status_for(item):
+        row = progress.get(item.id)
+        return row.status if row else VocabularyDeckWordProgress.STATUS_NEW
+
+    max_cards = max(1, min(int(deck.max_reviews_per_day or 200), 300))
+    requested_limit = request.GET.get('limit')
+    if requested_limit and str(requested_limit).isdigit():
+        max_cards = max(1, min(max_cards, int(requested_limit), 100))
+    new_limit = max(1, min(int(deck.new_cards_per_day or 20), max_cards))
+    learning_words = [item for item in words if status_for(item) == VocabularyDeckWordProgress.STATUS_LEARNING]
+    new_words = [item for item in words if status_for(item) == VocabularyDeckWordProgress.STATUS_NEW]
+    review_cutoff = timezone.now() - timedelta(days=7)
+    mastered_due = [
+        item for item in words
+        if status_for(item) == VocabularyDeckWordProgress.STATUS_MASTERED
+        and progress.get(item.id)
+        and progress[item.id].last_reviewed_at
+        and progress[item.id].last_reviewed_at <= review_cutoff
+    ]
+    mastered_due.sort(key=lambda item: progress[item.id].last_reviewed_at)
+
+    if request.GET.get('all') == '1':
+        session_words = (learning_words + new_words + mastered_due + [
+            item for item in words if item not in learning_words and item not in new_words and item not in mastered_due
+        ])[:max_cards]
+        session_mode = 'all'
+    else:
+        session_words = learning_words[:max_cards]
+        remaining = max_cards - len(session_words)
+        if remaining > 0:
+            take_new = new_words[:min(new_limit, remaining)]
+            session_words.extend(take_new)
+            remaining -= len(take_new)
+        if remaining > 0:
+            session_words.extend(mastered_due[:remaining])
+        session_mode = 'due'
+
+    cards = [
+        {
+            'word': item,
+            'status': status_for(item),
+        }
+        for item in session_words
+    ]
+    context = {
+        'deck': deck,
+        'cards': cards,
+        'session_mode': session_mode,
+        'session_learning_count': sum(1 for item in session_words if status_for(item) == VocabularyDeckWordProgress.STATUS_LEARNING),
+        'session_new_count': sum(1 for item in session_words if status_for(item) == VocabularyDeckWordProgress.STATUS_NEW),
+        'session_review_count': sum(1 for item in session_words if status_for(item) == VocabularyDeckWordProgress.STATUS_MASTERED),
+        'total_word_count': len(words),
+        'mark_url': reverse('vocabulary_deck_mark_root', args=[deck.id]),
+    }
+    context.update(student_workspace_context(request.user, active='vocabulary'))
+    return render(request, 'sat/vocabulary_deck_study.html', context)
+
+
+@login_required(login_url='/login/')
+@ensure_csrf_cookie
+def vocabulary_deck_arena(request, deck_id, mode):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
+    allowed_modes = {
+        'animated-immersion': {
+            'title': 'Animated Immersion',
+            'subtitle': 'Meaning, example, then recall.',
+            'icon': 'bi-stars',
+        },
+        'word-bounce': {
+            'title': 'Word Bounce',
+            'subtitle': 'Rebuild the word from memory.',
+            'icon': 'bi-controller',
+        },
+        'meaning-match': {
+            'title': 'Meaning Match',
+            'subtitle': 'Choose the precise definition for each word.',
+            'icon': 'bi-bullseye',
+        },
+    }
+    if mode == 'visual-match':
+        return redirect('vocabulary_deck_arena_root', deck_id=deck_id, mode='meaning-match')
+
+    config = allowed_modes.get(mode)
+    if config is None:
+        raise Http404('Unknown vocabulary practice mode.')
+
+    deck = get_object_or_404(VocabularyDeck, id=deck_id, owner=request.user)
+    words = list(deck.words.all())
+    if mode == 'meaning-match' and len(words) < 2:
+        messages.info(request, 'Meaning Match needs at least two words in the deck.')
+        return redirect('vocabulary_deck_detail_root', deck_id=deck.id)
+
+    # Keep arena sessions short by default; teacher homework may request a
+    # specific number without creating a separate vocabulary route.
+    random.shuffle(words)
+    arena_limit = 10
+    requested_limit = request.GET.get('limit')
+    if requested_limit and str(requested_limit).isdigit():
+        arena_limit = max(1, min(int(requested_limit), 50))
+    session_words = words[:min(arena_limit, len(words))]
+    arena_words = [
+        {
+            'id': item.id,
+            'word': item.word,
+            'meaning': item.meaning,
+            'example': item.example or '',
+        }
+        for item in session_words
+    ]
+    context = {
+        'deck': deck,
+        'arena_mode': mode,
+        'arena_config': config,
+        'arena_words': arena_words,
+        'mark_url': reverse('vocabulary_deck_mark_root', args=[deck.id]),
+    }
+    return render(request, 'sat/vocabulary_arena.html', context)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def vocabulary_deck_mark(request, deck_id):
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return JsonResponse({'ok': False, 'error': 'Vocabulary access denied.'}, status=403)
+    deck = get_object_or_404(VocabularyDeck, id=deck_id, owner=request.user)
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        payload = request.POST
+
+    outcome = str(payload.get('outcome') or '').strip().lower()
+    if outcome not in {'again', 'learning', 'known'}:
+        return JsonResponse({'ok': False, 'error': 'Invalid review outcome.'}, status=400)
+    word = get_object_or_404(VocabularyDeckWord, id=payload.get('word_id'), deck=deck)
+    # Bootstrap before mutating progress so legacy vocabulary work is counted once
+    # without double-counting the review currently being submitted.
+    ensure_gamification_profile(request.user)
+    progress, _ = VocabularyDeckWordProgress.objects.get_or_create(user=request.user, word=word)
+    previous_status = progress.status
+    progress.times_seen += 1
+    progress.last_reviewed_at = timezone.now()
+    if outcome == 'known':
+        progress.correct_count += 1
+        progress.consecutive_correct += 1
+        if progress.consecutive_correct >= 2:
+            progress.status = VocabularyDeckWordProgress.STATUS_MASTERED
+            progress.mastered_at = progress.mastered_at or timezone.now()
+        else:
+            progress.status = VocabularyDeckWordProgress.STATUS_LEARNING
+    elif outcome == 'learning':
+        progress.correct_count += 1
+        progress.consecutive_correct = max(progress.consecutive_correct, 1)
+        progress.status = VocabularyDeckWordProgress.STATUS_LEARNING
+        progress.mastered_at = None
+    else:
+        progress.incorrect_count += 1
+        progress.consecutive_correct = 0
+        progress.status = VocabularyDeckWordProgress.STATUS_LEARNING
+        progress.mastered_at = None
+    progress.save()
+    record_vocabulary_review(
+        request.user,
+        object_key=f"deckword:{word.id}",
+        previous_status=previous_status,
+        new_status=progress.status,
+        outcome=outcome,
+    )
+    # Do not read the reverse OneToOne relation here: it can still hold the
+    # profile instance cached before award_xp() updated the row. Re-fetching
+    # through the service guarantees that the AJAX response contains the
+    # XP total that was actually committed for this review.
+    gamification_xp = ensure_gamification_profile(request.user).xp_total
+    return JsonResponse({
+        'ok': True,
+        'word_id': word.id,
+        'status': progress.status,
+        'times_seen': progress.times_seen,
+        'gamification_xp': gamification_xp,
     })
 
 
@@ -3638,9 +4275,9 @@ def _get_vocabulary_flashcards_context(request, classroom=None):
     if classroom:
         mark_url = reverse('classroom_vocabulary_flashcard_mark', args=[classroom.id])
     else:
-        mark_url = reverse('vocabulary_flashcard_mark')
+        mark_url = reverse('vocabulary_flashcard_mark_root')
 
-    return {
+    context = {
         'units': units,
         'unit_rows': progress_rows,
         'selected_unit': selected_unit,
@@ -3650,6 +4287,8 @@ def _get_vocabulary_flashcards_context(request, classroom=None):
         'mark_url': mark_url,
         'classroom': classroom,
     }
+    context.update(student_workspace_context(request.user, active='vocabulary'))
+    return context
 
 
 def _resolve_vocabulary_tracking_classroom(request, classroom):
@@ -3685,6 +4324,13 @@ def _mark_vocabulary_flashcard(request, classroom=None):
         unit__is_active=True,
     )
     tracking_classroom = _resolve_vocabulary_tracking_classroom(request, classroom)
+    ensure_gamification_profile(request.user)
+    previous_progress = VocabularyWordProgress.objects.filter(
+        user=request.user,
+        classroom=tracking_classroom,
+        word=word,
+    ).only('status').first()
+    previous_status = previous_progress.status if previous_progress else VocabularyWordProgress.STATUS_NEW
     progress = record_word_review(
         user=request.user,
         word=word,
@@ -3693,6 +4339,14 @@ def _mark_vocabulary_flashcard(request, classroom=None):
     )
     if tracking_classroom:
         sync_vocabulary_review_progress(tracking_classroom, request.user, progress)
+
+    record_vocabulary_review(
+        request.user,
+        object_key=f"unitword:{word.id}",
+        previous_status=previous_status,
+        new_status=progress.status,
+        outcome=outcome,
+    )
 
     return JsonResponse({
         'ok': True,
@@ -3720,6 +4374,10 @@ def classroom_vocabulary_flashcard_mark(request, classroom_id):
         access_map = get_membership_section_access_map(membership)
         if not access_map.get('vocabulary'):
             return JsonResponse({'ok': False, 'error': 'Vocabulary access is disabled.'}, status=403)
+        # Old classroom flashcard tabs now write into the standalone scope.
+        # This prevents the same student from building two independent mastery
+        # histories for the same word after the V50.2.4 migration.
+        return _mark_vocabulary_flashcard(request, classroom=None)
     return _mark_vocabulary_flashcard(request, classroom=classroom)
 
 
@@ -3812,23 +4470,20 @@ ADMISSIONS_SECTIONS = {
 @login_required(login_url='/login/')
 @ensure_csrf_cookie
 def vocabulary_section(request, slug):
-    classroom_response = _redirect_or_deny_classroom_section(
-        request,
-        'vocabulary',
-        'classroom_vocabulary',
-        'You do not have access to Vocabulary.'
-    )
-    if classroom_response:
-        return classroom_response
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
 
     units = VocabularyUnit.objects.filter(is_active=True).prefetch_related('words').order_by('order', 'id')
 
     if slug == 'word_lists':
-        return render(request, 'sat/vocabulary_word_lists.html', {
+        context = {
             'units': units,
             'unit_rows': build_unit_progress_rows(request.user, units=units, include_words=True),
             'summary': get_vocabulary_summary(request.user),
-        })
+        }
+        context.update(student_workspace_context(request.user, active='vocabulary'))
+        return render(request, 'sat/vocabulary_word_lists.html', context)
 
     if slug == 'flashcards':
         return render(request, 'sat/vocabulary_flashcards.html', _get_vocabulary_flashcards_context(request))
@@ -3838,64 +4493,57 @@ def vocabulary_section(request, slug):
 
 @login_required(login_url='/login/')
 def admissions(request):
-    classroom_response = _redirect_or_deny_classroom_section(
-        request,
-        'admissions',
-        'classroom_admissions',
-        'You do not have access to Admissions.'
-    )
-    if classroom_response:
-        return classroom_response
-
-    return render(request, 'sat/admissions.html', {
-        'sections': ADMISSIONS_SECTIONS
-    })
+    workspace = student_workspace_context(request.user, active='admissions')
+    if not workspace.get('use_student_workspace'):
+        classroom_response = _redirect_or_deny_classroom_section(
+            request, 'admissions', 'classroom_admissions', 'You do not have access to Admissions.'
+        )
+        if classroom_response:
+            return classroom_response
+    context = {'sections': ADMISSIONS_SECTIONS}
+    context.update(workspace)
+    return render(request, 'sat/admissions.html', context)
 
 
 @login_required(login_url='/login/')
 def admissions_section(request, slug):
-    classroom_response = _redirect_or_deny_classroom_section(
-        request,
-        'admissions',
-        'classroom_admissions',
-        'You do not have access to Admissions.'
-    )
-    if classroom_response:
-        return classroom_response
+    workspace = student_workspace_context(request.user, active='admissions')
+    if not workspace.get('use_student_workspace'):
+        classroom_response = _redirect_or_deny_classroom_section(
+            request, 'admissions', 'classroom_admissions', 'You do not have access to Admissions.'
+        )
+        if classroom_response:
+            return classroom_response
 
     section = ADMISSIONS_SECTIONS.get(slug)
     if not section:
         raise Http404("Admissions section not found")
 
-    return render(request, 'sat/admissions_section.html', {
-        'slug': slug,
-        'section': section,
-    })
+    context = {'slug': slug, 'section': section}
+    context.update(workspace)
+    return render(request, 'sat/admissions_section.html', context)
 
 @login_required(login_url='/login/')
 def vocabulary_practice_quiz(request):
-    classroom_response = _redirect_or_deny_classroom_section(
-        request,
-        'vocabulary',
-        'classroom_vocabulary',
-        'You do not have access to Vocabulary.'
-    )
-    if classroom_response:
-        return classroom_response
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
 
     units = VocabularyUnit.objects.filter(is_active=True).prefetch_related('words').order_by('order', 'id')
 
-    return render(request, 'sat/vocabulary_practice_quiz.html', {
+    context = {
         'units': units,
         'unit_rows': build_unit_progress_rows(request.user, units=units),
         'summary': get_vocabulary_summary(request.user),
         'recent_attempts': VocabularyQuizAttempt.objects.filter(user=request.user, classroom__isnull=True)[:5],
-    })
+    }
+    context.update(student_workspace_context(request.user, active='vocabulary'))
+    return render(request, 'sat/vocabulary_practice_quiz.html', context)
 
 def _vocabulary_quiz_redirect(classroom=None):
     if classroom:
         return redirect('classroom_vocabulary_section', classroom_id=classroom.id, slug='practice-quiz')
-    return redirect('vocabulary_practice_quiz')
+    return redirect('vocabulary_practice_quiz_root')
 
 
 def _generate_vocabulary_quiz_questions(selected_units, requested_count, mode):
@@ -4010,13 +4658,16 @@ def _start_vocabulary_quiz(request, classroom=None):
     request.session['vocab_quiz_started_at'] = timezone.now().isoformat()
     request.session['vocab_quiz_classroom_id'] = classroom.id if classroom else None
 
-    return render(request, 'sat/vocabulary_practice_quiz_test.html', {
+    quiz_context = {
         'questions': questions,
         'selected_units': selected_units,
         'requested_count': len(questions),
         'quiz_mode': mode,
         'classroom': classroom,
-    })
+    }
+    if not classroom:
+        quiz_context.update(student_workspace_context(request.user, active='vocabulary'))
+    return render(request, 'sat/vocabulary_practice_quiz_test.html', quiz_context)
 
 
 def _finish_vocabulary_quiz(request, classroom=None):
@@ -4030,6 +4681,13 @@ def _finish_vocabulary_quiz(request, classroom=None):
 
     selected_units = request.session.get('vocab_quiz_units') or []
     quiz_mode = request.session.get('vocab_quiz_mode') or VocabularyQuizAttempt.MODE_MIXED
+    homework_id = request.session.get('vocab_quiz_homework_id')
+    homework_assignment = None
+    if homework_id:
+        try:
+            homework_assignment = _v524_homework_for_student(request.user).filter(pk=int(homework_id)).first()
+        except (TypeError, ValueError):
+            homework_assignment = None
     started_at_raw = request.session.get('vocab_quiz_started_at')
     started_at = parse_datetime(started_at_raw) if started_at_raw else None
     if started_at and timezone.is_naive(started_at):
@@ -4102,10 +4760,11 @@ def _finish_vocabulary_quiz(request, classroom=None):
         'vocab_quiz_mode',
         'vocab_quiz_started_at',
         'vocab_quiz_classroom_id',
+        'vocab_quiz_homework_id',
     ):
         request.session.pop(key, None)
 
-    return render(request, 'sat/vocabulary_practice_quiz_result.html', {
+    context = {
         'results': results,
         'score': score,
         'total': len(questions),
@@ -4115,32 +4774,25 @@ def _finish_vocabulary_quiz(request, classroom=None):
         'attempt': attempt,
         'summary': summary,
         'classroom': classroom,
-    })
+        'homework_assignment': homework_assignment,
+    }
+    context.update(student_workspace_context(request.user, active='homework' if homework_assignment else 'vocabulary'))
+    return render(request, 'sat/vocabulary_practice_quiz_result.html', context)
 
 
 @login_required(login_url='/login/')
 def vocabulary_practice_quiz_start(request):
-    classroom_response = _redirect_or_deny_classroom_section(
-        request,
-        'vocabulary',
-        'classroom_vocabulary',
-        'You do not have access to Vocabulary.'
-    )
-    if classroom_response:
-        return classroom_response
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
     return _start_vocabulary_quiz(request)
 
 
 @login_required(login_url='/login/')
 def vocabulary_practice_quiz_result(request):
-    classroom_response = _redirect_or_deny_classroom_section(
-        request,
-        'vocabulary',
-        'classroom_vocabulary',
-        'You do not have access to Vocabulary.'
-    )
-    if classroom_response:
-        return classroom_response
+    denied = _personal_vocabulary_access_response(request)
+    if denied:
+        return denied
     return _finish_vocabulary_quiz(request)
 
 
@@ -4603,7 +5255,7 @@ def support_teacher_list(request):
         )
         next_booking = my_upcoming_bookings[0] if my_upcoming_bookings else None
 
-    return render(request, 'sat/support_teacher_list.html', {
+    context = {
         'teacher_cards': teacher_cards,
         'my_upcoming_bookings': my_upcoming_bookings,
         'next_booking': next_booking,
@@ -4614,7 +5266,11 @@ def support_teacher_list(request):
         'is_support_teacher_role': is_support_teacher(request.user),
         'can_view_private_feedback': can_view_feedback,
         'timezone_name': str(timezone.get_current_timezone()),
-    })
+    }
+    context.update(student_workspace_context(request.user, active='bookings'))
+    if is_teacher(request.user) or is_manager(request.user) or is_support_teacher(request.user) or role_is_platform_admin(request.user):
+        context['student_workspace_base_template'] = 'sat/staff_workspace.html'
+    return render(request, 'sat/support_teacher_list.html', context)
 
 
 @login_required(login_url='/login/')
@@ -4697,7 +5353,7 @@ def support_teacher_detail(request, teacher_id):
         ).select_related('lesson_topic', 'lesson_topic__title').order_by('start_at')[:6]
     )
 
-    return render(request, 'sat/support_teacher_detail.html', {
+    context = {
         'teacher': teacher,
         'subjects': _support_subject_tokens(teacher.subjects),
         'lesson_titles': _active_support_titles(),
@@ -4709,20 +5365,67 @@ def support_teacher_detail(request, teacher_id):
         'can_view_private_feedback': can_view_feedback,
         'timezone_name': str(timezone.get_current_timezone()),
         'is_profile_owner': request.user == teacher.user,
-    })
+    }
+    context.update(student_workspace_context(request.user, active='bookings'))
+    if is_teacher(request.user) or is_manager(request.user) or is_support_teacher(request.user) or role_is_platform_admin(request.user):
+        context['student_workspace_base_template'] = 'sat/staff_workspace.html'
+    return render(request, 'sat/support_teacher_detail.html', context)
 
 
 @login_required(login_url='/login/')
 def support_teacher_profile_edit(request):
     profile = authoritative_support_teacher_profile(request.user)
+    is_teacher_directory_user = is_teacher(request.user)
+    if not profile and is_teacher_directory_user:
+        profile, _ = SupportTeacherProfile.objects.get_or_create(
+            user=request.user,
+            defaults={'display_name': request.user.get_full_name() or request.user.username, 'is_active': True},
+        )
     if not profile:
-        return HttpResponseForbidden('Only support teachers can edit a support profile.')
+        return HttpResponseForbidden('Only teachers can edit a mentor profile.')
 
+    is_support_profile = request.user.groups.filter(name__iexact='Support Teacher').exists()
     if request.method == 'POST':
-        form = SupportTeacherSelfProfileForm(request.POST, instance=profile)
+        profile_action = (request.POST.get('profile_action') or 'profile').strip()
+        if profile_action == 'add_custom_section':
+            title = (request.POST.get('section_title') or '').strip()[:120]
+            body = (request.POST.get('section_body') or '').strip()[:2000]
+            url = (request.POST.get('section_url') or '').strip()[:500]
+            if not title:
+                messages.error(request, 'Custom profile sections need a title.')
+            else:
+                SupportTeacherProfileSection.objects.create(
+                    profile=profile, title=title, body=body, url=url,
+                    order=profile.custom_sections.count(), is_visible=True,
+                )
+                messages.success(request, f'Added profile section “{title}”.')
+            return redirect('mentor_profile_edit_root' if is_teacher_directory_user and not is_support_profile else 'support_teacher_profile_edit_root')
+        if profile_action == 'delete_custom_section':
+            section = get_object_or_404(SupportTeacherProfileSection, pk=request.POST.get('section_id'), profile=profile)
+            title = section.title
+            section.delete()
+            messages.success(request, f'Removed profile section “{title}”.')
+            return redirect('mentor_profile_edit_root' if is_teacher_directory_user and not is_support_profile else 'support_teacher_profile_edit_root')
+
+        form_data = request.POST
+        if not is_support_profile:
+            # Directory-only mentors do not render booking fields. Preserve any
+            # existing values instead of blanking them on a profile save.
+            form_data = request.POST.copy()
+            for field_name in (
+                'meeting_link', 'booking_instructions',
+                'min_booking_notice_hours', 'cancellation_notice_hours',
+            ):
+                form_data[field_name] = getattr(profile, field_name) or ''
+        form = SupportTeacherSelfProfileForm(form_data, instance=profile)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Your support teacher profile was updated.')
+            messages.success(request, 'Your mentor profile was updated.')
+            current_route = getattr(getattr(request, 'resolver_match', None), 'url_name', '')
+            if current_route == 'mentor_profile_edit_root':
+                return redirect('mentor_profile_edit_root')
+            if current_route == 'support_teacher_profile_edit_root':
+                return redirect('support_teacher_profile_edit_root')
             return redirect('support_teacher_profile_edit')
     else:
         form = SupportTeacherSelfProfileForm(instance=profile)
@@ -4732,6 +5435,8 @@ def support_teacher_profile_edit(request):
         'form': form,
         'subjects': _support_subject_tokens(profile.subjects),
         'timezone_name': str(timezone.get_current_timezone()),
+        'is_support_teacher_profile': is_support_profile,
+        'custom_sections': profile.custom_sections.all(),
     })
 
 
@@ -4756,7 +5461,7 @@ def support_teacher_availability_add(request):
         for errors in form.errors.values():
             for error in errors:
                 messages.error(request, error)
-    return redirect('support_teacher_planner')
+    return redirect('support_teacher_dashboard_root')
 
 
 @login_required(login_url='/login/')
@@ -4768,7 +5473,7 @@ def support_teacher_availability_delete(request, availability_id):
     availability = get_object_or_404(SupportTeacherAvailability, id=availability_id, teacher=profile)
     availability.delete()
     messages.success(request, 'Availability window removed.')
-    return redirect('support_teacher_planner')
+    return redirect('support_teacher_dashboard_root')
 
 
 @login_required(login_url='/login/')
@@ -4863,6 +5568,13 @@ def book_support_lesson(request, teacher_id):
         messages.info(request, 'That support request already exists. Your current booking was kept unchanged.')
         return redirect('my_support_lessons')
 
+    _notify_users(
+        [teacher.user_id],
+        notice_type=MakonNotification.TYPE_SUPPORT,
+        title=(f'New support booking: {topic.name}' if booking.status == SupportLessonBooking.STATUS_SCHEDULED else f'New support request: {topic.name}'),
+        message=request.user.get_full_name() or request.user.username,
+        url=reverse('support_teacher_planner_root'),
+    )
     if booking.status == SupportLessonBooking.STATUS_SCHEDULED:
         local_start = timezone.localtime(booking.start_at)
         messages.success(
@@ -4884,9 +5596,9 @@ def my_support_lessons(request):
         return denied
     if not _user_can_book_support_lessons(request.user):
         if is_support_teacher(request.user):
-            return redirect('support_teacher_planner')
+            return redirect('support_teacher_dashboard_root')
         if is_manager(request.user):
-            return redirect('manager_dashboard')
+            return redirect('manager_dashboard_root')
 
     bookings = list(
         SupportLessonBooking.objects.filter(student=request.user)
@@ -4910,14 +5622,16 @@ def my_support_lessons(request):
         or (b.status == SupportLessonBooking.STATUS_SCHEDULED and b.end_at and b.end_at < now_value)
     ]
 
-    return render(request, 'sat/my_support_lessons.html', {
+    context = {
         'waiting_requests': waiting_requests,
         'upcoming_bookings': upcoming_bookings,
         'history_bookings': history_bookings,
         'next_booking': upcoming_bookings[0] if upcoming_bookings else None,
         'completed_count': sum(1 for b in history_bookings if b.status == SupportLessonBooking.STATUS_COMPLETED),
         'timezone_name': str(timezone.get_current_timezone()),
-    })
+    }
+    context.update(student_workspace_context(request.user, active='bookings'))
+    return render(request, 'sat/my_support_lessons.html', context)
 
 
 @login_required(login_url='/login/')
@@ -4946,6 +5660,13 @@ def cancel_support_lesson(request, booking_id):
     booking.cancelled_by = SupportLessonBooking.CANCELLED_BY_STUDENT
     booking.cancelled_at = timezone.now()
     booking.save(update_fields=['status', 'cancellation_reason', 'cancelled_by', 'cancelled_at', 'updated_at'])
+    _notify_users(
+        [booking.teacher.user_id],
+        notice_type=MakonNotification.TYPE_SUPPORT,
+        title='Support booking cancelled by student',
+        message=request.user.get_full_name() or request.user.username,
+        url=reverse('support_teacher_planner_root'),
+    )
     messages.success(request, 'Support request cancelled.' if not booking.start_at else 'Support lesson cancelled.')
     return redirect('my_support_lessons')
 
@@ -5017,6 +5738,7 @@ def manage_support_lesson(request, booking_id):
 
     action = request.POST.get('action', '').strip()
     now_value = timezone.now()
+    student_notice = None
     if action == 'no_show':
         if booking.status != SupportLessonBooking.STATUS_SCHEDULED:
             messages.error(request, 'Only scheduled lessons can be marked as no-show.')
@@ -5027,6 +5749,7 @@ def manage_support_lesson(request, booking_id):
             booking.marked_completed_at = now_value
             booking.save(update_fields=['status', 'marked_completed_at', 'updated_at'])
             messages.success(request, f'{booking.student.username} marked as no-show.')
+            student_notice = ('Support lesson marked as no-show', 'Your support teacher marked this lesson as a no-show.')
     elif action == 'cancel':
         if booking.status not in {SupportLessonBooking.STATUS_REQUESTED, SupportLessonBooking.STATUS_SCHEDULED}:
             messages.error(request, 'Only active requests can be cancelled.')
@@ -5041,6 +5764,7 @@ def manage_support_lesson(request, booking_id):
             booking.cancelled_at = now_value
             booking.save(update_fields=['status', 'cancellation_reason', 'cancelled_by', 'cancelled_at', 'updated_at'])
             messages.success(request, 'Student request cancelled.')
+            student_notice = ('Support booking cancelled', 'Your support teacher cancelled this request or lesson.')
     elif action == 'complete' and not booking.session_id:
         if booking.status != SupportLessonBooking.STATUS_SCHEDULED:
             messages.error(request, 'Only scheduled lessons can be completed.')
@@ -5049,8 +5773,17 @@ def manage_support_lesson(request, booking_id):
             booking.marked_completed_at = now_value
             booking.save(update_fields=['status', 'marked_completed_at', 'updated_at'])
             messages.success(request, 'Lesson marked as completed.')
+            student_notice = ('Support lesson completed', 'Your support teacher marked this lesson as completed.')
     else:
         messages.error(request, 'Use the group-session controls for this action.')
+    if student_notice:
+        _notify_users(
+            [booking.student_id],
+            notice_type=MakonNotification.TYPE_SUPPORT,
+            title=student_notice[0],
+            message=student_notice[1],
+            url=reverse('my_support_lessons_root'),
+        )
     return redirect(_support_safe_next_url(request))
 
 
@@ -5079,12 +5812,12 @@ def schedule_support_topic_session(request):
     slot = _find_support_teacher_slot(profile, start_at, end_at, include_unavailable=True, respect_notice=False)
     if not slot or not slot['is_available']:
         messages.error(request, 'That time is not available anymore. Choose another teacher slot.')
-        return redirect('support_teacher_planner')
+        return redirect('support_teacher_dashboard_root')
 
     meeting_link = _validated_support_url(request.POST.get('meeting_link', ''))
     if meeting_link is None:
         messages.error(request, 'Enter a valid http:// or https:// meeting link.')
-        return redirect('support_teacher_planner')
+        return redirect('support_teacher_dashboard_root')
 
     with transaction.atomic():
         locked_profile = SupportTeacherProfile.objects.select_for_update().get(pk=profile.pk)
@@ -5097,7 +5830,7 @@ def schedule_support_topic_session(request):
         )
         if not locked_slot or not locked_slot['is_available']:
             messages.error(request, 'That time was just taken by another session.')
-            return redirect('support_teacher_planner')
+            return redirect('support_teacher_dashboard_root')
 
         session = SupportLessonSession.objects.create(
             teacher=locked_profile,
@@ -5122,6 +5855,7 @@ def schedule_support_topic_session(request):
             .order_by('created_at')
         )
         assigned = 0
+        assigned_student_ids = []
         skipped_conflicts = 0
         for booking in pending:
             if assigned >= max_students:
@@ -5130,13 +5864,22 @@ def schedule_support_topic_session(request):
                 skipped_conflicts += 1
                 continue
             _assign_booking_to_support_session(booking, session)
+            assigned_student_ids.append(booking.student_id)
             assigned += 1
 
+    if assigned_student_ids:
+        _notify_users(
+            assigned_student_ids,
+            notice_type=MakonNotification.TYPE_SUPPORT,
+            title=f'Support lesson scheduled: {topic.name}',
+            message=f'{timezone.localtime(start_at):%d %b, %H:%M}',
+            url=reverse('my_support_lessons_root'),
+        )
     message = f'{topic.name} scheduled for {timezone.localtime(start_at):%d %b, %H:%M}. {assigned} student request(s) grouped into the session.'
     if skipped_conflicts:
         message += f' {skipped_conflicts} request(s) stayed pending because of time conflicts.'
     messages.success(request, message)
-    return redirect('support_teacher_planner')
+    return redirect('support_teacher_dashboard_root')
 
 
 @login_required(login_url='/login/')
@@ -5152,11 +5895,12 @@ def manage_support_session(request, session_id):
 
     action = request.POST.get('action', '').strip()
     now_value = timezone.now()
+    session_notice = None
     if action == 'update':
         link = _validated_support_url(request.POST.get('meeting_link', ''))
         if link is None:
             messages.error(request, 'Enter a valid meeting link.')
-            return redirect('support_teacher_planner')
+            return redirect('support_teacher_dashboard_root')
         session.meeting_link = link
         session.teacher_note = request.POST.get('teacher_note', '').strip()[:1200]
         session.is_open_for_requests = request.POST.get('is_open_for_requests') in {'1', 'true', 'on', 'yes'}
@@ -5164,6 +5908,7 @@ def manage_support_session(request, session_id):
         if link:
             session.bookings.filter(status=SupportLessonBooking.STATUS_SCHEDULED).update(meeting_link=link)
         messages.success(request, 'Group session updated.')
+        session_notice = ('Support lesson updated', 'The meeting details for your upcoming support lesson changed.')
     elif action == 'complete':
         if session.status != SupportLessonSession.STATUS_SCHEDULED:
             messages.error(request, 'Only scheduled sessions can be completed.')
@@ -5179,6 +5924,7 @@ def manage_support_session(request, session_id):
                 updated_at=now_value,
             )
             messages.success(request, 'Group session and attending bookings marked completed.')
+            session_notice = ('Support lesson completed', 'Your support session was marked as completed.')
     elif action == 'cancel':
         if session.status != SupportLessonSession.STATUS_SCHEDULED:
             messages.error(request, 'Only scheduled sessions can be cancelled.')
@@ -5200,6 +5946,7 @@ def manage_support_session(request, session_id):
                 updated_at=now_value,
             )
             messages.success(request, 'Group session cancelled.')
+            session_notice = ('Support lesson cancelled', 'Your support session was cancelled.')
     elif action == 'open':
         if session.status != SupportLessonSession.STATUS_SCHEDULED or session.end_at <= now_value:
             messages.error(request, 'Only an upcoming scheduled session can accept new matching requests.')
@@ -5215,7 +5962,16 @@ def manage_support_session(request, session_id):
         messages.success(request, 'Automatic enrollment for this session is closed.')
     else:
         messages.error(request, 'Unknown session action.')
-    return redirect('support_teacher_planner')
+    if session_notice:
+        student_ids = list(session.bookings.values_list('student_id', flat=True).distinct())
+        _notify_users(
+            student_ids,
+            notice_type=MakonNotification.TYPE_SUPPORT,
+            title=session_notice[0],
+            message=session_notice[1],
+            url=reverse('my_support_lessons_root'),
+        )
+    return redirect('support_teacher_dashboard_root')
 
 
 @login_required(login_url='/login/')
@@ -5592,6 +6348,880 @@ def _cache_add_fail_open(key, value, timeout):
         return True
 
 
+def _teacher_managed_classrooms(user):
+    """Canonical queryset for classrooms a Teacher may actually manage."""
+    return Classroom.objects.filter(
+        Q(teacher=user)
+        | Q(memberships__user=user, memberships__role='teacher', memberships__status='approved')
+    ).distinct()
+
+
+def _natural_test_sort_key(value):
+    """Human ordering for test names: DAY2 comes before DAY10."""
+    name = str(getattr(value, 'name', value) or '').strip()
+    parts = re.split(r'(\d+)', name.casefold())
+    return tuple(int(part) if part.isdigit() else part for part in parts)
+
+
+def _test_in_active_library(value):
+    """Keep the canonical DAY1..DAY60 library while preserving named tests.
+
+    Old databases can still contain DAY61+ rows. Those rows are retained in the
+    database for history/backward compatibility, but they must not leak back
+    into current teacher/student selectors and progress libraries.
+    """
+    name = str(getattr(value, 'name', value) or '').strip()
+    match = re.fullmatch(r'(?i)day\s*0*(\d+)', name)
+    return not match or 1 <= int(match.group(1)) <= 60
+
+
+def _sorted_tests(queryset, *, only_available=False, limit=None):
+    rows = [row for row in list(queryset) if _test_in_active_library(row)]
+    if only_available:
+        rows = [row for row in rows if row.is_available]
+    rows.sort(key=_natural_test_sort_key)
+    # DAY1..DAY60 first, followed by explicitly named tests such as Placement.
+    day_rows, other_rows = [], []
+    for row in rows:
+        match = re.fullmatch(r'(?i)day\s*0*(\d+)', str(row.name).strip())
+        (day_rows if match else other_rows).append(row)
+    rows = day_rows + other_rows
+    return rows[:limit] if limit else rows
+
+
+def _approved_classroom_students(classroom):
+    return list(
+        ClassroomMembership.objects.filter(
+            classroom=classroom,
+            role='student',
+            status='approved',
+        ).select_related('user').order_by('user__first_name', 'user__last_name', 'user__username')
+    )
+
+
+def _homework_target_memberships(assignment, memberships=None):
+    memberships = memberships if memberships is not None else _approved_classroom_students(assignment.classroom)
+    if assignment.assign_all:
+        return list(memberships)
+    selected = set(assignment.assigned_students.values_list('pk', flat=True))
+    return [membership for membership in memberships if membership.user_id in selected]
+
+
+def _notify_users(users, *, notice_type, title, message='', url=''):
+    """Create deduplicated user notifications without letting notices block writes."""
+    user_ids = {getattr(user, 'pk', user) for user in users if getattr(user, 'pk', user)}
+    if not user_ids:
+        return 0
+    try:
+        rows = [
+            MakonNotification(
+                user_id=user_id,
+                type=notice_type,
+                title=str(title)[:180],
+                message=str(message or '')[:500],
+                url=str(url or '')[:500],
+            )
+            for user_id in user_ids
+        ]
+        MakonNotification.objects.bulk_create(rows)
+        return len(rows)
+    except Exception:
+        logger.exception('Could not create MakonBook notifications')
+        return 0
+
+
+def _notify_classroom_students(classroom, **kwargs):
+    return _notify_users(
+        [row.user_id for row in _approved_classroom_students(classroom)],
+        **kwargs,
+    )
+
+
+def _classroom_teacher_user_ids(classroom):
+    ids = {classroom.teacher_id} if classroom.teacher_id else set()
+    ids.update(
+        ClassroomMembership.objects.filter(
+            classroom=classroom,
+            role='teacher',
+            status='approved',
+        ).values_list('user_id', flat=True)
+    )
+    return ids
+
+
+def _homework_filters(request, queryset, *, teacher=False):
+    query = (request.GET.get('q') or '').strip()
+    type_filter = (request.GET.get('type') or '').strip()
+    classroom_filter = (request.GET.get('classroom') or '').strip()
+    status_filter = (request.GET.get('status') or 'all').strip()
+    if query:
+        queryset = queryset.filter(
+            Q(title__icontains=query)
+            | Q(instructions__icontains=query)
+            | Q(classroom__name__icontains=query)
+            | Q(test__name__icontains=query)
+            | Q(vocabulary_unit__title__icontains=query)
+        )
+    valid_types = {value for value, _label in ClassroomHomeworkAssignment.TYPE_CHOICES}
+    if type_filter in valid_types:
+        queryset = queryset.filter(assignment_type=type_filter)
+    if classroom_filter.isdigit():
+        queryset = queryset.filter(classroom_id=int(classroom_filter))
+    now_value = timezone.now()
+    if status_filter == 'open':
+        queryset = queryset.filter(is_active=True).filter(Q(due_at__isnull=True) | Q(due_at__gte=now_value))
+    elif status_filter == 'overdue':
+        queryset = queryset.filter(is_active=True, due_at__lt=now_value)
+    elif status_filter == 'inactive' and teacher:
+        queryset = queryset.filter(is_active=False)
+    elif status_filter not in {'all', ''}:
+        status_filter = 'all'
+    return queryset, {
+        'query': query,
+        'type_filter': type_filter,
+        'classroom_filter': classroom_filter,
+        'status_filter': status_filter,
+    }
+
+
+def _paginate(request, queryset, *, default=12, allowed=(12, 24, 48, 60, 96)):
+    try:
+        per_page = int(request.GET.get('per_page') or default)
+    except (TypeError, ValueError):
+        per_page = default
+    if per_page not in allowed:
+        per_page = default
+    return Paginator(queryset, per_page).get_page(request.GET.get('page') or 1), per_page
+
+
+def _ensure_support_profile_for_role(user):
+    if not getattr(user, 'is_authenticated', False):
+        return None
+    if not user.groups.filter(name__iexact='Support Teacher').exists():
+        return None
+    profile, _created = SupportTeacherProfile.objects.get_or_create(
+        user=user,
+        defaults={'display_name': user.get_full_name() or user.username, 'is_active': True},
+    )
+    if not profile.is_active:
+        return None
+    return profile
+
+
+def _lesson_redirect(classroom, *, edit=True):
+    url = reverse('teacher_classroom_root', args=[classroom.id])
+    if edit:
+        url += '?edit=1#course'
+    return redirect(url)
+
+
+def _lesson_test_auth_key(classroom_id, test_pk):
+    # Test uses its name (a string) as the primary key, so the authorization
+    # key must preserve arbitrary string PKs instead of coercing them to int.
+    return f'{int(classroom_id)}:{str(test_pk)}'
+
+
+def _authorize_lesson_test_session(request, classroom, test, *, ttl_seconds=14400):
+    """Grant a short-lived launch token for an E-class SAT material.
+
+    This deliberately does not mutate persistent Practice Test access. A test
+    attached to one unit must not become permanently visible in the student's
+    global test library after entering the unit access code once.
+    """
+    now_ts = int(timezone.now().timestamp())
+    bucket = request.session.get('mb_lesson_test_authorizations', {})
+    if not isinstance(bucket, dict):
+        bucket = {}
+    bucket = {str(key): int(expiry) for key, expiry in bucket.items() if str(expiry).isdigit() and int(expiry) > now_ts}
+    bucket[_lesson_test_auth_key(classroom.pk, test.pk)] = now_ts + int(ttl_seconds)
+    request.session['mb_lesson_test_authorizations'] = bucket
+    request.session.modified = True
+
+
+def _lesson_test_session_authorized(request, classroom, test):
+    now_ts = int(timezone.now().timestamp())
+    bucket = request.session.get('mb_lesson_test_authorizations', {})
+    if not isinstance(bucket, dict):
+        return False
+    changed = False
+    cleaned = {}
+    for key, expiry in bucket.items():
+        try:
+            expiry_int = int(expiry)
+        except (TypeError, ValueError):
+            changed = True
+            continue
+        if expiry_int > now_ts:
+            cleaned[str(key)] = expiry_int
+        else:
+            changed = True
+    if changed:
+        request.session['mb_lesson_test_authorizations'] = cleaned
+        request.session.modified = True
+    return cleaned.get(_lesson_test_auth_key(classroom.pk, test.pk), 0) > now_ts
+
+
+def _course_resource_payload(request, resource=None):
+    resource_type = (request.POST.get('resource_type') or ClassroomLessonResource.RESOURCE_FILE).strip()
+    valid = {value for value, _label in ClassroomLessonResource.RESOURCE_CHOICES}
+    if resource_type not in valid:
+        raise ValidationError('Choose a valid material type.')
+    title = (request.POST.get('resource_title') or '').strip()[:220]
+    if not title:
+        raise ValidationError('Material title is required.')
+    try:
+        order = max(1, int(request.POST.get('resource_order') or (resource.order if resource else 1)))
+    except (TypeError, ValueError):
+        order = 1
+    payload = {
+        'title': title,
+        'resource_type': resource_type,
+        'description': (request.POST.get('description') or '').strip()[:300],
+        'url': (request.POST.get('url') or '').strip(),
+        'is_visible': request.POST.get('is_visible') == '1',
+        'order': order,
+        'test': None,
+        'vocabulary_unit': None,
+        'vocabulary_question_count': 10,
+        'vocabulary_quiz_mode': VocabularyQuizAttempt.MODE_MIXED,
+        'access_code': '',
+        'total_points': 100,
+        'score_visibility': ClassroomLessonResource.SCORE_IMMEDIATE,
+        'score_visible_at': None,
+    }
+    if resource_type == ClassroomLessonResource.RESOURCE_TEST:
+        test = Test.objects.filter(pk=request.POST.get('test'), is_available=True).first()
+        if not test:
+            raise ValidationError('Choose an available SAT test.')
+        payload['test'] = test
+        payload['access_code'] = (request.POST.get('access_code') or '').strip()[:50]
+        try:
+            payload['total_points'] = max(1, min(int(request.POST.get('total_points') or 100), 10000))
+        except (TypeError, ValueError):
+            payload['total_points'] = 100
+        visibility = (request.POST.get('score_visibility') or ClassroomLessonResource.SCORE_IMMEDIATE).strip()
+        if visibility not in {value for value, _label in ClassroomLessonResource.SCORE_VISIBILITY_CHOICES}:
+            visibility = ClassroomLessonResource.SCORE_IMMEDIATE
+        payload['score_visibility'] = visibility
+        payload['score_visible_at'] = _homework_parse_due_at(request.POST.get('score_visible_at'))
+        if visibility == ClassroomLessonResource.SCORE_SCHEDULED and not payload['score_visible_at']:
+            raise ValidationError('Choose when classroom points become visible.')
+    elif resource_type == ClassroomLessonResource.RESOURCE_VOCAB_QUIZ:
+        unit = VocabularyUnit.objects.filter(pk=request.POST.get('vocabulary_unit'), is_active=True).first()
+        if not unit:
+            raise ValidationError('Choose an active vocabulary unit.')
+        payload['vocabulary_unit'] = unit
+        try:
+            payload['vocabulary_question_count'] = max(1, min(int(request.POST.get('vocabulary_question_count') or 10), 100))
+        except (TypeError, ValueError):
+            payload['vocabulary_question_count'] = 10
+        mode = (request.POST.get('vocabulary_quiz_mode') or VocabularyQuizAttempt.MODE_MIXED).strip()
+        valid_modes = {value for value, _label in VocabularyQuizAttempt.MODE_CHOICES}
+        payload['vocabulary_quiz_mode'] = mode if mode in valid_modes else VocabularyQuizAttempt.MODE_MIXED
+    elif resource_type == ClassroomLessonResource.RESOURCE_LINK:
+        if not payload['url']:
+            raise ValidationError('Add a URL for this material.')
+    else:
+        if not request.FILES.get('file') and not (resource and resource.file):
+            raise ValidationError('Choose or drop a file for this material.')
+    return payload
+
+
+def _handle_classroom_course_action(request, classroom):
+    action = (request.POST.get('course_action') or '').strip()
+    if not action:
+        return False
+    if action == 'create_lesson':
+        title = (request.POST.get('title') or '').strip()[:220]
+        if not title:
+            raise ValidationError('Unit title is required.')
+        try:
+            order = max(1, int(request.POST.get('order') or 1))
+        except (TypeError, ValueError):
+            order = 1
+        while ClassroomLesson.objects.filter(classroom=classroom, order=order).exists():
+            order += 1
+        lesson = ClassroomLesson.objects.create(
+            classroom=classroom,
+            title=title,
+            summary=(request.POST.get('summary') or '').strip()[:4000],
+            order=order,
+            is_published=request.POST.get('is_published') == '1',
+            created_by=request.user,
+        )
+        if lesson.is_published:
+            _notify_classroom_students(classroom, notice_type=MakonNotification.TYPE_LESSON, title=f'New unit: {lesson.title}', message=classroom.name, url=reverse('student_classroom_home_root', args=[classroom.id]))
+        messages.success(request, f'Unit {order} created.')
+        return True
+    if action in {'edit_lesson', 'toggle_lesson', 'delete_lesson'}:
+        lesson = get_object_or_404(ClassroomLesson, pk=request.POST.get('lesson_id'), classroom=classroom)
+        if action == 'delete_lesson':
+            label = lesson.title
+            lesson.delete()
+            messages.success(request, f'Unit “{label}” deleted.')
+            return True
+        if action == 'toggle_lesson':
+            lesson.is_published = not lesson.is_published
+            lesson.save(update_fields=['is_published', 'updated_at'])
+            if lesson.is_published:
+                _notify_classroom_students(classroom, notice_type=MakonNotification.TYPE_LESSON, title=f'Unit published: {lesson.title}', message=classroom.name, url=reverse('student_classroom_home_root', args=[classroom.id]))
+            messages.success(request, 'Unit visibility updated.')
+            return True
+        title = (request.POST.get('title') or '').strip()[:220]
+        if not title:
+            raise ValidationError('Unit title is required.')
+        lesson.title = title
+        lesson.summary = (request.POST.get('summary') or '').strip()[:4000]
+        try:
+            requested_order = max(1, int(request.POST.get('order') or lesson.order))
+        except (TypeError, ValueError):
+            requested_order = lesson.order
+        if requested_order != lesson.order and ClassroomLesson.objects.filter(classroom=classroom, order=requested_order).exclude(pk=lesson.pk).exists():
+            raise ValidationError(f'Unit {requested_order} already exists.')
+        lesson.order = requested_order
+        lesson.is_published = request.POST.get('is_published') == '1'
+        lesson.save()
+        if lesson.is_published:
+            _notify_classroom_students(
+                classroom,
+                notice_type=MakonNotification.TYPE_LESSON,
+                title=f'Unit updated: {lesson.title}',
+                message=classroom.name,
+                url=reverse('student_classroom_home_root', args=[classroom.id]),
+            )
+        messages.success(request, 'Unit updated.')
+        return True
+    if action in {'add_resource', 'edit_resource'}:
+        lesson = get_object_or_404(ClassroomLesson, pk=request.POST.get('lesson_id'), classroom=classroom)
+        resource = None
+        if action == 'edit_resource':
+            resource = get_object_or_404(ClassroomLessonResource, pk=request.POST.get('resource_id'), lesson=lesson)
+        is_new_resource = resource is None
+        payload = _course_resource_payload(request, resource=resource)
+        if resource is None:
+            resource = ClassroomLessonResource(lesson=lesson)
+        resource.title = payload['title']
+        resource.resource_type = payload['resource_type']
+        resource.description = payload['description']
+        resource.url = payload['url']
+        resource.is_visible = payload['is_visible']
+        resource.order = payload['order']
+        resource.test = payload['test']
+        resource.vocabulary_unit = payload['vocabulary_unit']
+        resource.vocabulary_question_count = payload['vocabulary_question_count']
+        resource.vocabulary_quiz_mode = payload['vocabulary_quiz_mode']
+        resource.access_code = payload['access_code']
+        resource.total_points = payload['total_points']
+        resource.score_visibility = payload['score_visibility']
+        resource.score_visible_at = payload['score_visible_at']
+        uploaded = request.FILES.get('file')
+        if uploaded:
+            if resource.pk and resource.file:
+                resource.file.delete(save=False)
+            resource.file = uploaded
+        if payload['resource_type'] in {ClassroomLessonResource.RESOURCE_LINK, ClassroomLessonResource.RESOURCE_TEST, ClassroomLessonResource.RESOURCE_VOCAB_QUIZ}:
+            if resource.file:
+                resource.file.delete(save=False)
+                resource.file = None
+        if payload['resource_type'] != ClassroomLessonResource.RESOURCE_LINK:
+            resource.url = ''
+        if payload['resource_type'] != ClassroomLessonResource.RESOURCE_TEST:
+            resource.test = None
+        if payload['resource_type'] != ClassroomLessonResource.RESOURCE_VOCAB_QUIZ:
+            resource.vocabulary_unit = None
+        resource.full_clean()
+        resource.save()
+        if resource.is_visible and lesson.is_published:
+            _notify_classroom_students(
+                classroom,
+                notice_type=MakonNotification.TYPE_LESSON,
+                title=f'{"New material" if is_new_resource else "Material updated"}: {resource.title}',
+                message=f'{classroom.name} · {lesson.title}',
+                url=reverse('student_classroom_home_root', args=[classroom.id]),
+            )
+        messages.success(request, 'Material saved.')
+        return True
+    if action in {'toggle_resource', 'delete_resource'}:
+        resource = get_object_or_404(ClassroomLessonResource, pk=request.POST.get('resource_id'), lesson__classroom=classroom)
+        if action == 'delete_resource':
+            if resource.file:
+                resource.file.delete(save=False)
+            resource.delete()
+            messages.success(request, 'Material deleted.')
+        else:
+            resource.is_visible = not resource.is_visible
+            resource.save(update_fields=['is_visible'])
+            if resource.is_visible and resource.lesson.is_published:
+                _notify_classroom_students(
+                    classroom,
+                    notice_type=MakonNotification.TYPE_LESSON,
+                    title=f'Material published: {resource.title}',
+                    message=f'{classroom.name} · {resource.lesson.title}',
+                    url=reverse('student_classroom_home_root', args=[classroom.id]),
+                )
+            messages.success(request, 'Material visibility updated.')
+        return True
+    raise ValidationError('Unknown course editor action.')
+
+
+def _homework_create_rate_allowed(request, *, limit=10, window_seconds=600):
+    now_ts = int(timezone.now().timestamp())
+    key = 'mb_homework_create_times'
+    recent = [int(ts) for ts in request.session.get(key, []) if now_ts - int(ts) < window_seconds]
+    if len(recent) >= limit:
+        request.session[key] = recent
+        return False
+    recent.append(now_ts)
+    request.session[key] = recent
+    request.session.modified = True
+    return True
+
+
+def _homework_parse_due_at(raw_value):
+    due_at = parse_datetime((raw_value or '').strip())
+    if due_at and timezone.is_naive(due_at):
+        due_at = timezone.make_aware(due_at, timezone.get_current_timezone())
+    return due_at
+
+
+def _homework_payload_from_post(request):
+    assignment_type = (request.POST.get('assignment_type') or '').strip()
+    title = (request.POST.get('title') or '').strip()[:220]
+    instructions = (request.POST.get('instructions') or '').strip()[:4000]
+    valid_types = {value for value, _label in ClassroomHomeworkAssignment.TYPE_CHOICES}
+    if assignment_type not in valid_types or not title:
+        raise ValidationError('Choose a homework type and add a title.')
+    test = None
+    unit = None
+    if assignment_type == ClassroomHomeworkAssignment.TYPE_TEST:
+        test = Test.objects.filter(pk=request.POST.get('test'), is_available=True).first()
+        if not test:
+            raise ValidationError('Choose an available SAT test.')
+    else:
+        unit = VocabularyUnit.objects.filter(pk=request.POST.get('vocabulary_unit'), is_active=True).first()
+        if not unit:
+            raise ValidationError('Choose an active vocabulary unit.')
+    mode = (request.POST.get('vocabulary_mode') or ClassroomHomeworkAssignment.VOCAB_MEMORY).strip()
+    if mode not in {value for value, _label in ClassroomHomeworkAssignment.VOCAB_MODE_CHOICES}:
+        mode = ClassroomHomeworkAssignment.VOCAB_MEMORY
+    quiz_mode = (request.POST.get('vocabulary_quiz_mode') or VocabularyQuizAttempt.MODE_MIXED).strip()
+    if quiz_mode not in {value for value, _label in VocabularyQuizAttempt.MODE_CHOICES}:
+        quiz_mode = VocabularyQuizAttempt.MODE_MIXED
+    try:
+        question_count = max(1, min(int(request.POST.get('question_count') or 10), 100))
+    except (TypeError, ValueError):
+        question_count = 10
+    selected_ids = {int(value) for value in request.POST.getlist('students') if str(value).isdigit()}
+    assign_all = request.POST.get('assign_all') == '1' or not selected_ids
+    return {
+        'title': title,
+        'instructions': instructions,
+        'assignment_type': assignment_type,
+        'test': test,
+        'vocabulary_unit': unit,
+        'vocabulary_mode': mode,
+        'vocabulary_quiz_mode': quiz_mode,
+        'question_count': question_count,
+        'assign_all': assign_all,
+        'selected_ids': selected_ids,
+        'due_at': _homework_parse_due_at(request.POST.get('due_at')),
+        'is_active': request.POST.get('is_active', '1') == '1',
+    }
+
+
+def _sync_homework_test_access(assignment, memberships):
+    if assignment.assignment_type != ClassroomHomeworkAssignment.TYPE_TEST or not assignment.test_id:
+        return
+    for membership in _homework_target_memberships(assignment, memberships):
+        StudentSectionAccess.objects.update_or_create(
+            membership=membership,
+            section='practice_tests',
+            defaults={'has_access': True},
+        )
+        StudentPracticeTestAccess.objects.update_or_create(
+            membership=membership,
+            test=assignment.test,
+            defaults={'has_access': True},
+        )
+
+
+def _save_homework_assignment(request, classroom, *, assignment=None):
+    payload = _homework_payload_from_post(request)
+    memberships = _approved_classroom_students(classroom)
+    is_new = assignment is None
+    # The compact edit modal intentionally does not expose the audience picker.
+    # Preserve the original audience instead of silently broadening a targeted
+    # assignment to the whole classroom when a teacher edits title/due date.
+    if assignment is not None and request.POST.get('preserve_targets') == '1':
+        payload['assign_all'] = assignment.assign_all
+        payload['selected_ids'] = set(assignment.assigned_students.values_list('id', flat=True))
+    with transaction.atomic():
+        if is_new:
+            assignment = ClassroomHomeworkAssignment.objects.create(
+                classroom=classroom,
+                created_by=request.user,
+                title=payload['title'],
+                instructions=payload['instructions'],
+                assignment_type=payload['assignment_type'],
+                test=payload['test'],
+                vocabulary_unit=payload['vocabulary_unit'],
+                vocabulary_mode=payload['vocabulary_mode'],
+                vocabulary_quiz_mode=payload['vocabulary_quiz_mode'],
+                question_count=payload['question_count'],
+                assign_all=payload['assign_all'],
+                due_at=payload['due_at'],
+                is_active=True,
+            )
+        else:
+            assignment.title = payload['title']
+            assignment.instructions = payload['instructions']
+            assignment.assignment_type = payload['assignment_type']
+            assignment.test = payload['test']
+            assignment.vocabulary_unit = payload['vocabulary_unit']
+            assignment.vocabulary_mode = payload['vocabulary_mode']
+            assignment.vocabulary_quiz_mode = payload['vocabulary_quiz_mode']
+            assignment.question_count = payload['question_count']
+            assignment.assign_all = payload['assign_all']
+            assignment.due_at = payload['due_at']
+            assignment.is_active = payload['is_active']
+            assignment.full_clean()
+            assignment.save()
+        if payload['assign_all']:
+            assignment.assigned_students.clear()
+        else:
+            assignment.assigned_students.set([row.user for row in memberships if row.user_id in payload['selected_ids']])
+        _sync_homework_test_access(assignment, memberships)
+    targets = [row.user_id for row in _homework_target_memberships(assignment, memberships)]
+    action_label = 'New homework' if is_new else 'Homework updated'
+    _notify_users(
+        targets,
+        notice_type=MakonNotification.TYPE_HOMEWORK,
+        title=f'{action_label}: {assignment.title}',
+        message=f'{classroom.name}' + (f' · due {timezone.localtime(assignment.due_at):%d %b, %H:%M}' if assignment.due_at else ''),
+        url=reverse('student_homework_root'),
+    )
+    return assignment
+
+
+@login_required(login_url='/login/')
+def teacher_dashboard(request):
+    if not is_teacher(request.user):
+        return HttpResponseForbidden('Only teachers can access the teacher workspace.')
+    classrooms = list(
+        _teacher_managed_classrooms(request.user).annotate(
+            approved_students_count=Count('memberships', filter=Q(memberships__role='student', memberships__status='approved'), distinct=True),
+            pending_students_count=Count('memberships', filter=Q(memberships__role='student', memberships__status='pending'), distinct=True),
+            lessons_count=Count('lessons', distinct=True),
+            homework_count=Count('homework_assignments', filter=Q(homework_assignments__is_active=True), distinct=True),
+        ).order_by('-is_active', '-created_at')
+    )
+    return render(request, 'sat/teacher_dashboard_v528.html', {
+        'classrooms': classrooms[:6],
+        'stats': {
+            'classrooms': len(classrooms),
+            'students': sum(int(x.approved_students_count or 0) for x in classrooms),
+            'pending': sum(int(x.pending_students_count or 0) for x in classrooms),
+            'lessons': sum(int(x.lessons_count or 0) for x in classrooms),
+        },
+    })
+
+
+@login_required(login_url='/login/')
+def teacher_homework_hub(request):
+    wants_json = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        or 'application/json' in (request.headers.get('Accept') or '')
+    )
+    if not is_teacher(request.user):
+        if wants_json:
+            return JsonResponse({'ok': False, 'error': 'Teacher access required.'}, status=403)
+        return HttpResponseForbidden('Only teachers can manage homework.')
+    classrooms = list(_teacher_managed_classrooms(request.user).filter(is_active=True).order_by('name'))
+    classroom_ids = [c.id for c in classrooms]
+
+    if request.method == 'POST':
+        action = (request.POST.get('action') or 'create').strip()
+        classroom_qs = _teacher_managed_classrooms(request.user)
+
+        # Delete is intentionally resolved by assignment id first.  The browser
+        # does not need to send (or keep in sync) a classroom id just to remove
+        # an assignment.  This also gives the legacy /teacher/homework/ endpoint
+        # a reliable JSON fallback if the dedicated delete URL is stale/missing.
+        if action == 'delete':
+            assignment_id_raw = (request.POST.get('assignment_id') or '').strip()
+            if not assignment_id_raw.isdigit():
+                if wants_json:
+                    return JsonResponse({'ok': False, 'error': 'Invalid homework id.'}, status=400)
+                messages.error(request, 'Homework item not found.')
+                return redirect('teacher_homework_root')
+            assignment_id_value = int(assignment_id_raw)
+            assignment = (
+                ClassroomHomeworkAssignment.objects
+                .filter(
+                    pk=assignment_id_value,
+                    classroom_id__in=classroom_qs.values('pk'),
+                )
+                .first()
+            )
+            if assignment is None:
+                if wants_json:
+                    return JsonResponse({'ok': False, 'error': 'Homework item not found or already deleted.'}, status=404)
+                messages.error(request, 'Homework item not found or already deleted.')
+                return redirect('teacher_homework_root')
+            title = assignment.title
+            assignment_id = assignment.pk
+            assignment.delete()
+            message = f'Homework “{title}” deleted.'
+            if wants_json:
+                return JsonResponse({'ok': True, 'assignment_id': assignment_id, 'message': message})
+            messages.success(request, message)
+            return redirect('teacher_homework_root')
+
+        classroom_id = (request.POST.get('classroom') or '').strip()
+        classroom = None
+        if classroom_id:
+            if not classroom_id.isdigit():
+                if wants_json:
+                    return JsonResponse({'ok': False, 'error': 'Invalid classroom id.'}, status=400)
+                messages.error(request, 'Invalid classroom selection.')
+                return redirect('teacher_homework_root')
+            classroom = classroom_qs.filter(pk=int(classroom_id)).first()
+            if classroom is None:
+                raise Http404('Classroom not found.')
+        if classroom is None:
+            messages.error(request, 'Choose a classroom first.')
+            return redirect('teacher_homework_root')
+        assignment = None
+        if action == 'edit':
+            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=request.POST.get('assignment_id'), classroom=classroom)
+        else:
+            token = (request.POST.get('submission_token') or '').strip()
+            if token and not _cache_add_fail_open(f'homework-submit:{request.user.pk}:{token}', 1, timeout=600):
+                messages.info(request, 'That homework was already submitted.')
+                return redirect('teacher_homework_root')
+            if not _homework_create_rate_allowed(request):
+                messages.error(request, 'Homework creation limit reached. You can create up to 10 assignments every 10 minutes.')
+                return redirect('teacher_homework_root')
+        try:
+            saved = _save_homework_assignment(request, classroom, assignment=assignment)
+        except (ValidationError, ValueError) as exc:
+            message = exc.message if hasattr(exc, 'message') else str(exc)
+            messages.error(request, message)
+            return redirect('teacher_homework_root')
+        messages.success(request, f'Homework “{saved.title}” {"updated" if assignment else "assigned"}.')
+        return redirect('teacher_homework_root')
+
+    assignments = ClassroomHomeworkAssignment.objects.filter(classroom_id__in=classroom_ids).select_related('classroom', 'test', 'vocabulary_unit').prefetch_related('assigned_students').order_by('-created_at')
+    assignments, filter_state = _homework_filters(request, assignments, teacher=True)
+    assignment_page, per_page = _paginate(request, assignments, default=12)
+    tests = _sorted_tests(Test.objects.filter(is_available=True).distinct(), only_available=True)
+    return render(request, 'sat/teacher_homework_hub_v528.html', {
+        'classrooms': classrooms,
+        'assignment_page': assignment_page,
+        'assignments': assignment_page.object_list,
+        'tests': tests,
+        'vocabulary_units': VocabularyUnit.objects.filter(is_active=True).order_by('order', 'id'),
+        'vocabulary_modes': ClassroomHomeworkAssignment.VOCAB_MODE_CHOICES,
+        'vocabulary_quiz_modes': VocabularyQuizAttempt.MODE_CHOICES,
+        'homework_types': ClassroomHomeworkAssignment.TYPE_CHOICES,
+        'per_page': per_page,
+        'submission_token': uuid.uuid4().hex,
+        'now_value': timezone.now(),
+        **filter_state,
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def teacher_homework_delete_api(request, assignment_id):
+    """Delete one teacher-owned homework item and always answer with JSON.
+
+    This endpoint exists separately from the HTML homework hub so the browser
+    never has to POST an AJAX delete to a page endpoint that can be redirected,
+    decorated, or replaced by an HTML 404 handler.  The assignment id comes from
+    the URL; the client does not need to trust a hidden classroom id.
+    """
+    if not is_teacher(request.user):
+        return JsonResponse({'ok': False, 'error': 'Teacher access required.'}, status=403)
+
+    assignment = (
+        ClassroomHomeworkAssignment.objects
+        .select_related('classroom')
+        .filter(
+            pk=assignment_id,
+            classroom_id__in=_teacher_managed_classrooms(request.user).values('pk'),
+        )
+        .first()
+    )
+    if assignment is None:
+        return JsonResponse({'ok': False, 'error': 'Homework item not found or already deleted.'}, status=404)
+
+    title = assignment.title
+    deleted_id = assignment.pk
+    assignment.delete()
+    return JsonResponse({
+        'ok': True,
+        'assignment_id': deleted_id,
+        'message': f'Homework “{title}” deleted.',
+    })
+
+
+@login_required(login_url='/login/')
+def teacher_practice_tests(request):
+    if not is_teacher(request.user):
+        return HttpResponseForbidden('Teacher access required.')
+    tests = _sorted_tests(Test.objects.filter(is_available=True).distinct(), only_available=True)
+    active_tests, past_tests = _split_tests_by_user_progress(request.user, tests)
+    return render(request, 'sat/practice_tests.html', {
+        'student_workspace_base_template': 'sat/staff_workspace.html',
+        'is_teacher_view': True,
+        'active_tests': active_tests,
+        'past_tests': past_tests,
+        'practice_summary': {
+            'available': len(tests),
+            'active': len(active_tests),
+            'past': len(past_tests),
+            'resumable': sum(1 for test in active_tests if getattr(test, 'has_active_attempt', False)),
+        },
+        'show_lessons': False,
+    })
+
+
+@login_required(login_url='/login/')
+def teacher_lessons_hub(request):
+    if not is_teacher(request.user): return HttpResponseForbidden('Teacher access required.')
+    classrooms = list(_teacher_managed_classrooms(request.user).annotate(lessons_count=Count('lessons', distinct=True)).order_by('-is_active','name'))
+    return render(request, 'sat/teacher_lessons_hub_v528.html', {'classrooms': classrooms})
+
+
+@login_required(login_url='/login/')
+def teacher_progress_hub(request):
+    if not is_teacher(request.user): return HttpResponseForbidden('Teacher access required.')
+    classrooms = list(_teacher_managed_classrooms(request.user).annotate(student_count=Count('memberships', filter=Q(memberships__role='student', memberships__status='approved'), distinct=True)).order_by('-is_active','name'))
+    return render(request, 'sat/teacher_progress_hub_v528.html', {'classrooms': classrooms})
+
+
+@login_required(login_url='/login/')
+def teacher_assessments_hub(request):
+    if not is_teacher(request.user): return HttpResponseForbidden('Teacher access required.')
+    classrooms = list(_teacher_managed_classrooms(request.user).annotate(student_count=Count('memberships', filter=Q(memberships__role='student', memberships__status='approved'), distinct=True)).order_by('-is_active','name'))
+    return render(request, 'sat/teacher_assessments_hub_v528.html', {'classrooms': classrooms})
+
+
+@login_required(login_url='/login/')
+def teacher_access_hub(request):
+    if not is_teacher(request.user):
+        return HttpResponseForbidden('Teacher access required.')
+    classrooms = list(
+        _teacher_managed_classrooms(request.user)
+        .annotate(student_count=Count('memberships', filter=Q(memberships__role='student', memberships__status='approved'), distinct=True))
+        .order_by('-is_active', 'name')
+    )
+    tests = _sorted_tests(Test.objects.filter(is_available=True).distinct(), only_available=True)
+    all_test_ids = {str(test.pk) for test in tests}
+    ap_events = []
+    if APExamEvent is not None:
+        ap_events = list(APExamEvent.objects.select_related('exam', 'exam__ap_class').filter(is_public=True).order_by('-created_at'))
+
+    for classroom in classrooms:
+        options = get_classroom_manageable_sections(classroom)
+        saved = {
+            row.section: row.has_access
+            for row in ClassroomSectionAccessPolicy.objects.filter(classroom=classroom)
+        }
+        if not saved:
+            memberships = _approved_classroom_students(classroom)
+            counts = {item['key']: 0 for item in options}
+            for membership in memberships:
+                amap = get_membership_section_access_map(membership)
+                for key in counts:
+                    counts[key] += int(bool(amap.get(key)))
+            total = len(memberships)
+            saved = {key: bool(total and counts[key] > total / 2) for key in counts}
+        classroom.access_section_rows = [
+            {'key': item['key'], 'label': item['label'], 'checked': bool(saved.get(item['key'], False))}
+            for item in options
+        ]
+        policy = ClassroomPracticeTestAccessPolicy.objects.filter(classroom=classroom).prefetch_related('selected_tests').first()
+        if policy:
+            classroom.access_practice_mode = policy.access_mode
+            classroom.access_selected_test_ids = all_test_ids if policy.access_mode == ClassroomPracticeTestAccessPolicy.ACCESS_MODE_ALL else {str(pk) for pk in policy.selected_tests.values_list('pk', flat=True)}
+        else:
+            classroom.access_practice_mode = ClassroomPracticeTestAccessPolicy.ACCESS_MODE_SELECTED
+            classroom.access_selected_test_ids = set()
+        classroom.access_test_rows = [
+            {'test': test, 'checked': str(test.pk) in classroom.access_selected_test_ids}
+            for test in tests
+        ]
+        classroom.access_selected_ap_ids = set()
+        if classroom.is_ap_classroom and APExamEvent is not None:
+            classroom.access_selected_ap_ids = {str(pk) for pk in classroom.ap_exam_events.values_list('pk', flat=True)}
+        classroom.access_ap_rows = [
+            {'event': event, 'checked': str(event.pk) in classroom.access_selected_ap_ids}
+            for event in ap_events
+        ]
+
+    return render(request, 'sat/teacher_access_hub_v528.html', {
+        'classrooms': classrooms,
+        'tests': tests,
+        'ap_events': ap_events,
+        'sat_classroom_type': Classroom.CLASSROOM_TYPE_SAT,
+        'ap_classroom_type': Classroom.CLASSROOM_TYPE_AP,
+    })
+
+
+@login_required(login_url='/login/')
+def manager_teacher_list(request):
+    if not (_support_teacher_admin_allowed(request.user) or is_manager(request.user)):
+        return HttpResponseForbidden('Manager access required.')
+    query = (request.GET.get('q') or '').strip()
+    teachers = User.objects.filter(groups__name__iexact='Teacher').distinct().annotate(
+        active_classrooms_count=Count('owned_classrooms', filter=Q(owned_classrooms__is_active=True), distinct=True),
+        approved_students_count=Count('owned_classrooms__memberships__user', filter=Q(owned_classrooms__is_active=True, owned_classrooms__memberships__role='student', owned_classrooms__memberships__status='approved'), distinct=True),
+    )
+    if query:
+        teachers = teachers.filter(Q(first_name__icontains=query) | Q(last_name__icontains=query) | Q(username__icontains=query) | Q(email__icontains=query))
+    teachers = teachers.order_by('first_name', 'last_name', 'username')
+    return render(request, 'sat/manager_teachers_v528.html', {'teachers': teachers, 'query': query})
+
+
+@login_required(login_url='/login/')
+def manager_support_teacher_list(request):
+    if not (_support_teacher_admin_allowed(request.user) or is_manager(request.user)):
+        return HttpResponseForbidden('Manager access required.')
+    query = (request.GET.get('q') or '').strip()
+    teachers = SupportTeacherProfile.objects.filter(user__groups__name__iexact='Support Teacher').select_related('user').distinct()
+    if query:
+        teachers = teachers.filter(
+            Q(display_name__icontains=query)
+            | Q(user__first_name__icontains=query)
+            | Q(user__last_name__icontains=query)
+            | Q(user__username__icontains=query)
+            | Q(user__email__icontains=query)
+            | Q(subjects__icontains=query)
+        )
+    teachers = teachers.order_by('sort_order', 'display_name', 'user__first_name')
+    return render(request, 'sat/manager_support_teachers_v528.html', {'support_teachers': teachers, 'query': query})
+
+
+@login_required(login_url='/login/')
+def support_teacher_dashboard(request):
+    profile = authoritative_support_teacher_profile(request.user) or _ensure_support_profile_for_role(request.user)
+    if not profile:
+        return HttpResponseForbidden('Support Teacher access required.')
+    now_value = timezone.now()
+    waiting = SupportLessonBooking.objects.filter(teacher=profile, status=SupportLessonBooking.STATUS_REQUESTED).order_by('created_at')
+    upcoming = SupportLessonBooking.objects.filter(teacher=profile, status=SupportLessonBooking.STATUS_SCHEDULED, end_at__gte=now_value).select_related('student').order_by('start_at')
+    return render(request, 'sat/support_teacher_dashboard_v528.html', {
+        'teacher': profile,
+        'waiting_count': waiting.count(),
+        'upcoming_count': upcoming.count(),
+        'completed_count': SupportLessonBooking.objects.filter(teacher=profile, status=SupportLessonBooking.STATUS_COMPLETED).count(),
+        'waiting_bookings': waiting[:5],
+        'upcoming_bookings': upcoming[:5],
+    })
+
+
 @login_required(login_url='/login/')
 def teacher_classroom_list(request):
     if not is_teacher(request.user):
@@ -5599,13 +7229,38 @@ def teacher_classroom_list(request):
 
     # A classroom can have a primary owner plus additional approved teachers.
     # Secondary teachers must see the classrooms they are explicitly assigned to.
-    classrooms = Classroom.objects.filter(
-        Q(teacher=request.user)
-        | Q(memberships__user=request.user, memberships__role='teacher', memberships__status='approved')
-    ).distinct().order_by('-created_at')
+    classrooms = (
+        Classroom.objects.filter(
+            Q(teacher=request.user)
+            | Q(memberships__user=request.user, memberships__role='teacher', memberships__status='approved')
+        )
+        .distinct()
+        .annotate(
+            approved_students_count=Count(
+                'memberships',
+                filter=Q(memberships__role='student', memberships__status='approved'),
+                distinct=True,
+            ),
+            pending_students_count=Count(
+                'memberships',
+                filter=Q(memberships__role='student', memberships__status='pending'),
+                distinct=True,
+            ),
+            lessons_count=Count('lessons', distinct=True),
+            homework_count=Count('homework_assignments', filter=Q(homework_assignments__is_active=True), distinct=True),
+        )
+        .order_by('-is_active', '-created_at')
+    )
+    classroom_rows = list(classrooms)
 
     return render(request, 'sat/teacher_classroom_list.html', {
-        'classrooms': classrooms,
+        'classrooms': classroom_rows,
+        'teacher_classroom_stats': {
+            'total': len(classroom_rows),
+            'active': sum(1 for classroom in classroom_rows if classroom.is_active),
+            'students': sum(int(classroom.approved_students_count or 0) for classroom in classroom_rows),
+            'pending': sum(int(classroom.pending_students_count or 0) for classroom in classroom_rows),
+        },
     })
 
 @login_required(login_url='/login/')
@@ -5623,7 +7278,7 @@ def update_student_practice_test_access(request, classroom_id, user_id):
         status='approved'
     )
 
-    tests = Test.objects.all().distinct().order_by('name')
+    tests = _sorted_tests(Test.objects.all().distinct())
 
     if request.method == 'POST':
         access_mode = request.POST.get('access_mode', 'all')
@@ -5643,7 +7298,7 @@ def update_student_practice_test_access(request, classroom_id, user_id):
         if access_mode == 'all':
             selected_tests = tests
         else:
-            selected_tests = Test.objects.filter(pk__in=selected_test_names).distinct()
+            selected_tests = _sorted_tests(Test.objects.filter(pk__in=selected_test_names).distinct())
 
         for test in selected_tests:
             StudentPracticeTestAccess.objects.update_or_create(
@@ -5653,7 +7308,7 @@ def update_student_practice_test_access(request, classroom_id, user_id):
             )
 
         messages.success(request, "Student practice test access updated successfully.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     existing_items = StudentPracticeTestAccess.objects.filter(
         membership=membership,
@@ -5706,7 +7361,7 @@ def create_classroom(request):
         token_key = f"classroom:create:{request.user.pk}:{submission_token}"
         if not _cache_add_fail_open(token_key, 1, timeout=120):
             messages.info(request, "This classroom was already submitted.")
-            return redirect('teacher_classroom_list')
+            return redirect('teacher_dashboard_root')
 
         request.session.pop('classroom_create_token', None)
         try:
@@ -5735,7 +7390,7 @@ def create_classroom(request):
             return redirect('create_classroom')
 
         messages.success(request, f'Classroom "{classroom.name}" created successfully.')
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     submission_token = uuid.uuid4().hex
     request.session['classroom_create_token'] = submission_token
@@ -5747,22 +7402,113 @@ def create_classroom(request):
 @login_required(login_url='/login/')
 def teacher_classroom_dashboard(request, classroom_id):
     classroom = get_object_or_404(Classroom, id=classroom_id)
-
     if not can_manage_classroom(request.user, classroom):
         return HttpResponseForbidden("You can manage only your own classrooms.")
+
+    if request.method == 'POST' and request.POST.get('course_action'):
+        try:
+            _handle_classroom_course_action(request, classroom)
+        except ValidationError as exc:
+            messages.error(request, str(exc))
+        return _lesson_redirect(classroom, edit=True)
 
     students = ClassroomMembership.objects.filter(
         classroom=classroom,
         role='student'
     ).exclude(status__in=['left', 'removed']).select_related('user').order_by('-requested_at')
-
     join_code = getattr(classroom, 'join_code', None)
-
+    lessons = list(
+        ClassroomLesson.objects.filter(classroom=classroom)
+        .prefetch_related('resources__test', 'resources__vocabulary_unit')
+        .order_by('order', 'created_at')
+    )
+    for lesson in lessons:
+        for resource in lesson.resources.all():
+            if resource.test_id:
+                resource.question_count = (
+                    English_Question.objects.filter(test_id=resource.test_id).count()
+                    + Math_Question.objects.filter(test_id=resource.test_id).count()
+                )
+    student_rows = list(students)
     return render(request, 'sat/teacher_classroom_dashboard.html', {
         'classroom': classroom,
-        'students': students,
+        'students': student_rows,
         'join_code': join_code,
+        'lessons': lessons,
+        'available_tests': _sorted_tests(Test.objects.filter(is_available=True).distinct(), only_available=True),
+        'resource_type_choices': ClassroomLessonResource.RESOURCE_CHOICES,
+        'score_visibility_choices': ClassroomLessonResource.SCORE_VISIBILITY_CHOICES,
+        'available_vocabulary_units': VocabularyUnit.objects.filter(is_active=True).order_by('order', 'id'),
+        'vocabulary_quiz_modes': VocabularyQuizAttempt.MODE_CHOICES,
+        'course_edit_mode': request.GET.get('edit') == '1',
+        'next_lesson_order': (max([lesson.order for lesson in lessons], default=0) + 1),
+        'approved_student_count': sum(1 for row in student_rows if row.status == 'approved'),
+        'pending_student_count': sum(1 for row in student_rows if row.status == 'pending'),
     })
+
+
+@login_required(login_url='/login/')
+def teacher_classroom_homework(request, classroom_id):
+    classroom = get_object_or_404(Classroom, id=classroom_id)
+    if not can_manage_classroom(request.user, classroom):
+        return HttpResponseForbidden('You can manage only your own classrooms.')
+    students = _approved_classroom_students(classroom)
+
+    if request.method == 'POST':
+        action = (request.POST.get('action') or 'create').strip()
+        if action == 'delete':
+            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=request.POST.get('assignment_id'), classroom=classroom)
+            title = assignment.title
+            assignment.delete()
+            messages.success(request, 'Homework assignment removed.')
+            return redirect('teacher_classroom_homework_root', classroom_id=classroom.id)
+        assignment = None
+        if action == 'edit':
+            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=request.POST.get('assignment_id'), classroom=classroom)
+        else:
+            token = (request.POST.get('submission_token') or '').strip()
+            if token and not _cache_add_fail_open(f'homework-submit:{request.user.pk}:{token}', 1, timeout=600):
+                messages.info(request, 'That homework was already submitted.')
+                return redirect('teacher_classroom_homework_root', classroom_id=classroom.id)
+            if not _homework_create_rate_allowed(request):
+                messages.error(request, 'Homework creation limit reached. You can create up to 10 assignments every 10 minutes.')
+                return redirect('teacher_classroom_homework_root', classroom_id=classroom.id)
+        try:
+            saved = _save_homework_assignment(request, classroom, assignment=assignment)
+        except (ValidationError, ValueError) as exc:
+            messages.error(request, str(exc))
+            return redirect('teacher_classroom_homework_root', classroom_id=classroom.id)
+        messages.success(request, f'Homework “{saved.title}” {"updated" if assignment else "assigned"}.')
+        return redirect('teacher_classroom_homework_root', classroom_id=classroom.id)
+
+    assignments = ClassroomHomeworkAssignment.objects.filter(classroom=classroom).select_related('test', 'vocabulary_unit').prefetch_related('assigned_students').order_by('-created_at')
+    assignments, filter_state = _homework_filters(request, assignments, teacher=True)
+    assignment_page, per_page = _paginate(request, assignments, default=12)
+    return render(request, 'sat/teacher_classroom_homework.html', {
+        'classroom': classroom,
+        'students': students,
+        'tests': _sorted_tests(Test.objects.filter(is_available=True).distinct(), only_available=True),
+        'vocabulary_units': VocabularyUnit.objects.filter(is_active=True).order_by('order', 'id'),
+        'assignments': assignment_page.object_list,
+        'assignment_page': assignment_page,
+        'vocabulary_modes': ClassroomHomeworkAssignment.VOCAB_MODE_CHOICES,
+        'vocabulary_quiz_modes': VocabularyQuizAttempt.MODE_CHOICES,
+        'homework_types': ClassroomHomeworkAssignment.TYPE_CHOICES,
+        'per_page': per_page,
+        'submission_token': uuid.uuid4().hex,
+        **filter_state,
+    })
+
+
+@login_required(login_url='/login/')
+def teacher_classroom_lessons(request, classroom_id):
+    classroom = get_object_or_404(Classroom, id=classroom_id)
+    if not can_manage_classroom(request.user, classroom):
+        return HttpResponseForbidden('You can manage only your own classrooms.')
+    # V50.2.10: course authoring lives inside the classroom dashboard. Keep the
+    # legacy route as a backwards-compatible deep link, not a second editor.
+    return _lesson_redirect(classroom, edit=True)
+
 
 @login_required(login_url='/login/')
 @require_POST
@@ -5773,10 +7519,10 @@ def generate_classroom_join_code(request, classroom_id):
         return HttpResponseForbidden("You can manage only your own classrooms.")
     if not classroom.is_active:
         messages.error(request, "Join codes cannot be generated for an inactive classroom.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
     if classroom.hollihop_managed:
         messages.error(request, "Hollihop-managed classrooms receive memberships only from Hollihop.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     for _ in range(40):
         try:
@@ -5798,7 +7544,7 @@ def generate_classroom_join_code(request, classroom_id):
                         classroom=locked, code=code, expires_at=expires_at, is_active=True
                     )
             messages.success(request, f"New join code generated for {classroom.name}.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         except IntegrityError:
             # Another classroom got the same six-digit code first. Retry with a
             # fresh value instead of surfacing a production 500.
@@ -5806,7 +7552,7 @@ def generate_classroom_join_code(request, classroom_id):
 
     logger.error("Unable to allocate unique classroom join code after retries for classroom_id=%s", classroom.id)
     messages.error(request, "Could not generate a unique join code. Please try again.")
-    return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+    return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
 def get_user_approved_student_memberships(user):
     return ClassroomMembership.objects.filter(
@@ -5897,7 +7643,7 @@ def _student_goal_form_context(user, *, form=None, next_url=None):
         'goal': goal,
         'goal_form': form,
         'goal_universities': universities,
-        'goal_form_next': next_url or reverse('sat_menu'),
+        'goal_form_next': next_url or reverse('student_dashboard_root'),
     }
 
 
@@ -5929,6 +7675,29 @@ def _student_global_goal_context(user):
         last_reviewed_at__gte=seven_days_ago,
     ).count()
     weekly_momentum = recent_tests + recent_vocab_reviews
+
+    next_support_lesson = SupportLessonBooking.objects.filter(
+        student=user,
+        status=SupportLessonBooking.STATUS_SCHEDULED,
+        start_at__gte=now,
+    ).select_related('teacher', 'teacher__user').order_by('start_at').first()
+
+    if current_score is None:
+        mako_suggestion = 'Start with one scored SAT module. I need a baseline before I can point you at the right weakness.'
+        mako_action_label = 'Take a practice test'
+        mako_action_url = reverse('practice_tests_root')
+    elif score_gap and score_gap >= 150:
+        mako_suggestion = f'You are {score_gap} points from your target. Do not chase volume: finish one focused module, then review every miss.'
+        mako_action_label = 'Practice now'
+        mako_action_url = reverse('practice_tests_root')
+    elif score_gap:
+        mako_suggestion = f'Only {score_gap} points separate your latest score and target. Accuracy on repeat mistakes matters more than adding more random questions.'
+        mako_action_label = 'Review progress'
+        mako_action_url = reverse('rating_home')
+    else:
+        mako_suggestion = 'Your latest score is already in your target range. Protect consistency and use timed practice to make the result repeatable.'
+        mako_action_label = 'Keep it sharp'
+        mako_action_url = reverse('practice_tests_root')
 
     destination = goal.university_name or 'your dream university'
     motivation_messages = [
@@ -5969,6 +7738,12 @@ def _student_global_goal_context(user):
         'score_gap': score_gap,
         'goal_progress_percent': goal_progress_percent,
         'weekly_momentum': weekly_momentum,
+        'recent_tests_count': recent_tests,
+        'recent_vocab_reviews_count': recent_vocab_reviews,
+        'next_support_lesson': next_support_lesson,
+        'mako_suggestion': mako_suggestion,
+        'mako_action_label': mako_action_label,
+        'mako_action_url': mako_action_url,
         'motivation_messages': motivation_messages,
         'pace_label': pace_label,
         'pace_tone': pace_tone,
@@ -5983,19 +7758,19 @@ def classroom_entry(request):
     # is available explicitly from the account dropdown. This keeps day-to-day
     # classroom work one click away without removing manager permissions.
     if is_teacher(request.user):
-        return redirect('teacher_classroom_list')
+        return redirect('teacher_dashboard_root')
 
     if is_manager(request.user):
-        return redirect('manager_dashboard')
+        return redirect('manager_dashboard_root')
 
     if role_is_platform_admin(request.user):
         return redirect('admin_dashboard')
 
     # Support teachers use their planner as the operational home page.
-    # This keeps /sat/ as the single authenticated entry point after the
+    # This keeps the canonical /dashboard/ entry point consistent after the
     # legacy /sat/dashboard/ route was removed.
-    if is_support_teacher(request.user):
-        return redirect('support_teacher_planner')
+    if is_support_teacher(request.user) or _ensure_support_profile_for_role(request.user):
+        return redirect('support_teacher_dashboard_root')
 
     approved_memberships = ClassroomMembership.objects.filter(
         user=request.user,
@@ -6020,11 +7795,14 @@ def classroom_entry(request):
         'approved_memberships': approved_memberships,
         'pending_memberships': pending_memberships,
         'rejected_memberships': rejected_memberships,
+        'dashboard_primary_membership': approved_memberships.first(),
+        'student_workspace_active': 'home',
         # Backward compatibility for any old template includes.
         'pending_membership': pending_memberships.first(),
         'rejected_membership': rejected_memberships.first(),
     }
     context.update(_student_global_goal_context(request.user))
+    context.update(gamification_context(request.user))
     context.update(_student_goal_form_context(
         request.user,
         next_url=request.get_full_path(),
@@ -6048,14 +7826,14 @@ def submit_classroom_join_request(request):
 
     if is_join_code_rate_limited(request):
         messages.error(request, "Too many code attempts. Please wait and try again later.")
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
 
     code = request.POST.get('join_code', '').strip()
 
     if not code.isdigit() or len(code) != 6:
         register_join_code_attempt(request)
         messages.error(request, "Code must contain exactly 6 digits.")
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
 
     join_code = ClassroomJoinCode.objects.filter(
         code=code,
@@ -6067,7 +7845,7 @@ def submit_classroom_join_request(request):
     if not join_code or not join_code.is_valid():
         register_join_code_attempt(request)
         messages.error(request, "Invalid or expired classroom code.")
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
 
     classroom = join_code.classroom
     with transaction.atomic():
@@ -6114,10 +7892,24 @@ def submit_classroom_join_request(request):
                         'status', 'requested_at', 'approved_at', 'left_at', 'removed_at',
                     ])
                     messages.success(request, "Your join request has been submitted again.")
-            return redirect('sat_menu')
+                    _notify_users(
+                        _classroom_teacher_user_ids(classroom),
+                        notice_type=MakonNotification.TYPE_CLASSROOM,
+                        title=f'Join request: {request.user.get_full_name() or request.user.username}',
+                        message=classroom.name,
+                        url=reverse('teacher_classroom_root', args=[classroom.id]),
+                    )
+            return redirect('student_dashboard_root')
 
+    _notify_users(
+        _classroom_teacher_user_ids(classroom),
+        notice_type=MakonNotification.TYPE_CLASSROOM,
+        title=f'Join request: {request.user.get_full_name() or request.user.username}',
+        message=classroom.name,
+        url=reverse('teacher_classroom_root', args=[classroom.id]),
+    )
     messages.success(request, f'Join request sent to classroom "{classroom.name}".')
-    return redirect('sat_menu')
+    return redirect('student_dashboard_root')
 
 @login_required(login_url='/login/')
 def classroom_join_status(request):
@@ -6177,7 +7969,7 @@ def approve_join_request(request, classroom_id, membership_id):
         return HttpResponseForbidden("You can manage only your own classrooms.")
     if classroom.hollihop_managed:
         messages.error(request, "Hollihop-managed classroom memberships cannot be approved manually.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     with transaction.atomic():
         membership = get_object_or_404(
@@ -6186,13 +7978,13 @@ def approve_join_request(request, classroom_id, membership_id):
         )
         if membership.hollihop_managed:
             messages.error(request, "This membership is managed by Hollihop.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         if membership.status == 'approved':
             messages.info(request, f"{membership.user.username} is already approved.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         if membership.status != 'pending':
             messages.error(request, "Only pending join requests can be approved.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
         membership.status = 'approved'
         membership.approved_at = timezone.now()
@@ -6215,8 +8007,15 @@ def approve_join_request(request, classroom_id, membership_id):
             classroom.id, membership.user_id,
         )
 
+    _notify_users(
+        [membership.user_id],
+        notice_type=MakonNotification.TYPE_CLASSROOM,
+        title=f'You joined {classroom.name}',
+        message='Your classroom request was approved.',
+        url=reverse('student_classroom_home_root', args=[classroom.id]),
+    )
     messages.success(request, f"{membership.user.username} has been approved.")
-    return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+    return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
 
 @login_required(login_url='/login/')
@@ -6228,7 +8027,7 @@ def reject_join_request(request, classroom_id, membership_id):
         return HttpResponseForbidden("You can manage only your own classrooms.")
     if classroom.hollihop_managed:
         messages.error(request, "Hollihop-managed classroom memberships cannot be rejected manually.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     with transaction.atomic():
         membership = get_object_or_404(
@@ -6237,13 +8036,13 @@ def reject_join_request(request, classroom_id, membership_id):
         )
         if membership.hollihop_managed:
             messages.error(request, "This membership is managed by Hollihop.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         if membership.status == 'rejected':
             messages.info(request, f"{membership.user.username}'s request is already rejected.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         if membership.status != 'pending':
             messages.error(request, "Only pending join requests can be rejected.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
         membership.status = 'rejected'
         membership.approved_at = None
@@ -6251,8 +8050,15 @@ def reject_join_request(request, classroom_id, membership_id):
         membership.removed_at = None
         membership.save(update_fields=['status', 'approved_at', 'left_at', 'removed_at'])
 
+    _notify_users(
+        [membership.user_id],
+        notice_type=MakonNotification.TYPE_CLASSROOM,
+        title=f'Request update: {classroom.name}',
+        message='Your classroom join request was not approved.',
+        url=reverse('student_classrooms_root'),
+    )
     messages.info(request, f"{membership.user.username}'s request was rejected.")
-    return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+    return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
 
 def classroom_access_denied(
@@ -6341,16 +8147,8 @@ def _student_goal_context(user, classroom, access_map):
             'icon': 'bi-stopwatch',
             'title': 'Complete focused practice',
             'text': 'Finish one timed module, then review every mistake before starting another.',
-            'url': reverse('classroom_practice_tests', args=[classroom.id]),
+            'url': reverse('classroom_practice_tests_root', args=[classroom.id]),
             'label': 'Practice now',
-        })
-    if access_map.get('vocabulary'):
-        focus_cards.append({
-            'icon': 'bi-journal-text',
-            'title': 'Strengthen vocabulary',
-            'text': 'Review a short word set and revisit the terms marked as weak.',
-            'url': reverse('classroom_vocabulary', args=[classroom.id]),
-            'label': 'Study words',
         })
     if access_map.get('admissions') and len(focus_cards) < 3:
         focus_cards.append({
@@ -6406,7 +8204,7 @@ def student_classroom_home(request, classroom_id):
         return redirect_response
 
     if role in ['teacher', 'admin']:
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     if role != 'student':
         return classroom_access_denied(
@@ -6417,7 +8215,7 @@ def student_classroom_home(request, classroom_id):
 
     if not classroom.is_active:
         messages.error(request, "This classroom is no longer active.")
-        return redirect('sat_menu')
+        return redirect('student_dashboard_root')
 
     access_map = get_membership_section_access_map(membership)
     context = {
@@ -6425,6 +8223,29 @@ def student_classroom_home(request, classroom_id):
         'membership': membership,
         'access_map': access_map,
     }
+    classroom_lessons = list(
+        ClassroomLesson.objects.filter(classroom=classroom, is_published=True)
+        .prefetch_related(
+            Prefetch(
+                'resources',
+                queryset=ClassroomLessonResource.objects.filter(is_visible=True).order_by('order', 'created_at'),
+                to_attr='visible_resources',
+            )
+        )
+        .order_by('order', 'created_at')
+    )
+    for lesson in classroom_lessons:
+        for resource in lesson.visible_resources:
+            if resource.test_id:
+                resource.question_count = (
+                    English_Question.objects.filter(test_id=resource.test_id).count()
+                    + Math_Question.objects.filter(test_id=resource.test_id).count()
+                )
+    context['classroom_lessons'] = classroom_lessons
+    context['classroom_homework'] = list(
+        _v524_homework_for_student(request.user).filter(classroom=classroom)[:6]
+    )
+    context.update(student_workspace_context(request.user, active='classrooms'))
     context.update(_student_goal_context(request.user, classroom, access_map))
     context.update(_student_goal_form_context(
         request.user,
@@ -6434,8 +8255,94 @@ def student_classroom_home(request, classroom_id):
     # explicitly, and ?goal=1 is used by edit/setup buttons.
     context['open_goal_modal'] = request.GET.get('goal') == '1'
 
+    context['student_workspace_active'] = 'classrooms'
     return render(request, 'sat/student_classroom_home.html', context)
 
+
+@login_required(login_url='/login/')
+def student_lesson_test_preview(request, classroom_id, resource_id):
+    classroom = get_object_or_404(Classroom, pk=classroom_id, is_active=True)
+    membership = get_object_or_404(
+        ClassroomMembership,
+        classroom=classroom,
+        user=request.user,
+        role='student',
+        status='approved',
+    )
+    resource = get_object_or_404(
+        ClassroomLessonResource.objects.select_related('lesson', 'test'),
+        pk=resource_id,
+        lesson__classroom=classroom,
+        lesson__is_published=True,
+        is_visible=True,
+        resource_type=ClassroomLessonResource.RESOURCE_TEST,
+        test__isnull=False,
+    )
+    question_count = (
+        English_Question.objects.filter(test=resource.test).count()
+        + Math_Question.objects.filter(test=resource.test).count()
+    )
+    code_error = ''
+    if request.method == 'POST':
+        if question_count <= 0:
+            messages.error(request, 'This test has no questions yet. Ask your teacher to finish the test before starting it.')
+        elif resource.access_code and (request.POST.get('access_code') or '').strip() != resource.access_code:
+            code_error = 'Incorrect access code.'
+        else:
+            _authorize_lesson_test_session(request, classroom, resource.test)
+            return redirect('student_classroom_test_start_root', classroom_id=classroom.id, pk=resource.test.name)
+    context = student_workspace_context(request.user, active='classrooms')
+    context.update({
+        'classroom': classroom,
+        'resource': resource,
+        'test_obj': resource.test,
+        'question_count': question_count,
+        'code_error': code_error,
+        'classroom_points_visible': resource.classroom_points_visible_now,
+    })
+    return render(request, 'sat/student_lesson_test_preview.html', context)
+
+
+
+@login_required(login_url='/login/')
+def student_lesson_vocabulary_quiz(request, classroom_id, resource_id):
+    classroom = get_object_or_404(Classroom, pk=classroom_id, is_active=True)
+    get_object_or_404(
+        ClassroomMembership,
+        classroom=classroom,
+        user=request.user,
+        role='student',
+        status='approved',
+    )
+    resource = get_object_or_404(
+        ClassroomLessonResource.objects.select_related('lesson', 'vocabulary_unit'),
+        pk=resource_id,
+        lesson__classroom=classroom,
+        lesson__is_published=True,
+        is_visible=True,
+        resource_type=ClassroomLessonResource.RESOURCE_VOCAB_QUIZ,
+        vocabulary_unit__isnull=False,
+    )
+    active_words = resource.vocabulary_unit.words.filter(is_active=True).count()
+    question_count = min(resource.vocabulary_question_count, active_words)
+    if request.method == 'POST':
+        if active_words < 4:
+            messages.error(request, 'This vocabulary quiz needs at least 4 active words before it can start.')
+        else:
+            post = request.POST.copy()
+            post.setlist('units', [str(resource.vocabulary_unit_id)])
+            post['question_count'] = str(max(1, question_count))
+            post['quiz_mode'] = resource.vocabulary_quiz_mode
+            request.POST = post
+            return _start_vocabulary_quiz(request, classroom=None)
+    context = student_workspace_context(request.user, active='classrooms')
+    context.update({
+        'classroom': classroom,
+        'resource': resource,
+        'active_words': active_words,
+        'question_count': question_count,
+    })
+    return render(request, 'sat/student_lesson_vocabulary_quiz_preview.html', context)
 
 def _student_goal_redirect_url(request):
     candidate = (request.POST.get('next') or '').strip()
@@ -6445,7 +8352,7 @@ def _student_goal_redirect_url(request):
         require_https=request.is_secure(),
     ):
         return candidate
-    return reverse('sat_menu')
+    return reverse('student_dashboard_root')
 
 
 @login_required(login_url='/login/')
@@ -6486,7 +8393,7 @@ def student_goal_settings(request):
         return HttpResponseForbidden('Only students can manage SAT goals.')
 
     if request.method != 'POST':
-        return redirect(f"{reverse('sat_menu')}?goal=1")
+        return redirect(f"{reverse('student_dashboard_root')}?goal=1")
 
     goal, _ = StudentGoalProfile.objects.select_related('dream_university').get_or_create(
         user=request.user
@@ -6507,7 +8414,7 @@ def student_goal_settings(request):
                     'errors': {'__all__': ['The goal could not be saved. Please review the selected values.']},
                 }, status=400)
             messages.error(request, 'The goal could not be saved. Please review the selected values.')
-            return redirect(f"{reverse('sat_menu')}?goal=1")
+            return redirect(f"{reverse('student_dashboard_root')}?goal=1")
         except Exception:
             logger.exception('Unexpected student goal save failure for user %s', request.user.pk)
             if is_ajax:
@@ -6516,7 +8423,7 @@ def student_goal_settings(request):
                     'errors': {'__all__': ['A server error prevented saving. Please try again.']},
                 }, status=500)
             messages.error(request, 'A server error prevented saving. Please try again.')
-            return redirect(f"{reverse('sat_menu')}?goal=1")
+            return redirect(f"{reverse('student_dashboard_root')}?goal=1")
 
         if is_ajax:
             return JsonResponse({
@@ -6535,16 +8442,8 @@ def student_goal_settings(request):
             },
         }, status=400)
 
-    fallback_context = _student_goal_form_context(
-        request.user,
-        form=form,
-        next_url=redirect_url,
-    )
-    fallback_context.update({
-        'form': form,
-        'open_goal_modal': True,
-    })
-    return render(request, 'sat/student_goal_settings.html', fallback_context)
+    messages.error(request, 'Please correct the highlighted SAT goal fields and try again.')
+    return redirect(f"{reverse('student_dashboard_root')}?goal=1")
 
 
 @login_required(login_url='/login/')
@@ -6636,7 +8535,7 @@ def update_student_section_access(request, classroom_id, user_id):
             access_obj.save(update_fields=['has_access'])
 
         messages.success(request, f"Access updated for {membership.user.username}.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     access_map = get_membership_section_access_map(membership)
     section_rows = [
@@ -6709,12 +8608,19 @@ def update_classroom_section_access(request, classroom_id):
             for membership in memberships:
                 apply_classroom_access_policy_to_membership(membership)
 
+        _notify_classroom_students(
+            classroom,
+            notice_type=MakonNotification.TYPE_ACCESS,
+            title=f'Access updated: {classroom.name}',
+            message='Your teacher changed the classroom section access policy.',
+            url=reverse('student_classroom_home_root', args=[classroom.id]),
+        )
         messages.success(
             request,
             f"Classroom access policy saved and applied to {len(memberships)} current "
             "student(s). New students will inherit it automatically."
         )
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_access_root')
 
     section_counts = {s: 0 for s in section_keys}
     for membership in memberships:
@@ -6784,29 +8690,38 @@ def classroom_vocabulary_section(request, classroom_id, slug):
                 classroom=classroom,
                 message="You do not have access to Vocabulary."
             )
+        # V50.2.4: Vocabulary is no longer a classroom sub-app.  Keep these
+        # legacy URLs working for bookmarks/history, but send students into the
+        # standalone workspace so progress and navigation stay in one place.
+        if slug in {'word_lists', 'flashcards', 'practice-quiz'}:
+            return redirect('vocabulary_section_root', slug=slug)
 
     units = VocabularyUnit.objects.filter(is_active=True).prefetch_related('words').order_by('order', 'id')
     tracking_classroom = classroom if role == 'student' else None
 
     if slug == 'word_lists':
-        return render(request, 'sat/vocabulary_word_lists.html', {
+        context = {
             'units': units,
             'classroom': classroom,
             'unit_rows': build_unit_progress_rows(request.user, classroom=tracking_classroom, units=units, include_words=True),
             'summary': get_vocabulary_summary(request.user, classroom=tracking_classroom),
-        })
+        }
+        context.update(student_workspace_context(request.user, active='vocabulary'))
+        return render(request, 'sat/vocabulary_word_lists.html', context)
 
     if slug == 'flashcards':
         return render(request, 'sat/vocabulary_flashcards.html', _get_vocabulary_flashcards_context(request, classroom=classroom))
 
     if slug == 'practice-quiz':
-        return render(request, 'sat/vocabulary_practice_quiz.html', {
+        context = {
             'units': units,
             'classroom': classroom,
             'unit_rows': build_unit_progress_rows(request.user, classroom=tracking_classroom, units=units),
             'summary': get_vocabulary_summary(request.user, classroom=tracking_classroom),
             'recent_attempts': VocabularyQuizAttempt.objects.filter(user=request.user, classroom=tracking_classroom)[:5],
-        })
+        }
+        context.update(student_workspace_context(request.user, active='vocabulary'))
+        return render(request, 'sat/vocabulary_practice_quiz.html', context)
 
     raise Http404("Vocabulary section not found")
 
@@ -6818,8 +8733,12 @@ def classroom_vocabulary_practice_quiz_start(request, classroom_id):
         return redirect_response
     if role is None:
         return classroom_access_denied(request, classroom=classroom, message='You do not have access to this classroom.')
-    if role == 'student' and not get_membership_section_access_map(membership).get('vocabulary'):
-        return classroom_access_denied(request, classroom=classroom, message='You do not have access to Vocabulary.')
+    if role == 'student':
+        if not get_membership_section_access_map(membership).get('vocabulary'):
+            return classroom_access_denied(request, classroom=classroom, message='You do not have access to Vocabulary.')
+        # Preserve POST semantics for an old classroom tab, but save the new
+        # attempt into the standalone Vocabulary scope.
+        return _start_vocabulary_quiz(request, classroom=None)
     return _start_vocabulary_quiz(request, classroom=classroom)
 
 
@@ -6830,8 +8749,12 @@ def classroom_vocabulary_practice_quiz_result(request, classroom_id):
         return redirect_response
     if role is None:
         return classroom_access_denied(request, classroom=classroom, message='You do not have access to this classroom.')
-    if role == 'student' and not get_membership_section_access_map(membership).get('vocabulary'):
-        return classroom_access_denied(request, classroom=classroom, message='You do not have access to Vocabulary.')
+    if role == 'student':
+        if not get_membership_section_access_map(membership).get('vocabulary'):
+            return classroom_access_denied(request, classroom=classroom, message='You do not have access to Vocabulary.')
+        # Preserve submitted answers from legacy tabs while moving the saved
+        # attempt out of the classroom scope.
+        return _finish_vocabulary_quiz(request, classroom=None)
     return _finish_vocabulary_quiz(request, classroom=classroom)
 
 
@@ -6844,7 +8767,7 @@ def remove_student_from_classroom(request, classroom_id, user_id):
         return HttpResponseForbidden("You can manage only your own classrooms.")
     if classroom.hollihop_managed:
         messages.error(request, "Hollihop-managed memberships must be changed in Hollihop.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     with transaction.atomic():
         membership = get_object_or_404(
@@ -6853,21 +8776,28 @@ def remove_student_from_classroom(request, classroom_id, user_id):
         )
         if membership.hollihop_managed:
             messages.error(request, "This membership is managed by Hollihop.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         if membership.status == 'removed':
             messages.info(request, "Student is already removed from this classroom.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         if membership.status != 'approved':
             messages.error(request, "Only approved students can be removed.")
-            return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+            return redirect('teacher_classroom_root', classroom_id=classroom.id)
         membership.status = 'removed'
         membership.approved_at = None
         membership.removed_at = timezone.now()
         membership.left_at = None
         membership.save(update_fields=['status', 'approved_at', 'removed_at', 'left_at'])
 
+    _notify_users(
+        [user_id],
+        notice_type=MakonNotification.TYPE_CLASSROOM,
+        title=f'Removed from {classroom.name}',
+        message='Your teacher removed your classroom membership.',
+        url=reverse('student_classrooms_root'),
+    )
     messages.success(request, "Student removed from classroom.")
-    return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+    return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
 
 @login_required(login_url='/login/')
@@ -6880,13 +8810,13 @@ def leave_classroom(request, classroom_id):
         )
         if membership.classroom.hollihop_managed or membership.hollihop_managed:
             messages.error(request, "This membership is managed by Hollihop. Ask the administrator to update Hollihop.")
-            return redirect('sat_menu')
+            return redirect('student_dashboard_root')
         if membership.status == 'left':
             messages.info(request, "You already left this classroom.")
-            return redirect('sat_menu')
+            return redirect('student_dashboard_root')
         if membership.status != 'approved':
             messages.error(request, "You are not currently enrolled in this classroom.")
-            return redirect('sat_menu')
+            return redirect('student_dashboard_root')
         membership.status = 'left'
         membership.approved_at = None
         membership.left_at = timezone.now()
@@ -6894,7 +8824,7 @@ def leave_classroom(request, classroom_id):
         membership.save(update_fields=['status', 'approved_at', 'left_at', 'removed_at'])
 
     messages.success(request, "You left the classroom.")
-    return redirect('sat_menu')
+    return redirect('student_dashboard_root')
 
 
 @login_required(login_url='/login/')
@@ -6912,10 +8842,10 @@ def classroom_practice_tests(request, classroom_id):
         )
 
     if not classroom.is_sat_classroom:
-        return redirect('classroom_ap_tests', classroom_id=classroom.id)
+        return redirect('classroom_ap_tests_root', classroom_id=classroom.id)
 
     if role in ['teacher', 'admin']:
-        tests = Test.objects.all().distinct().order_by('name')
+        tests = _sorted_tests(Test.objects.all().distinct())
     elif role == 'student':
         access_map = get_membership_section_access_map(membership)
         if not access_map.get('practice_tests'):
@@ -6936,20 +8866,11 @@ def classroom_practice_tests(request, classroom_id):
     # This also prevents a closed Placement Test from looking READY in a
     # teacher/admin classroom view while remaining intentionally available in
     # Guest Mode.
-    tests = tests.filter(is_available=True)
-
-    def get_day_number(test):
-        try:
-            name = str(test.name).strip().lower()
-            if name.startswith('day'):
-                digits = ''.join(ch for ch in name if ch.isdigit())
-                if digits:
-                    return int(digits)
-            return 999999
-        except Exception:
-            return 999999
-
-    tests = sorted(tests, key=lambda t: (get_day_number(t), str(t.name)))
+    if hasattr(tests, 'filter'):
+        tests = tests.filter(is_available=True)
+    else:
+        tests = [test for test in tests if test.is_available]
+    tests = _sorted_tests(tests, only_available=True)
 
     active_tests, past_tests = _split_tests_by_user_progress(request.user, tests, classroom=classroom)
 
@@ -6972,6 +8893,9 @@ def classroom_practice_tests(request, classroom_id):
             'resumable': sum(1 for test in active_tests if test.has_active_attempt),
         },
     }
+    context.update(student_workspace_context(request.user, active='tests'))
+    if role in ['teacher', 'admin']:
+        context['student_workspace_base_template'] = 'sat/staff_workspace.html'
     return render(request, 'sat/practice_tests.html', context)
 
 
@@ -6997,17 +8921,43 @@ def classroom_vocabulary(request, classroom_id):
                 classroom=classroom,
                 message="You do not have access to Vocabulary."
             )
+        return redirect('vocabulary_root')
 
     units = list(VocabularyUnit.objects.filter(is_active=True).prefetch_related('words').order_by('order', 'id'))
     tracking_classroom = classroom if role == 'student' else None
 
-    return render(request, 'sat/vocabulary.html', {
+    personal_decks = list(
+        VocabularyDeck.objects.filter(owner=request.user)
+        .select_related('source_unit')
+        .annotate(word_count=Count('words'))
+    )
+    personal_decks = _sort_vocabulary_decks(personal_decks)
+    _decorate_vocabulary_decks(request.user, personal_decks)
+    cloned_unit_ids = set(
+        VocabularyDeck.objects.filter(owner=request.user, source_unit__isnull=False)
+        .values_list('source_unit_id', flat=True)
+    )
+    featured_units = list(
+        VocabularyUnit.objects.filter(is_active=True, words__is_active=True)
+        .exclude(id__in=cloned_unit_ids)
+        .annotate(active_word_count=Count('words', filter=Q(words__is_active=True)))
+        .distinct()
+        .order_by('order', 'id')[:3]
+    )
+    context = {
         'units': units,
         'classroom': classroom,
         'summary': get_vocabulary_summary(request.user, classroom=tracking_classroom),
         'unit_rows': build_unit_progress_rows(request.user, classroom=tracking_classroom, units=units),
         'recent_attempts': VocabularyQuizAttempt.objects.filter(user=request.user, classroom=tracking_classroom)[:5],
-    })
+        'personal_decks': personal_decks,
+        'focus_deck': personal_decks[0] if personal_decks else None,
+        'deck_due_total': sum(deck.due_count for deck in personal_decks),
+        'featured_units': featured_units,
+        'vocab_activity': _personal_vocabulary_dashboard_stats(request.user),
+    }
+    context.update(student_workspace_context(request.user, active='vocabulary'))
+    return render(request, 'sat/vocabulary.html', context)
 
 
 @login_required(login_url='/login/')
@@ -7091,15 +9041,7 @@ def _get_classroom_student_membership_or_404(classroom, student_id):
 
 
 def _sort_tests_for_progress(tests):
-    def key_fn(test):
-        name = str(test.name).strip().lower()
-        if name.startswith('day'):
-            digits = ''.join(ch for ch in name if ch.isdigit())
-            if digits:
-                return (0, int(digits), str(test.name).lower())
-        return (1, 999999, str(test.name).lower())
-
-    return sorted(tests, key=key_fn)
+    return _sorted_tests(tests)
 
 
 def _get_membership_allowed_tests(membership):
@@ -7402,16 +9344,35 @@ def recalculate_practice_tests_progress(classroom, student):
         }
     )
 
-def recalculate_vocabulary_progress(classroom, student):
-    membership = ClassroomMembership.objects.filter(
+def recalculate_vocabulary_progress(classroom, student, *, summary=None):
+    """Mirror standalone Vocabulary progress into a teacher-visible classroom row.
+
+    Vocabulary belongs to the student account in V50.2.4.  Classroom progress
+    therefore mirrors the global standalone summary instead of maintaining a
+    second classroom-scoped review history.
+    """
+    membership_exists = ClassroomMembership.objects.filter(
         classroom=classroom,
         user=student,
         role='student',
-        status='approved'
-    ).first()
-    if not membership:
+        status='approved',
+    ).exists()
+    if not membership_exists:
         return None
-    return sync_vocabulary_student_progress(classroom, student)
+    summary = summary or get_vocabulary_summary(student)
+    progress, _ = StudentProgress.objects.update_or_create(
+        classroom=classroom,
+        student=student,
+        section='vocabulary',
+        defaults={
+            'completion_percent': Decimal(str(summary['completion_percent'])),
+            'completed_items': summary['mastered_words'],
+            'total_items': summary['total_words'],
+            'activity_count': summary['review_count'] + summary['quiz_count'],
+            'last_activity_at': summary['last_activity_at'],
+        },
+    )
+    return progress
 
 
 def recalculate_admissions_progress(classroom, student):
@@ -7570,6 +9531,15 @@ def classroom_student_practice_progress(request, classroom_id, student_id):
     access_map = get_membership_section_access_map(membership)
     tests = _get_membership_allowed_tests(membership) if access_map.get('practice_tests') else []
     test_rows = _build_test_progress_rows(student, tests, classroom=classroom)
+    progress_query = (request.GET.get('q') or '').strip()
+    progress_status = (request.GET.get('status') or 'all').strip()
+    if progress_query:
+        test_rows = [row for row in test_rows if progress_query.casefold() in str(row.get('test').name).casefold()]
+    if progress_status in {'completed', 'in_progress', 'not_started'}:
+        test_rows = [row for row in test_rows if row.get('status') == progress_status]
+    else:
+        progress_status = 'all'
+    test_page, progress_per_page = _paginate(request, test_rows, default=12, allowed=(12, 24, 48, 60))
     practice_progress = StudentProgress.objects.filter(
         classroom=classroom,
         student=student,
@@ -7582,7 +9552,11 @@ def classroom_student_practice_progress(request, classroom_id, student_id):
         'student_obj': student,
         'access_map': access_map,
         'practice_progress': practice_progress,
-        'test_rows': test_rows,
+        'test_rows': test_page.object_list,
+        'test_page': test_page,
+        'progress_query': progress_query,
+        'progress_status': progress_status,
+        'progress_per_page': progress_per_page,
     })
 
 
@@ -7594,23 +9568,42 @@ def classroom_student_vocab_progress(request, classroom_id, student_id):
 
     membership = _get_classroom_student_membership_or_404(classroom, student_id)
     student = membership.user
-    summary = sync_vocabulary_student_progress(classroom, student)
-    vocab_progress = StudentProgress.objects.filter(
-        classroom=classroom,
-        student=student,
-        section='vocabulary',
-    ).first()
+    # Vocabulary is student-owned in V50.2.4.  Teachers still see progress for
+    # students in their classroom, but the source of truth is now the
+    # standalone scope (classroom=None), not a duplicate per-classroom history.
+    summary = get_vocabulary_summary(student)
+    vocab_progress = recalculate_vocabulary_progress(classroom, student, summary=summary)
     units = list(
         VocabularyUnit.objects.filter(is_active=True)
         .prefetch_related('words')
         .order_by('order', 'id')
     )
-    unit_rows = build_unit_progress_rows(student, classroom=classroom, units=units)
-    weak_words = get_weak_words(student, classroom=classroom, limit=15)
+    unit_rows = build_unit_progress_rows(student, units=units)
+    vocab_query = (request.GET.get('q') or '').strip()
+    if vocab_query:
+        qfold = vocab_query.casefold()
+        unit_rows = [row for row in unit_rows if qfold in str(row.get('unit').title if row.get('unit') else row.get('title', '')).casefold()]
+    unit_page, vocab_per_page = _paginate(request, unit_rows, default=12, allowed=(12, 24, 48, 60))
+    weak_words = get_weak_words(student, limit=15)
     recent_attempts = VocabularyQuizAttempt.objects.filter(
         user=student,
-        classroom=classroom,
+        classroom__isnull=True,
     )[:10]
+    personal_deck_progress = VocabularyDeckWordProgress.objects.filter(
+        user=student,
+        word__deck__owner=student,
+    )
+    personal_deck_total = VocabularyDeckWord.objects.filter(deck__owner=student).count()
+    personal_deck_mastered = personal_deck_progress.filter(status=VocabularyDeckWordProgress.STATUS_MASTERED).count()
+    personal_deck_learning = personal_deck_progress.filter(status=VocabularyDeckWordProgress.STATUS_LEARNING).count()
+    personal_deck_reviewed = personal_deck_progress.filter(times_seen__gt=0).count()
+    personal_deck_summary = {
+        'total_words': personal_deck_total,
+        'mastered_words': personal_deck_mastered,
+        'learning_words': personal_deck_learning,
+        'reviewed_words': personal_deck_reviewed,
+        'completion_percent': round((personal_deck_mastered / personal_deck_total) * 100, 1) if personal_deck_total else 0,
+    }
 
     return render(request, 'sat/classroom_student_vocab_progress.html', {
         'classroom': classroom,
@@ -7620,9 +9613,13 @@ def classroom_student_vocab_progress(request, classroom_id, student_id):
         'vocab_progress': vocab_progress,
         'summary': summary,
         'units': units,
-        'unit_rows': unit_rows,
+        'unit_rows': unit_page.object_list,
+        'unit_page': unit_page,
+        'vocab_query': vocab_query,
+        'vocab_per_page': vocab_per_page,
         'weak_words': weak_words,
         'recent_attempts': recent_attempts,
+        'personal_deck_summary': personal_deck_summary,
         'total_words': summary['total_words'],
     })
 
@@ -7725,8 +9722,8 @@ def classroom_student_review_question(request, classroom_id, student_id, key, se
         prev, answer, new = _review_prev_answer_next(module_obj, review_question_model, id)
     else:
         prev, answer, new = module_obj.find_answer(question_id=id)
-    prev = reverse('classroom_student_review_question', args=[classroom.id, student.id, key, section, module, prev]) if prev else ''
-    new = reverse('classroom_student_review_question', args=[classroom.id, student.id, key, section, module, new]) if new else ''
+    prev = reverse('teacher_classroom_student_review_question_root', args=[classroom.id, student.id, key, section, module, prev]) if prev else ''
+    new = reverse('teacher_classroom_student_review_question_root', args=[classroom.id, student.id, key, section, module, new]) if new else ''
 
     attempts = list(TestReview.objects.filter(
         user=review.user,
@@ -7871,11 +9868,36 @@ def send_classroom_message(request, classroom_id):
 
     message_text = request.POST.get('message', '').strip()
     uploaded_file = request.FILES.get('file')
+    sticker_id = (request.POST.get('sticker_id') or '').strip()
+    sticker = None
+    if sticker_id.isdigit():
+        sticker = UserChatSticker.objects.filter(pk=int(sticker_id), user=request.user).first()
+        if sticker is None:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'ok': False, 'error': 'Sticker is not available.'}, status=400)
+            messages.error(request, "Sticker is not available.")
+            return redirect('classroom_chat', classroom_id=classroom.id)
 
-    if not message_text and not uploaded_file:
+    if uploaded_file:
+        max_bytes = 12 * 1024 * 1024
+        blocked_extensions = {'.html', '.htm', '.svg', '.js', '.mjs', '.exe', '.bat', '.cmd', '.ps1', '.sh', '.php'}
+        suffix = ('.' + uploaded_file.name.rsplit('.', 1)[-1].lower()) if '.' in uploaded_file.name else ''
+        if uploaded_file.size > max_bytes:
+            error = 'Attachments must be 12 MB or smaller.'
+        elif suffix in blocked_extensions:
+            error = 'That attachment type is not allowed in classroom chat.'
+        else:
+            error = ''
+        if error:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'ok': False, 'error': error}, status=400)
+            messages.error(request, error)
+            return redirect('classroom_chat', classroom_id=classroom.id)
+
+    if not message_text and not uploaded_file and sticker is None:
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'ok': False, 'error': 'Message or file is required.'}, status=400)
-        messages.error(request, "Message or file is required.")
+            return JsonResponse({'ok': False, 'error': 'Message, sticker, or file is required.'}, status=400)
+        messages.error(request, "Message, sticker, or file is required.")
         return redirect('classroom_chat', classroom_id=classroom.id)
 
     chat_message = ChatMessage.objects.create(
@@ -7883,6 +9905,7 @@ def send_classroom_message(request, classroom_id):
         sender=request.user,
         message=message_text if message_text else None,
         file=uploaded_file if uploaded_file else None,
+        sticker=sticker,
         is_deleted=False,
     )
 
@@ -7909,8 +9932,10 @@ def send_classroom_message(request, classroom_id):
                 'text': chat_message.message or '',
                 'file_url': chat_message.file.url if chat_message.file else '',
                 'file_name': chat_message.file.name.split('/')[-1] if chat_message.file else '',
-                'delete_message_url': f'/sat/classroom/{classroom.id}/chat/message/{chat_message.id}/delete/',
-                'delete_file_url': f'/sat/classroom/{classroom.id}/chat/message/{chat_message.id}/delete-file/' if chat_message.file else '',
+                'sticker_url': chat_message.sticker.image.url if chat_message.sticker_id else '',
+                'sticker_title': chat_message.sticker.title if chat_message.sticker_id else '',
+                'delete_message_url': reverse('delete_classroom_message_root', args=[classroom.id, chat_message.id]),
+                'delete_file_url': reverse('delete_classroom_message_file_root', args=[classroom.id, chat_message.id]) if chat_message.file else '',
                 'role': role,
             }
         })
@@ -7966,16 +9991,16 @@ def delete_classroom(request, classroom_id):
         return HttpResponseForbidden("You can delete only your own classrooms.")
     if classroom.hollihop_managed:
         messages.error(request, "Hollihop-managed classrooms must be removed in Hollihop.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     if request.method != 'POST':
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     classroom_name = classroom.name
     classroom.delete()
 
     messages.success(request, f'Classroom "{classroom_name}" was deleted.')
-    return redirect('teacher_classroom_list')
+    return redirect('teacher_dashboard_root')
 
 @login_required(login_url='/login/')
 def delete_classroom_message_file(request, classroom_id, message_id):
@@ -8026,10 +10051,10 @@ def edit_classroom(request, classroom_id):
         return HttpResponseForbidden("You can edit only your own classrooms.")
     if classroom.hollihop_managed:
         messages.error(request, "Hollihop-managed classrooms must be edited in Hollihop.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     if request.method != 'POST':
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     name = request.POST.get('name', '').strip()
     description = request.POST.get('description', '').strip()
@@ -8037,17 +10062,17 @@ def edit_classroom(request, classroom_id):
 
     if classroom_type not in {Classroom.CLASSROOM_TYPE_SAT, Classroom.CLASSROOM_TYPE_AP}:
         messages.error(request, "Choose a valid classroom type.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     if not name:
         messages.error(request, "Classroom name is required.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
     if len(name) > Classroom._meta.get_field('name').max_length:
         messages.error(request, "Classroom name is too long.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
     if len(description) > 10000:
         messages.error(request, "Description is too long (maximum 10,000 characters).")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     classroom.name = name
     classroom.description = description
@@ -8055,14 +10080,14 @@ def edit_classroom(request, classroom_id):
     classroom.save(update_fields=['name', 'description', 'classroom_type'])
 
     messages.success(request, "Classroom updated successfully.")
-    return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+    return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
 def resolve_classroom_and_role(request, classroom_id):
     classroom = Classroom.objects.filter(id=classroom_id).first()
 
     if not classroom:
         messages.error(request, "This classroom does not exist anymore.")
-        return None, None, None, redirect('sat_menu')
+        return None, None, None, redirect('student_dashboard_root')
 
     if request.user.is_superuser:
         return classroom, 'admin', None, None
@@ -8103,11 +10128,15 @@ def fetch_classroom_messages(request, classroom_id):
     except ValueError:
         last_id = 0
 
-    messages_qs = ChatMessage.objects.filter(
-        classroom=classroom,
-        is_deleted=False,
-        id__gt=last_id
-    ).select_related('sender').order_by('id')
+    messages_qs = (
+        ChatMessage.objects.filter(
+            classroom=classroom,
+            is_deleted=False,
+            id__gt=last_id,
+        )
+        .select_related('sender', 'sticker')
+        .order_by('id')[:100]
+    )
 
     result = []
 
@@ -8132,8 +10161,10 @@ def fetch_classroom_messages(request, classroom_id):
             'text': item.message or '',
             'file_url': item.file.url if item.file else '',
             'file_name': item.file.name.split('/')[-1] if item.file else '',
-            'delete_message_url': f'/sat/classroom/{classroom.id}/chat/message/{item.id}/delete/',
-            'delete_file_url': f'/sat/classroom/{classroom.id}/chat/message/{item.id}/delete-file/' if item.file else '',
+            'sticker_url': item.sticker.image.url if item.sticker_id else '',
+            'sticker_title': item.sticker.title if item.sticker_id else '',
+            'delete_message_url': reverse('delete_classroom_message_root', args=[classroom.id, item.id]),
+            'delete_file_url': reverse('delete_classroom_message_file_root', args=[classroom.id, item.id]) if item.file else '',
         })
 
     return JsonResponse({
@@ -8483,7 +10514,9 @@ def get_student_allowed_practice_tests_queryset(membership):
     )
 
     allowed_test_ids = custom_access_items.values_list('test_id', flat=True)
-    return Test.objects.filter(pk__in=allowed_test_ids).distinct().order_by('name')
+    # Consumers that render the queryset should pass it through _sorted_tests;
+    # avoid a misleading lexicographic DAY1/DAY10/DAY2 ordering here.
+    return Test.objects.filter(pk__in=allowed_test_ids).distinct()
 
 def get_test_mode(test):
     has_english = English_Question.objects.filter(test=test).exists()
@@ -8600,16 +10633,22 @@ def classroom_start_practise(request, classroom_id, pk):
     if role in ['teacher', 'admin']:
         test = get_object_or_404(Test, name=pk)
     elif role == 'student':
-        access_map = get_membership_section_access_map(membership)
-        if not access_map.get('practice_tests'):
-            return classroom_access_denied(
-                request,
-                classroom=classroom,
-                message="You do not have access to Practice Tests."
-            )
-
-        allowed_tests = get_student_allowed_practice_tests_queryset(membership)
-        test = get_object_or_404(allowed_tests, name=pk)
+        test = get_object_or_404(Test, name=pk)
+        if not _lesson_test_session_authorized(request, classroom, test):
+            access_map = get_membership_section_access_map(membership)
+            if not access_map.get('practice_tests'):
+                return classroom_access_denied(
+                    request,
+                    classroom=classroom,
+                    message="You do not have access to Practice Tests."
+                )
+            allowed_tests = get_student_allowed_practice_tests_queryset(membership)
+            if not allowed_tests.filter(pk=test.pk).exists():
+                return classroom_access_denied(
+                    request,
+                    classroom=classroom,
+                    message="This test is not assigned to you."
+                )
     else:
         return HttpResponseForbidden("Access denied.")
 
@@ -8618,7 +10657,7 @@ def classroom_start_practise(request, classroom_id, pk):
 
     resumable_stage = _get_resumable_stage(request.user, test, classroom=classroom)
     if resumable_stage:
-        return redirect('classroom_test', classroom_id=classroom.id, pk=test.name)
+        return redirect('student_classroom_test_module_root', classroom_id=classroom.id, pk=test.name)
 
     completed_review = TestReview.objects.filter(
         user=request.user,
@@ -8637,7 +10676,7 @@ def classroom_start_practise(request, classroom_id, pk):
         'classroom': classroom,
         'role': role,
         'has_active_attempt': has_active_attempt,
-        'start_url': reverse('classroom_test', kwargs={
+        'start_url': reverse('student_classroom_test_module_root', kwargs={
             'classroom_id': classroom.id,
             'pk': test.name
         }),
@@ -8661,16 +10700,22 @@ def classroom_module_test(request, classroom_id, pk):
     if role in ['teacher', 'admin']:
         test = get_object_or_404(Test, name=pk)
     elif role == 'student':
-        access_map = get_membership_section_access_map(membership)
-        if not access_map.get('practice_tests'):
-            return classroom_access_denied(
-                request,
-                classroom=classroom,
-                message="You do not have access to Practice Tests."
-            )
-
-        allowed_tests = get_student_allowed_practice_tests_queryset(membership)
-        test = get_object_or_404(allowed_tests, name=pk)
+        test = get_object_or_404(Test, name=pk)
+        if not _lesson_test_session_authorized(request, classroom, test):
+            access_map = get_membership_section_access_map(membership)
+            if not access_map.get('practice_tests'):
+                return classroom_access_denied(
+                    request,
+                    classroom=classroom,
+                    message="You do not have access to Practice Tests."
+                )
+            allowed_tests = get_student_allowed_practice_tests_queryset(membership)
+            if not allowed_tests.filter(pk=test.pk).exists():
+                return classroom_access_denied(
+                    request,
+                    classroom=classroom,
+                    message="This test is not assigned to you."
+                )
     else:
         return HttpResponseForbidden("Access denied.")
 
@@ -8703,7 +10748,7 @@ def classroom_module_test(request, classroom_id, pk):
         finished = advance_test_stage(test_stage)
         if finished:
             return redirect(_results_url_for_test(test, classroom=classroom))
-        return redirect('classroom_test', classroom_id=classroom.id, pk=test.name)
+        return redirect('student_classroom_test_module_root', classroom_id=classroom.id, pk=test.name)
 
     custom_time_seconds = None
     if user.groups.filter(name='OFFLINE').exists():
@@ -8723,7 +10768,7 @@ def classroom_module_test(request, classroom_id, pk):
             finished = advance_test_stage(test_stage)
             if finished:
                 return redirect(_results_url_for_test(test, classroom=classroom))
-            return redirect('classroom_test', classroom_id=classroom.id, pk=test.name)
+            return redirect('student_classroom_test_module_root', classroom_id=classroom.id, pk=test.name)
 
         runtime = _regular_module_runtime(test_stage, section, module, questions, classroom=classroom)
         if runtime['redirect_url']:
@@ -8749,7 +10794,7 @@ def classroom_module_test(request, classroom_id, pk):
             finished = advance_test_stage(test_stage)
             if finished:
                 return redirect(_results_url_for_test(test, classroom=classroom))
-            return redirect('classroom_test', classroom_id=classroom.id, pk=test.name)
+            return redirect('student_classroom_test_module_root', classroom_id=classroom.id, pk=test.name)
 
         runtime = _regular_module_runtime(test_stage, section, module, questions, classroom=classroom)
         if runtime['redirect_url']:
@@ -8799,11 +10844,13 @@ def lesson_detail(request, lesson_id):
     progress, _ = LessonProgress.objects.get_or_create(user=request.user, lesson=lesson)
     questions = lesson.get_random_questions()
 
-    return render(request, 'sat/lesson_detail.html', {
+    context = {
         'lesson': lesson,
         'progress': progress,
         'questions': questions,
-    })
+    }
+    context.update(student_workspace_context(request.user, active='learn'))
+    return render(request, 'sat/lesson_detail.html', context)
 
 @login_required(login_url='/login/')
 def classroom_ap_tests(request, classroom_id):
@@ -8823,13 +10870,13 @@ def classroom_ap_tests(request, classroom_id):
         messages.error(request, "This is a SAT classroom. Open SAT tests instead.")
         if role == 'student':
             return redirect('student_classroom_home', classroom_id=classroom.id)
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     if APExamEvent is None:
         messages.error(request, "AP tests are not available in this installation.")
         if role == 'student':
             return redirect('student_classroom_home', classroom_id=classroom.id)
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     events = APExamEvent.objects.select_related(
         'exam',
@@ -8843,7 +10890,8 @@ def classroom_ap_tests(request, classroom_id):
         events = events.filter(exam__status='published')
         events = [event for event in events if event.user_can_see(request.user)]
 
-    return render(request, 'sat/classroom_ap_tests.html', {
+    template_name = 'sat/classroom_ap_tests_staff.html' if role in ['teacher', 'admin'] else 'sat/classroom_ap_tests.html'
+    return render(request, template_name, {
         'classroom': classroom,
         'events': events,
         'role': role,
@@ -8860,11 +10908,11 @@ def update_classroom_ap_test_access(request, classroom_id):
 
     if not classroom.is_ap_classroom:
         messages.error(request, "AP tests can be managed only for AP classrooms.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     if APExamEvent is None:
         messages.error(request, "AP tests are not available in this installation.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     events = list(
         APExamEvent.objects.select_related('exam', 'exam__ap_class')
@@ -8876,8 +10924,15 @@ def update_classroom_ap_test_access(request, classroom_id):
         selected_event_ids = set(request.POST.getlist('events'))
         selected_events = [event for event in events if str(event.pk) in selected_event_ids]
         classroom.ap_exam_events.set(selected_events)
-        messages.success(request, f"AP tests updated for {classroom.name}.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        _notify_classroom_students(
+            classroom,
+            notice_type=MakonNotification.TYPE_ACCESS,
+            title=f'AP access updated: {classroom.name}',
+            message='Your teacher changed the AP events available in this classroom.',
+            url=reverse('student_classroom_home_root', args=[classroom.id]),
+        )
+        messages.success(request, f"AP event access updated for {classroom.name}.")
+        return redirect('teacher_access_root')
 
     selected_event_ids = set(str(pk) for pk in classroom.ap_exam_events.values_list('pk', flat=True))
 
@@ -8898,7 +10953,7 @@ def update_classroom_practice_test_access(request, classroom_id):
 
     if not classroom.is_sat_classroom:
         messages.error(request, "SAT tests can be managed only for SAT classrooms.")
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     memberships = list(
         ClassroomMembership.objects.filter(
@@ -8914,20 +10969,7 @@ def update_classroom_practice_test_access(request, classroom_id):
         if get_membership_section_access_map(membership).get('practice_tests')
     ]
 
-    tests = list(Test.objects.all().distinct())
-
-    def get_day_number(test):
-        try:
-            name = str(test.name).strip().lower()
-            if name.startswith('day'):
-                digits = ''.join(ch for ch in name if ch.isdigit())
-                if digits:
-                    return int(digits)
-            return 999999
-        except Exception:
-            return 999999
-
-    tests = sorted(tests, key=lambda t: (get_day_number(t), str(t.name)))
+    tests = _sorted_tests(Test.objects.all().distinct())
     all_test_ids = {str(test.pk) for test in tests}
 
     policy = ClassroomPracticeTestAccessPolicy.objects.filter(classroom=classroom).first()
@@ -8961,15 +11003,7 @@ def update_classroom_practice_test_access(request, classroom_id):
 
         if access_mode == 'selected' and not selected_test_ids:
             messages.error(request, "Select at least one practice test.")
-            return render(request, 'sat/update_classroom_practice_test_access.html', {
-                'classroom': classroom,
-                'tests': tests,
-                'eligible_count': len(eligible_memberships),
-                'total_students_count': len(memberships),
-                'selected_test_ids': selected_test_ids,
-                'access_mode': 'selected',
-                'has_saved_policy': bool(policy),
-            })
+            return redirect(f"{reverse('teacher_access_root')}?open=practice-{classroom.id}")
 
         policy, _ = ClassroomPracticeTestAccessPolicy.objects.update_or_create(
             classroom=classroom,
@@ -9008,12 +11042,19 @@ def update_classroom_practice_test_access(request, classroom_id):
             if access_mode == 'all'
             else f'{len(selected_tests)} selected practice test(s)'
         )
+        _notify_classroom_students(
+            classroom,
+            notice_type=MakonNotification.TYPE_ACCESS,
+            title=f'Practice test access updated: {classroom.name}',
+            message=f'Your teacher changed the SAT practice test library ({mode_label}).',
+            url=reverse('practice_tests_root'),
+        )
         messages.success(
             request,
             f"Classroom default saved: {mode_label}. Applied to {len(eligible_memberships)} "
             "current student(s); future approved students will inherit it automatically."
         )
-        return redirect('teacher_classroom_dashboard', classroom_id=classroom.id)
+        return redirect('teacher_access_root')
 
     return render(request, 'sat/update_classroom_practice_test_access.html', {
         'classroom': classroom,
@@ -9024,3 +11065,1137 @@ def update_classroom_practice_test_access(request, classroom_id):
         'access_mode': access_mode,
         'has_saved_policy': bool(policy),
     })
+
+# ---------------------------------------------------------------------------
+# V50.2.3 Student Workspace rebuild
+# ---------------------------------------------------------------------------
+# Keep this layer additive.  The V50 student shell is allowed to evolve without
+# changing teacher/admin operational pages or the immutable SAT test runner.
+from django.core.paginator import Paginator
+from django.views.decorators.http import require_http_methods
+
+
+def _v523_student_memberships(user, *, with_access=False):
+    queryset = (
+        ClassroomMembership.objects.filter(
+            user=user,
+            role='student',
+            status='approved',
+            classroom__is_active=True,
+        )
+        .select_related('classroom', 'classroom__teacher')
+        .order_by('-approved_at', '-requested_at', 'classroom__name')
+    )
+    if with_access:
+        queryset = queryset.prefetch_related('section_access')
+    return list(queryset)
+
+
+def _v523_test_assignments(user, *, memberships=None):
+    """Return one concrete classroom assignment per accessible SAT test.
+
+    Tests are intentionally classroom-gated in V50.2.3.  A student without an
+    approved classroom never receives an assignment here, and a test must have
+    both section access and explicit StudentPracticeTestAccess.
+    """
+    memberships = memberships if memberships is not None else _v523_student_memberships(user, with_access=True)
+    eligible = {
+        membership.id: membership
+        for membership in memberships
+        if get_membership_section_access_map(membership).get('practice_tests')
+    }
+    if not eligible:
+        return []
+
+    rows = (
+        StudentPracticeTestAccess.objects.filter(
+            membership_id__in=eligible.keys(),
+            has_access=True,
+            test__isnull=False,
+            test__is_available=True,
+        )
+        .select_related('test', 'membership__classroom')
+        .order_by('-membership__approved_at', 'test__name')
+    )
+    seen = set()
+    assignments = []
+    for row in rows:
+        if row.test_id in seen or not _test_in_active_library(row.test):
+            continue
+        seen.add(row.test_id)
+        assignments.append((row.test, eligible[row.membership_id]))
+    assignments.sort(key=lambda item: _natural_test_sort_key(item[0]))
+    return assignments
+
+
+def user_has_test_access(user, test):
+    """V50.2.3: normal student tests exist only through a classroom assignment."""
+    if user.is_superuser or user.is_staff or is_member(user, ['Admin', 'Tester']) or is_teacher(user):
+        return True
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    return any(test.pk == assigned.pk for assigned, _membership in _v523_test_assignments(user))
+
+
+def _v523_question_models_for_tests(test_ids):
+    english = English_Question.objects.filter(test_id__in=test_ids).select_related('domain', 'type', 'test')
+    math = Math_Question.objects.filter(test_id__in=test_ids).select_related('domain', 'type', 'test')
+    return english, math
+
+
+def _v523_practice_topics(user, *, assignments=None):
+    assignments = assignments if assignments is not None else _v523_test_assignments(user)
+    test_ids = [test.pk for test, _ in assignments]
+    if not test_ids:
+        return []
+    english, math = _v523_question_models_for_tests(test_ids)
+    rows = []
+    for section, qs in (('english', english), ('math', math)):
+        counts = (
+            qs.filter(type__isnull=False)
+            .values('type_id', 'type__name', 'type__domain__name')
+            .annotate(total=Count('id'))
+            .order_by('type__domain__name', 'type__name')
+        )
+        for row in counts:
+            rows.append({
+                'section': section,
+                'type_id': row['type_id'],
+                'name': row['type__name'] or 'Mixed practice',
+                'domain': row['type__domain__name'] or ('Reading & Writing' if section == 'english' else 'Math'),
+                'count': row['total'],
+                'icon': 'bi-book' if section == 'english' else 'bi-calculator',
+            })
+    return rows
+
+
+def _v523_due_items(user, limit=6):
+    items = []
+    for test, membership in _v523_test_assignments(user)[:8]:
+        active_tests, _past_tests = _split_tests_by_user_progress(user, [test], classroom=membership.classroom)
+        if not active_tests:
+            continue
+        active_test = active_tests[0]
+        items.append({
+            'kind': 'SAT test',
+            'title': str(test.name),
+            'meta': (f"{membership.classroom.name} · {active_test.progress_percent}% complete" if getattr(active_test, 'has_active_attempt', False) else membership.classroom.name),
+            'url': reverse('student_classroom_test_start_root', kwargs={'classroom_id': membership.classroom_id, 'pk': test.name}),
+            'icon': 'bi-clipboard2-check',
+        })
+        if len(items) >= 4:
+            break
+
+    decks = list(
+        VocabularyDeck.objects.filter(owner=user)
+        .select_related('source_unit')
+        .annotate(word_count=Count('words'))
+    )
+    decks = _sort_vocabulary_decks(decks)
+    _decorate_vocabulary_decks(user, decks)
+    for deck in decks:
+        if deck.due_count:
+            items.append({
+                'kind': 'Vocabulary',
+                'title': deck.title,
+                'meta': f'{deck.due_count} due',
+                'url': reverse('vocabulary_deck_study_root', kwargs={'deck_id': deck.id}),
+                'icon': 'bi-journal-bookmark',
+            })
+        if len(items) >= limit:
+            break
+
+    if APExamEvent is not None and len(items) < limit:
+        for event in APExamEvent.objects.filter(is_public=True).select_related('exam').order_by('-updated_at')[:12]:
+            try:
+                visible = event.user_can_see(user)
+            except Exception:
+                visible = False
+            if visible and event.status in {'live', 'scheduled'}:
+                items.append({
+                    'kind': 'AP',
+                    'title': event.title,
+                    'meta': 'Live now' if event.is_live_now else 'Scheduled',
+                    'url': reverse('apclasses:event_detail', kwargs={'slug': event.slug}),
+                    'icon': 'bi-layers',
+                })
+                if len(items) >= limit:
+                    break
+    return items[:limit]
+
+
+def _v523_weak_topics(user, limit=4):
+    modules = list(
+        TestModule.objects.filter(user=user, test__isnull=False)
+        .select_related('test')
+        .order_by('-created')[:16]
+    )
+    english_ids, math_ids = set(), set()
+    parsed = []
+    for module in modules:
+        try:
+            payload = json.loads(module.answers or '{"answers": []}')
+        except Exception:
+            continue
+        answers = payload.get('answers') or []
+        parsed.append((module.section, answers))
+        target = english_ids if str(module.section).lower() == 'english' else math_ids
+        for item in answers:
+            try:
+                target.add(int(item.get('questionID')))
+            except (TypeError, ValueError):
+                pass
+    english_map = English_Question.objects.filter(id__in=english_ids).select_related('type', 'domain').in_bulk()
+    math_map = Math_Question.objects.filter(id__in=math_ids).select_related('type', 'domain').in_bulk()
+    stats = defaultdict(lambda: {'total': 0, 'wrong': 0, 'section': ''})
+    for section, answers in parsed:
+        is_english = str(section).lower() == 'english'
+        qmap = english_map if is_english else math_map
+        for item in answers:
+            try:
+                question = qmap.get(int(item.get('questionID')))
+            except (TypeError, ValueError):
+                question = None
+            if not question:
+                continue
+            response = item.get('answer')
+            if is_english:
+                correct = check_english_answer(question, response)
+            elif getattr(question, 'written', False):
+                correct = check_written(response, question.answer)
+            else:
+                correct = str(response or '').strip().upper() == str(question.answer or '').strip().upper()
+            label = getattr(getattr(question, 'type', None), 'name', None) or getattr(getattr(question, 'domain', None), 'name', None) or ('Reading & Writing' if is_english else 'Math')
+            bucket = stats[label]
+            bucket['total'] += 1
+            bucket['wrong'] += 0 if correct else 1
+            bucket['section'] = 'english' if is_english else 'math'
+    result = []
+    for name, row in stats.items():
+        if not row['total']:
+            continue
+        accuracy = round(((row['total'] - row['wrong']) / row['total']) * 100)
+        result.append({
+            'name': name,
+            'section': row['section'],
+            'total': row['total'],
+            'wrong': row['wrong'],
+            'accuracy': accuracy,
+        })
+    result.sort(key=lambda row: (row['accuracy'], -row['wrong'], row['name']))
+    return result[:limit]
+
+
+def _v523_roadmap_snapshot(user, membership):
+    if not membership:
+        return {'title': 'No active roadmap', 'progress': 0, 'completed': 0, 'total': 0, 'url': reverse('student_classrooms_root')}
+    rows = StudentProgress.objects.filter(classroom=membership.classroom, student=user)
+    total = sum(int(row.total_items or 0) for row in rows)
+    completed = sum(int(row.completed_items or 0) for row in rows)
+    progress = round((completed / total) * 100) if total else 0
+    return {
+        'title': membership.classroom.name,
+        'progress': progress,
+        'completed': completed,
+        'total': total,
+        'url': reverse('student_classroom_home_root', kwargs={'classroom_id': membership.classroom_id}),
+    }
+
+
+@login_required(login_url='/login/')
+def student_practice(request):
+    memberships = _v523_student_memberships(request.user, with_access=True)
+    assignments = _v523_test_assignments(request.user, memberships=memberships)
+    context = student_workspace_context(request.user, active='practice', approved_memberships=memberships)
+    context.update({
+        'practice_topics': _v523_practice_topics(request.user, assignments=assignments),
+        'practice_locked': not bool(assignments),
+        'assigned_test_count': len(assignments),
+    })
+    return render(request, 'sat/student_practice.html', context)
+
+
+@login_required(login_url='/login/')
+def practice_tests(request):
+    # Staff keeps the legacy/global operational list.  Students see a standalone
+    # library assembled from concrete classroom assignments.
+    if not should_use_student_workspace(request.user):
+        tests = _sorted_tests(Test.objects.all().distinct())
+        tests = [test for test in tests if user_has_test_access(request.user, test)]
+        active_tests, past_tests = _split_tests_by_user_progress(request.user, tests)
+        context = student_workspace_context(request.user, active='tests')
+        context.update({
+            'active_tests': active_tests,
+            'past_tests': past_tests,
+            'practice_summary': {'available': len(tests), 'active': len(active_tests), 'past': len(past_tests), 'resumable': sum(1 for test in active_tests if test.has_active_attempt)},
+            'show_lessons': False,
+        })
+        return render(request, 'sat/practice_tests.html', context)
+
+    memberships = _v523_student_memberships(request.user, with_access=True)
+    assignments = _v523_test_assignments(request.user, memberships=memberships)
+    context = student_workspace_context(request.user, active='tests', approved_memberships=memberships)
+    context['tests_locked'] = not bool(memberships)
+    context['tests_unassigned'] = bool(memberships) and not assignments
+    active_tests, past_tests = [], []
+    if assignments:
+        by_classroom = defaultdict(list)
+        membership_by_classroom = {}
+        for test, membership in assignments:
+            by_classroom[membership.classroom_id].append(test)
+            membership_by_classroom[membership.classroom_id] = membership
+        for classroom_id, tests in by_classroom.items():
+            membership = membership_by_classroom[classroom_id]
+            current_active, current_past = _split_tests_by_user_progress(request.user, tests, classroom=membership.classroom)
+            for test in current_active + current_past:
+                test.workspace_classroom = membership.classroom
+            active_tests.extend(current_active)
+            past_tests.extend(current_past)
+    context.update({
+        'active_tests': active_tests,
+        'past_tests': past_tests,
+        'practice_summary': {
+            'available': len(assignments),
+            'active': len(active_tests),
+            'past': len(past_tests),
+            'resumable': sum(1 for test in active_tests if getattr(test, 'has_active_attempt', False)),
+        },
+        'show_lessons': False,
+    })
+    return render(request, 'sat/practice_tests.html', context)
+
+
+@login_required(login_url='/login/')
+def student_topic_practice(request, section, type_id):
+    section = str(section).lower()
+    if section not in {'english', 'math'}:
+        raise Http404
+    assignments = _v523_test_assignments(request.user)
+    test_ids = [test.pk for test, _ in assignments]
+    if not test_ids:
+        return redirect('student_practice_root')
+    model = English_Question if section == 'english' else Math_Question
+    type_obj = get_object_or_404(QuestionType, pk=type_id)
+    pool = list(
+        model.objects.filter(test_id__in=test_ids, type_id=type_id)
+        .select_related('domain', 'type', 'test')
+        .order_by('test_id', 'module', 'number')[:40]
+    )
+    requested_question = request.GET.get('question')
+    pinned = None
+    if requested_question and str(requested_question).isdigit():
+        pinned = next((item for item in pool if item.pk == int(requested_question)), None)
+    if pinned:
+        pool = [item for item in pool if item.pk != pinned.pk]
+    if len(pool) > (9 if pinned else 10):
+        random.shuffle(pool)
+        pool = pool[:(9 if pinned else 10)]
+    if pinned:
+        pool.insert(0, pinned)
+    context = student_workspace_context(request.user, active='practice')
+    context.update({'practice_questions': pool, 'practice_section': section, 'practice_type': type_obj})
+    return render(request, 'sat/student_topic_practice.html', context)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_topic_check(request):
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        section = str(payload.get('section') or '').lower()
+        question_id = int(payload.get('question_id'))
+        response = payload.get('answer')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Invalid answer payload.'}, status=400)
+    if section not in {'english', 'math'}:
+        return JsonResponse({'ok': False, 'error': 'Invalid section.'}, status=400)
+    model = English_Question if section == 'english' else Math_Question
+    question = model.objects.filter(pk=question_id).select_related('test').first()
+    if not question or not question.test or not user_has_test_access(request.user, question.test):
+        return JsonResponse({'ok': False, 'error': 'Question is not assigned to your account.'}, status=403)
+    if section == 'english':
+        correct = check_english_answer(question, response)
+        reference = reference_answer(question)
+    elif question.written:
+        correct = check_written(response, question.answer)
+        reference = question.answer or ''
+    else:
+        correct = str(response or '').strip().upper() == str(question.answer or '').strip().upper()
+        reference = question.answer or ''
+    return JsonResponse({'ok': True, 'correct': bool(correct), 'answer': reference, 'explanation': question.explained or ''})
+
+
+@login_required(login_url='/login/')
+def student_question_bank(request):
+    assignments = _v523_test_assignments(request.user)
+    test_ids = [test.pk for test, _ in assignments]
+    context = student_workspace_context(request.user, active='question-bank')
+    context['question_bank_locked'] = not bool(test_ids)
+    query = (request.GET.get('q') or '').strip()
+    subject = (request.GET.get('subject') or 'all').lower()
+    module = (request.GET.get('module') or 'all').lower()
+    type_id = request.GET.get('type')
+    cards = []
+    accessible_type_ids = set()
+    totals = {'english': 0, 'math': 0, 'm1': 0, 'm2': 0}
+    if test_ids:
+        for sec, model in (('english', English_Question), ('math', Math_Question)):
+            qs = model.objects.filter(test_id__in=test_ids).select_related('type', 'domain', 'test')
+            totals[sec] = qs.count()
+            accessible_type_ids.update(qs.exclude(type_id__isnull=True).values_list('type_id', flat=True))
+            totals['m1'] += qs.filter(module='module_1').count()
+            totals['m2'] += qs.filter(module='module_2').count()
+            if subject != 'all' and sec != subject:
+                continue
+            if module in {'m1', 'm2'}:
+                qs = qs.filter(module='module_1' if module == 'm1' else 'module_2')
+            if type_id and str(type_id).isdigit():
+                qs = qs.filter(type_id=int(type_id))
+            if query:
+                qs = qs.filter(Q(question__icontains=query) | Q(passage__icontains=query) | Q(type__name__icontains=query) | Q(domain__name__icontains=query))
+            for question in qs.order_by('test_id', 'module', 'number')[:240]:
+                cards.append({'section': sec, 'question': question})
+        cards.sort(key=lambda row: (str(row['question'].test_id), str(row['question'].module), int(row['question'].number or 0)))
+    paginator = Paginator(cards, 24)
+    page = paginator.get_page(request.GET.get('page') or 1)
+    context.update({
+        'question_page': page,
+        'question_query': query,
+        'question_subject': subject,
+        'question_module': module,
+        'question_type_id': str(type_id or ''),
+        'question_types': QuestionType.objects.filter(pk__in=accessible_type_ids).select_related('domain').order_by('domain__name', 'name'),
+        'question_totals': totals,
+        'question_total_accessible': totals['english'] + totals['math'],
+    })
+    return render(request, 'sat/student_question_bank.html', context)
+
+
+@login_required(login_url='/login/')
+def student_classrooms(request):
+    context = student_workspace_context(request.user, active='classrooms')
+    context.update({
+        'pending_memberships': ClassroomMembership.objects.filter(user=request.user, role='student', status='pending').select_related('classroom').order_by('-requested_at'),
+        'rejected_memberships': ClassroomMembership.objects.filter(user=request.user, role='student', status='rejected').select_related('classroom').order_by('-requested_at'),
+    })
+    return render(request, 'sat/student_classrooms.html', context)
+
+
+def _v524_homework_for_student(user):
+    classroom_ids = list(
+        ClassroomMembership.objects.filter(
+            user=user, role='student', status='approved', classroom__is_active=True
+        ).values_list('classroom_id', flat=True)
+    )
+    if not classroom_ids:
+        return ClassroomHomeworkAssignment.objects.none()
+    return (
+        ClassroomHomeworkAssignment.objects.filter(classroom_id__in=classroom_ids, is_active=True)
+        .filter(Q(assign_all=True) | Q(assigned_students=user))
+        .select_related('classroom', 'test', 'vocabulary_unit', 'created_by')
+        .distinct()
+        .order_by('due_at', '-created_at')
+    )
+
+
+def _v524_ensure_unit_deck(user, unit):
+    deck = VocabularyDeck.objects.filter(owner=user, source_unit=unit).first()
+    if deck:
+        return deck
+    active_words = list(unit.words.filter(is_active=True).order_by('id'))
+    if not active_words:
+        return None
+    with transaction.atomic():
+        deck = VocabularyDeck.objects.filter(owner=user, source_unit=unit).first()
+        if deck:
+            return deck
+        deck = VocabularyDeck.objects.create(
+            owner=user,
+            title=unit.title[:180],
+            description=(unit.description or 'Assigned by your teacher.')[:500],
+            source_unit=unit,
+        )
+        VocabularyDeckWord.objects.bulk_create([
+            VocabularyDeckWord(deck=deck, word=item.word, meaning=item.meaning, example=item.example or '', order=index)
+            for index, item in enumerate(active_words, start=1)
+        ])
+    return deck
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_join_classroom_request(request):
+    code = re.sub(r'\s+', '', (request.POST.get('code') or '')).upper()
+    wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    def respond(ok, message, status=200):
+        if wants_json:
+            return JsonResponse({'ok': ok, 'message': message}, status=status)
+        (messages.success if ok else messages.error)(request, message)
+        return redirect('student_classrooms_root')
+    if len(code) != 6 or not code.isdigit():
+        return respond(False, 'Enter the 6-digit classroom code from your teacher.', 400)
+    if is_join_code_rate_limited(request):
+        return respond(False, 'Too many classroom-code attempts. Wait a little and try again.', 429)
+    join_code = ClassroomJoinCode.objects.filter(
+        code=code, is_active=True, classroom__is_active=True, classroom__hollihop_managed=False
+    ).select_related('classroom').first()
+    if not join_code or not join_code.is_valid():
+        register_join_code_attempt(request)
+        return respond(False, 'That classroom code is invalid or expired.', 404)
+    if role_is_teacher(request.user) or role_is_manager(request.user) or role_is_platform_admin(request.user) or is_support_teacher(request.user):
+        return respond(False, 'Staff accounts cannot submit student classroom requests.', 403)
+    membership = _v523_request_classroom_membership(request, join_code)
+    # _v523_request_classroom_membership writes a Django message for non-AJAX
+    # callers; return a concise state to the sheet for AJAX callers.
+    if membership.status == 'approved':
+        return respond(True, f'You are already enrolled in “{join_code.classroom.name}”.')
+    if membership.status == 'pending':
+        return respond(True, f'Request sent to “{join_code.classroom.name}”. Your teacher must approve it.')
+    return respond(False, 'The classroom request could not be created.', 400)
+
+
+@login_required(login_url='/login/')
+def student_homework(request):
+    context = student_workspace_context(request.user, active='homework')
+    base_assignments = _v524_homework_for_student(request.user).select_related('classroom', 'test', 'vocabulary_unit').order_by('-created_at')
+    # Keep filter choices stable while the list itself narrows. Otherwise choosing
+    # one classroom makes every other classroom disappear from the selector.
+    classroom_ids = base_assignments.values_list('classroom_id', flat=True).distinct()
+    classrooms = Classroom.objects.filter(
+        pk__in=classroom_ids,
+        memberships__user=request.user,
+        memberships__role='student',
+        memberships__status='approved',
+    ).distinct().order_by('name')
+    assignments, filter_state = _homework_filters(request, base_assignments, teacher=False)
+    assignment_page, per_page = _paginate(request, assignments, default=12)
+    context.update({
+        'homework_assignments': assignment_page.object_list,
+        'homework_page': assignment_page,
+        'homework_open_count': assignments.filter(is_active=True).count(),
+        'homework_types': ClassroomHomeworkAssignment.TYPE_CHOICES,
+        'homework_classrooms': classrooms,
+        'per_page': per_page,
+        **filter_state,
+    })
+    return render(request, 'sat/student_homework.html', context)
+
+
+@login_required(login_url='/login/')
+def student_homework_launch(request, assignment_id):
+    assignment = get_object_or_404(
+        _v524_homework_for_student(request.user), pk=assignment_id
+    )
+    if assignment.assignment_type == ClassroomHomeworkAssignment.TYPE_TEST and assignment.test_id:
+        membership = ClassroomMembership.objects.filter(
+            classroom=assignment.classroom, user=request.user, role='student', status='approved'
+        ).first()
+        if not membership:
+            raise Http404
+        # Repair older homework rows created before V50.2.4 as well: opening
+        # an explicit teacher assignment should never bounce back into a locked
+        # Tests page because the section flag was missing.
+        StudentSectionAccess.objects.update_or_create(
+            membership=membership,
+            section='practice_tests',
+            defaults={'has_access': True},
+        )
+        StudentPracticeTestAccess.objects.update_or_create(
+            membership=membership, test=assignment.test, defaults={'has_access': True}
+        )
+        return redirect('student_classroom_test_start_root', classroom_id=assignment.classroom_id, pk=assignment.test.name)
+
+    if assignment.assignment_type == ClassroomHomeworkAssignment.TYPE_VOCAB and assignment.vocabulary_unit_id:
+        deck = _v524_ensure_unit_deck(request.user, assignment.vocabulary_unit)
+        if not deck:
+            messages.error(request, 'This vocabulary unit has no active words yet.')
+            return redirect('student_homework_root')
+        query = urlencode({'limit': assignment.question_count, 'homework': assignment.id})
+        if assignment.vocabulary_mode == ClassroomHomeworkAssignment.VOCAB_MEMORY:
+            return redirect(reverse('vocabulary_deck_study_root', args=[deck.id]) + '?' + query)
+        return redirect(reverse('vocabulary_deck_arena_root', args=[deck.id, assignment.vocabulary_mode]) + '?' + query)
+
+    if assignment.assignment_type == ClassroomHomeworkAssignment.TYPE_VOCAB_QUIZ and assignment.vocabulary_unit_id:
+        unit = VocabularyUnit.objects.filter(pk=assignment.vocabulary_unit_id, is_active=True).prefetch_related('words').first()
+        if not unit:
+            messages.error(request, 'This vocabulary quiz no longer has an active unit.')
+            return redirect('student_homework_root')
+        available = [word for word in unit.words.all() if word.is_active]
+        if len(available) < 4:
+            messages.error(request, 'The assigned vocabulary quiz needs at least 4 active words.')
+            return redirect('student_homework_root')
+        count = min(max(1, assignment.question_count), len(available))
+        questions, _ = _generate_vocabulary_quiz_questions([unit], count, assignment.vocabulary_quiz_mode)
+        if not questions:
+            messages.error(request, 'Could not build this assigned vocabulary quiz.')
+            return redirect('student_homework_root')
+        request.session['vocab_quiz_questions'] = questions
+        request.session['vocab_quiz_units'] = [unit.title]
+        request.session['vocab_quiz_mode'] = assignment.vocabulary_quiz_mode
+        request.session['vocab_quiz_started_at'] = timezone.now().isoformat()
+        # Vocabulary homework still writes to the student's standalone history.
+        # The assignment keeps the classroom relationship; the review record does not.
+        request.session.pop('vocab_quiz_classroom_id', None)
+        request.session['vocab_quiz_homework_id'] = assignment.id
+        context = {
+            'questions': questions, 'selected_units': [unit], 'requested_count': len(questions),
+            'quiz_mode': assignment.vocabulary_quiz_mode, 'classroom': None, 'homework_assignment': assignment,
+        }
+        context.update(student_workspace_context(request.user, active='homework'))
+        return render(request, 'sat/vocabulary_practice_quiz_test.html', context)
+
+    messages.error(request, 'This homework assignment is not configured correctly.')
+    return redirect('student_homework_root')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_homework_vocab_quiz_result(request, assignment_id):
+    """Finish a teacher-assigned vocabulary quiz without reintroducing classroom vocab gating."""
+    assignment = get_object_or_404(_v524_homework_for_student(request.user), pk=assignment_id)
+    if assignment.assignment_type != ClassroomHomeworkAssignment.TYPE_VOCAB_QUIZ:
+        raise Http404
+    if request.session.get('vocab_quiz_homework_id') != assignment.id:
+        messages.error(request, 'This homework quiz session expired. Start it again from Homework.')
+        return redirect('student_homework_root')
+    return _finish_vocabulary_quiz(request, classroom=None)
+
+
+@login_required(login_url='/login/')
+def student_progress(request):
+    context = student_workspace_context(request.user, active='progress')
+    context.update(_student_global_goal_context(request.user))
+    context['weak_topics'] = _v523_weak_topics(request.user, limit=8)
+    context['vocabulary_summary'] = get_vocabulary_summary(request.user)
+    context['classroom_progress_rows'] = StudentProgress.objects.filter(student=request.user, classroom__is_active=True).select_related('classroom').order_by('classroom__name', 'section')
+    context['recent_reviews'] = TestReview.objects.filter(user=request.user, score__isnull=False).select_related('test').order_by('-created_at')[:8]
+    return render(request, 'sat/student_progress.html', context)
+
+
+@login_required(login_url='/login/')
+def student_mentors(request):
+    # Mentors are the complete active teaching directory, not only users who
+    # happen to be bookable support teachers.  Either authoritative teaching
+    # group is enough to appear; profile fields remain optional until the
+    # teacher publishes them from their own cabinet.
+    teachers = (
+            User.objects.filter(
+                Q(groups__name__iexact='Teacher') | Q(groups__name__iexact='Support Teacher'),
+                is_active=True,
+            )
+            .select_related('support_teacher_profile')
+            .prefetch_related('groups')
+            .annotate(
+                active_classrooms=Count('owned_classrooms', filter=Q(owned_classrooms__is_active=True), distinct=True),
+                mentor_avg_rating=Avg(
+                    'support_teacher_profile__reviews__rating',
+                    filter=Q(support_teacher_profile__reviews__booking__status='completed'),
+                ),
+                mentor_reviews_count=Count(
+                    'support_teacher_profile__reviews',
+                    filter=Q(support_teacher_profile__reviews__booking__status='completed'),
+                    distinct=True,
+                ),
+            )
+            .order_by('first_name', 'last_name', 'username')
+            .distinct()
+        )
+    mentor_cards = []
+    for teacher in teachers:
+        try:
+            profile = teacher.support_teacher_profile
+        except SupportTeacherProfile.DoesNotExist:
+            profile = None
+        group_names = {group.name.casefold() for group in teacher.groups.all()}
+        mentor_cards.append({
+            'user': teacher,
+            'profile': profile,
+            'main_enabled': 'teacher' in group_names,
+            'support_enabled': bool(profile and profile.is_active and 'support teacher' in group_names),
+            'average_rating': round(float(teacher.mentor_avg_rating), 1) if teacher.mentor_avg_rating is not None else None,
+            'reviews_count': int(teacher.mentor_reviews_count or 0),
+        })
+    context = student_workspace_context(request.user, active='mentors')
+    context['mentor_cards'] = mentor_cards
+    context['main_mentor_cards'] = [card for card in mentor_cards if card['main_enabled']]
+    context['support_mentor_cards'] = [card for card in mentor_cards if card['support_enabled']]
+    context['is_teacher_account'] = request.user.groups.filter(Q(name__iexact='Teacher') | Q(name__iexact='Support Teacher')).exists()
+    return render(request, 'sat/student_mentors.html', context)
+
+
+_V526_CHAT_EMOJI_GROUPS = (
+    ('Smileys', ('😀','😃','😄','😁','😆','😅','😂','🤣','🥲','🥹','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😋','😛','😜','🤪','🤨','🧐','🤓','😎','🥸','🤩','🥳','😏','😒','😔','😢','😭','😤','😡','🤬','🤯','😳','🥵','🥶','😱','😴','🤤','🤔','🫡','🫠')),
+    ('Hands & reactions', ('👋','🤚','🖐️','✋','🫶','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤝','🙏','💪','🫵','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💯','🔥','✨')),
+    ('Study & symbols', ('⭐','🌟','⚡','✅','❌','❗','❓','🎯','📚','📖','📝','✏️','📌','📎','🧠','💡','🔬','🧮','📐','📊','📈','🏆','🥇','🎓','🚀','🎉','🎊','⏰','⌛','☕','🎧','💻','📱','🌍','🌙','☀️','🐼','🍀','💬','🔔','🧩','🎨')),
+)
+
+@login_required(login_url='/login/')
+def student_messages(request):
+    memberships = _v523_student_memberships(request.user)
+    selected = None
+    selected_id = request.GET.get('classroom')
+    if selected_id and str(selected_id).isdigit():
+        selected = next((m for m in memberships if m.classroom_id == int(selected_id)), None)
+    if not selected and memberships:
+        # Prefer the classroom with the newest chat message.
+        latest_by_classroom = {
+            row['classroom_id']: row['latest']
+            for row in ChatMessage.objects.filter(classroom_id__in=[m.classroom_id for m in memberships], is_deleted=False)
+            .values('classroom_id').annotate(latest=Max('created_at'))
+        }
+        memberships.sort(key=lambda m: latest_by_classroom.get(m.classroom_id) or (timezone.now() - timedelta(days=36500)), reverse=True)
+        selected = memberships[0]
+    chat_messages = []
+    if selected:
+        # Keep the inbox fast even for long-running classrooms.  The initial
+        # screen only needs the latest conversation window; polling continues
+        # from the newest rendered id.
+        recent_messages = list(
+            ChatMessage.objects.filter(classroom=selected.classroom, is_deleted=False)
+            .select_related('sender', 'sticker')
+            .order_by('-id')[:120]
+        )
+        chat_messages = list(reversed(recent_messages))
+    sticker_packs = list(
+        UserChatStickerPack.objects.filter(user=request.user)
+        .prefetch_related(Prefetch('stickers', queryset=UserChatSticker.objects.order_by('-created_at', '-id')))
+    )
+    loose_stickers = list(
+        UserChatSticker.objects.filter(user=request.user, pack__isnull=True).order_by('-created_at', '-id')
+    )
+    custom_sticker_count = len(loose_stickers) + sum(len(pack.stickers.all()) for pack in sticker_packs)
+    context = student_workspace_context(request.user, active='messages', approved_memberships=memberships)
+    context.update({
+        'message_memberships': memberships,
+        'selected_membership': selected,
+        'selected_classroom': selected.classroom if selected else None,
+        'chat_messages': chat_messages,
+        'last_message_id': chat_messages[-1].id if chat_messages else 0,
+        'emoji_groups': _V526_CHAT_EMOJI_GROUPS,
+        'sticker_packs': sticker_packs,
+        'loose_stickers': loose_stickers,
+        'custom_sticker_count': custom_sticker_count,
+    })
+    return render(request, 'sat/student_messages.html', context)
+
+
+_legacy_classroom_chat_v523 = classroom_chat
+@login_required(login_url='/login/')
+def classroom_chat(request, classroom_id):
+    # Students now get an inbox instead of being trapped in a single classroom.
+    if should_use_student_workspace(request.user):
+        classroom, role, membership, redirect_response = resolve_classroom_and_role(request, classroom_id)
+        if redirect_response:
+            return redirect_response
+        if role != 'student':
+            return classroom_access_denied(request, classroom=classroom, message='You do not have access to this classroom chat.')
+        return redirect(f"{reverse('student_messages_root')}?classroom={classroom_id}")
+    return _legacy_classroom_chat_v523(request, classroom_id)
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_chat_sticker_upload(request):
+    if not should_use_student_workspace(request.user):
+        return JsonResponse({'ok': False, 'error': 'Student workspace only.'}, status=403)
+    if UserChatSticker.objects.filter(user=request.user).count() >= 80:
+        return JsonResponse({'ok': False, 'error': 'You can keep up to 80 custom stickers.'}, status=400)
+    uploaded = request.FILES.get('sticker')
+    if not uploaded:
+        return JsonResponse({'ok': False, 'error': 'Choose an image first.'}, status=400)
+    if uploaded.size > 2 * 1024 * 1024:
+        return JsonResponse({'ok': False, 'error': 'Sticker images must be 2 MB or smaller.'}, status=400)
+    content_type = (getattr(uploaded, 'content_type', '') or '').lower()
+    if content_type not in {'image/png', 'image/jpeg', 'image/webp', 'image/gif'}:
+        return JsonResponse({'ok': False, 'error': 'Use PNG, JPG, WEBP, or GIF for stickers.'}, status=400)
+    try:
+        dimensions = get_image_dimensions(uploaded)
+        uploaded.seek(0)
+    except Exception:
+        dimensions = None
+    if not dimensions or not dimensions[0] or not dimensions[1]:
+        return JsonResponse({'ok': False, 'error': 'That file is not a valid image.'}, status=400)
+    if dimensions[0] > 2048 or dimensions[1] > 2048:
+        return JsonResponse({'ok': False, 'error': 'Sticker dimensions must be 2048×2048 or smaller.'}, status=400)
+    title = (request.POST.get('title') or uploaded.name.rsplit('.', 1)[0])[:80].strip()
+    pack = None
+    pack_id = (request.POST.get('pack_id') or '').strip()
+    if pack_id:
+        if not pack_id.isdigit():
+            return JsonResponse({'ok': False, 'error': 'Invalid sticker pack.'}, status=400)
+        pack = UserChatStickerPack.objects.filter(pk=int(pack_id), user=request.user).first()
+        if pack is None:
+            return JsonResponse({'ok': False, 'error': 'Sticker pack is not available.'}, status=400)
+    sticker = UserChatSticker.objects.create(user=request.user, pack=pack, image=uploaded, title=title)
+    return JsonResponse({'ok': True, 'sticker': {
+        'id': sticker.id,
+        'url': sticker.image.url,
+        'title': sticker.title,
+        'pack_id': sticker.pack_id,
+        'is_gif': str(sticker.image.name).lower().endswith('.gif'),
+    }})
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_chat_sticker_pack_create(request):
+    if not should_use_student_workspace(request.user):
+        return JsonResponse({'ok': False, 'error': 'Student workspace only.'}, status=403)
+    if UserChatStickerPack.objects.filter(user=request.user).count() >= 8:
+        return JsonResponse({'ok': False, 'error': 'You can keep up to 8 sticker packs.'}, status=400)
+    title = re.sub(r'\s+', ' ', (request.POST.get('title') or '').strip())[:80]
+    if len(title) < 2:
+        return JsonResponse({'ok': False, 'error': 'Pack name must contain at least 2 characters.'}, status=400)
+    try:
+        pack = UserChatStickerPack.objects.create(user=request.user, title=title)
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'You already have a sticker pack with that name.'}, status=400)
+    return JsonResponse({'ok': True, 'pack': {'id': pack.id, 'title': pack.title}})
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_chat_sticker_pack_delete(request, pack_id):
+    pack = get_object_or_404(UserChatStickerPack, pk=pack_id, user=request.user)
+    # Keep the images as reusable loose stickers instead of destroying user data.
+    pack.stickers.update(pack=None)
+    pack.delete()
+    return JsonResponse({'ok': True, 'pack_id': pack_id})
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_chat_sticker_delete(request, sticker_id):
+    sticker = get_object_or_404(UserChatSticker, pk=sticker_id, user=request.user)
+    # Messages keep working; SET_NULL removes the relation when the reusable
+    # library item is deleted. Delete the stored image explicitly.
+    if sticker.image:
+        sticker.image.delete(save=False)
+    sticker.delete()
+    return JsonResponse({'ok': True, 'sticker_id': sticker_id})
+
+
+@login_required(login_url='/login/')
+def student_events(request):
+    if request.method == 'POST':
+        code = re.sub(r'\s+', '', (request.POST.get('code') or '')).upper()
+        if len(code) != 6 or not code.isalnum():
+            messages.error(request, 'Enter a valid 6-character access code.')
+            return redirect('events')
+
+        # Classroom codes stay safe: they create an approval request, not test access.
+        if code.isdigit():
+            join_code = ClassroomJoinCode.objects.filter(
+                code=code, is_active=True, classroom__is_active=True, classroom__hollihop_managed=False
+            ).select_related('classroom').first()
+            if join_code and join_code.is_valid():
+                _v523_request_classroom_membership(request, join_code)
+                return redirect('student_classrooms_root')
+
+        secret_code = SecretCode.objects.filter(code=code).select_related('group', 'test', 'makeup_test').first()
+        if secret_code:
+            if secret_code.test:
+                assignment = next(((test, membership) for test, membership in _v523_test_assignments(request.user) if test.pk == secret_code.test_id), None)
+                if assignment:
+                    return redirect('student_classroom_test_start_root', classroom_id=assignment[1].classroom_id, pk=secret_code.test.name)
+                messages.error(request, 'That test code exists, but the test is not assigned through your classroom.')
+                return redirect('events')
+            if secret_code.makeup_test:
+                return redirect('makeup_test_start_root', pk=secret_code.makeup_test.name)
+
+        public_event = GlobalEvent.objects.filter(access_code__iexact=code, is_public=True).first()
+        if public_event:
+            return redirect('global_event_detail_root', slug=public_event.slug)
+        if APExamEvent is not None:
+            event = APExamEvent.objects.filter(access_code__iexact=code, is_public=True).order_by('-updated_at').first()
+            if event and event.is_live_now:
+                request.session[f'ap_event_{event.pk}_secret_ok'] = True
+                request.session.modified = True
+                return redirect('apclasses:start_event', slug=event.slug)
+        messages.error(request, 'No active classroom, mock, global event, or AP event matches that code.')
+        return redirect('events')
+
+    context = student_workspace_context(request.user, active='events')
+    context['public_events'] = GlobalEvent.objects.filter(is_public=True).select_related('test').order_by('-always_live', '-start_at')[:30]
+    context['assigned_tests'] = [
+        {
+            'test': test,
+            'classroom': membership.classroom,
+            'url': reverse('student_classroom_test_start_root', kwargs={
+                'classroom_id': membership.classroom_id,
+                'pk': test.name,
+            }),
+        }
+        for test, membership in _v523_test_assignments(request.user)[:20]
+    ]
+    context['placement_count'] = Test.objects.filter(is_available=True).filter(
+        Q(name__icontains='placement') | Q(name__icontains='level check')
+    ).count()
+    return render(request, 'sat/student_events.html', context)
+
+
+@login_required(login_url='/login/')
+def student_placement_tests(request):
+    context = student_workspace_context(request.user, active='placement')
+    placements = Test.objects.filter(is_available=True).filter(
+        Q(name__icontains='placement') | Q(name__icontains='level check')
+    ).order_by('name')
+    assignments = {test.pk: membership for test, membership in _v523_test_assignments(request.user)}
+    context['placement_tests'] = [
+        {
+            'test': test,
+            'assigned': test.pk in assignments,
+            'url': reverse('student_classroom_test_start_root', kwargs={'classroom_id': assignments[test.pk].classroom_id, 'pk': test.name}) if test.pk in assignments else '',
+        }
+        for test in placements[:50]
+    ]
+    return render(request, 'sat/student_placement_tests.html', context)
+
+
+@login_required(login_url='/login/')
+def workspace_search(request):
+    query = (request.GET.get('q') or '').strip()
+    if len(query) < 2:
+        return JsonResponse({'ok': True, 'groups': []})
+    needle = query[:80]
+    groups = []
+    static_pages = [
+        ('Home', reverse('student_dashboard_root'), 'bi-house-door'),
+        ('Learn', reverse('student_learn_root'), 'bi-mortarboard'),
+        ('Practice', reverse('student_practice_root'), 'bi-lightning-charge'),
+        ('Homework', reverse('student_homework_root'), 'bi-list-check'),
+        ('Tests', reverse('practice_tests_root'), 'bi-clipboard2-check'),
+        ('Classrooms', reverse('student_classrooms_root'), 'bi-people'),
+        ('Vocabulary', reverse('vocabulary_root'), 'bi-journal-bookmark'),
+        ('AP Classes', reverse('apclasses:event_list'), 'bi-layers'),
+        ('Progress', reverse('student_progress_root'), 'bi-graph-up-arrow'),
+        ('Question Bank', reverse('student_question_bank_root'), 'bi-card-checklist'),
+        ('Messages', reverse('student_messages_root'), 'bi-chat-left-text'),
+        ('Mentors', reverse('mentors'), 'bi-person-badge'),
+        ('Ranking', reverse('rating_home'), 'bi-trophy'),
+        ('Events', reverse('events'), 'bi-calendar-event'),
+        ('Placement Tests', reverse('placement_tests'), 'bi-ui-checks-grid'),
+        ('Admissions', reverse('admissions_root'), 'bi-buildings'),
+        ('Profile', reverse('edit_profile'), 'bi-person-circle'),
+        ('Settings', reverse('settings_page'), 'bi-gear'),
+    ]
+    page_rows = [
+        {'title': title, 'subtitle': 'Page', 'url': url, 'icon': icon, 'type': 'PAGE'}
+        for title, url, icon in static_pages if needle.casefold() in title.casefold()
+    ][:6]
+    if page_rows:
+        groups.append({'label': 'Pages', 'items': page_rows})
+
+    memberships = _v523_student_memberships(request.user, with_access=True)
+    assignments = _v523_test_assignments(request.user, memberships=memberships)
+
+    classroom_rows = []
+    for membership in memberships:
+        if needle.casefold() in membership.classroom.name.casefold():
+            classroom_rows.append({'title': membership.classroom.name, 'subtitle': 'Classroom', 'url': reverse('student_classroom_home_root', kwargs={'classroom_id': membership.classroom_id}), 'icon': 'bi-people', 'type': 'CLASSROOM'})
+    if classroom_rows:
+        groups.append({'label': 'Classrooms', 'items': classroom_rows[:6]})
+
+    test_rows = []
+    for test, membership in assignments:
+        if needle.casefold() in str(test.name).casefold():
+            test_rows.append({'title': str(test.name), 'subtitle': membership.classroom.name, 'url': reverse('student_classroom_test_start_root', kwargs={'classroom_id': membership.classroom_id, 'pk': test.name}), 'icon': 'bi-clipboard2-check', 'type': 'TEST'})
+    if test_rows:
+        groups.append({'label': 'Assessments', 'items': test_rows[:8]})
+
+    # Search the actual assigned question bank, but keep the response compact.
+    test_ids = [test.pk for test, _membership in assignments]
+    question_rows = []
+    if test_ids:
+        bank_url = reverse('student_question_bank_root') + '?' + urlencode({'q': needle})
+        for section, model in (('R&W', English_Question), ('Math', Math_Question)):
+            matches = (
+                model.objects.filter(test_id__in=test_ids)
+                .filter(Q(question__icontains=needle) | Q(passage__icontains=needle) | Q(type__name__icontains=needle) | Q(domain__name__icontains=needle))
+                .select_related('test', 'type')
+                .order_by('test_id', 'module', 'number')[:4]
+            )
+            for question in matches:
+                raw = strip_tags(question.question or question.passage or '').replace('\n', ' ').strip()
+                snippet = (raw[:92] + '…') if len(raw) > 92 else raw
+                question_rows.append({
+                    'title': f'{section} · {question.test.name} · #{question.number or "—"}',
+                    'subtitle': snippet or (question.type.name if question.type else 'Assigned question'),
+                    'url': bank_url,
+                    'icon': 'bi-card-checklist',
+                    'type': 'QUESTION',
+                })
+        if question_rows:
+            groups.append({'label': 'Questions', 'items': question_rows[:8]})
+
+    deck_rows = []
+    for deck in VocabularyDeck.objects.filter(owner=request.user, title__icontains=needle).order_by('title')[:5]:
+        deck_rows.append({
+            'title': deck.title,
+            'subtitle': 'Vocabulary deck',
+            'url': reverse('vocabulary_deck_detail_root', kwargs={'deck_id': deck.id}),
+            'icon': 'bi-journal-bookmark',
+            'type': 'DECK',
+        })
+    if deck_rows:
+        groups.append({'label': 'Vocabulary', 'items': deck_rows})
+
+    mentor_rows = []
+    mentor_matches = (
+        User.objects.filter(
+            Q(groups__name__iexact='Teacher') | Q(groups__name__iexact='Support Teacher'),
+            is_active=True,
+        )
+        .filter(Q(first_name__icontains=needle) | Q(last_name__icontains=needle) | Q(username__icontains=needle))
+        .distinct()[:5]
+    )
+    for teacher in mentor_matches:
+        mentor_rows.append({'title': teacher.get_full_name() or teacher.username, 'subtitle': 'Mentor', 'url': reverse('mentors'), 'icon': 'bi-person-badge', 'type': 'MENTOR'})
+    if mentor_rows:
+        groups.append({'label': 'Mentors', 'items': mentor_rows})
+
+    return JsonResponse({'ok': True, 'groups': groups})
+
+
+@login_required(login_url='/login/')
+@ensure_csrf_cookie
+def classroom_entry(request):
+    if is_teacher(request.user):
+        return redirect('teacher_dashboard_root')
+    if is_manager(request.user):
+        return redirect('manager_dashboard_root')
+    if role_is_platform_admin(request.user):
+        return redirect('admin_dashboard')
+    if is_support_teacher(request.user) or _ensure_support_profile_for_role(request.user):
+        return redirect('support_teacher_dashboard_root')
+
+    approved = _v523_student_memberships(request.user)
+    primary = approved[0] if approved else None
+    homework_rows = list(_v524_homework_for_student(request.user)[:5])
+    due_items = []
+    for assignment in homework_rows:
+        due_items.append({
+            'kind': assignment.get_assignment_type_display(),
+            'title': assignment.title,
+            'meta': (assignment.due_at.strftime('%b %d · %H:%M') if assignment.due_at else assignment.classroom.name),
+            'url': reverse('student_homework_launch_root', args=[assignment.id]),
+            'icon': 'bi-clipboard-check' if assignment.assignment_type == ClassroomHomeworkAssignment.TYPE_TEST else 'bi-journal-bookmark',
+        })
+    context = {
+        'approved_memberships': approved,
+        'dashboard_primary_membership': primary,
+        'student_workspace_active': 'home',
+        'dashboard_due_items': due_items,
+        'dashboard_weak_topics': _v523_weak_topics(request.user, limit=3),
+        'dashboard_roadmap': _v523_roadmap_snapshot(request.user, primary),
+        'dashboard_vocabulary': get_vocabulary_summary(request.user),
+        'dashboard_continue': due_items[0] if due_items else ({
+            'kind': 'Classroom', 'title': primary.classroom.name, 'meta': 'Open your classroom',
+            'url': reverse('student_classroom_home_root', kwargs={'classroom_id': primary.classroom_id}), 'icon': 'bi-play-circle'
+        } if primary else {
+            'kind': 'Start here', 'title': 'Join a classroom', 'meta': 'Tests unlock after classroom approval',
+            'url': reverse('events'), 'icon': 'bi-calendar-event'
+        }),
+    }
+    context.update(_student_global_goal_context(request.user))
+    context.update(gamification_context(request.user))
+    context.update(_student_goal_form_context(request.user, next_url=request.get_full_path()))
+    context['open_goal_modal'] = request.GET.get('goal') == '1'
+    return render(request, 'sat/classroom_join.html', context)
+
+
+def _v523_request_classroom_membership(request, join_code):
+    classroom = join_code.classroom
+    with transaction.atomic():
+        membership = ClassroomMembership.objects.select_for_update().filter(
+            classroom=classroom, user=request.user
+        ).first()
+        if membership is None:
+            membership = ClassroomMembership.objects.create(
+                classroom=classroom, user=request.user, role='student', status='pending'
+            )
+            messages.success(request, f'Join request sent to classroom "{classroom.name}".')
+            return membership
+        if membership.role != 'student':
+            messages.error(request, 'This account already has a staff role in that classroom.')
+            return membership
+        if membership.status == 'approved':
+            messages.info(request, f'You are already enrolled in "{classroom.name}".')
+            return membership
+        if membership.status == 'pending':
+            messages.info(request, f'Your request for "{classroom.name}" is already pending.')
+            return membership
+        if membership.hollihop_managed:
+            messages.error(request, 'This membership is managed by Hollihop and cannot be requested manually.')
+            return membership
+        membership.status = 'pending'
+        membership.requested_at = timezone.now()
+        membership.approved_at = None
+        membership.left_at = None
+        membership.removed_at = None
+        membership.save(update_fields=['status', 'requested_at', 'approved_at', 'left_at', 'removed_at'])
+        messages.success(request, f'Join request sent again to "{classroom.name}".')
+        return membership
+
+
+@login_required(login_url='/login/')
+def enter_secret_code(request):
+    if request.method == 'POST':
+        raw = (request.POST.get('code') or '').strip()
+        if not raw:
+            raw = ''.join((request.POST.get(f'code_{i}') or '').strip() for i in range(1, 7))
+        code = re.sub(r'\s+', '', raw).upper()
+        if len(code) != 6 or not code.isalnum():
+            messages.error(request, 'Enter a valid 6-character code.')
+        else:
+            # Classroom codes are intentionally checked first because Tests are
+            # classroom-gated in the V50 student workspace. Track a failed
+            # numeric attempt once; do not double-count expired join codes.
+            join_attempt_recorded = False
+            if code.isdigit():
+                if is_join_code_rate_limited(request):
+                    messages.error(request, 'Too many classroom-code attempts. Please wait and try again later.')
+                    return redirect('enter_secret_code')
+                join_code = ClassroomJoinCode.objects.filter(
+                    code=code, is_active=True, classroom__is_active=True, classroom__hollihop_managed=False
+                ).select_related('classroom').first()
+                if join_code and join_code.is_valid():
+                    if role_is_teacher(request.user) or role_is_manager(request.user) or role_is_platform_admin(request.user) or is_support_teacher(request.user):
+                        messages.error(request, 'Staff accounts cannot submit student classroom requests.')
+                    else:
+                        _v523_request_classroom_membership(request, join_code)
+                        return redirect('student_classrooms_root')
+                elif join_code is not None:
+                    register_join_code_attempt(request)
+                    join_attempt_recorded = True
+
+            secret_code = SecretCode.objects.filter(code=code).select_related('group', 'test', 'makeup_test').first()
+            if secret_code:
+                if secret_code.test:
+                    # Tests remain classroom-gated; a legacy group code must not
+                    # silently grant a group before the classroom assignment is
+                    # verified. That would recreate a side-door around V50.2.3.
+                    assignment = next(((test, membership) for test, membership in _v523_test_assignments(request.user) if test.pk == secret_code.test_id), None)
+                    if assignment:
+                        if secret_code.group_id and not request.user.groups.filter(pk=secret_code.group_id).exists():
+                            request.user.groups.add(secret_code.group)
+                        return redirect('student_classroom_test_start_root', classroom_id=assignment[1].classroom_id, pk=secret_code.test.name)
+                    messages.error(request, 'This test code is valid, but the test is not assigned through one of your classrooms.')
+                    return redirect('enter_secret_code')
+                if secret_code.group_id and not request.user.groups.filter(pk=secret_code.group_id).exists():
+                    request.user.groups.add(secret_code.group)
+                if secret_code.makeup_test:
+                    return redirect('makeup_test_start_root', pk=secret_code.makeup_test.name)
+                messages.success(request, 'Code accepted.')
+                return redirect('student_dashboard_root')
+            if APExamEvent is not None:
+                event = APExamEvent.objects.filter(access_code__iexact=code, is_public=True).order_by('-updated_at').first()
+                if event and event.is_live_now:
+                    request.session[f'ap_event_{event.pk}_secret_ok'] = True
+                    request.session.modified = True
+                    return redirect('apclasses:start_event', slug=event.slug)
+            if code.isdigit() and not join_attempt_recorded:
+                register_join_code_attempt(request)
+            messages.error(request, 'Invalid or inactive classroom, test, or AP code.')
+    context = student_workspace_context(request.user, active='enter_code')
+    return render(request, 'sat/enter_code.html', context)

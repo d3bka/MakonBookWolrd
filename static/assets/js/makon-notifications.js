@@ -12,22 +12,43 @@
     return match ? decodeURIComponent(match[1]) : '';
   };
 
+  const csrfToken = () => {
+    const field = layer.querySelector('[data-notice-csrf-form] input[name=csrfmiddlewaretoken]');
+    if (field && field.value) return field.value;
+    const custom = getCookie('makonbook_csrftoken_v35') || getCookie('csrftoken');
+    if (custom) return custom;
+    const pair = document.cookie.split(';').map((part) => part.trim()).find((part) => /csrftoken/i.test((part.split('=')[0] || '')));
+    return pair ? decodeURIComponent(pair.split('=').slice(1).join('=')) : '';
+  };
+
   const markRead = async () => {
     if (markedRead) return;
-    markedRead = true;
     const url = layer.dataset.readUrl;
     if (!url) return;
+    const body = new URLSearchParams();
+    layer.querySelectorAll('[data-notice-id]').forEach((item) => {
+      if (item.dataset.noticeId) body.append('ids', item.dataset.noticeId);
+    });
+    if (!body.toString()) return;
+    markedRead = true;
     try {
       const response = await fetch(url, {
         method: 'POST',
+        body,
         headers: {
-          'X-CSRFToken': (layer.querySelector('[data-notice-csrf-form] input[name=csrfmiddlewaretoken]') || {}).value || getCookie('csrftoken'),
+          'X-CSRFToken': csrfToken(),
           'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json',
         },
         credentials: 'same-origin',
       });
-      if (!response.ok) throw new Error('mark-read failed');
-      if (badge) badge.remove();
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error('mark-read failed');
+      const remaining = Math.max(0, Number(data.unread) || 0);
+      if (badge) {
+        if (remaining) badge.textContent = String(remaining);
+        else badge.remove();
+      }
       layer.querySelectorAll('.makon-notice-item.is-unread').forEach((item) => item.classList.remove('is-unread'));
     } catch (_) {
       markedRead = false;

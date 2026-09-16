@@ -24,14 +24,16 @@
   <!-- Vendor CSS Files -->
   <link href="{% static 'assets/vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
   <link href="{% static 'assets/vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
+  {% block optional_vendor_styles %}
   <link href="{% static 'assets/vendor/aos/aos.css' %}" rel="stylesheet">
   <link href="{% static 'assets/vendor/glightbox/css/glightbox.min.css' %}" rel="stylesheet">
   <link href="{% static 'assets/vendor/swiper/swiper-bundle.min.css' %}" rel="stylesheet">
+  {% endblock optional_vendor_styles %}
 
   <!-- Template Main CSS File -->
   <link href="{% static 'assets/css/main.css' %}" rel="stylesheet">
   {% block style %}  {% endblock style %}
-  <link href="{% static 'assets/css/makon-theme.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/css/makon-theme.css' %}?v=5262" rel="stylesheet">
 
   <link href="{% static 'assets/css/makon-pages.css' %}" rel="stylesheet">
   <link href="{% static 'assets/css/makon-theme-switcher.css' %}" rel="stylesheet">
@@ -111,6 +113,7 @@
 
 <body>
 
+  {% block body %}
   {% include 'base/header.html' %}
   {% include 'base/profile_name_prompt.html' %}
 
@@ -162,11 +165,13 @@
   </main><!-- End #main -->
 
   {% include 'base/footer.html' %}
+  {% endblock body %}
 
   <a href="#" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
 
   <div id="preloader"></div>
 
+  {% block base_runtime_scripts %}
   <!-- Vendor JS Files -->
   <script src="{% static 'assets/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'assets/vendor/aos/aos.js' %}"></script>
@@ -184,9 +189,11 @@
   <script src="{% static 'assets/js/makon-learning.js' %}"></script>
   <script src="{% static 'assets/js/makon-final-pages.js' %}"></script>
   <script src="{% static 'assets/js/profile-name-gate-v338.js' %}"></script>
-  <script src="{% static 'assets/js/makon-notifications.js' %}?v=1"></script>
+  <script src="{% static 'assets/js/makon-notifications.js' %}?v=2"></script>
+  {% endblock base_runtime_scripts %}
 
-  {% include 'base/issue_report_widget.html' %}
+  {% block scripts %}{% endblock scripts %}
+  {% block issue_report_widget %}{% include 'base/issue_report_widget.html' %}{% endblock issue_report_widget %}
 </body>
 
 </html>

@@ -1,387 +1,66 @@
-{% extends 'template.html' %}
-
+{% extends 'sat/student_workspace.html' %}
 {% load static %}
-{% load dev_tags %}
-
-{% block title-main %}Edit Profile{% endblock title-main %}
-{% block title %}Profile{% endblock title %}
-
-{% block style %}
-<link rel="stylesheet" href="{% static 'assets/css/makon-dashboard.css' %}">
-<link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
-<style>
-  .profile-page-shell {
-    width: min(1080px, calc(100% - 32px));
-    margin: 0 auto;
-  }
-
-  .profile-layout {
-    display: grid;
-    grid-template-columns: minmax(280px, .82fr) minmax(0, 1.18fr);
-    gap: 24px;
-    align-items: start;
-  }
-
-  .profile-summary,
-  .edit-profile-container {
-    border: 1px solid rgba(124, 58, 237, .16);
-    border-radius: 30px;
-    background:
-      radial-gradient(circle at top right, rgba(124, 58, 237, .12), transparent 17rem),
-      rgba(255,255,255,.9);
-    box-shadow: 0 24px 64px rgba(76, 29, 149, .12);
-    backdrop-filter: blur(14px);
-  }
-
-  .profile-summary {
-    position: sticky;
-    top: 96px;
-    overflow: hidden;
-    padding: 28px;
-  }
-
-  .profile-summary::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(135deg, rgba(109, 40, 217, .08), transparent 40%),
-      radial-gradient(circle at 20% 100%, rgba(6, 182, 212, .12), transparent 14rem);
-  }
-
-  .profile-summary > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .profile-avatar {
-    width: 86px;
-    height: 86px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 28px;
-    color: #fff;
-    font-size: 34px;
-    font-weight: 900;
-    background: linear-gradient(135deg, #6d28d9, #c026d3);
-    box-shadow: 0 18px 34px rgba(109, 40, 217, .28);
-  }
-
-  .profile-summary h2 {
-    margin: 18px 0 8px;
-    color: #1f1338;
-    font-size: 32px;
-    letter-spacing: -.05em;
-  }
-
-  .profile-summary p {
-    margin: 0;
-    color: #625679;
-    line-height: 1.65;
-  }
-
-  .profile-stat-grid {
-    display: grid;
-    gap: 12px;
-    margin-top: 24px;
-  }
-
-  .profile-stat {
-    padding: 16px;
-    border-radius: 20px;
-    border: 1px solid rgba(124, 58, 237, .12);
-    background: rgba(255,255,255,.64);
-  }
-
-  .profile-stat strong {
-    display: block;
-    color: #4c1d95;
-    font-size: 20px;
-  }
-
-  .profile-stat span {
-    color: #706582;
-    font-size: 14px;
-  }
-
-  .edit-profile-container {
-    padding: clamp(24px, 4vw, 38px);
-  }
-
-  .edit-profile-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 26px;
-  }
-
-  .edit-profile-header h2 {
-    margin: 0;
-    color: #1f1338;
-    font-size: clamp(30px, 4vw, 46px);
-    letter-spacing: -.06em;
-  }
-
-  .edit-profile-header p {
-    margin: 8px 0 0;
-    color: #625679;
-  }
-
-  .profile-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex: 0 0 auto;
-    padding: 10px 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(53, 231, 138, .3);
-    background: rgba(53, 231, 138, .12);
-    color: #047857;
-    font-weight: 800;
-    font-size: 13px;
-  }
-
-  .profile-badge::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #10b981;
-    box-shadow: 0 0 14px rgba(16,185,129,.6);
-  }
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #4c1d95;
-    font-size: 16px;
-    font-weight: 900;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    margin: 26px 0 16px;
-  }
-
-  .section-header::before {
-    content: "";
-    width: 12px;
-    height: 12px;
-    border-radius: 6px;
-    background: linear-gradient(135deg, #6d28d9, #c026d3);
-    box-shadow: 0 8px 18px rgba(109,40,217,.25);
-  }
-
-  .profile-form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
-  }
-
-  .profile-field.full {
-    grid-column: 1 / -1;
-  }
-
-  .profile-field label,
-  .time-setting-row label {
-    display: block;
-    margin-bottom: 8px;
-    color: #2f2350;
-    font-weight: 800;
-  }
-
-  .edit-profile-container form input,
-  .edit-profile-container form textarea,
-  .edit-profile-container form select {
-    width: 100%;
-    min-height: 52px;
-    padding: 0 15px;
-    margin-bottom: 0;
-    border: 1px solid rgba(124, 58, 237, .2);
-    border-radius: 16px;
-    background: rgba(255,255,255,.76);
-    color: #1f1338;
-  }
-
-  .helptext {
-    font-size: 13px;
-    color: #746986;
-    margin-top: 8px;
-    line-height: 1.4;
-  }
-
-  .offline-notice {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(6,182,212,.08));
-    border: 1px solid rgba(16,185,129,.24);
-    border-radius: 22px;
-    padding: 16px;
-    margin-bottom: 22px;
-    color: #065f46;
-  }
-
-  .time-settings-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-  }
-
-  .time-setting-row {
-    padding: 16px;
-    border: 1px solid rgba(124,58,237,.14);
-    border-radius: 22px;
-    background: rgba(255,255,255,.58);
-  }
-
-  .time-setting-row span {
-    display: inline-block;
-    margin-top: 8px;
-    color: #706582;
-    font-weight: 700;
-  }
-
-  .profile-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 28px;
-  }
-
-  .edit-profile-container form button {
-    min-height: 54px;
-    border: none;
-    padding: 0 26px;
-    border-radius: 999px;
-    color: #fff;
-    font-size: 16px;
-    font-weight: 900;
-    cursor: pointer;
-    background: linear-gradient(135deg, #6d28d9, #c026d3);
-    box-shadow: 0 16px 32px rgba(109,40,217,.25);
-  }
-
-  @media (max-width: 900px) {
-    .profile-layout,
-    .profile-form-grid,
-    .time-settings-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .profile-summary {
-      position: relative;
-      top: auto;
-    }
-
-    .edit-profile-header {
-      flex-direction: column;
-    }
-
-    .profile-actions {
-      justify-content: stretch;
-    }
-
-    .edit-profile-container form button {
-      width: 100%;
-    }
-  }
-</style>
-{% endblock style %}
-
+{% block page_title %}Profile · MakonBook{% endblock %}
 {% block content %}
-<div class="profile-page-shell">
-  <div class="profile-layout">
-    <aside class="profile-summary" data-page-reveal>
-      <div class="profile-avatar">{{ request.user.username|first|upper }}</div>
-      <h2>{{ request.user.username }}</h2>
-      <p>Keep profile details clean. Bad data here makes classroom tracking and reports messy later.</p>
+<div class="v523-page v524-profile-page v525-profile-page">
+  <header class="v524-profile-heading v523-reveal">
+    <div><span class="v523-kicker"><i class="bi bi-person-circle"></i> Profile</span><h1>{{ request.user.get_full_name|default:request.user.username }}</h1><p>Your account, SAT destination and classroom membership in one compact place.</p></div>
+    <div><a class="mb50-secondary-btn" href="{% url 'settings_page' %}"><i class="bi bi-gear"></i> Settings</a></div>
+  </header>
 
-      <div class="profile-stat-grid">
-        <div class="profile-stat">
-          <strong>Account</strong>
-          <span>{{ request.user.email|default:"No email saved" }}</span>
-        </div>
-        <div class="profile-stat">
-          <strong>Workspace</strong>
-          <span>SAT Makon dashboard</span>
-        </div>
-        {% if request.user|is_in_group:"OFFLINE" %}
-        <div class="profile-stat">
-          <strong>Offline mode</strong>
-          <span>Custom section timers enabled</span>
-        </div>
-        {% endif %}
+  <section class="v524-profile-grid">
+    <article class="v524-profile-identity v523-reveal" style="--reveal-index:1">
+      <div class="v524-profile-avatar">{{ request.user.first_name|default:request.user.username|slice:":1"|upper }}</div>
+      <div class="v524-profile-name"><span>Student account</span><h2>{{ request.user.get_full_name|default:request.user.username }}</h2><p>@{{ request.user.username }}</p></div>
+      <div class="v524-profile-pills"><span><i class="bi bi-check-circle-fill"></i> Active</span>{% if gamification %}<span>Lv {{ gamification.level }} · {{ gamification.xp_total }} XP</span>{% endif %}</div>
+      <div class="v525-profile-contact-grid">
+        <div class="v525-profile-contact"><small>Login</small><strong>{{ request.user.username }}</strong></div>
+        <div class="v525-profile-contact"><small>Email</small><strong>{{ request.user.email|default:"Not added" }}</strong></div>
+        <div class="v525-profile-contact"><small>Phone</small><strong>{% if profile_user_profile and profile_user_profile.phone_number %}{{ profile_user_profile.phone_number }}{% else %}Not added{% endif %}</strong></div>
       </div>
-    </aside>
+      <div class="v526-profile-card-actions"><button class="mb50-secondary-btn" type="button" data-profile-modal-open="password"><i class="bi bi-key"></i> Change password</button><button class="mb50-primary-btn" type="button" data-profile-modal-open="profile"><i class="bi bi-pencil-square"></i> Edit profile</button></div>
+    </article>
 
-    <div class="edit-profile-container" data-page-reveal>
-      <div class="edit-profile-header">
-        <div>
-          <h2>Edit profile</h2>
-          <p>Update identity and test timing settings.</p>
-        </div>
-        <span class="profile-badge">Active</span>
-      </div>
+    <article class="v524-profile-goal v523-reveal" style="--reveal-index:2">
+      <span class="v523-card-label">SAT goal</span>
+      {% if student_goal and student_goal.university_name %}<h2>{{ student_goal.university_name }}</h2><p>{{ student_goal.university_country|default:"Target university" }}</p><strong>{{ student_goal.target_sat_score|default:"—" }} <small>target SAT</small></strong><div class="v525-profile-goal-meta">{% if student_goal.exam_date %}<span><i class="bi bi-calendar3"></i> {{ student_goal.exam_date|date:"M j, Y" }}</span><span>{{ student_goal.days_remaining }} days left</span>{% endif %}</div>{% else %}<h2>No university target yet.</h2><p>Set your SAT destination when you are ready.</p>{% endif %}
+      <a href="{% url 'student_dashboard_root' %}?goal=1">Manage goal <i class="bi bi-arrow-right"></i></a>
+    </article>
+  </section>
 
-      {% if request.user|is_in_group:"OFFLINE" %}
-      <div class="offline-notice">
-        <i class="fa fa-info-circle"></i>
-        <div><strong>Offline User:</strong> You can customize your test time limits below to better suit your learning needs.</div>
-      </div>
-      {% endif %}
-
-      <form method="post">
-        {% csrf_token %}
-
-        <div class="section-header">Basic information</div>
-
-        <div class="profile-form-grid">
-          <div class="profile-field">
-            <label for="{{ form.first_name.id_for_label }}">First name</label>
-            {{ form.first_name }}
-            {% if form.first_name.help_text %}<div class="helptext">{{ form.first_name.help_text }}</div>{% endif %}
-          </div>
-
-          <div class="profile-field">
-            <label for="{{ form.last_name.id_for_label }}">Last name</label>
-            {{ form.last_name }}
-            {% if form.last_name.help_text %}<div class="helptext">{{ form.last_name.help_text }}</div>{% endif %}
-          </div>
-
-          <div class="profile-field full">
-            <label for="{{ form.email.id_for_label }}">Email</label>
-            {{ form.email }}
-            {% if form.email.help_text %}<div class="helptext">{{ form.email.help_text }}</div>{% endif %}
-          </div>
-        </div>
-
-        {% if form.english_time_minutes and form.math_time_minutes %}
-        <div class="section-header">Test time settings</div>
-
-        <div class="time-settings-grid">
-          <div class="time-setting-row">
-            <label for="{{ form.english_time_minutes.id_for_label }}">English section</label>
-            {{ form.english_time_minutes }}
-            <span>minutes</span>
-            {% if form.english_time_minutes.help_text %}<div class="helptext">{{ form.english_time_minutes.help_text }}</div>{% endif %}
-          </div>
-
-          <div class="time-setting-row">
-            <label for="{{ form.math_time_minutes.id_for_label }}">Math section</label>
-            {{ form.math_time_minutes }}
-            <span>minutes</span>
-            {% if form.math_time_minutes.help_text %}<div class="helptext">{{ form.math_time_minutes.help_text }}</div>{% endif %}
-          </div>
-        </div>
-        {% endif %}
-
-        <div class="profile-actions">
-          <button type="submit">Save changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <section class="v526-profile-lower">
+    <article class="v523-card v524-memberships-card v523-reveal" style="--reveal-index:3"><div class="v524-card-head"><div><span class="v523-card-label">Membership</span><h2>{{ profile_classrooms|length }} active classroom{{ profile_classrooms|length|pluralize }}</h2></div><a class="v523-text-action" href="{% url 'student_classrooms_root' %}">View all</a></div><div class="v524-membership-list">{% for membership in profile_classrooms|slice:":4" %}<a href="{% url 'student_classroom_home_root' membership.classroom.id %}"><span>{{ membership.classroom.name|slice:":1"|upper }}</span><div><strong>{{ membership.classroom.name }}</strong><small>{{ membership.classroom.teacher.get_full_name|default:membership.classroom.teacher.username }}</small></div><i class="bi bi-arrow-right"></i></a>{% empty %}<p>No approved classroom yet.</p>{% endfor %}</div></article>
+    <article class="v523-card v524-referral-card v523-reveal" style="--reveal-index:4"><span class="v523-card-label">Referral</span><h2>Invite a study partner.</h2><p>An invite becomes <b>earned</b> after the invited student is approved in an active classroom. No XP, discount or cash reward is configured yet.</p>{% if referral %}<div class="v524-referral-code"><code>{{ referral.code }}</code><button type="button" data-copy-value="{{ referral_url }}" aria-label="Copy referral link"><i class="bi bi-copy"></i></button></div><div class="v524-referral-stats"><span><strong>{{ referral_earned|default:0 }}</strong> earned</span><span><strong>{{ referral_pending|default:0 }}</strong> pending</span></div>{% endif %}</article>
+  </section>
 </div>
-{% endblock content %}
+
+<div class="v526-profile-modal" data-profile-modal="profile" hidden aria-hidden="true">
+  <button class="v526-profile-modal-backdrop" type="button" data-profile-modal-close aria-label="Close"></button>
+  <section class="v526-profile-modal-panel" role="dialog" aria-modal="true" aria-labelledby="profileEditModalTitle">
+    <div class="v526-profile-modal-head"><div><span class="v523-card-label">Basic information</span><h2 id="profileEditModalTitle">Edit profile</h2><p>Update the identity teachers and classrooms use.</p></div><button class="v526-profile-modal-close" type="button" data-profile-modal-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div>
+    <form method="post" class="v523-account-form" novalidate>{% csrf_token %}<input type="hidden" name="profile_action" value="profile">{% if form.non_field_errors %}<div class="v523-form-alert">{{ form.non_field_errors }}</div>{% endif %}<div class="v523-form-grid">{% for field in form %}<label class="v523-field{% if field.name == 'email' %} v523-field-wide{% endif %}"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}</div><div class="v523-form-actions"><button class="mb50-secondary-btn" type="button" data-profile-modal-close>Cancel</button><button class="mb50-primary-btn" type="submit"><i class="bi bi-check2"></i> Save profile</button></div></form>
+  </section>
+</div>
+
+<div class="v526-profile-modal" data-profile-modal="password" hidden aria-hidden="true">
+  <button class="v526-profile-modal-backdrop" type="button" data-profile-modal-close aria-label="Close"></button>
+  <section class="v526-profile-modal-panel" role="dialog" aria-modal="true" aria-labelledby="profilePasswordModalTitle">
+    <div class="v526-profile-modal-head"><div><span class="v523-card-label">Security</span><h2 id="profilePasswordModalTitle">Change password</h2><p>Confirm your current password, then choose a new one.</p></div><button class="v526-profile-modal-close" type="button" data-profile-modal-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div>
+    <p class="v526-password-help"><i class="bi bi-shield-check"></i> Your session stays active after a successful password change on this device.</p>
+    <form method="post" class="v523-account-form" novalidate>{% csrf_token %}<input type="hidden" name="profile_action" value="password">{% if password_form.non_field_errors %}<div class="v523-form-alert">{{ password_form.non_field_errors }}</div>{% endif %}<div class="v523-form-grid">{% for field in password_form %}<label class="v523-field v523-field-wide"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text|safe }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}</div><div class="v523-form-actions"><button class="mb50-secondary-btn" type="button" data-profile-modal-close>Cancel</button><button class="mb50-primary-btn" type="submit"><i class="bi bi-key"></i> Update password</button></div></form>
+  </section>
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}
+<script>
+(function(){
+  var modals=Array.prototype.slice.call(document.querySelectorAll('[data-profile-modal]'));
+  function setModal(name,open){var modal=modals.find(function(item){return item.dataset.profileModal===name;});if(!modal)return;if(open){modals.forEach(function(other){if(other!==modal){other.classList.remove('is-open');other.hidden=true;other.setAttribute('aria-hidden','true');}});modal.hidden=false;requestAnimationFrame(function(){modal.classList.add('is-open');});modal.setAttribute('aria-hidden','false');document.documentElement.classList.add('mb526-profile-modal-open');var first=modal.querySelector('input:not([type=hidden])');if(first)setTimeout(function(){first.focus();},110);}else{modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true');setTimeout(function(){if(!modal.classList.contains('is-open'))modal.hidden=true;},210);if(!modals.some(function(item){return item.classList.contains('is-open');}))document.documentElement.classList.remove('mb526-profile-modal-open');}}
+  document.querySelectorAll('[data-profile-modal-open]').forEach(function(btn){btn.addEventListener('click',function(){setModal(btn.dataset.profileModalOpen,true);});});
+  document.querySelectorAll('[data-profile-modal-close]').forEach(function(btn){btn.addEventListener('click',function(){var modal=btn.closest('[data-profile-modal]');if(modal)setModal(modal.dataset.profileModal,false);});});
+  document.addEventListener('keydown',function(event){if(event.key!=='Escape')return;var open=modals.find(function(item){return item.classList.contains('is-open');});if(open)setModal(open.dataset.profileModal,false);});
+  document.querySelectorAll('[data-copy-value]').forEach(function(btn){btn.addEventListener('click',function(){var value=btn.dataset.copyValue||'';if(navigator.clipboard)navigator.clipboard.writeText(value);btn.innerHTML='<i class="bi bi-check2"></i>';setTimeout(function(){btn.innerHTML='<i class="bi bi-copy"></i>';},1000);});});
+  {% if profile_modal_open %}setModal('{{ profile_modal_open|escapejs }}',true);{% endif %}
+})();
+</script>
+{% endblock %}

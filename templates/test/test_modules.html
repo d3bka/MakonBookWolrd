@@ -19,13 +19,13 @@
   <div class="sat-start-bg" aria-hidden="true"></div>
   <main class="sat-start-shell">
     <header class="sat-start-topbar">
-      <a class="sat-start-brand" href="{% if classroom %}{% url 'classroom_practice_tests' classroom.id %}{% else %}{% url 'practice_tests' %}{% endif %}">
+      <a class="sat-start-brand" href="{% if classroom %}{% url 'classroom_practice_tests_root' classroom.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">
         <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon">
         <span>SAT Makon</span>
       </a>
       <div class="sat-start-top-actions">
         {% include 'base/theme_toggle.html' %}
-        <a class="sat-start-close" href="{% if classroom %}{% url 'classroom_practice_tests' classroom.id %}{% else %}{% url 'practice_tests' %}{% endif %}">
+        <a class="sat-start-close" href="{% if classroom %}{% url 'classroom_practice_tests_root' classroom.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">
           <i class="fa fa-times" aria-hidden="true"></i><span>Close</span>
         </a>
       </div>
@@ -92,12 +92,12 @@
     <div class="sat-start-footer-inner">
       <div class="sat-start-footer-note"><i class="fa fa-shield" aria-hidden="true"></i><span>Do not open the same attempt in multiple tabs.</span></div>
       <div class="sat-start-footer-actions">
-        <a class="sat-start-button secondary" href="{% if classroom %}{% url 'classroom_practice_tests' classroom.id %}{% else %}{% url 'practice_tests' %}{% endif %}">Back</a>
+        <a class="sat-start-button secondary" href="{% if classroom %}{% url 'classroom_practice_tests_root' classroom.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">Back</a>
         {% if total_modules %}
           {% if start_url %}
             <a class="sat-start-button primary" data-start-test-link href="{{ start_url }}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
           {% else %}
-            <a class="sat-start-button primary" data-start-test-link href="{% url 'test' test.name %}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+            <a class="sat-start-button primary" data-start-test-link href="{% url 'practice_test_module_root' test.name %}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
           {% endif %}
         {% endif %}
       </div>
