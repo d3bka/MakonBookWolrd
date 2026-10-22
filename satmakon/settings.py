@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import os
 from urllib.parse import urlparse, parse_qs, unquote
 from dotenv import load_dotenv
@@ -66,6 +66,13 @@ SITE_DOMAIN = env_str("SITE_DOMAIN", "makonbook.uz")
 SITE_PROTOCOL = env_str("SITE_PROTOCOL", "http" if DEBUG else "https")
 SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
 
+# MakonBook World is temporarily hidden while the next game release is prepared.
+# Set MAKONBOOK_WORLD_ENABLED=1 to reopen all /world/ routes and the live sidebar link.
+MAKONBOOK_WORLD_ENABLED = env_bool("MAKONBOOK_WORLD_ENABLED", False)
+
+# V5581: anonymous guest signup is replaced by verified event registration.
+MAKONBOOK_GUEST_MODE_ENABLED = env_bool("MAKONBOOK_GUEST_MODE_ENABLED", False)
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -108,6 +115,7 @@ MIDDLEWARE = [
     "apps.sat.middleware.ClientSoftwareMiddleware",
     "apps.sat.middleware.RequestTimeoutMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "apps.world.middleware.WorldAvailabilityMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -239,7 +247,6 @@ project_static_dir = BASE_DIR / "static"
 if project_static_dir.exists():
     STATICFILES_DIRS.append(project_static_dir)
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -321,21 +328,6 @@ else:
 
 
 # Logging configuration for monitoring large requests
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'apps.sat.middleware': {
-            'handlers': ['console'],
-            'level': 'INFO',
-        },
-    },
-}
 
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -452,8 +444,6 @@ LOGGING = {
     },
 }
 
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 AUTHENTICATION_BACKENDS = [
@@ -468,6 +458,9 @@ LOGIN_REDIRECT_URL = "/dashboard/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/login/"
 
 ACCOUNT_EMAIL_VERIFICATION = "none"
+# V5580: student self-registration is closed; Hollihop is the provisioning source.
+ACCOUNT_ADAPTER = "apps.base.adapters.HollihopOnlyAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "apps.base.adapters.HollihopOnlySocialAccountAdapter"
 # ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 
@@ -551,6 +544,51 @@ HOLLIHOP_MEMBERSHIP_REMOVAL_GUARD_MIN_POPULATION = max(1, int(os.getenv("HOLLIHO
 HOLLIHOP_SEND_CREDENTIALS = env_bool("HOLLIHOP_SEND_CREDENTIALS", False)
 HOLLIHOP_AUTO_SEND_CREDENTIALS = env_bool("HOLLIHOP_AUTO_SEND_CREDENTIALS", False)
 
+# Controlled Hollihop pilot. This is deliberately separate from the full
+# Hollihop provider switch: keep SCHOOL_DATA_PROVIDER=local while testing.
+# V5574 accepts one or many comma-separated IDs. The plural variable is
+# canonical, while HOLLIHOP_PILOT_USER_ID remains backwards-compatible and
+# may also contain a comma-separated list.
+def _parse_positive_int_list(raw_value: str, setting_name: str) -> tuple[int, ...]:
+    values: list[int] = []
+    seen: set[int] = set()
+    for token in str(raw_value or "").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            value = int(token)
+        except ValueError as exc:
+            raise RuntimeError(
+                f"{setting_name} must contain positive integer Hollihop IDs separated by commas."
+            ) from exc
+        if value <= 0:
+            continue
+        if value not in seen:
+            seen.add(value)
+            values.append(value)
+    return tuple(values)
+
+
+HOLLIHOP_PILOT_ENABLED = env_bool("HOLLIHOP_PILOT_ENABLED", False)
+# V5576: optional typed pilot targets. Examples:
+#   HOLLIHOP_PILOT_TARGETS=student:37,manager:12557,teacher:4
+# This resolves legitimate numeric-ID collisions between Hollihop namespaces.
+HOLLIHOP_PILOT_TARGETS = env_str("HOLLIHOP_PILOT_TARGETS", "")
+_pilot_ids_raw = os.getenv("HOLLIHOP_PILOT_USER_IDS", "").strip()
+if not _pilot_ids_raw:
+    _pilot_ids_raw = os.getenv("HOLLIHOP_PILOT_USER_ID", "").strip()
+HOLLIHOP_PILOT_USER_IDS = _parse_positive_int_list(
+    _pilot_ids_raw,
+    "HOLLIHOP_PILOT_USER_IDS/HOLLIHOP_PILOT_USER_ID",
+)
+# Legacy scalar remains available to older code/tests.
+HOLLIHOP_PILOT_USER_ID = HOLLIHOP_PILOT_USER_IDS[0] if HOLLIHOP_PILOT_USER_IDS else 0
+HOLLIHOP_PILOT_KIND = env_str("HOLLIHOP_PILOT_KIND", "auto").lower()
+if HOLLIHOP_PILOT_KIND not in {"auto", "student", "teacher", "manager"}:
+    raise RuntimeError("HOLLIHOP_PILOT_KIND must be auto, student, teacher, or manager.")
+HOLLIHOP_PILOT_SEND_SMS = env_bool("HOLLIHOP_PILOT_SEND_SMS", False)
+
 # Hollihop LearningType is separate from Type=Group/MiniGroup. Only ordinary
 # GROUP units enter MakonBook; ONLINE / IV ONLINE / IV OFFLINE are ignored.
 HOLLIHOP_ALLOWED_LEARNING_TYPES = tuple(env_list("HOLLIHOP_ALLOWED_LEARNING_TYPES", "GROUP"))
@@ -585,12 +623,22 @@ HOLLIHOP_INACTIVE_STUDENT_STATUSES = {
 }
 
 # SMS provider abstraction. Keep disabled until the provider account, sender and
-# operator-approved templates are ready. Supported: disabled, generic_http, eskiz.
+# operator-approved templates are ready. Supported: disabled, generic_http,
+# eskiz, playmobile.
 MAKONBOOK_SMS_PROVIDER = env_str("MAKONBOOK_SMS_PROVIDER", "disabled").lower()
 MAKONBOOK_SMS_API_URL = env_str("MAKONBOOK_SMS_API_URL", "")
 MAKONBOOK_SMS_API_TOKEN = env_str("MAKONBOOK_SMS_API_TOKEN", "")
 MAKONBOOK_SMS_SENDER = env_str("MAKONBOOK_SMS_SENDER", "MakonBook")
 MAKONBOOK_SMS_TIMEOUT_SECONDS = max(3, int(os.getenv("MAKONBOOK_SMS_TIMEOUT_SECONDS", "15")))
+
+# Native PlayMobile (smsxabar.uz) adapter. The HTTP API uses Basic Auth and an
+# approved originator. SATMAKON can be reused only when it is enabled for this
+# PlayMobile account by the operator/provider.
+PLAYMOBILE_API_URL = env_str("PLAYMOBILE_API_URL", "https://send.smsxabar.uz/broker-api/send")
+PLAYMOBILE_LOGIN = env_str("PLAYMOBILE_LOGIN", "")
+PLAYMOBILE_PASSWORD = env_str("PLAYMOBILE_PASSWORD", "")
+PLAYMOBILE_ORIGINATOR = env_str("PLAYMOBILE_ORIGINATOR", "SATMAKON")
+PLAYMOBILE_TEMPLATE_ID = env_str("PLAYMOBILE_TEMPLATE_ID", "")
 
 # Native Eskiz.uz adapter. Credentials stay in environment variables only.
 ESKIZ_API_BASE_URL = env_str("ESKIZ_API_BASE_URL", "https://notify.eskiz.uz/api").rstrip("/")

@@ -15,10 +15,24 @@
   <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5264.css' %}?v=5264">
   <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5265.css' %}?v=5265">
   <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v50210.css' %}?v=50210">
+  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-spacing-v5266.css' %}?v=5266">
+  <link rel="stylesheet" href="{% static 'assets/css/student-speed-v554.css' %}?v=5544">
+  <link rel="stylesheet" href="{% static 'assets/css/student-world-upcoming-v5571.css' %}?v=5571">
 {% endblock style %}
 
 {% block body %}
 <div class="mb50-shell" data-student-workspace data-workspace-storage-scope="student" data-workspace-search-url="{% url 'workspace_search_root' %}">
+  {% if not makonbook_world_enabled %}
+  <div class="mb557-world-upcoming-alert" data-world-upcoming-alert role="status" aria-live="polite" aria-hidden="true">
+    <span class="mb557-world-upcoming-icon"><i class="bi bi-stars"></i></span>
+    <span class="mb557-world-upcoming-copy">
+      <small>UPCOMING</small>
+      <strong>MakonBook World</strong>
+      <span>Competitive games are being prepared. Coming soon.</span>
+    </span>
+    <button type="button" data-world-upcoming-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+  </div>
+  {% endif %}
   <button class="mb50-mobile-scrim" type="button" aria-label="Close navigation" data-workspace-scrim></button>
 
   <aside class="mb50-sidebar" aria-label="Student navigation" data-workspace-sidebar>
@@ -44,9 +58,13 @@
         <a class="mb50-nav-item{% if not student_workspace_active or student_workspace_active == 'home' %} is-active{% endif %}" href="{% url 'student_dashboard_root' %}" data-nav-key="home" data-sidebar-item data-sidebar-locked="1" data-sidebar-default-group="study"><i class="bi bi-grid-1x2-fill"></i><span>Home</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'learn' %} is-active{% endif %}" href="{% url 'student_learn_root' %}" data-nav-key="learn" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-mortarboard"></i><span>Learn</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'practice' %} is-active{% endif %}" href="{% url 'student_practice_root' %}" data-nav-key="practice" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-lightning-charge"></i><span>Practice</span></a>
-        <a class="mb50-nav-item{% if student_workspace_active == 'homework' %} is-active{% endif %}" href="{% url 'student_homework_root' %}" data-nav-key="homework" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-list-check"></i><span>Homework</span></a>
+        <a class="mb50-nav-item{% if student_workspace_active == 'homework' %} is-active{% endif %}" href="{% url 'student_homework_root' %}" data-nav-key="homework" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-list-check"></i><span>Homework</span>{% if student_homework_pending_count %}<b class="mb554-homework-badge" title="{{ student_homework_pending_count }} homework assignment{{ student_homework_pending_count|pluralize }} to submit"><i class="bi bi-exclamation"></i><span>{{ student_homework_pending_count }}</span></b>{% endif %}</a>
         <a class="mb50-nav-item{% if student_workspace_active == 'tests' %} is-active{% endif %}" href="{% url 'practice_tests_root' %}" data-nav-key="tests" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-clipboard2-check"></i><span>Tests</span></a>
+        {% if makonbook_world_enabled %}
         <a class="mb50-nav-item mb50-world-link{% if student_workspace_active == 'world' %} is-active{% endif %}" href="{% url 'world_home' %}" data-nav-key="world" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-globe2"></i><span>MakonBook World</span><em>V50.3</em></a>
+        {% else %}
+        <a class="mb50-nav-item mb50-world-link mb557-world-upcoming-link" href="{% url 'world_home' %}" data-nav-key="world" data-sidebar-item data-sidebar-default-group="study" data-world-upcoming aria-disabled="true"><i class="bi bi-globe2"></i><span>MakonBook World</span><em>UPCOMING</em></a>
+        {% endif %}
       </div>
 
       <div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="learning">
@@ -62,7 +80,7 @@
         <a class="mb50-nav-item{% if student_workspace_active == 'messages' %} is-active{% endif %}" href="{% url 'student_messages_root' %}" data-nav-key="messages" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-chat-left-text"></i><span>Messages</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'bookings' %} is-active{% endif %}" href="{% url 'my_support_lessons_root' %}" data-nav-key="bookings" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-calendar2-week"></i><span>Support sessions</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'events' %} is-active{% endif %}" href="{% url 'events' %}" data-nav-key="events" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-calendar-event"></i><span>Events</span></a>
-        <a class="mb50-nav-item{% if student_workspace_active == 'placement' %} is-active{% endif %}" href="{% url 'placement_tests' %}" data-nav-key="placement" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-ui-checks-grid"></i><span>Placement Tests</span></a>
+        <a class="mb50-nav-item{% if student_workspace_active == 'placement' %} is-active{% endif %}" href="{% url 'public_placement_list' %}" data-nav-key="placement" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-ui-checks-grid"></i><span>Placement Tests</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'question-bank' %} is-active{% endif %}" href="{% url 'student_question_bank_root' %}" data-nav-key="question-bank" data-sidebar-item data-sidebar-default-group="explore" data-sidebar-default-hidden="1" hidden><i class="bi bi-card-checklist"></i><span>Question Bank</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'ranking' %} is-active{% endif %}" href="{% url 'rating_home' %}" data-nav-key="ranking" data-sidebar-item data-sidebar-default-group="explore" data-sidebar-default-hidden="1" hidden><i class="bi bi-trophy"></i><span>Ranking</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'mentors' %} is-active{% endif %}" href="{% url 'mentors' %}" data-nav-key="mentors" data-sidebar-item data-sidebar-default-group="explore" data-sidebar-default-hidden="1" hidden><i class="bi bi-person-badge"></i><span>Mentors</span></a>
@@ -166,8 +184,10 @@
 
 {% block scripts %}
   {{ block.super }}
-  <script src="{% static 'assets/js/student-workspace-v50.js' %}?v=50212"></script>
+  <script src="{% static 'assets/js/student-workspace-v50.js' %}?v=5261"></script>
   <script src="{% static 'assets/js/student-workspace-v50210.js' %}?v=50210"></script><script src="{% static 'assets/js/workspace-v50211.js' %}?v=50212"></script>
+  <script src="{% static 'assets/js/student-speed-v554.js' %}?v=554"></script>
+  <script src="{% static 'assets/js/student-world-upcoming-v5571.js' %}?v=5571"></script>
   {% block student_workspace_scripts %}{% endblock student_workspace_scripts %}
 {% endblock scripts %}
 

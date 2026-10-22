@@ -10,7 +10,7 @@
         <span class="test-flow-modal-kicker">Final module check</span>
         <h2 id="finish-summary-title">Ready to submit?</h2>
         <p class="finish-summary-context">
-          {{ test.name|default:'SAT' }} · {% if section == 'math' %}Mathematics{% else %}Reading and Writing{% endif %} · Module {% if module == 'm2' or module == 'module_2' %}2{% else %}1{% endif %}
+          {{ overlay_test_name|default:'SAT' }} · {% if section == 'math' %}Mathematics{% else %}Reading and Writing{% endif %} · Module {% if module == 'm2' or module == 'module_2' %}2{% else %}1{% endif %}
         </p>
       </div>
     </div>
@@ -28,7 +28,7 @@
     <div class="finish-summary-grid">
       <div class="finish-stat finish-stat-answered"><strong data-summary-answered>0</strong><span>Answered</span></div>
       <div class="finish-stat finish-stat-unanswered"><strong data-summary-unanswered>0</strong><span>Unanswered</span></div>
-      <div class="finish-stat finish-stat-marked"><strong data-summary-marked>0</strong><span>Marked</span></div>
+      <div class="finish-stat finish-stat-marked" aria-label="Marked for review"><strong data-summary-marked>0</strong><span class="finish-marked-icon"><i class="fa fa-bookmark" aria-hidden="true"></i><span class="finish-sr-only">Marked for review</span></span></div>
     </div>
 
     <div class="finish-summary-warning" data-summary-warning>

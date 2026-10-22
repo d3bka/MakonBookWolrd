@@ -222,3 +222,53 @@ html[data-theme="light"] .public-nav .theme-switcher {
 html[data-theme="light"] .theme-menu {
   box-shadow: 0 24px 80px rgba(76,29,149,.18), 0 0 0 1px rgba(255,255,255,.72) inset;
 }
+
+/* v5597: clearer theme states + correct light/dark skin on MakonBook public surfaces. */
+.theme-menu{width:224px;padding:9px;border-radius:22px}
+.theme-menu button{min-height:54px;padding:9px 10px;border-radius:15px;gap:10px}
+.theme-menu button:hover{transform:none}
+.theme-menu button[aria-checked="true"]{background:var(--theme-switch-selected,rgba(139,92,246,.14));color:var(--theme-switch-selected-text,var(--theme-switch-menu-text,#fff));box-shadow:inset 0 0 0 1px var(--theme-switch-selected-border,rgba(167,139,250,.24))}
+.theme-choice-icon{width:30px!important;height:30px!important;border-radius:10px!important;background:var(--theme-switch-icon-bg,rgba(255,255,255,.08))!important}
+.theme-choice-copy{min-width:0;display:grid;gap:2px;flex:1}.theme-choice-copy strong{font-size:13px}.theme-choice-copy small{font-size:9px;font-weight:650;color:var(--theme-switch-menu-muted,rgba(255,255,255,.52));white-space:nowrap}.theme-choice-check{font-style:normal;font-size:12px;font-weight:900;opacity:0;transform:scale(.7);color:var(--theme-switch-check,#8b5cf6);transition:.16s ease}.theme-menu button[aria-checked="true"] .theme-choice-check{opacity:1;transform:scale(1)}
+
+html[data-theme="light"] body.mb56-page .theme-switcher,
+html[data-theme="light"] body.mkp-page .theme-switcher,
+html[data-theme="light"] body.rating523-parent-body .theme-switcher{
+  --theme-switch-text:#211337;--theme-switch-border:rgba(124,58,237,.16);--theme-switch-border-active:rgba(124,58,237,.34);
+  --theme-switch-bg-a:rgba(255,255,255,.96);--theme-switch-bg-b:rgba(248,245,255,.88);--theme-switch-menu-bg:rgba(255,255,255,.97);
+  --theme-switch-menu-border:rgba(124,58,237,.15);--theme-switch-menu-text:#211337;--theme-switch-menu-muted:#7a6d8d;
+  --theme-switch-menu-hover:rgba(124,58,237,.06);--theme-switch-selected:rgba(124,58,237,.1);--theme-switch-selected-text:#5b21b6;
+  --theme-switch-selected-border:rgba(124,58,237,.16);--theme-switch-icon-bg:#f2edff;--theme-switch-check:#7c3aed;
+  --theme-switch-shadow:0 12px 32px rgba(76,29,149,.1);--theme-switch-shadow-active:0 18px 46px rgba(124,58,237,.18)
+}
+html[data-theme="dark"] body.mb56-page .theme-switcher,
+html[data-theme="dark"] body.mkp-page .theme-switcher,
+html[data-theme="dark"] body.rating523-parent-body .theme-switcher{
+  --theme-switch-text:#f8f5ff;--theme-switch-border:rgba(255,255,255,.13);--theme-switch-border-active:rgba(167,139,250,.35);
+  --theme-switch-bg-a:rgba(255,255,255,.095);--theme-switch-bg-b:rgba(255,255,255,.045);--theme-switch-menu-bg:rgba(19,15,28,.97);
+  --theme-switch-menu-border:rgba(255,255,255,.12);--theme-switch-menu-text:#fff;--theme-switch-menu-muted:#958ca5;
+  --theme-switch-menu-hover:rgba(255,255,255,.055);--theme-switch-selected:rgba(139,92,246,.16);--theme-switch-selected-text:#fff;
+  --theme-switch-selected-border:rgba(167,139,250,.24);--theme-switch-icon-bg:rgba(255,255,255,.07);--theme-switch-check:#c4b5fd;
+  --theme-switch-shadow:0 14px 34px rgba(0,0,0,.3);--theme-switch-shadow-active:0 20px 48px rgba(76,29,149,.3)
+}
+@media(max-width:520px){.theme-menu{width:210px}}
+
+
+/* v5598 hotfixes: slightly wider and more stable dropdown */
+.theme-toggle{min-height:46px;padding:0 14px}
+.theme-menu{width:232px;padding:10px 10px 9px}
+.theme-menu button{align-items:center;min-height:56px}
+.theme-choice-copy small{line-height:1.3}
+@media(max-width:520px){.theme-menu{width:218px}}
+
+
+/* v5599: repair dropdown layout after legacy generic .theme-menu button span rules */
+.theme-menu{width:238px;padding:10px;border-radius:22px;overflow:hidden}
+.theme-menu button{min-height:58px;padding:9px 10px;gap:11px;border-radius:15px;overflow:hidden}
+.theme-menu button>.theme-choice-icon{width:32px!important;height:32px!important;min-width:32px!important;display:grid!important;place-items:center!important;border-radius:11px!important;background:var(--theme-switch-icon-bg,rgba(255,255,255,.08))!important}
+.theme-menu button>.theme-choice-copy{width:auto!important;height:auto!important;min-width:0!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:2px!important;border-radius:0!important;background:transparent!important;padding:0!important}
+.theme-menu button>.theme-choice-copy strong{display:block;max-width:100%;font-size:14px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.theme-menu button>.theme-choice-copy small{display:block;max-width:100%;font-size:9px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.theme-menu button>.theme-choice-check{width:18px!important;height:18px!important;min-width:18px!important;display:grid!important;place-items:center!important;border-radius:999px!important;background:transparent!important;padding:0!important}
+.theme-menu button[aria-checked="true"]>.theme-choice-check{background:color-mix(in srgb,var(--theme-switch-check,#8b5cf6) 12%,transparent)!important}
+@media(max-width:520px){.theme-menu{width:224px}}

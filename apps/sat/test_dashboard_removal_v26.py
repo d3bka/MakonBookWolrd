@@ -29,4 +29,4 @@ class DashboardRemovalV26Tests(TestCase):
         SupportTeacherProfile.objects.create(user=user, display_name="Support V26", is_active=True)
         self.client.force_login(user)
         response = self.client.get(reverse("student_dashboard_root"))
-        self.assertRedirects(response, reverse("support_teacher_planner"))
+        self.assertRedirects(response, reverse("support_teacher_dashboard_root"), fetch_redirect_response=False)

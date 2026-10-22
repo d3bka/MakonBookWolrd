@@ -63,10 +63,11 @@ class RatingEngineTests(TestCase):
 
     def test_parent_lookup_is_rate_limited(self):
         url = reverse("rating_parent_lookup")
+        payload = {"action": "lookup", "phone_number": "+998 90 999 99 99"}
         for _ in range(10):
-            response = self.client.post(url, {"code": "INVALID"})
+            response = self.client.post(url, payload)
             self.assertEqual(response.status_code, 200)
-        response = self.client.post(url, {"code": "INVALID"})
+        response = self.client.post(url, payload)
         self.assertEqual(response.status_code, 429)
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -24,7 +25,7 @@ PARENT_LANGUAGE_CHOICES = ("en", "ru", "uz")
 
 PARENT_TRANSLATIONS = {
     "en": {
-        "page_title": "Parent Rating Access",
+        "page_title": "Parent Portal | SAT Makon",
         "open_menu": "Open menu",
         "main_navigation": "Main navigation",
         "home": "Home",
@@ -34,11 +35,11 @@ PARENT_TRANSLATIONS = {
         "landing_page": "Landing page",
         "back_to_makonbook": "Back to MakonBook",
         "parent_title": "Parent access",
-        "parent_intro": "Enter the private code shown on the student's My Rating page. Search by full name stays disabled on purpose for privacy.",
+        "parent_intro": "Enter the phone number registered on the student's SATMakon account. After a successful lookup, this browser keeps the student open after refresh so you do not have to enter the phone number every time.",
         "public_leaderboard": "Public leaderboard",
-        "student_access_code": "Student access code",
-        "code_placeholder": "Enter access code",
-        "open_rating": "Open rating",
+        "student_access_code": "Registered phone number",
+        "code_placeholder": "+998 90 123 45 67",
+        "open_rating": "Open student stats",
         "rank": "Rank",
         "rating": "Rating",
         "assessments": "Assessments",
@@ -69,16 +70,27 @@ PARENT_TRANSLATIONS = {
         "name_optional": "Name (optional)",
         "email_optional": "Email (optional)",
         "comment": "Comment",
-        "comment_placeholder": "Example: I could not open my child's rating page after entering the code...",
+        "comment_placeholder": "Example: I could not open my child's statistics using the registered phone number...",
         "send_report": "Send report",
         "sending": "Sending...",
         "report_sent": "Report sent. Thank you.",
         "report_failed": "Could not send report.",
-        "too_many_attempts": "Too many code attempts. Try again later.",
-        "code_not_found": "Code not found. Check the code shown in the student's My Rating page.",
+        "too_many_attempts": "Too many phone-number lookup attempts. Try again later.",
+        "code_not_found": "Phone number not found. Enter the phone number registered on the student's SATMakon account.",
+        "remembered_on_device": "Remembered on this device",
+        "switch_student": "Use another student",
+        "registration_help": "Use the phone number already registered on the student's SATMakon account. No separate parent code is required.",
+        "device_note": "After the first successful lookup, this browser remembers the student. Refreshing the page will keep the statistics open. Use “Use another student” on shared devices when you are finished.",
+        "use_registered_phone": "Use the student's registered phone number",
+        "support": "Support",
+        "multiple_students_title": "Choose a student",
+        "multiple_students_intro": "This phone number is linked to more than one student. Select the student whose statistics you want to open.",
+        "select_student": "Open statistics",
+        "use_another_phone": "Use another phone number",
+        "records": "records",
     },
     "ru": {
-        "page_title": "Рейтинг ученика — доступ для родителей",
+        "page_title": "Родительский портал | SAT Makon",
         "open_menu": "Открыть меню",
         "main_navigation": "Главная навигация",
         "home": "Главная",
@@ -88,11 +100,11 @@ PARENT_TRANSLATIONS = {
         "landing_page": "Главная страница",
         "back_to_makonbook": "Вернуться в MakonBook",
         "parent_title": "Доступ для родителей",
-        "parent_intro": "Введите личный код, который указан на странице «Мой рейтинг» у ученика. Поиск по полному имени специально отключён для защиты персональных данных.",
+        "parent_intro": "Введите номер телефона, зарегистрированный в аккаунте ученика SATMakon. После успешного поиска браузер запомнит ученика, поэтому после обновления вводить номер повторно не нужно.",
         "public_leaderboard": "Общий рейтинг",
-        "student_access_code": "Код доступа ученика",
-        "code_placeholder": "Введите код доступа",
-        "open_rating": "Открыть рейтинг",
+        "student_access_code": "Зарегистрированный номер телефона",
+        "code_placeholder": "+998 90 123 45 67",
+        "open_rating": "Открыть статистику",
         "rank": "Место",
         "rating": "Рейтинг",
         "assessments": "Оценивания",
@@ -123,16 +135,27 @@ PARENT_TRANSLATIONS = {
         "name_optional": "Имя (необязательно)",
         "email_optional": "Email (необязательно)",
         "comment": "Комментарий",
-        "comment_placeholder": "Например: после ввода кода я не смог открыть рейтинг ребёнка...",
+        "comment_placeholder": "Например: я не смог открыть статистику ребёнка по зарегистрированному номеру телефона...",
         "send_report": "Отправить",
         "sending": "Отправка...",
         "report_sent": "Сообщение отправлено. Спасибо.",
         "report_failed": "Не удалось отправить сообщение.",
-        "too_many_attempts": "Слишком много попыток ввода кода. Попробуйте позже.",
-        "code_not_found": "Код не найден. Проверьте код на странице «Мой рейтинг» у ученика.",
+        "too_many_attempts": "Слишком много попыток поиска по номеру телефона. Попробуйте позже.",
+        "code_not_found": "Номер телефона не найден. Введите номер, зарегистрированный в аккаунте ученика SATMakon.",
+        "remembered_on_device": "Сохранено на этом устройстве",
+        "switch_student": "Другой ученик",
+        "registration_help": "Введите номер телефона, который уже зарегистрирован в аккаунте ученика SATMakon. Отдельный код для родителей не нужен.",
+        "device_note": "После первого успешного поиска этот браузер запомнит ученика. После обновления страницы статистика останется открытой. На общем устройстве используйте кнопку «Другой ученик», когда закончите.",
+        "use_registered_phone": "Используйте номер телефона, зарегистрированный у ученика",
+        "support": "Поддержка",
+        "multiple_students_title": "Выберите ученика",
+        "multiple_students_intro": "Этот номер телефона привязан к нескольким ученикам. Выберите, чью статистику нужно открыть.",
+        "select_student": "Открыть статистику",
+        "use_another_phone": "Использовать другой номер",
+        "records": "записей",
     },
     "uz": {
-        "page_title": "O‘quvchi reytingi — ota-onalar uchun kirish",
+        "page_title": "Ota-onalar portali | SAT Makon",
         "open_menu": "Menyuni ochish",
         "main_navigation": "Asosiy navigatsiya",
         "home": "Bosh sahifa",
@@ -142,11 +165,11 @@ PARENT_TRANSLATIONS = {
         "landing_page": "Bosh sahifa",
         "back_to_makonbook": "MakonBook’ga qaytish",
         "parent_title": "Ota-onalar uchun kirish",
-        "parent_intro": "O‘quvchining «Mening reytingim» sahifasida ko‘rsatilgan shaxsiy kodni kiriting. Maxfiylikni himoya qilish uchun to‘liq ism bo‘yicha qidiruv ataylab o‘chirilgan.",
+        "parent_intro": "O‘quvchining SATMakon akkauntida ro‘yxatdan o‘tgan telefon raqamini kiriting. Muvaffaqiyatli qidiruvdan so‘ng brauzer o‘quvchini eslab qoladi.",
         "public_leaderboard": "Umumiy reyting",
-        "student_access_code": "O‘quvchining kirish kodi",
-        "code_placeholder": "Kirish kodini kiriting",
-        "open_rating": "Reytingni ochish",
+        "student_access_code": "Ro‘yxatdan o‘tgan telefon raqami",
+        "code_placeholder": "+998 90 123 45 67",
+        "open_rating": "Statistikani ochish",
         "rank": "O‘rin",
         "rating": "Reyting",
         "assessments": "Baholashlar",
@@ -177,13 +200,24 @@ PARENT_TRANSLATIONS = {
         "name_optional": "Ism (ixtiyoriy)",
         "email_optional": "Email (ixtiyoriy)",
         "comment": "Izoh",
-        "comment_placeholder": "Masalan: kodni kiritganimdan keyin farzandimning reytingini ocha olmadim...",
+        "comment_placeholder": "Masalan: ro‘yxatdan o‘tgan telefon raqami orqali farzandimning statistikasini ocha olmadim...",
         "send_report": "Yuborish",
         "sending": "Yuborilmoqda...",
         "report_sent": "Xabar yuborildi. Rahmat.",
         "report_failed": "Xabarni yuborib bo‘lmadi.",
-        "too_many_attempts": "Kod kiritish urinishlari juda ko‘p. Keyinroq qayta urinib ko‘ring.",
-        "code_not_found": "Kod topilmadi. O‘quvchining «Mening reytingim» sahifasidagi kodni tekshiring.",
+        "too_many_attempts": "Telefon raqami orqali qidirish urinishlari juda ko‘p. Keyinroq qayta urinib ko‘ring.",
+        "code_not_found": "Telefon raqami topilmadi. O‘quvchining SATMakon akkauntida ro‘yxatdan o‘tgan raqamni kiriting.",
+        "remembered_on_device": "Ushbu qurilmada saqlandi",
+        "switch_student": "Boshqa o‘quvchi",
+        "registration_help": "O‘quvchining SATMakon akkauntida allaqachon ro‘yxatdan o‘tgan telefon raqamidan foydalaning. Alohida ota-ona kodi kerak emas.",
+        "device_note": "Birinchi muvaffaqiyatli qidiruvdan so‘ng ushbu brauzer o‘quvchini eslab qoladi. Sahifa yangilanganda statistika ochiq qoladi. Umumiy qurilmada ish tugagach «Boshqa o‘quvchi» tugmasidan foydalaning.",
+        "use_registered_phone": "O‘quvchining ro‘yxatdan o‘tgan telefon raqamidan foydalaning",
+        "support": "Yordam",
+        "multiple_students_title": "O‘quvchini tanlang",
+        "multiple_students_intro": "Bu telefon raqami bir nechta o‘quvchiga biriktirilgan. Statistikasi ochilishi kerak bo‘lgan o‘quvchini tanlang.",
+        "select_student": "Statistikani ochish",
+        "use_another_phone": "Boshqa telefon raqamidan foydalanish",
+        "records": "yozuv",
     },
 }
 
@@ -234,6 +268,11 @@ def _is_teacher_for(user, classroom):
 
 
 def rating_home(request):
+    # Public leaderboard was removed from the public product surface.
+    # Keep /rating/ only as the signed-in student's own rating workspace.
+    if not request.user.is_authenticated or request.user.is_staff or request.user.is_superuser:
+        return redirect("rating_parent_lookup")
+
     config = RatingConfig.get_solo()
     board = build_board()
     if request.user.is_authenticated and not request.user.is_staff and not request.user.is_superuser:
@@ -255,55 +294,237 @@ def rating_home(request):
         except Exception:
             context["student_workspace_active"] = "ranking"
         return render(request, "ratings/student_dashboard.html", context)
-    return render(request, "ratings/public_board.html", {"board": board, "config": config})
+    return redirect("rating_parent_lookup")
 
 
 def public_student(request, student_id):
-    config = RatingConfig.get_solo()
-    if not config.public_board_enabled:
-        raise PermissionDenied("The public leaderboard is disabled.")
-    entry = next((row for row in build_board() if row.student_id == student_id), None)
-    if not entry:
-        raise PermissionDenied("This student is not visible on the public leaderboard.")
-    return render(request, "ratings/public_student.html", {"entry": entry})
+    # Public student profile pages belonged to the removed public leaderboard.
+    return redirect("rating_parent_lookup")
+
+
+def _normalize_parent_phone(raw_value):
+    """Normalize parent lookup input to an E.164-like Uzbekistan phone value.
+
+    The database stores Hollihop/SATMakon phone numbers on UserProfile. We
+    accept spaces, dashes and parentheses, and treat a 9-digit local number as
+    +998XXXXXXXXX.
+    """
+    raw = (raw_value or "").strip()
+    if not raw:
+        return ""
+    digits = re.sub(r"\D+", "", raw)
+    if len(digits) == 9:
+        digits = "998" + digits
+    elif len(digits) == 12 and digits.startswith("998"):
+        pass
+    elif raw.startswith("+") and 10 <= len(digits) <= 15:
+        return "+" + digits
+    else:
+        return ""
+    return "+" + digits
+
+
+def _parent_phone_variants(normalized_phone):
+    if not normalized_phone:
+        return []
+    digits = re.sub(r"\D+", "", normalized_phone)
+    variants = {normalized_phone, digits}
+    if digits.startswith("998") and len(digits) == 12:
+        local = digits[3:]
+        variants.update({local, "0" + local})
+    return list(variants)
+
+
+def _parent_profiles_from_phone(raw_value):
+    """Return every active student account linked to a registered phone number.
+
+    A family can legitimately reuse one parent phone number for siblings, so
+    phone lookup must never collapse the result to ``.first()``. The caller
+    decides whether to open the single match directly or show a chooser.
+    """
+    normalized_phone = _normalize_parent_phone(raw_value)
+    if not normalized_phone:
+        return [], ""
+    users = list(
+        User.objects.filter(
+            is_active=True,
+            profile__phone_number__in=_parent_phone_variants(normalized_phone),
+        )
+        .select_related("profile")
+        .order_by("first_name", "last_name", "username", "pk")
+    )
+    profiles = []
+    for user in users:
+        profile, _ = RatingProfile.objects.get_or_create(user=user)
+        profiles.append(profile)
+    return profiles, normalized_phone
+
+
+def _parent_candidates_from_session(request):
+    candidate_ids = [
+        int(value)
+        for value in request.session.get("rating_parent_candidate_user_ids", [])
+        if str(value).isdigit()
+    ]
+    if not candidate_ids:
+        return []
+    users = list(
+        User.objects.filter(pk__in=candidate_ids, is_active=True)
+        .select_related("profile")
+        .order_by("first_name", "last_name", "username", "pk")
+    )
+    valid_ids = {user.pk for user in users}
+    clean_ids = [value for value in candidate_ids if value in valid_ids]
+    if clean_ids != candidate_ids:
+        request.session["rating_parent_candidate_user_ids"] = clean_ids
+        request.session.modified = True
+    return users
+
+
+def _parent_snapshot(profile):
+    if not profile:
+        return None, []
+    return (
+        student_rating(profile.user),
+        RatingAssessment.objects.filter(student=profile.user)
+        .select_related("classroom", "teacher")[:50],
+    )
+
+
+def _remembered_parent_profile(request):
+    user_id = request.session.get("rating_parent_student_user_id")
+    if not user_id:
+        return None
+    user = (
+        User.objects.filter(
+            pk=user_id,
+            is_active=True,
+            profile__phone_number__isnull=False,
+        )
+        .select_related("profile")
+        .first()
+    )
+    if not user:
+        request.session.pop("rating_parent_student_user_id", None)
+        return None
+    profile, _ = RatingProfile.objects.get_or_create(user=user)
+    return profile
 
 
 def parent_lookup(request):
     language = _parent_language(request)
     translations = PARENT_TRANSLATIONS[language]
-    profile = None
-    entry = None
-    history = []
-    if request.method == "POST":
+    action = (request.POST.get("action") or "lookup") if request.method == "POST" else ""
+
+    if request.method == "POST" and action == "reset":
+        request.session.pop("rating_parent_student_user_id", None)
+        request.session.pop("rating_parent_candidate_user_ids", None)
+        request.session.pop("rating_parent_candidate_phone", None)
+        request.session.modified = True
+        return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
+
+    if request.method == "POST" and action == "switch":
+        request.session.pop("rating_parent_student_user_id", None)
+        # If the same family phone belongs to siblings, return to the chooser
+        # instead of making the parent type the same phone number again.
+        candidates = _parent_candidates_from_session(request)
+        if len(candidates) <= 1:
+            request.session.pop("rating_parent_candidate_user_ids", None)
+            request.session.pop("rating_parent_candidate_phone", None)
+        request.session.modified = True
+        return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
+
+    if request.method == "POST" and action == "select":
+        candidates = _parent_candidates_from_session(request)
+        allowed_ids = {user.pk for user in candidates}
+        try:
+            selected_id = int(request.POST.get("student_user_id") or 0)
+        except (TypeError, ValueError):
+            selected_id = 0
+        if selected_id in allowed_ids:
+            request.session["rating_parent_student_user_id"] = selected_id
+            request.session.modified = True
+        return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
+
+    profile = _remembered_parent_profile(request)
+    phone_number_value = request.session.get("rating_parent_candidate_phone", "") if not profile else ""
+
+    if request.method == "POST" and action == "lookup":
         now_ts = int(timezone.now().timestamp())
         attempts = [
-            int(ts) for ts in request.session.get("rating_parent_lookup_times", [])
+            int(ts)
+            for ts in request.session.get("rating_parent_lookup_times", [])
             if now_ts - int(ts) < 3600
         ]
         if len(attempts) >= 10:
             messages.error(request, translations["too_many_attempts"])
+            entry, history = _parent_snapshot(profile)
+            registered_phone = getattr(getattr(profile.user, "profile", None), "phone_number", "") if profile else ""
             return render(
                 request,
                 "ratings/parent_lookup.html",
-                _parent_context(request, profile=None, entry=None, history=[]),
+                _parent_context(
+                    request,
+                    profile=profile,
+                    entry=entry,
+                    history=history,
+                    registered_phone=registered_phone,
+                    phone_number_value=phone_number_value,
+                    parent_candidates=_parent_candidates_from_session(request) if not profile else [],
+                ),
                 status=429,
             )
 
-        code = (request.POST.get("code") or "").strip().upper()[:16]
+        phone_number_value = (
+            request.POST.get("phone_number")
+            or request.POST.get("registration_number")  # temporary compatibility alias
+            or request.POST.get("code")
+            or ""
+        ).strip()[:32]
         attempts.append(now_ts)
         request.session["rating_parent_lookup_times"] = attempts
-        profile = RatingProfile.objects.select_related("user").filter(parent_access_code=code).first()
-        if not profile:
+
+        profiles, normalized_phone = _parent_profiles_from_phone(phone_number_value)
+        if not profiles:
+            request.session.pop("rating_parent_candidate_user_ids", None)
+            request.session.pop("rating_parent_candidate_phone", None)
             messages.error(request, translations["code_not_found"])
+        elif len(profiles) == 1:
+            request.session["rating_parent_student_user_id"] = profiles[0].user_id
+            request.session["rating_parent_candidate_user_ids"] = [profiles[0].user_id]
+            request.session["rating_parent_candidate_phone"] = normalized_phone
+            request.session.modified = True
+            return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
         else:
-            entry = student_rating(profile.user)
-            history = RatingAssessment.objects.filter(student=profile.user).select_related("classroom", "teacher")[:50]
+            request.session.pop("rating_parent_student_user_id", None)
+            request.session["rating_parent_candidate_user_ids"] = [item.user_id for item in profiles]
+            request.session["rating_parent_candidate_phone"] = normalized_phone
+            request.session.modified = True
+            return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
+
+    if profile is None:
+        profile = _remembered_parent_profile(request)
+
+    parent_candidates = [] if profile else _parent_candidates_from_session(request)
+    entry, history = _parent_snapshot(profile)
+    registered_phone = (
+        getattr(getattr(profile.user, "profile", None), "phone_number", "")
+        if profile
+        else ""
+    )
     return render(
         request,
         "ratings/parent_lookup.html",
-        _parent_context(request, profile=profile, entry=entry, history=history),
+        _parent_context(
+            request,
+            profile=profile,
+            entry=entry,
+            history=history,
+            registered_phone=registered_phone,
+            phone_number_value=phone_number_value,
+            parent_candidates=parent_candidates,
+        ),
     )
-
 
 @login_required
 def teacher_classroom_ratings(request, classroom_id):

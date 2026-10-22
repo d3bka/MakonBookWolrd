@@ -1,0 +1,139 @@
+/* MakonBook v5611 — SATMakon reference testimonials. Scoped to the results section. */
+.mb56-page .mbst-section {
+  --mbst-surface: #f5f5f7;
+  --mbst-card: #fff;
+  --mbst-border: #e5e5eb;
+  --mbst-copy: #1f2430;
+  --mbst-muted: #8a8f9c;
+  --mbst-fade: #f5f5f7;
+  --mbst-purple: #7c3aed;
+  position: relative;
+  overflow: hidden;
+  padding: clamp(72px, 7vw, 112px) 0 88px;
+  background: var(--mbst-surface);
+  color: #0b0b0f;
+}
+html[data-theme="dark"] .mb56-page .mbst-section {
+  --mbst-surface: #14111b;
+  --mbst-card: #1c1725;
+  --mbst-border: #363043;
+  --mbst-copy: #e2deeb;
+  --mbst-muted: #a7a0b4;
+  --mbst-fade: #14111b;
+  --mbst-purple: #b38bff;
+  color: #f7f5fb;
+}
+.mb56-page .mbst-heading { text-align: center; }
+.mb56-page .mbst-eyebrow {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: var(--mbst-purple);
+  font-size: 11px;
+  letter-spacing: .11em;
+  font-weight: 800;
+}
+.mb56-page .mbst-heading h2 {
+  margin: 0;
+  font-family: var(--mb56-display, 'Inter', sans-serif);
+  font-size: clamp(37px, 5.3vw, 68px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.065em;
+}
+.mb56-page .mbst-heading h2 span { color: var(--mbst-purple); }
+.mb56-page .mbst-heading p {
+  color: var(--mb56-muted, #6f6b7a);
+  font-size: clamp(12px, 1.1vw, 15px);
+  line-height: 1.6;
+  margin: 14px auto 0;
+  max-width: 600px;
+}
+.mb56-page .mbst-carousel-shell,
+.mb56-page .mbst-university-shell {
+  position: relative;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.mb56-page .mbst-carousel-shell { margin-top: 52px; }
+.mb56-page .mbst-carousel,
+.mb56-page .mbst-university-viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  cursor: grab;
+  outline-offset: -2px;
+}
+.mb56-page .mbst-carousel::-webkit-scrollbar,
+.mb56-page .mbst-university-viewport::-webkit-scrollbar { display: none; }
+.mb56-page .mbst-carousel:focus-visible,
+.mb56-page .mbst-university-viewport:focus-visible { outline: 2px solid var(--mbst-purple); }
+.mb56-page .mbst-carousel.is-dragging,
+.mb56-page .mbst-university-viewport.is-dragging { cursor: grabbing; user-select: none; }
+.mb56-page .mbst-track,
+.mb56-page .mbst-university-track { display: flex; width: max-content; }
+.mb56-page .mbst-set { display: flex; gap: 22px; padding: 5px 11px 10px; }
+.mb56-page .mbst-card {
+  width: clamp(300px, 24vw, 430px);
+  min-height: 330px;
+  padding: 29px 30px 26px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mbst-border);
+  border-radius: 23px;
+  background: var(--mbst-card);
+  box-shadow: 0 10px 35px rgba(34, 27, 57, .025);
+  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .mb56-page .mbst-card:hover { transform: translateY(-4px); border-color: #c4b5fd; box-shadow: 0 18px 38px rgba(68, 40, 112, .09); }
+}
+.mb56-page .mbst-progress { display: flex; align-items: baseline; gap: 7px; font-size: 18px; font-weight: 600; color: var(--mbst-muted); letter-spacing: -.04em; }
+.mb56-page .mbst-progress strong { color: inherit; font-size: 24px; font-weight: 800; color: var(--mbst-copy); }
+.mb56-page .mbst-progress-ap strong { color: var(--mbst-purple); }
+.mb56-page .mbst-card > p { margin: 17px 0 24px; flex: 1; font-size: 16px; line-height: 1.75; font-weight: 400; color: var(--mbst-copy); }
+.mb56-page .mbst-card footer { display: flex; align-items: center; gap: 12px; min-height: 66px; border-top: 1px solid var(--mbst-border); padding-top: 18px; }
+.mb56-page .mbst-avatar {
+  display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px;
+  border-radius: 50%; background: linear-gradient(135deg, #ede9fe, #a78bfa);
+  font-size: 14px; font-weight: 800; color: #6d28d9;
+}
+.mb56-page .mbst-author { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
+.mb56-page .mbst-author strong { color: var(--mbst-copy); font-weight: 700; font-size: 15px; }
+.mb56-page .mbst-author small { color: var(--mbst-purple); font-size: 13px; font-weight: 700; }
+.mb56-page .mbst-universities { margin-top: 86px; }
+.mb56-page .mbst-university-caption { margin: 0 0 24px; text-align: center; font-size: 15px; color: var(--mb56-muted, #6f6b7a); }
+.mb56-page .mbst-university-track { align-items: center; }
+.mb56-page .mbst-university-set { display: flex; align-items: center; gap: clamp(42px, 5vw, 84px); padding: 3px clamp(21px, 2.5vw, 42px); }
+.mb56-page .mbst-university-set > div { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.mb56-page .mbst-university-set img { display: block; width: auto; height: 85px; max-width: 235px; object-fit: contain; }
+html[data-theme="dark"] .mb56-page .mbst-university-set img { background: rgba(255,255,255,.96); border-radius: 10px; padding: 5px 10px; }
+@media (max-width: 900px) {
+  .mb56-page .mbst-section { padding-bottom: 72px; }
+  .mb56-page .mbst-card { width: 350px; min-height: 315px; }
+  .mb56-page .mbst-card > p { font-size: 15px; }
+  .mb56-page .mbst-universities { margin-top: 64px; }
+}
+@media (max-width: 560px) {
+  .mb56-page .mbst-section { padding: 70px 0 62px; }
+  .mb56-page .mbst-heading { width: calc(100% - 32px); }
+  .mb56-page .mbst-eyebrow { font-size: 9px; }
+  .mb56-page .mbst-heading h2 { font-size: clamp(34px, 9vw, 43px); }
+  .mb56-page .mbst-carousel-shell { margin-top: 32px; }
+  .mb56-page .mbst-set { gap: 14px; padding: 5px 7px 10px; }
+  .mb56-page .mbst-card { width: min(82vw, 332px); min-height: 324px; padding: 23px 21px 20px; border-radius: 20px; }
+  .mb56-page .mbst-card > p { font-size: 14px; line-height: 1.65; }
+  .mb56-page .mbst-progress { font-size: 15px; }
+  .mb56-page .mbst-progress strong { font-size: 21px; }
+  .mb56-page .mbst-universities { margin-top: 60px; }
+  .mb56-page .mbst-university-set { gap: 42px; }
+  .mb56-page .mbst-university-set img { height: 66px; max-width: 174px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mb56-page .mbst-card { transition: none; }
+  .mb56-page .mbst-carousel,
+  .mb56-page .mbst-university-viewport { scroll-behavior: auto; }
+}

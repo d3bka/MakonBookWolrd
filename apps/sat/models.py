@@ -144,7 +144,28 @@ class Punishment(BaseModel):
 
 # Test model
 class Test(BaseModel):
+    TYPE_REGULAR = 'regular'
+    TYPE_PLACEMENT = 'placement'
+    TYPE_EVENT = 'event'
+    TEST_TYPE_CHOICES = [
+        (TYPE_REGULAR, 'Regular / Practice Test'),
+        (TYPE_PLACEMENT, 'Placement Test'),
+        (TYPE_EVENT, 'Event Test'),
+    ]
+
     name = models.CharField(max_length=400, unique=True, primary_key=True)
+    test_type = models.CharField(
+        max_length=20,
+        choices=TEST_TYPE_CHOICES,
+        default=TYPE_REGULAR,
+        db_default=TYPE_REGULAR,
+        db_index=True,
+        help_text=(
+            'Regular tests appear in Tests, Placement tests appear in Placement Tests, '
+            'and Event tests are used as event-only question banks. '
+            'Linking any test to GlobalEvent does not change this field.'
+        ),
+    )
     created = models.DateTimeField(auto_now=True)
     published_at = models.DateTimeField(
         null=True,
@@ -535,6 +556,17 @@ class TestReview(BaseModel):
     created_at = models.DateTimeField(auto_now_add=True)
     duration = models.DurationField(default=timedelta(hours=24))
     score = models.IntegerField(default=None, null=True, blank=True)
+
+    # V55.1 — immutable attempt metadata for History. TestStage is mutable across
+    # retakes, so the review must snapshot the run/protection settings that
+    # actually produced this score.
+    run_mode = models.CharField(max_length=50, default='full_test')
+    attempt_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    integrity_mode = models.CharField(max_length=16, default='unknown')
+    integrity_violation_count = models.PositiveSmallIntegerField(default=0)
+    integrity_fullscreen_required = models.BooleanField(default=False)
+    integrity_terminated = models.BooleanField(default=False)
+
     certificate = models.TextField(blank=True)
     domains = models.BooleanField(default=False)
     
@@ -589,6 +621,34 @@ class TestStage(BaseModel):
     again = models.BooleanField(default=True)
     retake_count = models.IntegerField(default=0, help_text="Number of retakes used by this user")
     attempt_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    # V55.3: immutable-ish start timestamp for the current attempt UUID.
+    # It is reset whenever resolve()/resolve_section() creates a new attempt.
+    attempt_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    INTEGRITY_MODE_CHOICES = [
+        ('off', 'Off'),
+        ('standard', 'Standard'),
+        ('strict', 'Strict'),
+    ]
+    integrity_mode = models.CharField(
+        max_length=16,
+        choices=INTEGRITY_MODE_CHOICES,
+        default='standard',
+    )
+    integrity_max_violations = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    integrity_violation_count = models.PositiveSmallIntegerField(default=0)
+    integrity_fullscreen_required = models.BooleanField(default=True)
+    integrity_monitored_events = models.JSONField(default=list, blank=True)
+    integrity_terminated_at = models.DateTimeField(null=True, blank=True)
+    integrity_retake_locked = models.BooleanField(default=False)
+    scheduled_break_started_at = models.DateTimeField(null=True, blank=True)
+    scheduled_break_until = models.DateTimeField(null=True, blank=True)
+
+    # V54.1.1: which SAT modules belong to this attempt.
+    mode = models.CharField(max_length=50, default='full_test')
 
     TEST_TYPE_CHOICES = [
         ('regular', 'Regular Test'),
@@ -666,7 +726,18 @@ class TestStage(BaseModel):
         self.stage = 1
         self.retake_count += 1
         self.attempt_id = uuid.uuid4()
-        self.save(update_fields=['stage', 'retake_count', 'attempt_id', 'updated_at'])
+        self.attempt_started_at = timezone.now()
+        self.integrity_violation_count = 0
+        self.integrity_terminated_at = None
+        self.integrity_retake_locked = False
+        self.scheduled_break_started_at = None
+        self.scheduled_break_until = None
+        self.save(update_fields=[
+            'stage', 'retake_count', 'attempt_id', 'attempt_started_at',
+            'integrity_violation_count', 'integrity_terminated_at', 'integrity_retake_locked',
+            'scheduled_break_started_at', 'scheduled_break_until',
+            'updated_at',
+        ])
         TestModuleDraft.objects.filter(
             user=self.user,
             test=self.test,
@@ -725,7 +796,18 @@ class TestStage(BaseModel):
         self.stage = start_stage
         self.retake_count += 1
         self.attempt_id = new_attempt_id
-        self.save(update_fields=['stage', 'retake_count', 'attempt_id', 'updated_at'])
+        self.attempt_started_at = timezone.now()
+        self.integrity_violation_count = 0
+        self.integrity_terminated_at = None
+        self.integrity_retake_locked = False
+        self.scheduled_break_started_at = None
+        self.scheduled_break_until = None
+        self.save(update_fields=[
+            'stage', 'retake_count', 'attempt_id', 'attempt_started_at',
+            'integrity_violation_count', 'integrity_terminated_at', 'integrity_retake_locked',
+            'scheduled_break_started_at', 'scheduled_break_until',
+            'updated_at',
+        ])
         TestModuleDraft.objects.filter(
             user=self.user,
             test=self.test,
@@ -2175,6 +2257,32 @@ class ClassroomHomeworkAssignment(models.Model):
         (TYPE_VOCAB, 'Vocabulary practice'),
         (TYPE_VOCAB_QUIZ, 'Vocabulary quiz'),
     )
+
+    TEST_MODE_FULL = 'full_test'
+    TEST_MODE_RW = 'rw_only'
+    TEST_MODE_MATH = 'math_only'
+    TEST_MODE_ENGLISH_M1 = 'single_english_m1'
+    TEST_MODE_ENGLISH_M2 = 'single_english_m2'
+    TEST_MODE_MATH_M1 = 'single_math_m1'
+    TEST_MODE_MATH_M2 = 'single_math_m2'
+    TEST_MODE_CHOICES = (
+        (TEST_MODE_FULL, 'Full Test'),
+        (TEST_MODE_RW, 'Reading & Writing'),
+        (TEST_MODE_MATH, 'Math'),
+        (TEST_MODE_ENGLISH_M1, 'Reading & Writing · Module 1'),
+        (TEST_MODE_ENGLISH_M2, 'Reading & Writing · Module 2'),
+        (TEST_MODE_MATH_M1, 'Math · Module 1'),
+        (TEST_MODE_MATH_M2, 'Math · Module 2'),
+    )
+
+    INTEGRITY_OFF = 'off'
+    INTEGRITY_STANDARD = 'standard'
+    INTEGRITY_STRICT = 'strict'
+    INTEGRITY_CHOICES = (
+        (INTEGRITY_OFF, 'Off'),
+        (INTEGRITY_STANDARD, 'Standard'),
+        (INTEGRITY_STRICT, 'Strict'),
+    )
     VOCAB_MEMORY = 'memory'
     VOCAB_ANIMATED = 'animated-immersion'
     VOCAB_BOUNCE = 'word-bounce'
@@ -2192,6 +2300,16 @@ class ClassroomHomeworkAssignment(models.Model):
     instructions = models.TextField(blank=True)
     assignment_type = models.CharField(max_length=24, choices=TYPE_CHOICES)
     test = models.ForeignKey(Test, on_delete=models.CASCADE, null=True, blank=True, related_name='classroom_homework_assignments')
+    required_test_mode = models.CharField(
+        max_length=50,
+        choices=TEST_MODE_CHOICES,
+        default=TEST_MODE_FULL,
+    )
+    required_integrity_mode = models.CharField(
+        max_length=16,
+        choices=INTEGRITY_CHOICES,
+        default=INTEGRITY_OFF,
+    )
     vocabulary_unit = models.ForeignKey('VocabularyUnit', on_delete=models.CASCADE, null=True, blank=True, related_name='classroom_homework_assignments')
     vocabulary_mode = models.CharField(max_length=32, choices=VOCAB_MODE_CHOICES, default=VOCAB_MEMORY)
     vocabulary_quiz_mode = models.CharField(
@@ -2221,6 +2339,194 @@ class ClassroomHomeworkAssignment(models.Model):
         return f"{self.classroom.name} · {self.title}"
 
 
+class ClassroomHomeworkSubmission(models.Model):
+    """Per-student state for one classroom homework assignment.
+
+    A missing row is equivalent to NOT_STARTED, so rows are created lazily only
+    when a student actually interacts with the homework.
+
+    COMPLETED means the work itself is finished but has not necessarily been
+    handed in to the teacher. Stage 4 will use this state for the
+    "Submit as homework" confirmation after an ordinary /tests/ attempt.
+    """
+
+    STATUS_NOT_STARTED = 'not_started'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_COMPLETED = 'completed'
+    STATUS_SUBMITTED = 'submitted'
+    STATUS_CHOICES = (
+        (STATUS_NOT_STARTED, 'Not started'),
+        (STATUS_IN_PROGRESS, 'In progress'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_SUBMITTED, 'Submitted'),
+    )
+
+    SOURCE_HOMEWORK = 'homework'
+    SOURCE_PRACTICE_TESTS = 'practice_tests'
+    SOURCE_VOCABULARY = 'vocabulary'
+    SOURCE_CHOICES = (
+        (SOURCE_HOMEWORK, 'Homework'),
+        (SOURCE_PRACTICE_TESTS, 'Practice Tests'),
+        (SOURCE_VOCABULARY, 'Vocabulary'),
+    )
+
+    assignment = models.ForeignKey(
+        ClassroomHomeworkAssignment,
+        on_delete=models.CASCADE,
+        related_name='submissions',
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='classroom_homework_submissions',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_NOT_STARTED,
+        db_index=True,
+    )
+    source = models.CharField(
+        max_length=24,
+        choices=SOURCE_CHOICES,
+        default=SOURCE_HOMEWORK,
+    )
+
+    # SAT attempts are identified before TestReview exists, so keep the immutable
+    # attempt UUID in addition to the eventual review FK.
+    attempt_id = models.UUIDField(null=True, blank=True, db_index=True)
+    test_review = models.ForeignKey(
+        TestReview,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='homework_submissions',
+    )
+    vocabulary_quiz_attempt = models.ForeignKey(
+        VocabularyQuizAttempt,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='homework_submissions',
+    )
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['assignment', 'student'],
+                name='sat_unique_homework_submission_student',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['student', 'status', '-updated_at'],
+                name='sat_hwsub_student_status',
+            ),
+            models.Index(
+                fields=['assignment', 'status'],
+                name='sat_hwsub_assignment_status',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.assignment} · {self.student.username} · {self.status}"
+
+    @property
+    def is_finished(self):
+        return self.status in {self.STATUS_COMPLETED, self.STATUS_SUBMITTED}
+
+    def mark_in_progress(self, *, source=None, attempt_id=None):
+        """Move a not-started row forward without ever downgrading completion."""
+        if self.status in {self.STATUS_COMPLETED, self.STATUS_SUBMITTED}:
+            return self
+        now_value = timezone.now()
+        self.status = self.STATUS_IN_PROGRESS
+        self.started_at = self.started_at or now_value
+        if source:
+            self.source = source
+        if attempt_id:
+            self.attempt_id = attempt_id
+        self.save(update_fields=['status', 'started_at', 'source', 'attempt_id', 'updated_at'])
+        return self
+
+    def mark_completed(
+        self,
+        *,
+        source=None,
+        attempt_id=None,
+        test_review=None,
+        vocabulary_quiz_attempt=None,
+    ):
+        """Record finished work that has not necessarily been submitted yet."""
+        if self.status == self.STATUS_SUBMITTED:
+            return self
+        now_value = timezone.now()
+        self.status = self.STATUS_COMPLETED
+        self.started_at = self.started_at or now_value
+        self.completed_at = self.completed_at or now_value
+        if source:
+            self.source = source
+        if attempt_id:
+            self.attempt_id = attempt_id
+        if test_review is not None:
+            self.test_review = test_review
+            self.attempt_id = getattr(test_review, 'attempt_id', None) or self.attempt_id
+        if vocabulary_quiz_attempt is not None:
+            self.vocabulary_quiz_attempt = vocabulary_quiz_attempt
+        self.save(update_fields=[
+            'status',
+            'started_at',
+            'completed_at',
+            'source',
+            'attempt_id',
+            'test_review',
+            'vocabulary_quiz_attempt',
+            'updated_at',
+        ])
+        return self
+
+    def mark_submitted(
+        self,
+        *,
+        source=None,
+        attempt_id=None,
+        test_review=None,
+        vocabulary_quiz_attempt=None,
+    ):
+        """Finalize hand-in. Submission is terminal for the assignment/student row."""
+        now_value = timezone.now()
+        self.status = self.STATUS_SUBMITTED
+        self.started_at = self.started_at or now_value
+        self.completed_at = self.completed_at or now_value
+        self.submitted_at = self.submitted_at or now_value
+        if source:
+            self.source = source
+        if attempt_id:
+            self.attempt_id = attempt_id
+        if test_review is not None:
+            self.test_review = test_review
+            self.attempt_id = getattr(test_review, 'attempt_id', None) or self.attempt_id
+        if vocabulary_quiz_attempt is not None:
+            self.vocabulary_quiz_attempt = vocabulary_quiz_attempt
+        self.save(update_fields=[
+            'status',
+            'started_at',
+            'completed_at',
+            'submitted_at',
+            'source',
+            'attempt_id',
+            'test_review',
+            'vocabulary_quiz_attempt',
+            'updated_at',
+        ])
+        return self
 
 
 @receiver(models.signals.post_save, sender=ClassroomMembership)
@@ -2397,12 +2703,33 @@ class ChatMessage(models.Model):
 
 #GUEST MODE
 class GlobalEvent(models.Model):
+    TYPE_EVENT = "event"
+    TYPE_PLACEMENT = "placement"
+    EVENT_TYPE_CHOICES = [
+        (TYPE_EVENT, "Event"),
+        (TYPE_PLACEMENT, "Placement Test"),
+    ]
+
     EVENT_STATUS_CHOICES = [
         ("draft", "Draft"),
         ("scheduled", "Scheduled"),
         ("live", "Live"),
         ("closed", "Closed"),
     ]
+
+    event_type = models.CharField(
+        "Event type",
+        max_length=20,
+        choices=EVENT_TYPE_CHOICES,
+        default=TYPE_EVENT,
+        db_default=TYPE_EVENT,
+        db_index=True,
+        help_text=(
+            "Controls where this Global Event appears. "
+            "Event = Events page. Placement Test = Placement Tests page. "
+            "The linked source Test keeps its own Test Type."
+        ),
+    )
 
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
@@ -2444,19 +2771,86 @@ class GlobalEvent(models.Model):
     show_leaderboard = models.BooleanField(default=False)
     allow_resume = models.BooleanField(default=True)
 
+    # V5581 verified mock registration. Legacy GlobalEvents keep these disabled.
+    registration_enabled = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Require a verified event registration before this event can be started.",
+    )
+    show_on_landing = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Show this registration-enabled event on the public landing page.",
+    )
+    branch = models.CharField(
+        max_length=160,
+        blank=True,
+        help_text="Branch / venue shown to participants, e.g. NOVZA.",
+    )
+    capacity = models.PositiveIntegerField(
+        default=0,
+        help_text="Maximum reserved participants. 0 is allowed only for legacy events without verified registration.",
+    )
+    registration_opens_at = models.DateTimeField(null=True, blank=True)
+    registration_closes_at = models.DateTimeField(null=True, blank=True)
+    verification_minutes = models.PositiveSmallIntegerField(
+        default=10,
+        help_text="How long an email verification code remains valid.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    END_GRACE_HOURS = 5
+
+    @property
+    def effective_end_at(self):
+        """Final close time for scheduled Global Events.
+
+        Scheduled events keep a five-hour completion/resume grace period after
+        ``end_at``. ``always_live`` events have no schedule-derived close time;
+        they stay available until an administrator changes ``status`` away from
+        ``live``.
+        """
+        if self.always_live or not self.end_at:
+            return None
+        return self.end_at + timedelta(hours=self.END_GRACE_HOURS)
+
     @property
     def is_live_now(self):
+        """Whether the event is currently open.
+
+        ``is_public`` controls discoverability only. ``status='closed'`` closes
+        immediately. When ``always_live`` is enabled, start/end timestamps are
+        ignored and the event remains open 24/7 while ``status='live'``.
+        Scheduled events still use the normal start gate and end + five-hour
+        grace window.
+        """
         now = timezone.now()
+        if self.status != "live":
+            return False
+
         if self.always_live:
-            return self.is_public and self.status == "live"
-        return (
-            self.is_public and
-            self.status == "live" and
-            self.start_at <= now <= self.end_at
-        )
+            return True
+
+        effective_end = self.effective_end_at
+        if effective_end and now > effective_end:
+            return False
+
+        if not self.start_at or not effective_end:
+            return False
+        return self.start_at <= now <= effective_end
+
+    @classmethod
+    def close_expired(cls, now=None):
+        """Close stale scheduled events without touching Always active rows."""
+        now = now or timezone.now()
+        cutoff = now - timedelta(hours=cls.END_GRACE_HOURS)
+        return cls.objects.filter(
+            status='live',
+            always_live=False,
+            end_at__lt=cutoff,
+        ).update(status='closed')
 
     def get_module_duration(self, section):
         if section == "english":
@@ -2467,10 +2861,27 @@ class GlobalEvent(models.Model):
 
     def clean(self):
         super().clean()
+        # v5563: GlobalEvent classification is independent from Test.test_type.
+        # A regular DAY test may remain in Practice while also powering a live Event.
         if not self.always_live and self.start_at and self.end_at and self.end_at <= self.start_at:
             raise ValidationError({"end_at": "Event end time must be later than its start time."})
         if self.access_code:
             self.access_code = self.access_code.strip()
+
+        # V5581 verified-registration validation.
+        if self.registration_enabled:
+            if not self.capacity or self.capacity < 1:
+                raise ValidationError({"capacity": "Verified registration requires a participant limit of at least 1."})
+            if not self.registration_opens_at:
+                raise ValidationError({"registration_opens_at": "Set when registration opens."})
+            if not self.registration_closes_at:
+                raise ValidationError({"registration_closes_at": "Set when registration closes."})
+            if self.registration_closes_at <= self.registration_opens_at:
+                raise ValidationError({"registration_closes_at": "Registration close time must be later than open time."})
+            if not self.branch.strip():
+                raise ValidationError({"branch": "Set the branch / venue for a verified mock event."})
+        if self.verification_minutes and not (3 <= int(self.verification_minutes) <= 30):
+            raise ValidationError({"verification_minutes": "Use a verification lifetime between 3 and 30 minutes."})
 
     def __str__(self):
         return self.title
@@ -2685,6 +3096,83 @@ class StudentPracticeTestAccess(models.Model):
 
     def __str__(self):
         return f"{self.membership.user.username} - {self.test.name} - {self.has_access}"
+
+
+class ClassroomPracticeTestIntegrityPolicy(models.Model):
+    MODE_CHOICES = [
+        ('off', 'Off'),
+        ('standard', 'Standard'),
+        ('strict', 'Strict'),
+    ]
+
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='practice_test_integrity_policies',
+    )
+    test = models.ForeignKey(
+        Test,
+        on_delete=models.CASCADE,
+        related_name='classroom_integrity_policies',
+    )
+    mode = models.CharField(max_length=16, choices=MODE_CHOICES, default='standard')
+    max_violations = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    fullscreen_required = models.BooleanField(default=True)
+    monitored_events = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['classroom', 'test'],
+                name='sat_unique_classroom_test_integrity_policy',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.classroom.name} · {self.test.name} · {self.mode}"
+
+
+class ExamIntegrityViolation(BaseModel):
+    EVENT_CHOICES = [
+        ('tab_hidden', 'Browser tab changed'),
+        ('window_blur', 'Exam window lost focus'),
+        ('fullscreen_exit', 'Fullscreen exited'),
+        ('inactivity', 'Extended inactivity'),
+        ('copy', 'Copy attempted'),
+        ('paste', 'Paste attempted'),
+        ('contextmenu', 'Right-click attempted'),
+        ('restricted_shortcut', 'Restricted keyboard shortcut'),
+        ('leave_attempt', 'Page leave / refresh attempted'),
+    ]
+
+    event_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    stage = models.ForeignKey(
+        TestStage,
+        on_delete=models.CASCADE,
+        related_name='integrity_events',
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sat_integrity_events')
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True, blank=True)
+    classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True)
+    attempt_id = models.UUIDField(db_index=True)
+    event_type = models.CharField(max_length=40, choices=EVENT_CHOICES)
+    strike_number = models.PositiveSmallIntegerField(default=0)
+    client_occurred_at = models.DateTimeField(null=True, blank=True)
+    detail = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [
+            models.Index(fields=['user', 'attempt_id', 'created_at'], name='sat_eiv_u_att_cr'),
+            models.Index(fields=['classroom', 'test', 'created_at'], name='sat_eiv_cls_t_cr'),
+        ]
+
+    def __str__(self):
+        return f"{self.user} · {self.test} · {self.event_type} · {self.strike_number}"
 
 # ---------------------------------------------------------------------------
 # AI-assisted test import / review staging
@@ -2919,3 +3407,7 @@ class MakonNotification(models.Model):
 
     def __str__(self):
         return f'{self.user.username} · {self.title}'
+# V5581 model lives in a separate module to keep the legacy SAT models file stable.
+from .event_registration_models import EventRegistration
+from .public_placement_models import PublicPlacementLead, PlacementTelegramNotification
+

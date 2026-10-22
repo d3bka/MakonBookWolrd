@@ -216,6 +216,7 @@ class MathQuestionForm(BaseQuestionForm):
                 },
             )
             self.fields['answer'].help_text = (
-                'For written-response math questions, type the answer as text or LaTeX. '
-                'Use the keyboard below for quick superscripts, subscripts, fractions, and symbols.'
+                'For written-response math questions, type the accepted numeric answer as text or LaTeX. '
+                'Equivalent fractions/decimals and comma formatting are normalized when grading. '
+                'If a question needs multiple accepted reference values, separate them with semicolons or new lines.'
             )

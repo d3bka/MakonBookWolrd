@@ -1,6 +1,6 @@
 # base/views.py
 from django.shortcuts import render, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -8,17 +8,16 @@ from django.contrib.auth.forms import SetPasswordForm, PasswordChangeForm
 from django.core.mail import EmailMultiAlternatives
 from django.utils.crypto import get_random_string
 from django.urls import reverse
-from .forms import UserRegistrationForm, EditProfileForm, ForgotPasswordRequestForm, PasswordResetCodeForm
+from .forms import EditProfileForm, ForgotPasswordRequestForm, PasswordResetCodeForm
 from datetime import timedelta
 from django.utils import timezone
 from .models import EmailVerification, PasswordResetCode
-from .registration_rate_limit import check_registration_rate_limit
 from .auth_rate_limit import check_auth_rate_limit
 from .decorators import *
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password, make_password
-from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.password_validation import validate_password, get_default_password_validators
 from django.core.exceptions import ValidationError
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
@@ -100,16 +99,8 @@ def edit_profile(request):
         pass
     if use_workspace:
         try:
-            from .models import ReferralInvite
             from apps.gamification.services import gamification_shell_context
             from apps.sat.models import ClassroomMembership, StudentGoalProfile
-            referral = ReferralInvite.objects.filter(referrer=user).order_by('created_at').first()
-            if referral is None:
-                referral = ReferralInvite.objects.create(referrer=user)
-            context['referral'] = referral
-            context['referral_url'] = request.build_absolute_uri(reverse('register') + f'?ref={referral.code}')
-            context['referral_earned'] = ReferralInvite.objects.filter(referrer=user, activated_at__isnull=False).count()
-            context['referral_pending'] = ReferralInvite.objects.filter(referrer=user, referred_user__isnull=False, activated_at__isnull=True).count()
             context['profile_classrooms'] = ClassroomMembership.objects.filter(user=user, role='student', status='approved').select_related('classroom', 'classroom__teacher')[:6]
             context['student_goal'] = StudentGoalProfile.objects.filter(user=user).select_related('dream_university').first()
             context['profile_user_profile'] = getattr(user, 'profile', None)
@@ -234,10 +225,33 @@ def complete_profile_name(request):
 
 
 def home(request):
-    """Public landing page for guests; dashboard entry for logged-in users."""
+    """Public landing page plus verified upcoming mock registrations."""
     if request.user.is_authenticated:
         return redirect('student_dashboard_root')
-    return render(request, 'landing/home.html')
+
+    from apps.sat.models import GlobalEvent
+    from apps.sat.event_registration import event_confirmed_count, event_pending_hold_count, registration_for_request, registration_window, seats_left
+
+    now_value = timezone.now()
+    landing_mock_events = []
+    candidates = GlobalEvent.objects.filter(
+        event_type=GlobalEvent.TYPE_EVENT,
+        registration_enabled=True,
+        show_on_landing=True,
+        is_public=True,
+        status__in=['scheduled', 'live'],
+    ).select_related('test').order_by('start_at', 'title')[:12]
+    for event in candidates:
+        if event.end_at and event.end_at < now_value and not event.always_live:
+            continue
+        event.landing_registration_window = registration_window(event, now_value)
+        event.landing_confirmed_count = event_confirmed_count(event)
+        event.landing_pending_hold_count = event_pending_hold_count(event, now_value)
+        event.landing_seats_left = seats_left(event, now_value)
+        event.landing_registration = registration_for_request(request, event)
+        landing_mock_events.append(event)
+
+    return render(request, 'landing/home.html', {'landing_mock_events': landing_mock_events})
 
 @unauthenticated_user
 def loginUser(request):
@@ -270,83 +284,16 @@ def logoutUser(request):
 
 @unauthenticated_user
 def register(request):
-    from .models import ReferralInvite
-    referral_code = (request.GET.get('ref') or request.POST.get('referral_code') or request.session.get('makonbook_referral_code') or '').strip().upper()
-    if referral_code and ReferralInvite.objects.filter(code=referral_code).exists():
-        request.session['makonbook_referral_code'] = referral_code
+    """Legacy public-registration endpoint.
 
-    if request.method == "POST":
-        form = UserRegistrationForm(request.POST)
-        rate = check_registration_rate_limit(
-            request,
-            email=request.POST.get("email", ""),
-            username=request.POST.get("username", ""),
-        )
-        if not rate.allowed:
-            messages.error(
-                request,
-                "Too many registration attempts. Please wait a little before trying again.",
-            )
-            response = render(request, 'base/register.html', {'form': form}, status=429)
-            response['Retry-After'] = str(rate.retry_after)
-            return response
-
-        if form.is_valid():
-            # Save the user to the database. The form hashes and normalizes the password/email.
-            user = form.save()
-
-            # # Create and save the email verification with a token
-            # verification = EmailVerification.objects.create(user=user)
-
-            # # Generate activation URL
-            # activation_url = request.build_absolute_uri(reverse('activate', kwargs={'token': str(verification.token)}))
-
-            # Email verification temporarily disabled.
-            user.is_active = True
-            user.save(update_fields=["is_active"])
-            
-            EmailVerification.objects.update_or_create(
-                user=user,
-                defaults={
-                    "is_verified": True,
-                    "expires_at": timezone.now() + timedelta(days=3650),
-                }
-            )
-
-            # Referrals are recorded now but become earned only after the new
-            # student is approved into a classroom (handled in the SAT app).
-            referral_code = (request.session.pop('makonbook_referral_code', '') or '').strip().upper()
-            if referral_code:
-                source_invite = ReferralInvite.objects.filter(code=referral_code).select_related('referrer').first()
-                if source_invite and source_invite.referrer_id != user.id:
-                    if source_invite.referred_user_id is None:
-                        source_invite.referred_user = user
-                        source_invite.save(update_fields=['referred_user'])
-                    else:
-                        ReferralInvite.objects.create(referrer=source_invite.referrer, referred_user=user)
-
-            # # Send the activation email
-            # subject = 'Activate Your MakonBook Account'
-            # message = f'Hi {user.username},\n\nThank you for registering! Please click the link below to activate your account:\n\n{activation_url}\n\nThis link will expire in 24 hours.\n\nThanks,\nThe MakonBook Team'
-            # from_email = 'tech@sat800makon.uz'
-            # recipient_list = [user.email]
-            # try:
-            #     send_mail(subject, message, from_email, recipient_list, fail_silently=False)
-            # except Exception as e:
-            #     messages.error(request, f"Failed to send activation email: {str(e)}. Please try again later.")
-            #     return redirect('register')
-
-            # # Redirect to login page with success message
-            # messages.success(request, f"Activation email sent to your email from tech@sat800makon.uz.")
-            return redirect('login')
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field.capitalize()}: {error}")
-    else:
-        form = UserRegistrationForm()
-    return render(request, 'base/register.html', {'form': form, 'referral_code': request.session.get('makonbook_referral_code', '')})
-
+    Student accounts are provisioned from Hollihop. Keep the URL as a safe
+    redirect for old bookmarks and links, but never create a user here.
+    """
+    messages.info(
+        request,
+        "Student accounts are created by SATMakon through Hollihop. Use the login details sent to your phone, or contact SATMakon if you need access.",
+    )
+    return redirect("login")
 
 
 @unauthenticated_user
@@ -490,6 +437,43 @@ def password_reset_confirm(request):
 
     return render(request, "base/password_reset_confirm.html", {"form": form})
 
+
+@login_required(login_url="login")
+@require_POST
+def temporary_password_rules(request):
+    """Return live status for Django password validators.
+
+    The password is checked only in memory and is never saved or logged.
+    Final form validation remains authoritative on submit.
+    """
+    profile = getattr(request.user, "profile", None)
+    if not profile or not getattr(profile, "must_change_password", False):
+        return JsonResponse({"detail": "password_change_not_required"}, status=403)
+
+    password = request.POST.get("password", "")
+    rule_map = {
+        "UserAttributeSimilarityValidator": "similarity",
+        "MinimumLengthValidator": "length",
+        "CommonPasswordValidator": "common",
+        "NumericPasswordValidator": "numeric",
+    }
+    rules = {key: False for key in rule_map.values()}
+
+    if not password:
+        return JsonResponse({"rules": rules})
+
+    for validator in get_default_password_validators():
+        rule_key = rule_map.get(validator.__class__.__name__)
+        if not rule_key:
+            continue
+        try:
+            validator.validate(password, request.user)
+        except ValidationError:
+            rules[rule_key] = False
+        else:
+            rules[rule_key] = True
+
+    return JsonResponse({"rules": rules})
 
 @login_required(login_url="login")
 def change_temporary_password(request):

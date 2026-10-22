@@ -1,0 +1,20 @@
+Hi, {{ registration.full_name }}!
+
+Your seat for {{ event.title }} is confirmed.
+
+Registration ID: {{ registration_id }}
+{% if event.branch %}Branch: {{ event.branch }}
+{% endif %}Date & time: {{ event.start_at|date:"d M Y H:i" }}
+
+CHECKLIST
+- Save your Registration ID and keep this email available.
+- Arrive at least 15 minutes before the event starts.
+- Bring a photo ID or student ID if you have one.
+- Bring the stationery and calculator you normally use for a SAT mock exam.
+- Use the same full name you used during registration.
+- If your plans change, contact SATMakon staff before the event.
+
+Registration details:
+{{ confirmation_url }}
+
+SATMakon / MakonBook

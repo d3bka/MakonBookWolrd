@@ -5,7 +5,7 @@
 {% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
 {% block title %}Flashcards{% endblock title %}
 
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=505">{% endblock style %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=506">{% endblock style %}
 
 {% block content %}
 <div class="vocab-shell">
@@ -17,10 +17,10 @@
         <p class="vocab-copy">A word becomes mastered after repeated correct recall. Clicking through cards without rating them does not inflate progress.</p>
       </div>
       <div class="vocab-summary-grid">
-        <div class="vocab-stat"><small>Mastered</small><strong>{{ summary.mastered_words }}</strong><span>{{ summary.completion_percent }}%</span></div>
-        <div class="vocab-stat"><small>Learning</small><strong>{{ summary.learning_words }}</strong><span>Needs repetition</span></div>
-        <div class="vocab-stat"><small>Reviews</small><strong>{{ summary.review_count }}</strong><span>Saved interactions</span></div>
-        <div class="vocab-stat"><small>Accuracy</small><strong>{{ summary.accuracy_percent }}%</strong><span>Across review and quiz</span></div>
+        <div class="vocab-stat"><small>Mastered</small><strong data-summary-mastered>{{ summary.mastered_words }}</strong><span data-summary-completion>{{ summary.completion_percent }}%</span></div>
+        <div class="vocab-stat"><small>Learning</small><strong data-summary-learning>{{ summary.learning_words }}</strong><span>Needs repetition</span></div>
+        <div class="vocab-stat"><small>Reviews</small><strong data-summary-reviews>{{ summary.review_count }}</strong><span>Saved interactions</span></div>
+        <div class="vocab-stat"><small>Accuracy</small><strong data-summary-accuracy>{{ summary.accuracy_percent }}%</strong><span>Across review and quiz</span></div>
       </div>
     </div>
   </section>
@@ -35,18 +35,32 @@
           {% else %}
             <a class="{% if selected_unit and row.unit.id == selected_unit.id %}active{% endif %}" href="{% url 'vocabulary_section_root' 'flashcards' %}?unit={{ row.unit.id }}">
           {% endif %}
-              <span>{{ row.unit.title }}</span><strong>{{ row.mastered_words }}/{{ row.word_count }}</strong>
+              <span>{{ row.unit.title }}</span><strong{% if selected_unit and row.unit.id == selected_unit.id %} data-selected-unit-mastered{% endif %}>{{ row.mastered_words }}/{{ row.word_count }}</strong>
             </a>
         {% empty %}<div class="vocab-empty">No units.</div>{% endfor %}
       </div>
     </aside>
 
-    <div class="vocab-panel vocab-deck" data-vocab-deck data-mark-url="{{ mark_url }}" data-csrf-token="{{ csrf_token }}">
+    <div
+      class="vocab-panel vocab-deck"
+      data-vocab-deck
+      data-mark-url="{{ mark_url }}"
+      data-csrf-token="{{ csrf_token }}"
+      data-summary-mastered="{{ summary.mastered_words }}"
+      data-summary-learning="{{ summary.learning_words }}"
+      data-summary-reviews="{{ summary.review_count }}"
+      data-summary-correct="{{ summary.correct_count }}"
+      data-summary-incorrect="{{ summary.incorrect_count }}"
+      data-summary-total="{{ summary.total_words }}"
+      data-unit-mastered="{{ selected_unit_progress.mastered_words|default:0 }}"
+      data-unit-learning="{{ selected_unit_progress.learning_words|default:0 }}"
+      data-unit-word-count="{{ selected_unit_progress.word_count|default:0 }}"
+    >
       {% if flashcard_words %}
         <div class="vocab-deck-head">
           <div>
             <h2 style="margin:0">{{ selected_unit.title }}</h2>
-            <p style="margin:5px 0 0;color:var(--vocab-muted)">{{ selected_unit_progress.mastered_words }} mastered · {{ selected_unit_progress.learning_words }} learning</p>
+            <p style="margin:5px 0 0;color:var(--vocab-muted)"><span data-unit-mastered-label>{{ selected_unit_progress.mastered_words }}</span> mastered · <span data-unit-learning-label>{{ selected_unit_progress.learning_words }}</span> learning</p>
           </div>
           <div class="vocab-deck-meta">
             <div class="vocab-deck-progress"><span data-deck-counter>1 / {{ flashcard_words|length }}</span> · <span data-deck-status>new</span></div>
@@ -55,6 +69,14 @@
         </div>
         <div class="vocab-meter"><span data-deck-progress style="width:0"></span></div>
 
+        <div class="vocab-mobile-progress" data-mobile-progress aria-label="Flashcard progress">
+          <div><small>Card</small><strong data-mobile-deck-counter>1 / {{ flashcard_words|length }}</strong></div>
+          <div><small>Status</small><strong data-mobile-deck-status>new</strong></div>
+          <div><small>Mastered</small><strong data-mobile-mastered>{{ selected_unit_progress.mastered_words }}</strong></div>
+          <div><small>Learning</small><strong data-mobile-learning>{{ selected_unit_progress.learning_words }}</strong></div>
+          <div class="vocab-mobile-save-state" data-mobile-save-state aria-live="polite">Saved</div>
+        </div>
+
         <div class="vocab-card-stage" data-card-stage>
           {% for item in flashcard_words %}
           <article
@@ -62,6 +84,7 @@
             data-flashcard
             data-word-id="{{ item.word.id }}"
             data-status="{{ item.status }}"
+            data-times-seen="{{ item.times_seen|default:0 }}"
             tabindex="0"
             role="button"
             aria-label="Flashcard for {{ item.word.word }}. Press Space to flip."
@@ -99,5 +122,5 @@
     </div>
   </section>
 </div>
-<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}?v=505"></script>
+<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}?v=506"></script>
 {% endblock content %}

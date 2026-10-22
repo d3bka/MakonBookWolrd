@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import secrets
-import string
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -14,20 +13,24 @@ from .normalization import email_is_valid, normalize_email, normalize_phone
 from .sms import SmsDeliveryError, send_sms
 
 
-_PASSWORD_ALPHABET = string.ascii_letters + string.digits + "!@#$%&*+-_"
+# Temporary credentials should be easy to read from an SMS and type on a phone.
+# Ambiguous characters (I/L/O/0/1) are intentionally excluded.
+_PASSWORD_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ"
+_PASSWORD_DIGITS = "23456789"
 
 
-def generate_temporary_password(length: int = 14) -> str:
-    length = max(12, int(length))
-    while True:
-        password = "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(length))
-        if (
-            any(c.islower() for c in password)
-            and any(c.isupper() for c in password)
-            and any(c.isdigit() for c in password)
-            and any(c in "!@#$%&*+-_" for c in password)
-        ):
-            return password
+def generate_temporary_password(length: int = 8) -> str:
+    """Return a readable one-time password such as ``KRMH-5837``.
+
+    The temporary password is forced to change on first login, is never stored
+    in plaintext, and uses about 30 bits of randomness while remaining much
+    easier to read and type than the former 14-character mixed-symbol secret.
+    ``length`` is retained for API compatibility but values below/above 8 do
+    not change the human-friendly 4+4 format.
+    """
+    letters = "".join(secrets.choice(_PASSWORD_LETTERS) for _ in range(4))
+    digits = "".join(secrets.choice(_PASSWORD_DIGITS) for _ in range(4))
+    return f"{letters}-{digits}"
 
 
 def _login_identifier(user) -> str:
@@ -45,6 +48,48 @@ def _sms_channel_enabled() -> bool:
     return provider not in {"", "disabled", "none"}
 
 
+def _sms_role(profile, explicit_label: str = "") -> tuple[str, str]:
+    """Return (role_key, English role label) for credential SMS."""
+    explicit = str(explicit_label or "").strip().lower()
+    if explicit in {"student", "teacher", "manager"}:
+        role_key = explicit
+    elif getattr(profile, "hollihop_client_id", None):
+        role_key = "student"
+    elif getattr(profile, "hollihop_teacher_id", None):
+        role_key = "teacher"
+    elif getattr(profile, "hollihop_employee_id", None):
+        role_key = "manager"
+    else:
+        role_key = ""
+
+    friendly = {
+        "student": "Student",
+        "teacher": "Teacher",
+        "manager": "Manager",
+    }.get(role_key, "")
+    return role_key, friendly
+
+
+def _build_sms_text(user, *, login_value: str, temporary_password: str, sms_role_label: str = "") -> str:
+    profile = user.profile
+    _role_key, friendly_role = _sms_role(profile, sms_role_label)
+    first_name = str(getattr(user, "first_name", "") or "").strip()
+    greeting = f"Hi, {first_name}!" if first_name else "Hi!"
+    account_line = (
+        f"Your MakonBook {friendly_role} account is ready."
+        if friendly_role
+        else "Your MakonBook account is ready."
+    )
+    login_url = f"{settings.SITE_URL.rstrip('/')}/login/"
+    return (
+        f"{greeting} {account_line}\n"
+        f"Login: {login_value}\n"
+        f"Temporary password: {temporary_password}\n"
+        f"Sign in: {login_url}\n"
+        "Please change your password after your first sign-in."
+    )
+
+
 def can_deliver_temporary_access(user) -> bool:
     """Return True only when at least one delivery channel is currently usable.
 
@@ -58,7 +103,12 @@ def can_deliver_temporary_access(user) -> bool:
     return email_is_valid(email) or (bool(phone) and _sms_channel_enabled())
 
 
-def deliver_new_temporary_access(user) -> HollihopCredentialDelivery:
+def deliver_new_temporary_access(
+    user,
+    *,
+    channels: set[str] | frozenset[str] | None = None,
+    sms_role_label: str = "",
+) -> HollihopCredentialDelivery:
     """Reset to a fresh temporary password and deliver it once.
 
     The plaintext password exists only in local variables during this function.
@@ -67,9 +117,13 @@ def deliver_new_temporary_access(user) -> HollihopCredentialDelivery:
     profile = user.profile
     email = normalize_email(user.email)
     phone = normalize_phone(profile.phone_number)
-    has_email = email_is_valid(email)
+    allowed_channels = {"email", "sms"} if channels is None else {str(value).strip().lower() for value in channels}
+    invalid_channels = allowed_channels - {"email", "sms"}
+    if invalid_channels:
+        raise ValueError(f"Unsupported credential delivery channel(s): {', '.join(sorted(invalid_channels))}")
+    has_email = email_is_valid(email) and "email" in allowed_channels
     has_phone = bool(phone)
-    has_sms = has_phone and _sms_channel_enabled()
+    has_sms = has_phone and _sms_channel_enabled() and "sms" in allowed_channels
 
     delivery = HollihopCredentialDelivery.objects.create(
         user=user,
@@ -129,9 +183,11 @@ def deliver_new_temporary_access(user) -> HollihopCredentialDelivery:
             failure_count += 1
 
     if has_sms:
-        sms_text = (
-            f"MakonBook\nLogin: {login_value}\nTemporary password: {temporary_password}\n"
-            f"{settings.SITE_URL.rstrip('/')}/login/"
+        sms_text = _build_sms_text(
+            user,
+            login_value=login_value,
+            temporary_password=temporary_password,
+            sms_role_label=sms_role_label,
         )
         try:
             sms_result = send_sms(phone, sms_text)

@@ -174,7 +174,7 @@
                     <h3><span class="meta-label">Domain:</span> {{ question.domain|default:"—" }}</h3>
                     <h3><span class="meta-label">Type:</span> {{ question.type|default:"—" }}</h3>
                     <p><span class="meta-label">Explanation:</span></p>
-                    <div id="explanation"><div class="review-explanation-content">{{ question.get_exp|default_if_none:""|safe }}</div><div class="review-answer-hidden-message">Explanation hidden. Solve the question again before revealing it.</div></div>
+                    <div id="explanation"><div class="review-explanation-content">{{ question.get_exp|default_if_none:"" }}</div><div class="review-answer-hidden-message">Explanation hidden. Solve the question again before revealing it.</div></div>
                 </div>
             </section>
 

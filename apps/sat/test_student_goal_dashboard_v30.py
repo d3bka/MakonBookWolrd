@@ -59,15 +59,15 @@ class StudentGoalDashboardV30Tests(TestCase):
             average_sat_score=1350,
         )
 
-    def test_dashboard_renders_goal_command_center_and_creates_profile(self):
+    def test_classroom_renders_course_workspace_and_creates_goal_profile(self):
         self.client.force_login(self.student)
         response = self.client.get(reverse('student_classroom_home', args=[self.classroom.id]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Student command center')
-        self.assertContains(response, 'SAT exam countdown')
-        self.assertContains(response, 'Live motivation')
-        self.assertContains(response, 'Today’s focus')
+        self.assertContains(response, 'Course timeline')
+        self.assertContains(response, 'Units &amp; materials')
+        self.assertContains(response, 'Set your dream university')
+        self.assertNotContains(response, 'Student command center')
         self.assertTrue(StudentGoalProfile.objects.filter(user=self.student).exists())
 
     def test_student_can_save_catalog_university_goal(self):
@@ -132,10 +132,17 @@ class StudentGoalDashboardV30Tests(TestCase):
                 'daily_study_minutes_goal': 45,
                 'weekly_study_days_goal': 5,
             },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Your target should be at least the university reference score')
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertFalse(payload['ok'])
+        self.assertIn('target_sat_score', payload['errors'])
+        self.assertTrue(any(
+            'Your target should be at least the university reference score' in message
+            for message in payload['errors']['target_sat_score']
+        ))
 
     def test_past_exam_date_is_rejected(self):
         self.client.force_login(self.student)
@@ -148,10 +155,13 @@ class StudentGoalDashboardV30Tests(TestCase):
                 'daily_study_minutes_goal': 45,
                 'weekly_study_days_goal': 5,
             },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('exam_date', response.context['form'].errors)
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertFalse(payload['ok'])
+        self.assertIn('exam_date', payload['errors'])
 
     def test_outsider_cannot_access_goal_settings(self):
         self.client.force_login(self.outsider)

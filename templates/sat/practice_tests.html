@@ -2,356 +2,136 @@
 {% load static %}
 
 {% block page_title %}Practice Tests | MakonBook{% endblock page_title %}
-{% block title-main %}{% if classroom %}{{ classroom.name }}{% else %}MakonBook{% endif %}{% endblock title-main %}
+{% block title-main %}MakonBook{% endblock title-main %}
 {% block title-subtitle %}<p class="page-title-subtitle">Practice Tests</p>{% endblock title-subtitle %}
 {% block title %}Practice Tests{% endblock title %}
 
 {% block style %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'assets/css/makon-practice-tests.css' %}?v=15">
+<link rel="stylesheet" href="{% static 'assets/css/makon-practice-tests-v551.css' %}?v=551">
+<link rel="stylesheet" href="{% static 'assets/css/makon-test-config-v5418.css' %}?v=5418">
 {% endblock style %}
 
 {% block content %}
-<div
-  class="practice-page"
-  data-practice-page
-  data-page-key="{% if classroom %}classroom-{{ classroom.id }}{% else %}global{% endif %}"
->
+<div class="practice-page practice-page-v551" data-practice-page data-page-key="global">
   <section class="practice-hero" data-practice-reveal>
     <div class="practice-hero-copy">
-      <span class="practice-eyebrow">
-        <i aria-hidden="true"></i>
-        {% if classroom %}Classroom test library{% else %}Your test library{% endif %}
-      </span>
-      <h2>{% if is_teacher_view %}Preview and manage assigned tests{% else %}Continue where you stopped or start something new{% endif %}</h2>
-      <p>
-        {% if classroom %}
-          Tests shown here belong to <strong>{{ classroom.name }}</strong> and follow this classroom's access rules.
-        {% else %}
-          Every available test, unfinished attempt, and completed result is kept in one place.
-        {% endif %}
-      </p>
+      <span class="practice-eyebrow"><i aria-hidden="true"></i>Your SAT workspace</span>
+      <h2>Practice, continue, and review every attempt in one place</h2>
+      <p>Available tests come from all of your approved classes. Attempts and results belong to you, not to a classroom.</p>
     </div>
 
     <div class="practice-summary-grid" aria-label="Practice test summary">
-      <article>
-        <span>Available</span>
-        <strong>{{ practice_summary.available|default:0 }}</strong>
-      </article>
-      <article>
-        <span>Active</span>
-        <strong>{{ practice_summary.active|default:0 }}</strong>
-      </article>
-      <article>
-        <span>Continue</span>
-        <strong>{{ practice_summary.resumable|default:0 }}</strong>
-      </article>
-      <article>
-        <span>Completed</span>
-        <strong>{{ practice_summary.past|default:0 }}</strong>
-      </article>
+      <article><span>Available</span><strong>{{ practice_summary.available|default:0 }}</strong></article>
+      <article><span>In progress</span><strong>{{ practice_summary.in_progress|default:0 }}</strong></article>
+      <article><span>History</span><strong>{{ practice_summary.history|default:0 }}</strong></article>
+      <article><span>Best score</span><strong>{% if practice_summary.best_score is not None %}{{ practice_summary.best_score }}{% else %}—{% endif %}</strong></article>
     </div>
   </section>
 
   {% if tests_locked %}
     <section class="practice-info-banner v523-test-lock" data-practice-reveal>
       <span class="practice-info-icon"><i class="bi bi-lock"></i></span>
-      <div><strong>Tests unlock after you join a classroom.</strong><p>Your teacher decides which full SAT tests are assigned to your account. Practice topics and the Question Bank use the same access policy.</p><a class="mb50-primary-btn" href="{% url 'events' %}">Enter classroom code <i class="bi bi-arrow-right"></i></a></div>
+      <div><strong>Tests unlock after you join a classroom.</strong><p>Your History remains available even when there are no currently assigned tests.</p><a class="mb50-primary-btn" href="{% url 'events' %}">Enter classroom code <i class="bi bi-arrow-right"></i></a></div>
     </section>
   {% elif tests_unassigned %}
     <section class="practice-info-banner v523-test-lock" data-practice-reveal>
       <span class="practice-info-icon"><i class="bi bi-hourglass-split"></i></span>
-      <div><strong>No SAT tests assigned yet.</strong><p>You are connected to a classroom, but your teacher has not enabled a full SAT test for you yet.</p></div>
+      <div><strong>No SAT tests assigned right now.</strong><p>Your completed attempts are still available in History.</p></div>
     </section>
   {% endif %}
 
   {% if is_teacher_view %}
     <div class="practice-info-banner" data-practice-reveal>
       <span class="practice-info-icon" aria-hidden="true"><i class="bi bi-eye"></i></span>
-      <div>
-        <strong>Teacher preview mode</strong>
-        <p>Starting a test here creates an attempt for your own account. Student access is managed separately from the classroom dashboard.</p>
-      </div>
+      <div><strong>Teacher preview mode</strong><p>Student test access is managed separately from classroom management.</p></div>
     </div>
   {% endif %}
 
   <section class="practice-library" id="practiceTestsLibrary" data-practice-group="tests" data-practice-reveal>
     <div class="practice-library-head">
       <div>
-        <span class="practice-section-kicker">SAT practice</span>
+        <span class="practice-section-kicker">Unified tests</span>
         <h2>Practice Tests</h2>
-        <p>Search instantly, switch between active and completed tests, and resume without losing progress.</p>
+        <p>Available is your test library. In Progress contains unfinished attempts. History contains every completed attempt.</p>
       </div>
 
       <label class="practice-search">
-        <span class="sr-only">Search practice tests</span>
+        <span class="sr-only">Search practice tests and history</span>
         <i class="bi bi-search" aria-hidden="true"></i>
-        <input
-          type="search"
-          placeholder="Search tests"
-          autocomplete="off"
-          data-practice-search
-        >
+        <input type="search" placeholder="Search tests or attempts" autocomplete="off" data-practice-search>
         <button type="button" aria-label="Clear search" data-practice-search-clear hidden>×</button>
       </label>
     </div>
 
-    <div class="practice-tabs" role="tablist" aria-label="Practice test status">
-      <button
-        type="button"
-        class="practice-tab is-active"
-        role="tab"
-        aria-selected="true"
-        data-practice-tab="active"
-      >
-        Active
-        <span>{{ practice_summary.active|default:0 }}</span>
+    <div class="practice-tabs practice-tabs-v551" role="tablist" aria-label="Practice test status">
+      <button type="button" class="practice-tab is-active" role="tab" aria-selected="true" data-practice-tab="available">
+        Available <span>{{ practice_summary.available|default:0 }}</span>
       </button>
-      <button
-        type="button"
-        class="practice-tab"
-        role="tab"
-        aria-selected="false"
-        data-practice-tab="past"
-      >
-        Past
-        <span>{{ practice_summary.past|default:0 }}</span>
+      <button type="button" class="practice-tab" role="tab" aria-selected="false" data-practice-tab="in-progress">
+        In Progress <span>{{ practice_summary.in_progress|default:0 }}</span>
+      </button>
+      <button type="button" class="practice-tab" role="tab" aria-selected="false" data-practice-tab="history">
+        History <span>{{ practice_summary.history|default:0 }}</span>
       </button>
     </div>
 
     <div class="practice-panels">
-      <div class="practice-panel is-active" data-practice-panel="active" role="tabpanel">
+      <div class="practice-panel is-active" data-practice-panel="available" role="tabpanel">
         <div class="practice-grid" data-practice-grid>
-          {% for test in active_tests %}
-            <article
-              class="practice-test-card state-{{ test.card_state }}"
-              data-practice-card
-              data-search="{{ test.name|lower }} {{ test.mode_label|lower }} {{ test.status_label|lower }}"
-              style="--card-index:{{ forloop.counter0 }}"
-            >
-              <div class="practice-card-media">
-                <img src="{{ test.card_image }}" alt="{{ test.name }}" loading="lazy" onerror="this.onerror=null;this.src='{% static 'assets/img/tests/default.png' %}'">
-                <span class="practice-state-pill">{{ test.status_label }}</span>
-                <div class="practice-card-media-shade"></div>
-              </div>
-
-              <div class="practice-card-body">
-                <div class="practice-card-heading">
-                  <div>
-                    <span class="practice-test-type">{{ test.mode_label }}</span>
-                    <h3>{{ test.name }}</h3>
-                  </div>
-                  {% if test.has_active_attempt %}
-                    <span class="practice-pulse" title="Attempt in progress" aria-label="Attempt in progress"></span>
-                  {% endif %}
-                </div>
-
-                <div class="practice-card-facts">
-                  <span><i class="bi bi-list-check" aria-hidden="true"></i>{{ test.question_count }} questions</span>
-                  <span><i class="bi bi-grid-1x2" aria-hidden="true"></i>{{ test.module_count }} module{{ test.module_count|pluralize }}</span>
-                </div>
-
-                {% if test.card_state == 'closed' %}
-                  <div class="practice-progress-note is-closed">
-                    <i class="bi bi-lock-fill" aria-hidden="true"></i>
-                    <span>Closed by an administrator for normal MakonBook access. Existing progress is preserved.</span>
-                  </div>
-                {% elif test.has_active_attempt %}
-                  <div class="practice-progress-block">
-                    <div>
-                      <span>Attempt progress</span>
-                      <strong>{{ test.progress_percent }}%</strong>
-                    </div>
-                    <div class="practice-progress-track" aria-label="{{ test.progress_percent }} percent complete">
-                      <span style="width:{{ test.progress_percent }}%"></span>
-                    </div>
-                    <small>Module {{ test.current_module_number }} of {{ test.module_count }}</small>
-                  </div>
-                {% elif test.stage_complete_without_review %}
-                  <div class="practice-progress-note">
-                    <i class="bi bi-check2-circle" aria-hidden="true"></i>
-                    Your modules are submitted. Open the result to finish processing.
-                  </div>
-                {% else %}
-                  <div class="practice-progress-note is-ready">
-                    {% if test.is_new %}<span class="practice-inline-new-badge">NEW</span>{% endif %}
-                    <i class="bi bi-lightning-charge" aria-hidden="true"></i>
-                    <span>Ready for a fresh attempt.</span>
-                  </div>
-                {% endif %}
-
-                <div class="practice-card-actions">
-                  {% if test.card_state == 'closed' %}
-                    <button type="button" class="practice-action is-disabled" disabled><i class="bi bi-lock-fill" aria-hidden="true"></i> Closed in MakonBook</button>
-                  {% elif test.card_state == 'unavailable' %}
-                    <button type="button" class="practice-action is-disabled" disabled>Unavailable</button>
-                  {% elif test.workspace_classroom %}
-                    <a
-                      href="{% url 'student_classroom_test_start_root' test.workspace_classroom.id test.name %}"
-                      class="practice-action"
-                      data-practice-navigate
-                    >
-                      <span>{{ test.action_label }}</span>
-                      <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                    </a>
-                  {% elif classroom %}
-                    <a
-                      href="{% url 'student_classroom_test_start_root' classroom.id test.name %}"
-                      class="practice-action"
-                      data-practice-navigate
-                    >
-                      <span>{{ test.action_label }}</span>
-                      <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                    </a>
-                  {% else %}
-                    <a
-                      href="{% if is_teacher_view %}{% url 'teacher_practice_test_start_root' test.name %}{% else %}{% url 'practice_test_start_root' test.name %}{% endif %}"
-                      class="practice-action"
-                      data-practice-navigate
-                    >
-                      <span>{{ test.action_label }}</span>
-                      <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                    </a>
-                  {% endif %}
-                </div>
-              </div>
-            </article>
+          {% for test in available_tests %}
+            {% include 'sat/_practice_test_card_v551.html' with test=test %}
           {% empty %}
             <div class="practice-empty-state" data-practice-native-empty>
               <span><i class="bi bi-inbox" aria-hidden="true"></i></span>
-              <h3>No active tests</h3>
-              <p>There are no available or unfinished tests right now.</p>
+              <h3>No available tests</h3>
+              <p>Your teachers have not currently assigned any SAT tests.</p>
             </div>
           {% endfor %}
         </div>
         <div class="practice-empty-state practice-search-empty" data-practice-search-empty hidden>
-          <span><i class="bi bi-search" aria-hidden="true"></i></span>
-          <h3>No matching active tests</h3>
-          <p>Try a different test name or clear the search field.</p>
+          <span><i class="bi bi-search" aria-hidden="true"></i></span><h3>No matching tests</h3><p>Try another test name.</p>
         </div>
       </div>
 
-      <div class="practice-panel" data-practice-panel="past" role="tabpanel" hidden>
+      <div class="practice-panel" data-practice-panel="in-progress" role="tabpanel" hidden>
         <div class="practice-grid" data-practice-grid>
-          {% for test in past_tests %}
-            <article
-              class="practice-test-card state-completed"
-              data-practice-card
-              data-search="{{ test.name|lower }} {{ test.mode_label|lower }} completed score {{ test.latest_score }}"
-              style="--card-index:{{ forloop.counter0 }}"
-            >
-              <div class="practice-score-visual">
-                <span>Latest score</span>
-                <strong>{% if test.latest_score is not None %}{{ test.latest_score }}{% else %}—{% endif %}</strong>
-                <small>{% if test.latest_review_date %}{{ test.latest_review_date|date:"M d, Y" }}{% else %}Completed{% endif %}</small>
-                <div class="practice-score-rings" aria-hidden="true"></div>
-              </div>
-
-              <div class="practice-card-body">
-                <div class="practice-card-heading">
-                  <div>
-                    <span class="practice-test-type">{{ test.mode_label }}</span>
-                    <h3>{{ test.name }}</h3>
-                  </div>
-                  <span class="practice-complete-check" aria-label="Completed"><i class="bi bi-check2"></i></span>
-                </div>
-
-                <div class="practice-card-facts">
-                  <span><i class="bi bi-list-check" aria-hidden="true"></i>{{ test.question_count }} questions</span>
-                  <span><i class="bi bi-grid-1x2" aria-hidden="true"></i>{{ test.module_count }} module{{ test.module_count|pluralize }}</span>
-                </div>
-
-                <div class="practice-progress-note is-complete">
-                  <i class="bi bi-bar-chart" aria-hidden="true"></i>
-                  Review answers, domain performance, and explanations.
-                </div>
-
-                <div class="practice-card-actions">
-                  <a
-                    href="{% url 'practice_test_results_root' test.name %}{% if test.latest_review_key or classroom or test.workspace_classroom %}?{% if test.latest_review_key %}review_key={{ test.latest_review_key }}{% if classroom or test.workspace_classroom %}&{% endif %}{% endif %}{% if test.workspace_classroom %}classroom_id={{ test.workspace_classroom.id }}{% elif classroom %}classroom_id={{ classroom.id }}{% endif %}{% endif %}"
-                    class="practice-action is-secondary"
-                    data-practice-navigate
-                  >
-                    <span>View results</span>
-                    <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
-                  </a>
-                </div>
-              </div>
-            </article>
+          {% for test in in_progress_tests %}
+            {% include 'sat/_practice_test_card_v551.html' with test=test %}
           {% empty %}
             <div class="practice-empty-state" data-practice-native-empty>
-              <span><i class="bi bi-clock-history" aria-hidden="true"></i></span>
-              <h3>No completed tests</h3>
-              <p>Finished tests will appear here with their latest score.</p>
+              <span><i class="bi bi-play-circle" aria-hidden="true"></i></span>
+              <h3>No unfinished attempts</h3>
+              <p>Start a test from Available and it will appear here until it is submitted.</p>
             </div>
           {% endfor %}
         </div>
         <div class="practice-empty-state practice-search-empty" data-practice-search-empty hidden>
-          <span><i class="bi bi-search" aria-hidden="true"></i></span>
-          <h3>No matching completed tests</h3>
-          <p>Try a different test name or clear the search field.</p>
+          <span><i class="bi bi-search" aria-hidden="true"></i></span><h3>No matching attempts</h3><p>Try another test name.</p>
+        </div>
+      </div>
+
+      <div class="practice-panel" data-practice-panel="history" role="tabpanel" hidden>
+        <div class="practice-grid practice-history-grid" data-practice-grid>
+          {% for attempt in history_attempts %}
+            {% include 'sat/_practice_history_card_v551.html' with attempt=attempt %}
+          {% empty %}
+            <div class="practice-empty-state" data-practice-native-empty>
+              <span><i class="bi bi-clock-history" aria-hidden="true"></i></span>
+              <h3>No completed attempts yet</h3>
+              <p>Every scored attempt will remain here, even if a class later removes access to that test.</p>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="practice-empty-state practice-search-empty" data-practice-search-empty hidden>
+          <span><i class="bi bi-search" aria-hidden="true"></i></span><h3>No matching history</h3><p>Try a test name, mode, or score.</p>
         </div>
       </div>
     </div>
   </section>
-
-  {% if show_lessons %}
-    <section class="practice-library practice-lessons-library" id="learningPlans" data-practice-group="lessons" data-practice-reveal>
-      <div class="practice-library-head">
-        <div>
-          <span class="practice-section-kicker">Learning plans</span>
-          <h2>Lessons</h2>
-          <p>Keep lesson packages separate from timed SAT attempts.</p>
-        </div>
-      </div>
-
-      {% if purchased %}
-        <div class="practice-tabs" role="tablist" aria-label="Lesson status">
-          <button type="button" class="practice-tab is-active" role="tab" aria-selected="true" data-practice-tab="active">Active <span>{{ active_lessons|length }}</span></button>
-          <button type="button" class="practice-tab" role="tab" aria-selected="false" data-practice-tab="past">Completed <span>{{ past_lessons|length }}</span></button>
-        </div>
-
-        <div class="practice-panels">
-          <div class="practice-panel is-active" data-practice-panel="active" role="tabpanel">
-            <div class="practice-lesson-grid">
-              {% for lesson in active_lessons %}
-                <article class="practice-lesson-card" style="--card-index:{{ forloop.counter0 }}">
-                  {% if lesson.package.image %}<img src="{{ lesson.package.image.url }}" alt="{{ lesson.package.name }}" loading="lazy">{% else %}<img src="{% static 'assets/img/icons/original-big-icon.png' %}" alt="" loading="lazy">{% endif %}
-                  <div><span>Active lesson</span><h3>{{ lesson.name }}</h3><a href="{% url 'lesson_detail_root' lesson.pk %}" data-practice-navigate>Start lesson <i class="bi bi-arrow-right"></i></a></div>
-                </article>
-              {% empty %}
-                <div class="practice-empty-state"><span><i class="bi bi-book"></i></span><h3>No active lessons</h3><p>You have no lessons to study right now.</p></div>
-              {% endfor %}
-            </div>
-          </div>
-          <div class="practice-panel" data-practice-panel="past" role="tabpanel" hidden>
-            <div class="practice-lesson-grid">
-              {% for lesson in past_lessons %}
-                <article class="practice-lesson-card" style="--card-index:{{ forloop.counter0 }}">
-                  {% if lesson.package.image %}<img src="{{ lesson.package.image.url }}" alt="{{ lesson.package.name }}" loading="lazy">{% else %}<img src="{% static 'assets/img/icons/original-big-icon.png' %}" alt="" loading="lazy">{% endif %}
-                  <div><span>Completed lesson</span><h3>{{ lesson.name }}</h3><a href="{% url 'lesson_detail_root' lesson.pk %}" data-practice-navigate>Review lesson <i class="bi bi-arrow-right"></i></a></div>
-                </article>
-              {% empty %}
-                <div class="practice-empty-state"><span><i class="bi bi-journal-check"></i></span><h3>No completed lessons</h3><p>Finished lessons will appear here.</p></div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-      {% else %}
-        <div class="practice-lesson-grid">
-          {% for package in available_packages %}
-            <article class="practice-lesson-card">
-              {% if package.image %}<img src="{{ package.image.url }}" alt="{{ package.name }}" loading="lazy">{% else %}<img src="{% static 'assets/img/icons/original-big-icon.png' %}" alt="" loading="lazy">{% endif %}
-              <div><span>Lesson package</span><h3>{{ package.name }}</h3><p>{{ package.description|truncatewords:20 }}</p><button type="button" disabled>Coming soon</button></div>
-            </article>
-          {% empty %}
-            <div class="practice-empty-state"><span><i class="bi bi-box"></i></span><h3>No lesson packages</h3><p>Please check back later.</p></div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    </section>
-  {% endif %}
 </div>
 
-<script src="{% static 'assets/js/makon-practice-tests.js' %}?v=12"></script>
+<script src="{% static 'assets/js/makon-practice-tests.js' %}?v=551"></script>
+<script src="{% static 'assets/js/makon-test-config-v550.js' %}?v=550"></script>
 {% endblock content %}

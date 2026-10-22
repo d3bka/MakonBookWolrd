@@ -1,155 +1,78 @@
 {% load static %}
 {% load socialaccount %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   {% include 'base/theme_init.html' %}
-  <title>SAT Makon - Login</title>
+  <title>MakonBook Login | SAT Makon</title>
   <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-style.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-theme.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-responsive.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-header-hotfix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-nav-password-final.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-final-fix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-show-clean-fix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-show-raise-fix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-show-light-fix.css' %}">
-  {% include 'base/responsive_css.html' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5601">
 </head>
-<body class="auth-page auth-login">
-  <div class="auth-shell">
-    <nav class="auth-nav" data-auth-reveal>
-      <a href="/" class="auth-brand">
-        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon logo">
-        <span>SAT Makon</span>
-      </a>
-      <div class="auth-nav-actions">
-        {% include 'base/theme_toggle.html' %}
-        <a href="{% url 'register' %}" class="auth-link-pill">Create account</a>
-      </div>
-    </nav>
+<body class="mkp-page auth-page mb56-shared-header-page">
+<div class="mkp-shell">
+  {% include 'landing/_public_header.html' %}
 
-    <div class="auth-grid">
-      <section class="auth-visual" data-auth-reveal>
-        <span class="eyebrow">Student dashboard</span>
-        <h1>Get back to your SAT prep flow.</h1>
-        <p>Continue practice tests, review weak areas, track classroom work, and keep your score growth visible in one focused workspace.</p>
-
-        <div class="auth-metrics">
-          <div class="auth-metric">
-            <strong>1490</strong>
-            <span>target score view</span>
-          </div>
-          <div class="auth-metric">
-            <strong>92%</strong>
-            <span>completion tracking</span>
-          </div>
-          <div class="auth-metric">
-            <strong>11/14</strong>
-            <span>review fixes</span>
-          </div>
-        </div>
-
-        <div class="auth-note-list">
-          <div class="auth-note-item">
-            <i>1</i>
-            <div><strong>Practice</strong><span>Timed English and Math sections.</span></div>
-          </div>
-          <div class="auth-note-item">
-            <i>2</i>
-            <div><strong>Review</strong><span>Clear feedback after each attempt.</span></div>
-          </div>
-          <div class="auth-note-item">
-            <i>3</i>
-            <div><strong>Classrooms</strong><span>Teacher assignments and progress.</span></div>
-          </div>
-        </div>
-
-        <div class="auth-dashboard-card" data-tilt>
-          <div class="mini-row"><span>Predicted score</span><span>Active</span></div>
-          <div class="score-big">1490</div>
-          <div class="progress-line"><span></span></div>
-          <div class="mini-row"><span>Reading & Writing</span><strong>710</strong></div>
-          <div class="mini-row"><span>Math</span><strong>780</strong></div>
+  <main class="mkp-auth-main">
+    <div class="mkp-container mkp-auth-grid">
+      <section class="mkp-auth-copy">
+        <span class="mkp-kicker">MakonBook workspace</span>
+        <h1>Continue exactly where you left off.</h1>
+        <p>Your tests, classrooms, vocabulary, homework, progress, and MakonBook tools stay under one account. Public account creation is disabled; SATMakon student access is provisioned by the school.</p>
+        <div class="mkp-auth-points">
+          <div class="mkp-auth-point"><strong>Practice & review</strong><span>Timed tests, resumable attempts, review, and analytics.</span></div>
+          <div class="mkp-auth-point"><strong>Classroom work</strong><span>Lessons, homework, materials, teacher updates.</span></div>
+          <div class="mkp-auth-point"><strong>Secure access</strong><span>Use your MakonBook credentials or linked Google account.</span></div>
         </div>
       </section>
 
-      <section class="auth-card auth-login-card" data-auth-reveal>
-        <div class="auth-card-header">
-          <span class="eyebrow">Secure login</span>
-          <h2>Sign in</h2>
-          <p>Use your MakonBook credentials to continue your tests and classroom work.</p>
-        </div>
+      <section class="mkp-auth-card">
+        <span class="mkp-kicker">Secure sign in</span>
+        <h2>Welcome back.</h2>
+        <p>Use the credentials connected to your MakonBook account.</p>
 
         {% if messages %}
-          <div class="alert-box">
-            <ul class="messages">
-              {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-              {% endfor %}
-            </ul>
-          </div>
+          <div class="mkp-alert"><ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul></div>
         {% endif %}
 
-        <form action="" method="POST" class="signin-form auth-form" data-submit-once data-busy-text="Signing in…">
+        <form action="" method="post" class="mkp-form" data-submit-once data-busy-text="Signing in…">
           {% csrf_token %}
-
-          <div class="form-group">
-            <label class="form-label" for="username-field">Username, email, or phone</label>
-            <input id="username-field" type="text" name="username" placeholder="Enter username, email, or phone" autocomplete="username" required>
+          <div class="mkp-field">
+            <label for="username-field">Username, email, or phone</label>
+            <input id="username-field" type="text" name="username" autocomplete="username" placeholder="Enter your login" required autofocus>
           </div>
-
-          <div class="form-group password-wrap">
-            <label class="form-label" for="password-field">Password</label>
-            <input id="password-field" type="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
-            <button type="button" class="password-toggle" data-target="#password-field" aria-label="Show password">Show</button>
+          <div class="mkp-field mkp-password">
+            <label for="password-field">Password</label>
+            <input id="password-field" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+            <button type="button" data-target="#password-field" class="password-toggle" aria-label="Show password">Show</button>
           </div>
-
-
-          <div class="auth-card-footer compact-footer" style="justify-content: flex-end; margin-top: -6px; margin-bottom: 12px;">
-            <a href="{% url 'forgot_password' %}">Forgot password?</a>
-          </div>
-
-          <div class="form-group">
-            <button type="submit" class="primary-btn">Sign in</button>
-          </div>
+          <div class="mkp-form-row"><a href="{% url 'forgot_password' %}">Forgot password?</a></div>
+          <button class="mkp-btn wide" type="submit">Sign in to MakonBook</button>
         </form>
 
-        <div class="auth-divider"><span>or continue with Google</span></div>
-
-        <form method="post" action="{% provider_login_url 'google' %}" class="signin-form auth-form" data-submit-once data-busy-text="Signing in…">
+        <div class="mkp-divider">or</div>
+        <form method="post" action="{% provider_login_url 'google' %}" data-submit-once data-busy-text="Opening Google…">
           {% csrf_token %}
-          <div class="form-group">
-            <button type="submit" class="primary-btn">Continue with Google</button>
-          </div>
+          <button class="mkp-btn wide mkp-google" type="submit">Continue with Google</button>
         </form>
 
-        <div class="auth-divider"><span>or continue without an account</span></div>
-
-        <a href="{% url 'guest_entry' %}" class="guest-cta-card" aria-label="Continue as guest">
-          <span class="guest-cta-icon">↗</span>
-          <span>
-            <strong>Continue as guest</strong>
-            <small>Join public events without creating an account.</small>
-          </span>
-        </a>
-
-        <div class="auth-card-footer compact-footer">
-          <a href="/software/">Download app</a>
-          <a href="{% url 'register' %}">Create account</a>
+        <div class="mkp-login-links">
+          <a class="mkp-login-link" href="{% url 'global_event_list' %}"><strong>Mock exam registration →</strong><span>Reserve a verified seat without public account signup.</span></a>
+          <a class="mkp-login-link" href="{% url 'rating_parent_lookup' %}"><strong>Parent portal →</strong><span>Open student statistics with the registered phone number.</span></a>
         </div>
       </section>
     </div>
-  </div>
-
-  <script src="{% static 'assets/js/login-main.js' %}"></script>
-  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
-  <script src="{% static 'assets/js/makon-submit-once.js' %}"></script>
+  </main>
+</div>
+<script src="{% static 'assets/js/login-main.js' %}"></script>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-submit-once.js' %}"></script>
 </body>
 </html>

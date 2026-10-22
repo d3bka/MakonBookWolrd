@@ -4,7 +4,10 @@ Keep role gating in one place so student-facing pages can adopt the new shell
 without leaking it into Teacher, Manager, Support Teacher, or Admin workflows.
 """
 
-from .models import ClassroomMembership
+from django.db.models import Q
+from django.utils import timezone
+
+from .models import ClassroomHomeworkAssignment, ClassroomHomeworkSubmission, ClassroomMembership
 from apps.gamification.services import gamification_shell_context
 from .roles import (
     ADMIN_GROUP,
@@ -87,5 +90,30 @@ def student_workspace_context(user, *, active=None, enabled=None, approved_membe
             "student_workspace_active": active,
         }
     )
+
+    # V55.4 — one small request-scoped count powers the Homework badge in the
+    # sidebar. Count only actionable, still-open assignments and exclude rows
+    # already submitted by this student.
+    pending_count = getattr(user, "_makon_pending_homework_count", None)
+    if pending_count is None:
+        classroom_ids = [m.classroom_id for m in approved_memberships if getattr(m, "classroom_id", None)]
+        if classroom_ids:
+            submitted_ids = ClassroomHomeworkSubmission.objects.filter(
+                student=user,
+                status=ClassroomHomeworkSubmission.STATUS_SUBMITTED,
+            ).values_list("assignment_id", flat=True)
+            pending_count = (
+                ClassroomHomeworkAssignment.objects
+                .filter(classroom_id__in=classroom_ids, is_active=True)
+                .filter(Q(assign_all=True) | Q(assigned_students=user))
+                .filter(Q(due_at__isnull=True) | Q(due_at__gte=timezone.now()))
+                .exclude(pk__in=submitted_ids)
+                .distinct()
+                .count()
+            )
+        else:
+            pending_count = 0
+        user._makon_pending_homework_count = pending_count
+    context["student_homework_pending_count"] = int(pending_count or 0)
     context.update(gamification_shell_context(user))
     return context

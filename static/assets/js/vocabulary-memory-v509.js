@@ -1,6 +1,7 @@
 (()=>{
   const root=document.querySelector('[data-memory-layers]');
   if(!root)return;
+
   const stage=root.querySelector('[data-study-stage]');
   const rate=root.querySelector('[data-rate]');
   const counter=root.querySelector('[data-memory-counter]');
@@ -10,7 +11,12 @@
   const toast=root.querySelector('[data-memory-toast]');
   const saveState=root.querySelector('[data-save-state]');
   const instruction=root.querySelector('[data-memory-instruction]');
-  const items=[...root.querySelectorAll('[data-study-item]')].map(el=>({el,again:0,learning:0}));
+  const items=[...root.querySelectorAll('[data-study-item]')].map(el=>({
+    el,
+    again:0,
+    learning:0,
+    timesSeen:Number(el.dataset.timesSeen||0)
+  }));
   if(!stage||!items.length)return;
 
   const total=items.length;
@@ -30,6 +36,12 @@
     return '';
   };
 
+  function setSaveState(label,tone='saved'){
+    if(!saveState)return;
+    saveState.textContent=label;
+    saveState.dataset.tone=tone;
+  }
+
   function showToast(message,tone='info',duration=900){
     if(!toast)return;
     clearTimeout(toastTimer);
@@ -39,24 +51,64 @@
     toastTimer=setTimeout(()=>toast.classList.remove('is-visible'),duration);
   }
 
-  function queueSave(wordId,outcome){
-    if(saveState)saveState.textContent='Saving…';
-    const payload=JSON.stringify({word_id:wordId,outcome});
-    const run=(attempt=0)=>fetch(root.dataset.markUrl,{
-      method:'POST',credentials:'same-origin',keepalive:true,
-      headers:{'Content-Type':'application/json','X-CSRFToken':csrf(),'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
-      body:payload
-    }).then(response=>{
-      if(!response.ok)throw new Error('save_failed');
-      if(saveState)saveState.textContent='Saved';
-      return true;
-    }).catch(()=>{
-      if(attempt<1)return new Promise(resolve=>setTimeout(resolve,180)).then(()=>run(attempt+1));
-      if(saveState)saveState.textContent='Sync failed';
-      showToast('Progress sync failed. Your session can continue.','error',1500);
-      return false;
+  async function postReview(item,outcome){
+    const token=csrf();
+    if(!token)throw new Error('Secure session token is missing. Reload the page.');
+
+    const payload=JSON.stringify({
+      word_id:item.el.dataset.wordId,
+      outcome,
+      expected_times_seen:item.timesSeen
     });
-    void run();
+
+    const response=await fetch(root.dataset.markUrl,{
+      method:'POST',
+      credentials:'same-origin',
+      keepalive:true,
+      headers:{
+        'Content-Type':'application/json',
+        'X-CSRFToken':token,
+        'X-Requested-With':'XMLHttpRequest',
+        'Accept':'application/json'
+      },
+      body:payload
+    });
+
+    let data={};
+    try{data=await response.json();}catch(_error){data={};}
+    if(!response.ok||!data.ok){
+      const error=new Error(data.error||'Could not save progress.');
+      error.status=response.status;
+      error.data=data;
+      throw error;
+    }
+    return data;
+  }
+
+  async function saveReview(item,outcome){
+    setSaveState('Saving…','saving');
+    for(let attempt=0;attempt<2;attempt+=1){
+      try{
+        const data=await postReview(item,outcome);
+        item.timesSeen=Number(data.times_seen||item.timesSeen);
+        item.el.dataset.timesSeen=String(item.timesSeen);
+        if(data.status)item.el.dataset.status=data.status;
+        setSaveState(data.duplicate?'Saved · synced':'Saved','saved');
+        return data;
+      }catch(error){
+        if(error.status===401||error.status===403||error.status===409){
+          setSaveState('Not saved','error');
+          throw error;
+        }
+        if(attempt===0){
+          await new Promise(resolve=>setTimeout(resolve,350));
+          continue;
+        }
+        setSaveState('Not saved','error');
+        throw error;
+      }
+    }
+    throw new Error('Could not save progress.');
   }
 
   function updateHud(){
@@ -102,17 +154,32 @@
     stage.classList.add('is-complete');
     stage.innerHTML=`<div class="va509-center va509-result"><span class="va509-icon-orb"><i class="bi bi-check-lg"></i></span><span class="va509-kicker">Session complete</span><h2>${stats.known} strong recalls</h2><p>${completed} cards completed · ${stats.learning} still learning · ${stats.again} marked again.</p></div>`;
     if(rate)rate.innerHTML=`<a class="va509-btn" href="${root.dataset.deckUrl}">Back to deck</a><a class="va509-btn primary va509-memory-primary" href="${root.dataset.studyAllUrl}">Review all <i class="bi bi-arrow-repeat"></i></a>`;
-    if(instruction)instruction.innerHTML='<i class="bi bi-check-circle"></i> Your progress is saved in the background.';
-    if(saveState)saveState.textContent='Saved';
+    if(instruction)instruction.innerHTML='<i class="bi bi-check-circle"></i> Every completed rating is saved.';
+    setSaveState('Saved','saved');
     if(knownNode)knownNode.textContent=stats.known;
     if(againNode)againNode.textContent=stats.again;
   }
 
-  function mark(outcome){
+  async function mark(outcome){
     if(transitioning||!flipped||!current)return;
     transitioning=true;
-    stats[outcome]=(stats[outcome]||0)+1;
+    updateHud();
+
     const item=current;
+    try{
+      const data=await saveReview(item,outcome);
+      if(data.status)item.el.dataset.status=data.status;
+    }catch(error){
+      transitioning=false;
+      updateHud();
+      const message=error.status===409
+        ? 'Progress changed elsewhere. Reload this deck before continuing.'
+        : (error.message||'Progress was not saved. Check your connection and try again.');
+      showToast(message,'error',2200);
+      return;
+    }
+
+    stats[outcome]=(stats[outcome]||0)+1;
     let requeued=false;
     if(outcome==='again'&&item.again<2){
       item.again+=1;
@@ -124,7 +191,7 @@
       requeued=true;
     }
     if(!requeued)completed+=1;
-    queueSave(item.el.dataset.wordId,outcome);
+
     updateHud();
     const message=outcome==='known'?'+1 strong recall':outcome==='learning'?'One more pass later':'Coming back soon';
     showToast(message,outcome==='known'?'success':outcome==='again'?'error':'info',850);
@@ -138,16 +205,17 @@
   });
   rate?.querySelectorAll('[data-outcome]').forEach(button=>button.addEventListener('click',event=>{
     event.stopPropagation();
-    mark(button.dataset.outcome);
+    void mark(button.dataset.outcome);
   }));
   document.addEventListener('keydown',event=>{
     if(event.repeat||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
     if(event.code==='Space'){event.preventDefault();flip();return;}
     if(!flipped)return;
-    if(event.key==='1')mark('again');
-    if(event.key==='2')mark('learning');
-    if(event.key==='3')mark('known');
+    if(event.key==='1')void mark('again');
+    if(event.key==='2')void mark('learning');
+    if(event.key==='3')void mark('known');
   });
 
+  setSaveState('Saved','saved');
   next();
 })();

@@ -1,0 +1,129 @@
+/* MakonBook V54.0.3 — selectable integrity mode before a fresh test.
+   Active attempts remain read-only by design. */
+
+.sat54-integrity-picker {
+  margin-top: 24px !important;
+}
+
+.sat54-integrity-heading {
+  align-items: flex-end !important;
+}
+
+.sat54-integrity-heading small {
+  max-width: 360px;
+  text-align: right;
+  line-height: 1.35;
+}
+
+.sat54-integrity-options {
+  gap: 9px !important;
+}
+
+.sat54-integrity-option > span {
+  min-height: 72px !important;
+  padding: 12px !important;
+  cursor: pointer;
+}
+
+.sat54-integrity-option strong {
+  font-size: 11px !important;
+}
+
+.sat54-integrity-option small {
+  margin-top: 5px !important;
+  font-size: 9px !important;
+  line-height: 1.42 !important;
+}
+
+.sat54-integrity-option.is-selected > span {
+  border-color: #7c3aed !important;
+  background:
+    radial-gradient(circle at 100% 0, rgba(236,72,153,.10), transparent 36%),
+    linear-gradient(135deg, rgba(109,40,217,.12), rgba(139,92,246,.07)),
+    #fff !important;
+  box-shadow:
+    0 0 0 2px rgba(109,40,217,.10),
+    0 10px 22px rgba(76,29,149,.08) !important;
+}
+
+.sat54-integrity-option.is-selected > span::after {
+  content: "Selected";
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(100deg,#6d28d9,#8b5cf6,#c026d3);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sat54-integrity-beginner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 11px;
+  padding: 10px 11px;
+  border: 1px solid rgba(109,40,217,.10);
+  border-radius: 12px;
+  color: #71647d;
+  background: rgba(245,240,255,.72);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.sat54-integrity-beginner i {
+  margin-top: 2px;
+  color: #7c3aed;
+}
+
+.sat54-integrity-beginner strong {
+  color: #392747;
+}
+
+.sat54-integrity-current {
+  position: relative;
+}
+
+.sat54-integrity-current-help {
+  grid-column: 2 / -1;
+  margin-top: -3px;
+  color: #8a7d94;
+  font-size: 8.5px;
+  line-height: 1.4;
+}
+
+/* Disabled classroom policies still look like intentional read-only controls. */
+.sat54-integrity-picker[data-locked="true"] .sat54-integrity-option > span {
+  cursor: default;
+  opacity: .88;
+}
+
+html[data-theme="dark"] .sat54-integrity-option.is-selected > span {
+  background:
+    radial-gradient(circle at 100% 0, rgba(236,72,153,.10), transparent 36%),
+    rgba(124,58,237,.15) !important;
+}
+
+html[data-theme="dark"] .sat54-integrity-beginner {
+  border-color: rgba(167,139,250,.12);
+  color: #b9aec1;
+  background: rgba(124,58,237,.07);
+}
+
+html[data-theme="dark"] .sat54-integrity-beginner strong {
+  color: #f3edf7;
+}
+
+@media (max-width: 760px) {
+  .sat54-integrity-heading {
+    align-items: flex-start !important;
+    flex-direction: column;
+  }
+
+  .sat54-integrity-heading small {
+    text-align: left;
+  }
+}

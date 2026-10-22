@@ -1,0 +1,97 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Your result · {{ event.title }} · MakonBook</title>
+  <meta name="description" content="Your MakonBook placement result is ready.">
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  {% include 'base/theme_init.html' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5612">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5610.css' %}?v=5610">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5612.css' %}?v=5612">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-header-sync-v5612-3.css' %}?v=56123">
+</head>
+<body class="mb56-page pp-page pp-v5612 pp12-result-page">
+  <div class="mb56-noise" aria-hidden="true"></div>
+
+  {% include 'landing/_public_header.html' with local_nav=False %}
+
+  <main class="pp12-result-shell">
+    <section class="pp12-result-card" data-pp-reveal>
+      <div class="pp12-result-topline">
+        <span><i></i> LEVEL CHECK COMPLETE</span>
+        <span>{{ event.title }}</span>
+      </div>
+
+      <div class="pp12-result-grid">
+        <div class="pp12-result-copy">
+          <span class="pp-kicker">YOUR RESULT</span>
+          <h1>{% if lead %}{{ lead.first_name }}, your{% else %}Your{% endif %} current level is ready.</h1>
+
+          {% if show_score and placement %}
+            <div class="pp12-level-title"><span>Level {{ placement.level_number }}</span><strong>{{ placement.level_name }}</strong></div>
+            <p>{{ level_message }}</p>
+          {% elif show_score %}
+            <div class="pp12-level-title"><span>Score</span><strong>{{ total_score }}</strong></div>
+            <p>{{ scoring_label }}. Your result has been recorded successfully.</p>
+          {% else %}
+            <div class="pp12-level-title"><span>Completed</span><strong>Result recorded</strong></div>
+            <p>Your result is saved. Our team can review it from MakonBook.</p>
+          {% endif %}
+
+          <div class="pp12-result-actions">
+            <a class="pp-btn" href="/">Explore MakonBook <b>↗</b></a>
+            <a class="pp12-secondary-btn" href="{% url 'public_placement_list' %}">Take another level check</a>
+          </div>
+        </div>
+
+        <div class="pp12-score-panel">
+          {% if show_score %}
+            {% if placement %}
+            <div class="pp12-score-ring" style="--score: {{ placement_percentage|default:0 }}">
+              <div><strong>{{ placement_percentage|floatformat:0 }}%</strong><span>correct</span></div>
+            </div>
+            {% else %}
+            <div class="pp12-score-ring pp12-score-ring-number" style="--score: 100">
+              <div><strong>{{ total_score }}</strong><span>score</span></div>
+            </div>
+            {% endif %}
+          {% else %}
+            <div class="pp12-score-ring" style="--score: 100"><div><strong>✓</strong><span>complete</span></div></div>
+          {% endif %}
+
+          <div class="pp12-result-stats">
+            <div><span>Correct</span><strong>{% if show_score %}{{ total_raw }} / {{ placement_total_questions|default:attempt.total_questions }}{% else %}Hidden{% endif %}</strong></div>
+            <div><span>Answered</span><strong>{% if show_score %}{{ attempt.answered_questions }} / {{ attempt.total_questions }}{% else %}{{ attempt.answered_questions }} answered{% endif %}</strong></div>
+            <div><span>Time</span><strong>{% if elapsed_minutes %}{{ elapsed_minutes }} min{% else %}—{% endif %}</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pp12-after-card" data-pp-reveal>
+      <div><span class="pp-kicker">WHAT HAPPENS NEXT</span><h2>Your result is already recorded.</h2></div>
+      <div class="pp12-after-steps">
+        <article><span>01</span><div><strong>Result saved</strong><p>Your placement attempt and score are stored securely in MakonBook.</p></div></article>
+        <article><span>02</span><div><strong>Team follow-up</strong><p>If needed, our team can contact you using the phone number you provided.</p></div></article>
+        <article><span>03</span><div><strong>Keep improving</strong><p>Use this level as your starting point and focus practice on the skills that matter next.</p></div></article>
+      </div>
+      <div class="pp12-result-tools">
+        {% if can_review %}<a href="{% url 'global_event_review_root' attempt.guest_token %}">Review answers <span>↗</span></a>{% endif %}
+        <button type="button" data-pp-share data-share-text="I completed {{ event.title }} on MakonBook{% if placement %} — {{ placement.label }} ({{ placement_percentage }}%){% endif %}.">Share result <span>↗</span></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="pp12-toast" data-pp-toast role="status" aria-live="polite"></div>
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5597"></script>
+  <script src="{% static 'assets/js/public-placement-v5612.js' %}?v=5612"></script>
+</body>
+</html>

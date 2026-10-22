@@ -10,94 +10,163 @@
   {% include 'base/theme_init.html' %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
   <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/sat-test-start-v13.css' %}?v=39">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-retake-v530.css' %}?v=530">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-preview-v531.css' %}?v=531">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-preview-v532.css' %}?v=532">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-preview-v533.css' %}?v=533">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-preview-v534.css' %}?v=534">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-preview-v5344-theme-light.css' %}?v=5344">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-preview-v535-typography.css' %}?v=535">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-preview-cover-v5417.css' %}?v=5418">
 </head>
-<body class="sat-start-page">
-  <div class="sat-start-bg" aria-hidden="true"></div>
-  <main class="sat-start-shell">
-    <header class="sat-start-topbar">
-      <a class="sat-start-brand" href="{% if classroom %}{% url 'classroom_practice_tests_root' classroom.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">
-        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon">
-        <span>SAT Makon</span>
+<body class="sat531-page" data-preview-watermark="{{ request.user.username|default:'student' }}">
+  <div class="sat531-watermark-layer" aria-hidden="true" data-preview-watermarks></div>
+
+  <header class="sat531-header">
+    <div class="sat531-header-inner">
+      <a class="sat531-brand" href="{% url 'practice_tests_root' %}">
+        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="">
+        <div><strong>MakonBook</strong><span>Digital SAT practice</span></div>
       </a>
-      <div class="sat-start-top-actions">
+
+      <div class="sat531-test-label">
+        <span>{% if has_active_attempt %}Resume test{% elif retake_mode %}Retake overview{% else %}Test overview{% endif %}</span>
+        <strong>{{ test.name }}</strong>
+      </div>
+
+      <div class="sat531-header-actions">
         {% include 'base/theme_toggle.html' %}
-        <a class="sat-start-close" href="{% if classroom %}{% url 'classroom_practice_tests_root' classroom.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">
-          <i class="fa fa-times" aria-hidden="true"></i><span>Close</span>
+        <a class="sat531-icon-btn" aria-label="Close test overview" href="{% url 'practice_tests_root' %}">
+          <i class="fa fa-times" aria-hidden="true"></i>
         </a>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <section class="sat-start-hero">
-      <div class="sat-start-copy">
-        <span class="sat-start-eyebrow"><i class="fa fa-bolt" aria-hidden="true"></i>{% if has_active_attempt %}Resume attempt{% else %}Test overview{% endif %}</span>
+  <main class="sat531-main">
+    {% if homework_assignment %}
+    <section class="sat-retake-ready sat531-retake-ready" role="status">
+      <i class="fa fa-graduation-cap" aria-hidden="true"></i>
+      <div><strong>Homework · {{ homework_assignment.classroom.name }}</strong><span>{{ homework_assignment.title }} · {{ homework_assignment.get_required_test_mode_display }} · Anti-Cheat {{ homework_assignment.get_required_integrity_mode_display }}{% if homework_assignment.due_at %} · due {{ homework_assignment.due_at|date:'d M, H:i' }}{% endif %}</span></div>
+    </section>
+    {% endif %}
+    {% if integrity_retake_blocked %}
+    <section class="sat-retake-guard sat531-active-guard" role="status">
+      <div class="sat-retake-guard-icon"><i class="fa fa-lock" aria-hidden="true"></i></div>
+      <div class="sat-retake-guard-copy">
+        <span>Retake locked</span>
+        <strong>Exam integrity terminated the previous attempt</strong>
+        <p>Your teacher must allow another attempt before this classroom test can be retaken.</p>
+      </div>
+    </section>
+    {% elif blocked_active_attempt %}
+    <section class="sat-retake-guard sat531-active-guard" role="status">
+      <div class="sat-retake-guard-icon"><i class="fa fa-shield" aria-hidden="true"></i></div>
+      <div class="sat-retake-guard-copy">
+        <span>One active test at a time</span>
+        <strong>{{ blocked_active_attempt.test.name }} is already in progress</strong>
+        <p>Finish or resume the current attempt before starting another SAT test. This prevents timers, drafts and answers from different tests from overlapping.</p>
+      </div>
+      {% if blocked_active_url %}
+      <a class="sat-retake-guard-action" href="{{ blocked_active_url }}">Continue active test <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+      {% endif %}
+    </section>
+    {% elif retake_mode %}
+    <section class="sat-retake-ready sat531-retake-ready" role="status">
+      <i class="fa fa-repeat" aria-hidden="true"></i>
+      <div>
+        <strong>
+          {% if retake_mode == 'english' %}Reading & Writing retake
+          {% elif retake_mode == 'math' %}Math retake
+          {% else %}New full-test attempt{% endif %}
+        </strong>
+        <span>Your previous score stays in attempt history. A new attempt is created only after you press Start below.</span>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="sat531-overview">
+      <div class="sat531-intro">
+        <span class="sat531-kicker">Digital SAT practice{% if selected_test_mode == 'rw_only' %} · Reading & Writing only{% elif selected_test_mode == 'math_only' %} · Math only{% elif selected_test_mode == 'single_english_m1' %} · Reading & Writing Module 1{% elif selected_test_mode == 'single_english_m2' %} · Reading & Writing Module 2{% elif selected_test_mode == 'single_math_m1' %} · Math Module 1{% elif selected_test_mode == 'single_math_m2' %} · Math Module 2{% endif %}</span>
         <h1>{{ test.name }}</h1>
-        <p>Review the module order, timing, autosave behavior, and submission rules before entering the timed test window.</p>
-        <div class="sat-start-summary" aria-label="Test summary">
-          <div><strong>{{ total_modules }}</strong><span>modules</span></div>
-          <div><strong>{{ total_questions }}</strong><span>questions</span></div>
-          <div><strong>≈ {{ total_duration_minutes }}</strong><span>minutes</span></div>
+        <p>This practice test follows the Digital SAT flow. When you select Start, the timer begins and the first timed module opens.</p>
+
+        <div class="sat531-summary sat532-summary" aria-label="Test summary">
+          <div><span>Questions</span><strong>{{ total_questions }}</strong></div>
+          <div><span>Approx. time</span><strong>{{ total_duration_minutes }} min</strong></div>
         </div>
+
+        {% if selected_integrity_mode %}
+        <div class="sat5417-integrity" aria-label="Exam integrity status">
+          <div class="sat5417-integrity-icon"><i class="fa fa-shield" aria-hidden="true"></i></div>
+          <div class="sat5417-integrity-copy">
+            <span>Exam Integrity</span>
+            <strong>{{ selected_integrity_mode|title }}</strong>
+            <small>
+              {% if selected_integrity_mode == 'off' %}
+                Anti-Cheat monitoring is disabled for this attempt.
+              {% elif selected_integrity_mode == 'strict' %}
+                3-strike protection · fullscreen required · copy/paste and restricted shortcuts monitored.
+              {% else %}
+                3-strike protection · fullscreen required · tab/app switching and inactivity monitored.
+              {% endif %}
+            </small>
+          </div>
+          <div class="sat5417-integrity-lock"><i class="fa fa-lock" aria-hidden="true"></i>{% if selected_integrity_locked %} Managed by teacher{% else %} Locks on start{% endif %}</div>
+        </div>
+        {% endif %}
       </div>
 
-      <aside class="sat-start-readiness">
-        <span class="sat-start-readiness-label">Before you begin</span>
-        <h2>Use one stable browser tab</h2>
+      <aside class="sat531-exam-note">
+        <span>Test-day reminders</span>
         <ul>
-          <li>Your answers and current question are saved to the server.</li>
-          <li>The timer continues after refresh, tab close, or device change.</li>
-          <li>Submitting a module is final; answers cannot be changed afterward.</li>
+          <li>Work on one timed module at a time. You can move between questions in the current module.</li>
+          <li>Use Mark for Review and the question navigator to return to questions before you submit the module.</li>
+          <li>When a module is submitted or its time expires, you cannot return to that module.</li>
+          <li>Your answers save automatically while the test timer continues.</li>
         </ul>
       </aside>
     </section>
-
-    <section class="sat-start-layout">
-      <div class="sat-start-card sat-start-modules">
-        <div class="sat-start-section-heading">
-          <div><span>Test structure</span><h2>Modules in order</h2></div>
-          <small>{{ total_modules }} total</small>
-        </div>
-        <div class="sat-module-list">
-          {% for row in module_rows %}
-            <article class="sat-module-row" style="--delay: {{ forloop.counter0 }}">
-              <div class="sat-module-index">{{ forloop.counter }}</div>
-              <div class="sat-module-copy">
-                <span>{{ row.section_label }}</span>
-                <strong>Module {{ row.module_number }}</strong>
-              </div>
-              <div class="sat-module-meta"><span>{{ row.question_count }} questions</span><span>{{ row.duration_minutes }} min</span></div>
-            </article>
-          {% empty %}
-            <div class="sat-start-empty">This test has no available modules.</div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="sat-start-card sat-start-rules">
-        <div class="sat-start-section-heading"><div><span>Important</span><h2>Test rules</h2></div></div>
-        <div class="sat-rule-list">
-          <article><i class="fa fa-cloud" aria-hidden="true"></i><div><strong>Server autosave</strong><p>Responses sync while you work and recover after refresh or browser restart.</p></div></article>
-          <article><i class="fa fa-clock-o" aria-hidden="true"></i><div><strong>Server-controlled timer</strong><p>Closing the page does not pause the module timer.</p></div></article>
-          <article><i class="fa fa-bookmark" aria-hidden="true"></i><div><strong>Review before submit</strong><p>Use Mark for Review and the question navigator to find unfinished work.</p></div></article>
-          <article><i class="fa fa-lock" aria-hidden="true"></i><div><strong>Final submission</strong><p>After a module is submitted, the platform moves forward and locks that module.</p></div></article>
-        </div>
-      </div>
-    </section>
   </main>
 
-  <footer class="sat-start-footer">
-    <div class="sat-start-footer-inner">
-      <div class="sat-start-footer-note"><i class="fa fa-shield" aria-hidden="true"></i><span>Do not open the same attempt in multiple tabs.</span></div>
-      <div class="sat-start-footer-actions">
-        <a class="sat-start-button secondary" href="{% if classroom %}{% url 'classroom_practice_tests_root' classroom.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">Back</a>
-        {% if total_modules %}
+  <footer class="sat531-footer">
+    <div class="sat531-footer-inner">
+      <div class="sat531-footer-note">
+        <i class="fa fa-lock" aria-hidden="true"></i>
+        <span>Use one browser tab for the active attempt.</span>
+      </div>
+
+      <div class="sat531-footer-actions">
+        <a class="sat531-btn secondary" href="{% url 'practice_tests_root' %}">Back</a>
+
+        {% if integrity_retake_blocked %}
+        {% elif blocked_active_attempt %}
+          {% if blocked_active_url %}
+            <a class="sat531-btn primary" data-start-test-link href="{{ blocked_active_url }}">Continue active test <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+          {% endif %}
+        {% elif retake_mode and total_modules %}
+          <form method="post" action="{{ retake_action_url }}" class="sat-retake-start-form">
+            {% csrf_token %}
+            <input type="hidden" name="confirm_start" value="1">
+            <input type="hidden" name="integrity_mode" value="{{ integrity_mode|default:'standard' }}">
+            <input type="hidden" name="integrity_max_violations" value="{{ integrity_max_violations|default:3 }}">
+            <input type="hidden" name="integrity_fullscreen_required" value="{% if integrity_fullscreen_required %}1{% else %}0{% endif %}">
+            {% if classroom %}<input type="hidden" name="classroom_id" value="{{ classroom.id }}">{% endif %}
+            <button class="sat531-btn primary" data-start-test-link type="submit">
+              {% if retake_mode == 'english' %}Start Reading & Writing
+              {% elif retake_mode == 'math' %}Start Math
+              {% else %}Start new attempt{% endif %}
+              <i class="fa fa-arrow-right" aria-hidden="true"></i>
+            </button>
+          </form>
+        {% elif total_modules %}
           {% if start_url %}
-            <a class="sat-start-button primary" data-start-test-link href="{{ start_url }}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+            <a class="sat531-btn primary" data-start-test-link href="{{ start_url }}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
           {% else %}
-            <a class="sat-start-button primary" data-start-test-link href="{% url 'practice_test_module_root' test.name %}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+            <a class="sat531-btn primary" data-start-test-link href="{% url 'practice_test_module_root' test.name %}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
           {% endif %}
         {% endif %}
       </div>
@@ -106,19 +175,8 @@
 
   <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
   <script src="{% static 'assets/js/sat-test-start-v13.js' %}?v=39"></script>
+  <script src="{% static 'assets/js/sat-preview-privacy-v531.js' %}?v=531"></script>
+  <script src="{% static 'assets/js/sat-preview-privacy-v533.js' %}?v=533"></script>
   {% include 'base/issue_report_widget.html' %}
-  <script>
-    (function () {
-      var reportButton = document.querySelector('.issue-report-fab');
-      var footerActions = document.querySelector('.sat-start-footer-actions');
-      var startButton = footerActions && footerActions.querySelector('[data-start-test-link]');
-      if (!reportButton || !footerActions) return;
-      if (startButton) {
-        footerActions.insertBefore(reportButton, startButton);
-      } else {
-        footerActions.appendChild(reportButton);
-      }
-    })();
-  </script>
 </body>
 </html>

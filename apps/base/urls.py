@@ -4,13 +4,18 @@ from . import views
 from apps.sat import views as sat_views
 from apps.sat import test_import_views as sat_test_import_views
 from apps.sat import guest_views as sat_guest_views
+from apps.sat import event_registration_views as event_registration_views
+from apps.sat import public_placement_views as public_placement_views
 from apps.ratings import views as rating_views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('check-level/', public_placement_views.public_placement_list, name='public_placement_list'),
+    path('check-level/<slug:slug>/', public_placement_views.public_placement_start, name='public_placement_start'),
     path('login/', views.loginUser, name='login'),
     path('logout/', views.logoutUser, name='logout'),
     path('change-temporary-password/', views.change_temporary_password, name='change_temporary_password'),
+    path('change-temporary-password/rules/', views.temporary_password_rules, name='temporary_password_rules'),
     path('register/', views.register, name='register'),
     path('forgot-password/', views.forgot_password, name='forgot_password'),
     path('reset-password/', views.password_reset_confirm, name='password_reset_confirm'),
@@ -120,6 +125,7 @@ urlpatterns = [
     path('homework/', sat_views.student_homework, name='student_homework_root'),
     path('homework/<int:assignment_id>/open/', sat_views.student_homework_launch, name='student_homework_launch_root'),
     path('homework/<int:assignment_id>/vocabulary-quiz/result/', sat_views.student_homework_vocab_quiz_result, name='student_homework_vocab_quiz_result_root'),
+    path('homework/submit-attempt/', sat_views.student_homework_submit_attempt, name='student_homework_submit_attempt_root'),
     path('progress/', sat_views.student_progress, name='student_progress_root'),
     path('messages/', sat_views.student_messages, name='student_messages_root'),
     path('messages/stickers/upload/', sat_views.student_chat_sticker_upload, name='student_chat_sticker_upload_root'),
@@ -134,6 +140,7 @@ urlpatterns = [
     # Canonical SAT runner aliases. Legacy /sat/practise/... and /sat/results/...
     # remain valid for old bookmarks, but normal workspace navigation stays clean.
     path('tests/<str:pk>/start/', sat_views.start_Practise, name='practice_test_start_root'),
+    path('tests/<str:pk>/attempt/<uuid:attempt_id>/module/', sat_views.module_test, name='practice_test_attempt_module_root'),
     path('tests/<str:pk>/module/', sat_views.module_test, name='practice_test_module_root'),
     path('tests/<str:pk>/restart/', sat_views.restart, name='practice_test_restart_root'),
     path('tests/<str:pk>/restart/<str:section>/', sat_views.restart_section, name='practice_test_restart_section_root'),
@@ -174,6 +181,12 @@ urlpatterns = [
     path('mentors/', sat_views.student_mentors, name='mentors'),
     path('mentor-profile/', sat_views.support_teacher_profile_edit, name='mentor_profile_edit_root'),
     path('events/', sat_views.student_events, name='events'),
+    path('events/<slug:slug>/register/', event_registration_views.event_registration_choice, name='event_registration_choice'),
+    path('events/<slug:slug>/register/external/', event_registration_views.event_registration_external, name='event_registration_external'),
+    path('events/<slug:slug>/register/student/', event_registration_views.event_registration_student, name='event_registration_student'),
+    path('events/registration/<uuid:token>/verify/', event_registration_views.event_registration_verify, name='event_registration_verify'),
+    path('events/registration/<uuid:token>/resend/', event_registration_views.event_registration_resend, name='event_registration_resend'),
+    path('events/registration/<uuid:token>/', event_registration_views.event_registration_confirmation, name='event_registration_confirmation'),
     path('events/<slug:slug>/', sat_guest_views.global_event_detail_view, name='global_event_detail_root'),
     path('events/<slug:slug>/start/', sat_guest_views.start_global_event_view, name='start_global_event_root'),
     path('events/attempt/<uuid:guest_token>/', sat_guest_views.global_event_attempt_view, name='global_event_attempt_root'),

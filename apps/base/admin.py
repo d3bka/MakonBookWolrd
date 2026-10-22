@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.sessions.models import Session
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 from django.contrib.auth.models import User
 import json
 from .models import *
@@ -14,7 +14,7 @@ class SessionAdmin(admin.ModelAdmin):
     def session_data_pretty(self, obj):
         try:
             session_data = obj.get_decoded()
-            return mark_safe(f"<pre>{json.dumps(session_data, indent=4)}</pre>")
+            return format_html("<pre>{}</pre>", json.dumps(session_data, indent=4))
         except Exception as e:
             return str(e)
 
@@ -82,3 +82,9 @@ class GeneralIssueReportAdmin(admin.ModelAdmin):
     @admin.display(description="Page")
     def page_url_short(self, obj):
         return (obj.page_url[:70] + "...") if len(obj.page_url) > 70 else obj.page_url
+
+
+# Keep Django's native admin UI; only the text branding is customized.
+admin.site.site_header = "MakonBook administration"
+admin.site.site_title = "MakonBook admin"
+admin.site.index_title = "Site administration"

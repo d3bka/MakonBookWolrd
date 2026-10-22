@@ -67,7 +67,7 @@
         <span><i class="bi bi-list-ol"></i>Question {{ question_number|default:"–" }} / {{ match.total_questions }}</span>
         <strong class="mw503-question-timer" data-world-countdown data-seconds="{{ question_seconds|default:0 }}"><i class="bi bi-stopwatch"></i><b>{{ question_seconds|default:0 }}</b>s</strong>
       </div>
-      {% if question.passage %}<div class="mw503-passage">{{ question.passage|safe }}</div>{% endif %}
+      {% if question.passage %}<div class="mw503-passage">{{ question.passage }}</div>{% endif %}
       {% if question.image %}
       <button class="mw503-question-image-button" type="button" data-world-image-open aria-label="Open question image">
         <img class="mw503-question-image" src="{{ question.image.url }}" alt="Question visual">
@@ -78,14 +78,14 @@
         <img src="{{ question.image.url }}" alt="Question visual enlarged">
       </div>
       {% endif %}
-      <h1>{{ question.question|safe }}</h1>
+      <h1>{{ question.question }}</h1>
       <form action="{% url 'world_match_answer' match.id %}" method="post" data-world-answer>{% csrf_token %}
         <input type="hidden" name="question_token" value="{{ question_ticket.token }}">
         <div class="mw503-choices">
-          <label><input type="radio" name="answer" value="A" required><span>A</span><b>{{ question.a|safe }}</b></label>
-          <label><input type="radio" name="answer" value="B" required><span>B</span><b>{{ question.b|safe }}</b></label>
-          <label><input type="radio" name="answer" value="C" required><span>C</span><b>{{ question.c|safe }}</b></label>
-          <label><input type="radio" name="answer" value="D" required><span>D</span><b>{{ question.d|safe }}</b></label>
+          <label><input type="radio" name="answer" value="A" required><span>A</span><b>{{ question.a }}</b></label>
+          <label><input type="radio" name="answer" value="B" required><span>B</span><b>{{ question.b }}</b></label>
+          <label><input type="radio" name="answer" value="C" required><span>C</span><b>{{ question.c }}</b></label>
+          <label><input type="radio" name="answer" value="D" required><span>D</span><b>{{ question.d }}</b></label>
         </div>
         <div class="mw503-answer-foot"><span>Difficulty drives base points. Speed adds at most +20.</span><button type="submit"><span data-world-lock-label>Lock answer</span><i class="bi bi-arrow-right"></i></button></div>
       </form>

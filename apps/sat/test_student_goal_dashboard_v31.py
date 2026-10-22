@@ -181,7 +181,7 @@ class StudentGoalDashboardV32Tests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Course timeline')
-        self.assertContains(response, 'Lessons &amp; materials')
+        self.assertContains(response, 'Units &amp; materials')
         self.assertNotContains(response, 'Student command center')
         self.assertContains(response, 'data-goal-modal-open')
         self.assertContains(response, 'data-goal-modal-close')

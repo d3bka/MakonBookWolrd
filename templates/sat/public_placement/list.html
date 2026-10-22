@@ -1,0 +1,117 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Check your level · MakonBook</title>
+  <meta name="description" content="Take a free MakonBook placement test, see your current level, and start from the right place.">
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  {% include 'base/theme_init.html' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5612">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5610.css' %}?v=5610">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5612.css' %}?v=5612">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-header-sync-v5612-3.css' %}?v=56123">
+</head>
+<body class="mb56-page pp-page pp-v5612">
+  <div class="mb56-noise" aria-hidden="true"></div>
+
+  {% include 'landing/_public_header.html' with local_nav=False %}
+
+  <main class="pp-shell">
+    <section class="pp12-hero" data-pp-reveal>
+      <div class="pp12-hero-copy">
+        <div class="pp12-availability"><i></i><span>{{ live_count }} level check{{ live_count|pluralize }} available now</span></div>
+        <span class="pp-kicker">FREE · NO ACCOUNT REQUIRED</span>
+        <h1>Know where you are.<br><span>Start where you should.</span></h1>
+        <p>Take a short placement test built on the MakonBook exam engine. Get a clear result immediately after you finish — no signup wall and no separate account.</p>
+        <div class="pp12-hero-actions">
+          {% if live_events %}<a class="pp-btn pp12-primary-cta" href="#available-tests">Choose a test <span>↓</span></a>{% endif %}
+          <a class="pp12-text-link" href="/">Explore MakonBook <span>↗</span></a>
+        </div>
+        <div class="pp-trust">
+          <span><b>01</b> Enter your details</span>
+          <span><b>02</b> Take the test</span>
+          <span><b>03</b> Get your level</span>
+        </div>
+      </div>
+      <div class="pp12-hero-visual" aria-hidden="true">
+        <div class="pp12-level-orbit">
+          <div class="pp12-level-core"><small>YOUR LEVEL</small><strong>?</strong><span>Find out now</span></div>
+          <span class="pp12-orbit-dot dot-a">1</span>
+          <span class="pp12-orbit-dot dot-b">3</span>
+          <span class="pp12-orbit-dot dot-c">5</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pp-section pp12-tests" id="available-tests" data-pp-reveal>
+      <div class="pp-section-head">
+        <div><span>AVAILABLE NOW</span><h2>Choose your placement test</h2></div>
+        <p>Each test starts immediately after a short contact form. Your answers save automatically while you work.</p>
+      </div>
+
+      {% if live_events %}
+      <div class="pp-grid">
+        {% for event in live_events %}
+        <article class="pp-card pp12-card" data-pp-card>
+          <div class="pp-card-top">
+            <span class="pp-live"><i></i> LIVE</span>
+            <span class="pp12-test-source">{{ event.test.name }}</span>
+          </div>
+          <div class="pp12-card-body">
+            <span class="pp12-card-eyebrow">PLACEMENT TEST</span>
+            <h3>{{ event.title }}</h3>
+            <p>{{ event.description|default:"A public MakonBook placement test designed to estimate your current level."|truncatechars:170 }}</p>
+          </div>
+          <div class="pp12-stat-row">
+            <div><strong>{{ event.public_question_count }}</strong><span>Questions</span></div>
+            <div><strong>≈ {{ event.public_duration_minutes }}</strong><span>Minutes</span></div>
+            <div><strong>{{ event.public_module_count }}</strong><span>Module{{ event.public_module_count|pluralize }}</span></div>
+          </div>
+          <a class="pp-btn" href="{% url 'public_placement_start' event.slug %}">
+            <span>Check my level</span><b>↗</b>
+          </a>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="pp-empty pp12-empty">
+        <span class="pp12-empty-icon">⌛</span>
+        <strong>No public placement test is live right now.</strong>
+        <span>New level checks will appear here automatically when they are published.</span>
+        <a href="/">Back to MakonBook</a>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="pp12-how" data-pp-reveal>
+      <div class="pp12-how-copy"><span class="pp-kicker">HOW IT WORKS</span><h2>One test. Three simple steps.</h2></div>
+      <div class="pp12-how-grid">
+        <article><span>01</span><strong>Tell us who you are</strong><p>Enter your first name, last name and Uzbekistan phone number.</p></article>
+        <article><span>02</span><strong>Complete the test</strong><p>Work through the timed modules using the same reliable MakonBook test runner.</p></article>
+        <article><span>03</span><strong>See your result</strong><p>Your result appears immediately after completion and is recorded for our team.</p></article>
+      </div>
+    </section>
+
+    {% if upcoming_events %}
+    <section class="pp-section pp-upcoming" data-pp-reveal>
+      <div class="pp-section-head"><div><span>COMING NEXT</span><h2>Upcoming level checks</h2></div></div>
+      <div class="pp-upcoming-list">
+        {% for event in upcoming_events %}
+        <div><span>{{ event.start_at|date:"d M · H:i" }}</span><strong>{{ event.title }}</strong><em>Scheduled</em></div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </main>
+
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5597"></script>
+  <script src="{% static 'assets/js/public-placement-v5612.js' %}?v=5612"></script>
+</body>
+</html>

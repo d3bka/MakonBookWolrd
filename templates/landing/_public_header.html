@@ -1,0 +1,25 @@
+{% load static %}
+<header class="mb56-nav-wrap" data-nav>
+  <nav class="mb56-nav mb56-container" aria-label="Main navigation">
+    <a class="mb56-brand" href="/" aria-label="MakonBook home">
+      <span class="mb56-brand-mark"><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""></span>
+      <span class="mb56-brand-copy"><strong>MakonBook</strong><small>by SATMakon</small></span>
+    </a>
+
+    <div class="mb56-nav-links" data-nav-menu>
+      <a href="{% if local_nav %}#platform{% else %}/#platform{% endif %}">Platform</a>
+      <a href="{% if local_nav %}#results{% else %}/#results{% endif %}">Results</a>
+      <a href="{% url 'rating_parent_lookup' %}">Parents</a>
+      <a href="{% if local_nav %}#faq{% else %}/#faq{% endif %}">FAQ</a>
+    </div>
+
+    <div class="mb56-nav-actions">
+      {% include 'base/theme_toggle.html' %}
+      <a class="mb56-btn mb56-btn-quiet mb56-desktop-only" href="{% if local_nav %}#mock-exams{% else %}{% url 'global_event_list' %}{% endif %}">Mock exams</a>
+      <a class="mb56-btn mb56-btn-login" href="{% url 'login' %}">Log in <span>↗</span></a>
+      <button class="mb56-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" data-nav-toggle>
+        <span></span><span></span>
+      </button>
+    </div>
+  </nav>
+</header>

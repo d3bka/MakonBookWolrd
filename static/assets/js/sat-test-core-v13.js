@@ -56,7 +56,7 @@
       this.autosaveQueued = false;
       this.autosaveTimer = null;
       this.timerHandle = null;
-      this.lastTickAt = Date.now();
+      this.lastTickAt = this.monotonicNow();
       this.activeMs = 0;
       this.pageWasVisible = document.visibilityState !== 'hidden';
       this.nextForcedSubmitAt = 0;
@@ -77,7 +77,11 @@
       this.tabLockKey = `${this.storageKey}:active-tab`;
       this.submissionRecoveryKey = `${this.storageKey}:pending-submit`;
       this.timeExpired = false;
+      this.fiveMinuteAlertDispatched = false;
       this.submitRetryCount = 0;
+      this.serverClockAnchorMs = 0;
+      this.serverClockAnchorMonoMs = 0;
+      this.syncServerClock(this.serverState.serverNow || this.config.serverNow || 0);
 
       this.state = this.loadInitialState();
       this.deadlineAt = this.resolveDeadline();
@@ -103,13 +107,38 @@
       this.bindPublicApi();
     }
 
+    monotonicNow() {
+      if (window.performance && typeof window.performance.now === 'function') {
+        return window.performance.now();
+      }
+      return Date.now();
+    }
+
+    syncServerClock(serverNow) {
+      const serverMs = Number(serverNow || 0);
+      if (!Number.isFinite(serverMs) || serverMs <= 0) return false;
+      // Anchor server time to a monotonic browser clock. This stays correct even
+      // if Windows/macOS clock is changed, NTP corrects it, or the device timezone
+      // changes while a module is open. Date.now()+offset does not have that property.
+      this.serverClockAnchorMs = serverMs;
+      this.serverClockAnchorMonoMs = this.monotonicNow();
+      return true;
+    }
+
+    serverNowMs() {
+      if (Number(this.serverClockAnchorMs || 0) > 0) {
+        return Number(this.serverClockAnchorMs) + Math.max(this.monotonicNow() - Number(this.serverClockAnchorMonoMs || 0), 0);
+      }
+      return Date.now();
+    }
+
     resolveDeadline() {
       const serverDeadline = Number(this.serverState.deadlineAt || this.config.deadlineAt || 0);
       if (Number.isFinite(serverDeadline) && serverDeadline > 0) return serverDeadline;
       const restoredDeadline = Number(this.state?.deadlineAt || 0);
-      if (Number.isFinite(restoredDeadline) && restoredDeadline > Date.now()) return restoredDeadline;
+      if (Number.isFinite(restoredDeadline) && restoredDeadline > this.serverNowMs()) return restoredDeadline;
       const seconds = Math.max(Number(this.config.timeRemaining || 0), 0);
-      return Date.now() + (seconds * 1000);
+      return this.serverNowMs() + (seconds * 1000);
     }
 
     readLocalState() {
@@ -125,7 +154,13 @@
     loadInitialState() {
       const local = this.readLocalState();
       const server = this.serverState && typeof this.serverState === 'object' ? this.serverState : {};
-      const localUpdated = Number(local.updatedAt || 0);
+      const rawLocalUpdated = Number(local.updatedAt || 0);
+      // v5603 stores local timestamps in server-clock space. Older local snapshots
+      // used Date.now(), so normalize those using the current server anchor before
+      // comparing them with Django's updated_at timestamp.
+      const localUpdated = local.clockDomain === 'server'
+        ? rawLocalUpdated
+        : (rawLocalUpdated > 0 ? rawLocalUpdated + (this.serverNowMs() - Date.now()) : 0);
       const serverUpdated = Number(server.updatedAt || 0);
       const primary = localUpdated > serverUpdated ? local : server;
       const fallback = primary === local ? server : local;
@@ -137,14 +172,27 @@
         });
       const primaryTimes = normalizeArray(primary.timeSpent, this.questionCount, () => 0);
       const fallbackTimes = normalizeArray(fallback.timeSpent, this.questionCount, () => 0);
+      const primaryEliminatedRaw = Array.isArray(primary.eliminatedChoices) ? primary.eliminatedChoices : [];
+      const fallbackEliminatedRaw = Array.isArray(fallback.eliminatedChoices) ? fallback.eliminatedChoices : [];
+      const primaryMarkedRaw = Array.isArray(primary.markedForReview) ? primary.markedForReview : [];
+      const fallbackMarkedRaw = Array.isArray(fallback.markedForReview) ? fallback.markedForReview : [];
       return {
         answers: mergedAnswers,
         timeSpent: primaryTimes.map((value, index) => Math.max(Number(value) || 0, Number(fallbackTimes[index]) || 0)),
-        eliminatedChoices: primary.eliminatedChoices || fallback.eliminatedChoices || [],
-        markedForReview: primary.markedForReview || fallback.markedForReview || [],
+        eliminatedChoices: Array.from({ length: this.questionCount }, (_, index) => {
+          const source = index < primaryEliminatedRaw.length
+            ? primaryEliminatedRaw[index]
+            : fallbackEliminatedRaw[index];
+          return Array.isArray(source) ? source : [];
+        }),
+        markedForReview: Array.from({ length: this.questionCount }, (_, index) => {
+          if (index < primaryMarkedRaw.length) return Boolean(primaryMarkedRaw[index]);
+          return Boolean(fallbackMarkedRaw[index]);
+        }),
         currentQuestionIndex: primary.currentQuestionIndex ?? fallback.currentQuestionIndex ?? 0,
         deadlineAt: server.deadlineAt || local.deadlineAt || 0,
         updatedAt: Math.max(localUpdated, serverUpdated),
+        clockDomain: 'server',
       };
     }
 
@@ -157,7 +205,8 @@
         markedForReview: this.markedForReview.slice(),
         currentQuestionIndex: this.currentQuestionIndex,
         deadlineAt: this.deadlineAt,
-        updatedAt: Date.now(),
+        updatedAt: this.serverNowMs(),
+        clockDomain: 'server',
       };
     }
 
@@ -253,6 +302,9 @@
           }
           throw new Error(data.error || `Save failed (${response.status})`);
         }
+        if (Number(data.server_now || data.server_time) > 0) {
+          this.syncServerClock(data.server_now || data.server_time);
+        }
         if (Number(data.deadline_at) > 0) this.deadlineAt = Number(data.deadline_at);
         this.lastSavedAt = Number(data.saved_at || Date.now());
         this.setSaveState('saved', 'Saved');
@@ -276,7 +328,7 @@
     }
 
     flushActiveTime() {
-      const now = Date.now();
+      const now = this.monotonicNow();
       const delta = Math.max(now - this.lastTickAt, 0);
       this.lastTickAt = now;
       if (this.pageWasVisible) this.activeMs += delta;
@@ -289,7 +341,7 @@
     }
 
     remainingSeconds() {
-      return Math.max(Math.ceil((this.deadlineAt - Date.now()) / 1000), 0);
+      return Math.max(Math.ceil((this.deadlineAt - this.serverNowMs()) / 1000), 0);
     }
 
     formatTime(seconds) {
@@ -305,11 +357,17 @@
       const timer = document.getElementById('timer');
       if (timer) {
         timer.textContent = this.formatTime(remaining);
-        timer.classList.toggle('is-warning', remaining <= 300 && remaining > 60);
-        timer.classList.toggle('is-critical', remaining <= 60);
+        timer.classList.remove('is-warning', 'is-critical');
+        timer.classList.toggle('is-five-minute-lock', remaining <= 300 && remaining > 0);
       }
-      if (remaining <= 0 && !this.submitInProgress && Date.now() >= this.nextForcedSubmitAt) {
-        this.nextForcedSubmitAt = Date.now() + 15000;
+      if (remaining <= 300 && remaining > 0 && !this.fiveMinuteAlertDispatched) {
+        this.fiveMinuteAlertDispatched = true;
+        window.dispatchEvent(new CustomEvent('sat:five-minute-warning', {
+          detail: { remainingSeconds: remaining },
+        }));
+      }
+      if (remaining <= 0 && !this.submitInProgress && this.monotonicNow() >= this.nextForcedSubmitAt) {
+        this.nextForcedSubmitAt = this.monotonicNow() + 15000;
         this.lockForDeadline();
         this.submitModule(true, { deadlineReached: true });
       }
@@ -499,11 +557,22 @@
       if (reviewSection) reviewSection.hidden = !needsReview;
       if (reviewList) {
         reviewList.innerHTML = reviewIndexes.map((index) => {
-          const labels = [];
-          if (!this.isAnswered(index)) labels.push('Unanswered');
-          if (this.markedForReview[index]) labels.push('Marked');
           const number = this.questions[index]?.number || index + 1;
-          return `<button type="button" class="finish-review-chip" data-review-question="${index}"><strong>${number}</strong><span>${labels.join(' · ')}</span></button>`;
+          const answered = this.isAnswered(index);
+          const marked = !!this.markedForReview[index];
+          const current = index === this.currentIndex;
+          const extra = [];
+          if (current) extra.push('current');
+          if (answered) extra.push('answered');
+          else extra.push('unanswered');
+          if (marked) extra.push('marked for review');
+          const ariaLabel = `Question ${number}, ${extra.join(', ')}`;
+          return `
+            <button type="button" class="finish-review-tile${current ? ' is-current' : ''}${answered ? ' is-answered' : ' is-unanswered'}${marked ? ' is-marked' : ''}" data-review-question="${index}" aria-label="${ariaLabel}">
+              <span class="finish-review-number">${number}</span>
+              ${marked ? '<span class="finish-review-dot" aria-hidden="true"></span>' : ''}
+            </button>
+          `;
         }).join('');
         reviewList.querySelectorAll('[data-review-question]').forEach((button) => {
           button.addEventListener('click', () => {
@@ -573,7 +642,7 @@
         submission_id: submissionId,
         deadline_reached: Boolean(deadlineReached),
         client_deadline_at: Number(this.deadlineAt || 0),
-        client_submitted_at: Date.now(),
+        client_submitted_at: Math.round(this.serverNowMs()),
       };
     }
 
@@ -643,12 +712,16 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false) return null;
+      if (Number(data.server_now || data.server_time) > 0) {
+        this.syncServerClock(data.server_now || data.server_time);
+      }
+      if (Number(data.deadline_at) > 0) this.deadlineAt = Number(data.deadline_at);
       return data;
     }
 
     async waitForGuestSubmission(maxWaitMs = 90000) {
-      const startedAt = Date.now();
-      while (this.submitInProgress && Date.now() - startedAt < maxWaitMs) {
+      const startedAt = this.monotonicNow();
+      while (this.submitInProgress && this.monotonicNow() - startedAt < maxWaitMs) {
         if (!navigator.onLine) {
           this.setSubmitProgress(
             true,
@@ -789,11 +862,35 @@
         this.navigateAfterSubmit(redirectUrl);
       } catch (error) {
         console.error('Module submit failed:', error);
+        if (error?.data?.timer_not_expired) {
+          if (Number(error.data.server_now || error.data.server_time) > 0) {
+            this.syncServerClock(error.data.server_now || error.data.server_time);
+          }
+          if (Number(error.data.deadline_at) > 0) {
+            this.deadlineAt = Number(error.data.deadline_at);
+          }
+          // The server rejected a premature auto-submit. Keep the local snapshot,
+          // clear only the submit recovery marker, then reload the same module so
+          // every disabled control is restored from a clean server-authoritative state.
+          this.clearPendingSubmission();
+          this.timeExpired = false;
+          this.submitInProgress = false;
+          document.body.classList.remove('is-submitting-test', 'test-time-expired');
+          this.saveLocal();
+          this.navigatingAway = true;
+          window.location.reload();
+          return;
+        }
         if (error?.data?.redirect_url) {
           this.navigateAfterSubmit(error.data.redirect_url);
           return;
         }
-        this.nextForcedSubmitAt = Date.now() + 15000;
+        // Permanent validation/auth failures must not poison localStorage and
+        // auto-resubmit the same bad payload forever after every reload.
+        if (error?.status && error.status >= 400 && error.status < 500 && error.status !== 409) {
+          this.clearPendingSubmission();
+        }
+        this.nextForcedSubmitAt = this.monotonicNow() + 15000;
         this.showToast(error?.message || 'The server rejected the submission. Your answers remain stored on this device.', 'error');
         this.setSaveState('offline', navigator.onLine ? 'Submission not confirmed' : 'Offline · submit pending');
       } finally {
@@ -971,7 +1068,7 @@
       document.addEventListener('visibilitychange', () => {
         this.flushActiveTime();
         this.pageWasVisible = document.visibilityState !== 'hidden';
-        this.lastTickAt = Date.now();
+        this.lastTickAt = this.monotonicNow();
         this.updateTimer();
         if (!this.pageWasVisible) {
           this.saveLocal();
@@ -1031,7 +1128,15 @@
       this.setSaveState(navigator.onLine ? 'saved' : 'offline', navigator.onLine ? (this.lastSavedAt ? 'Saved' : 'Ready') : 'Offline · saved on device');
       document.body.classList.add('test-flow-ready');
       this.options.afterBoot?.(this);
-      const pending = this.isGuest ? this.readPendingSubmission() : null;
+      // A first server round-trip removes page-load/network latency from the
+      // initial clock anchor and confirms the latest local/server state quickly.
+      window.setTimeout(() => {
+        if (!this.submitInProgress && !this.tabBlocked) this.autosave(true);
+      }, 180);
+      // Pending-submit recovery is safe for regular and makeup attempts too: both
+      // server submit paths are idempotent by attempt/module. Previously only guest
+      // attempts recovered after a dropped final POST.
+      const pending = this.readPendingSubmission();
       if (pending) {
         window.setTimeout(() => this.submitModule(true, {
           deadlineReached: Boolean(pending.payload?.deadline_reached),

@@ -209,7 +209,7 @@
         </div>
         <footer class="footer">
             {% if classroom %}
-            <a href="{% url 'classroom_practice_tests_root' classroom.id %}" class="btn">Back</a>
+            <a href="{% url 'practice_tests_root' %}" class="btn">Back</a>
             {% else %}
             <a href="{% url 'practice_tests_root' %}" class="btn">Back</a>
             {% endif %}

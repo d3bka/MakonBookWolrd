@@ -45,10 +45,23 @@
     if(!cards.length) return;
 
     const counter = deck.querySelector('[data-deck-counter]');
+    const mobileCounter = deck.querySelector('[data-mobile-deck-counter]');
     const progress = deck.querySelector('[data-deck-progress]');
     const status = deck.querySelector('[data-deck-status]');
+    const mobileStatus = deck.querySelector('[data-mobile-deck-status]');
     const feedback = deck.querySelector('[data-deck-feedback]');
     const saveState = deck.querySelector('[data-deck-save-state]');
+    const mobileSaveState = deck.querySelector('[data-mobile-save-state]');
+    const summaryMastered = document.querySelector('[data-summary-mastered]');
+    const summaryLearning = document.querySelector('[data-summary-learning]');
+    const summaryReviews = document.querySelector('[data-summary-reviews]');
+    const summaryAccuracy = document.querySelector('[data-summary-accuracy]');
+    const summaryCompletion = document.querySelector('[data-summary-completion]');
+    const unitMasteredLabel = deck.querySelector('[data-unit-mastered-label]');
+    const unitLearningLabel = deck.querySelector('[data-unit-learning-label]');
+    const selectedUnitMastered = document.querySelector('[data-selected-unit-mastered]');
+    const mobileMastered = deck.querySelector('[data-mobile-mastered]');
+    const mobileLearning = deck.querySelector('[data-mobile-learning]');
     const markUrl = deck.dataset.markUrl;
     const embeddedCsrfToken = deck.dataset.csrfToken || '';
     const csrfToken = (embeddedCsrfToken && embeddedCsrfToken !== 'NOTPROVIDED')
@@ -63,11 +76,32 @@
       known: { label:'Know it', message:'Strong recall recorded.', className:'rating-known' }
     };
 
-    let index = 0;
+    const numberFrom = (value, fallback=0) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    let summaryMasteredValue = numberFrom(deck.dataset.summaryMastered, numberFrom(summaryMastered?.textContent));
+    let summaryLearningValue = numberFrom(deck.dataset.summaryLearning, numberFrom(summaryLearning?.textContent));
+    let summaryReviewsValue = numberFrom(deck.dataset.summaryReviews, numberFrom(summaryReviews?.textContent));
+    let summaryCorrectValue = numberFrom(deck.dataset.summaryCorrect, 0);
+    let summaryIncorrectValue = numberFrom(deck.dataset.summaryIncorrect, 0);
+    const summaryTotalValue = Math.max(0, numberFrom(deck.dataset.summaryTotal, cards.length));
+    let unitMasteredValue = numberFrom(deck.dataset.unitMastered, numberFrom(unitMasteredLabel?.textContent));
+    let unitLearningValue = numberFrom(deck.dataset.unitLearning, numberFrom(unitLearningLabel?.textContent));
+    const unitWordCount = Math.max(0, numberFrom(deck.dataset.unitWordCount, cards.length));
+
+    const findResumeIndex = () => {
+      const unseenIndex = cards.findIndex((card) => numberFrom(card.dataset.timesSeen, 0) === 0);
+      if(unseenIndex >= 0) return unseenIndex;
+      const learningIndex = cards.findIndex((card) => (card.dataset.status || 'new') !== 'mastered');
+      return learningIndex >= 0 ? learningIndex : 0;
+    };
+
+    let index = findResumeIndex();
     let transitionLocked = false;
     let pendingSaves = 0;
     let failedSaves = 0;
-    const wordSaveChains = new Map();
 
     const setFeedback = (message, tone='neutral') => {
       if(!feedback) return;
@@ -75,17 +109,42 @@
       feedback.dataset.tone = tone;
     };
 
-    const updateSaveState = () => {
-      if(!saveState) return;
-      saveState.classList.toggle('has-error', failedSaves > 0);
-      saveState.classList.toggle('is-saving', pendingSaves > 0);
+    const renderSaveState = (target) => {
+      if(!target) return;
+      target.classList.toggle('has-error', failedSaves > 0);
+      target.classList.toggle('is-saving', pendingSaves > 0);
       if(failedSaves > 0){
-        saveState.textContent = `${failedSaves} not saved`;
+        target.textContent = 'Not saved';
       }else if(pendingSaves > 0){
-        saveState.textContent = pendingSaves === 1 ? 'Saving…' : `Saving ${pendingSaves}…`;
+        target.textContent = 'Saving…';
       }else{
-        saveState.textContent = 'Saved';
+        target.textContent = 'Saved';
       }
+    };
+
+    const updateSaveState = () => {
+      renderSaveState(saveState);
+      renderSaveState(mobileSaveState);
+    };
+
+    const renderProgressNumbers = () => {
+      if(summaryMastered) summaryMastered.textContent = String(summaryMasteredValue);
+      if(summaryLearning) summaryLearning.textContent = String(summaryLearningValue);
+      if(summaryReviews) summaryReviews.textContent = String(summaryReviewsValue);
+
+      const attempts = summaryCorrectValue + summaryIncorrectValue;
+      const accuracy = attempts ? Math.round((summaryCorrectValue / attempts) * 1000) / 10 : 0;
+      if(summaryAccuracy) summaryAccuracy.textContent = `${accuracy}%`;
+      if(summaryCompletion){
+        const completion = summaryTotalValue ? Math.round((summaryMasteredValue / summaryTotalValue) * 10000) / 100 : 0;
+        summaryCompletion.textContent = `${completion}%`;
+      }
+
+      if(unitMasteredLabel) unitMasteredLabel.textContent = String(unitMasteredValue);
+      if(unitLearningLabel) unitLearningLabel.textContent = String(unitLearningValue);
+      if(selectedUnitMastered) selectedUnitMastered.textContent = `${unitMasteredValue}/${unitWordCount}`;
+      if(mobileMastered) mobileMastered.textContent = String(unitMasteredValue);
+      if(mobileLearning) mobileLearning.textContent = String(unitLearningValue);
     };
 
     const setControlsEnabled = (enabled) => {
@@ -100,9 +159,13 @@
 
     const updateDeckMeta = () => {
       const active = activeCard();
-      if(counter) counter.textContent = `${index + 1} / ${cards.length}`;
+      const cardCounter = `${index + 1} / ${cards.length}`;
+      const cardStatus = active.dataset.status || 'new';
+      if(counter) counter.textContent = cardCounter;
+      if(mobileCounter) mobileCounter.textContent = cardCounter;
       if(progress) progress.style.width = `${((index + 1) / cards.length) * 100}%`;
-      if(status) status.textContent = active.dataset.status || 'new';
+      if(status) status.textContent = cardStatus;
+      if(mobileStatus) mobileStatus.textContent = cardStatus;
       setControlsEnabled(active.classList.contains('flipped') && !transitionLocked);
     };
 
@@ -152,9 +215,11 @@
       }, delay);
     };
 
-    const postReview = async(wordId, outcome, attempt=0) => {
+    const postReviewOnce = async(wordId, outcome, expectedTimesSeen) => {
       if(!csrfToken){
-        throw new Error('Secure session token is missing. Reload the page and try again.');
+        const error = new Error('Secure session token is missing. Reload the page and try again.');
+        error.noRetry = true;
+        throw error;
       }
       const response = await fetch(markUrl, {
         method:'POST',
@@ -164,7 +229,11 @@
           'X-CSRFToken':csrfToken,
           'X-Requested-With':'XMLHttpRequest'
         },
-        body:JSON.stringify({word_id:wordId, outcome}),
+        body:JSON.stringify({
+          word_id:wordId,
+          outcome,
+          expected_times_seen:expectedTimesSeen
+        }),
         keepalive:true
       });
       let data = {};
@@ -172,60 +241,105 @@
       if(!response.ok || !data.ok){
         const error = new Error(data.error || 'Could not save progress.');
         error.status = response.status;
+        error.noRetry = response.status >= 400 && response.status < 500;
         throw error;
       }
       return data;
     };
 
-    const queueSave = (card, outcome) => {
+    const postReview = async(wordId, outcome, expectedTimesSeen) => {
+      let lastError = null;
+      for(let attempt = 0; attempt < 2; attempt += 1){
+        try{
+          return await postReviewOnce(wordId, outcome, expectedTimesSeen);
+        }catch(error){
+          lastError = error;
+          if(error.noRetry || attempt === 1) throw error;
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+        }
+      }
+      throw lastError || new Error('Could not save progress.');
+    };
+
+    const applyStatusDelta = (previousStatus, nextStatus) => {
+      if(previousStatus === nextStatus) return;
+
+      if(previousStatus === 'mastered'){
+        summaryMasteredValue = Math.max(0, summaryMasteredValue - 1);
+        unitMasteredValue = Math.max(0, unitMasteredValue - 1);
+      }else if(previousStatus === 'learning'){
+        summaryLearningValue = Math.max(0, summaryLearningValue - 1);
+        unitLearningValue = Math.max(0, unitLearningValue - 1);
+      }
+
+      if(nextStatus === 'mastered'){
+        summaryMasteredValue += 1;
+        unitMasteredValue += 1;
+      }else if(nextStatus === 'learning'){
+        summaryLearningValue += 1;
+        unitLearningValue += 1;
+      }
+    };
+
+    const applySavedReview = (card, outcome, data, expectedTimesSeen) => {
+      const previousStatus = card.dataset.status || 'new';
+      const nextStatus = data.status || previousStatus;
+      const serverTimesSeen = numberFrom(data.times_seen, expectedTimesSeen + 1);
+      const countedReview = serverTimesSeen > expectedTimesSeen;
+
+      applyStatusDelta(previousStatus, nextStatus);
+      card.dataset.status = nextStatus;
+      card.dataset.timesSeen = String(serverTimesSeen);
+
+      const badge = card.querySelector('[data-card-status]');
+      if(badge){
+        badge.textContent = nextStatus;
+        badge.className = `vocab-status vocab-status-${nextStatus}`;
+        badge.setAttribute('data-card-status', '');
+      }
+
+      if(countedReview){
+        summaryReviewsValue += 1;
+        if(outcome === 'known') summaryCorrectValue += 1;
+        else summaryIncorrectValue += 1;
+      }
+
+      renderProgressNumbers();
+      if(card === activeCard()){
+        if(status) status.textContent = nextStatus;
+        if(mobileStatus) mobileStatus.textContent = nextStatus;
+      }
+    };
+
+    const saveReview = async(card, outcome) => {
       const wordId = card.dataset.wordId;
+      const expectedTimesSeen = numberFrom(card.dataset.timesSeen, 0);
+      const wasFailed = card.classList.contains('save-failed');
       pendingSaves += 1;
       card.classList.add('is-saving');
       updateSaveState();
 
-      const previous = wordSaveChains.get(wordId) || Promise.resolve();
-      const task = previous
-        .catch(() => undefined)
-        .then(async() => {
-          try{
-            return await postReview(wordId, outcome);
-          }catch(firstError){
-            await new Promise((resolve) => window.setTimeout(resolve, 450));
-            return postReview(wordId, outcome, 1);
-          }
-        })
-        .then((data) => {
-          card.dataset.status = data.status;
-          if(card.classList.contains('save-failed')){
-            failedSaves = Math.max(0, failedSaves - 1);
-          }
-          card.classList.remove('save-failed');
-          const badge = card.querySelector('[data-card-status]');
-          if(badge){
-            badge.textContent = data.status;
-            badge.className = `vocab-status vocab-status-${data.status}`;
-            badge.setAttribute('data-card-status', '');
-          }
-          if(card === activeCard() && status) status.textContent = data.status;
-          return data;
-        })
-        .catch((error) => {
-          failedSaves += 1;
-          card.classList.add('save-failed');
-          setFeedback(error.message || 'Progress was not saved. Check your connection and rate this card again.', 'error');
-          return null;
-        })
-        .finally(() => {
-          pendingSaves = Math.max(0, pendingSaves - 1);
-          card.classList.remove('is-saving');
-          updateSaveState();
-          if(wordSaveChains.get(wordId) === task) wordSaveChains.delete(wordId);
-        });
-
-      wordSaveChains.set(wordId, task);
+      try{
+        const data = await postReview(wordId, outcome, expectedTimesSeen);
+        if(wasFailed){
+          failedSaves = Math.max(0, failedSaves - 1);
+        }
+        card.classList.remove('save-failed');
+        applySavedReview(card, outcome, data, expectedTimesSeen);
+        return data;
+      }catch(error){
+        if(!wasFailed) failedSaves += 1;
+        card.classList.add('save-failed');
+        setFeedback(error.message || 'Progress was not saved. Check your connection and try again.', 'error');
+        return null;
+      }finally{
+        pendingSaves = Math.max(0, pendingSaves - 1);
+        card.classList.remove('is-saving');
+        updateSaveState();
+      }
     };
 
-    const mark = (outcome, triggerButton=null) => {
+    const mark = async(outcome, triggerButton=null) => {
       if(transitionLocked) return;
       const active = activeCard();
       if(!active.classList.contains('flipped')){
@@ -242,13 +356,21 @@
       setControlsEnabled(false);
       active.classList.add('is-rating', config.className);
       triggerButton?.classList.add('is-pressed');
-      setFeedback(config.message, outcome === 'known' ? 'success' : outcome === 'again' ? 'warning' : 'ready');
-      queueSave(active, outcome);
+      setFeedback('Saving progress…', 'ready');
 
-      const delay = prefersReducedMotion ? 0 : 190;
+      const data = await saveReview(active, outcome);
+      triggerButton?.classList.remove('is-pressed');
+      active.classList.remove('is-rating', config.className);
+
+      if(!data){
+        transitionLocked = false;
+        updateDeckMeta();
+        return;
+      }
+
+      setFeedback(config.message, outcome === 'known' ? 'success' : outcome === 'again' ? 'warning' : 'ready');
+      const delay = prefersReducedMotion ? 0 : 120;
       window.setTimeout(() => {
-        triggerButton?.classList.remove('is-pressed');
-        active.classList.remove('is-rating', config.className);
         activateCard(index + 1, 1);
         transitionLocked = false;
         updateDeckMeta();
@@ -300,8 +422,14 @@
       }
     });
 
+    window.addEventListener('pageshow', () => {
+      updateSaveState();
+      updateDeckMeta();
+    });
+
+    renderProgressNumbers();
     updateSaveState();
-    activateCard(0, 1);
+    activateCard(index, 1);
   }
 
   function initQuizBuilder(){

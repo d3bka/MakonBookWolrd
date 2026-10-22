@@ -323,10 +323,25 @@ class StudentDashboardV50Tests(TestCase):
 
     def test_v524_teacher_lessons_are_visible_in_student_classroom(self):
         self.client.force_login(self.teacher)
-        created = self.client.post(
+        # V50.2.10 moved course authoring into the classroom dashboard.
+        # The old /lessons/ route remains a redirect-only compatibility link.
+        legacy = self.client.post(
             reverse("teacher_classroom_lessons", args=[self.classroom.id]),
             {
                 "action": "lesson",
+                "order": "1",
+                "title": "Legacy route should not create this",
+                "summary": "Compatibility redirect only.",
+                "is_published": "1",
+            },
+        )
+        self.assertEqual(legacy.status_code, 302)
+        self.assertFalse(ClassroomLesson.objects.filter(classroom=self.classroom).exists())
+
+        created = self.client.post(
+            reverse("teacher_classroom_root", args=[self.classroom.id]),
+            {
+                "course_action": "create_lesson",
                 "order": "1",
                 "title": "Introduction to the SAT",
                 "summary": "Read the slides before class.",
@@ -460,7 +475,7 @@ class StudentDashboardV50Tests(TestCase):
             "progress": reverse("student_progress_root"),
             "messages": reverse("student_messages_root"),
             "events": reverse("events"),
-            "placement": reverse("placement_tests"),
+            "placement": reverse("public_placement_list"),
             "mentors": reverse("mentors"),
         }
         for key, url in expected.items():
@@ -644,7 +659,7 @@ class StudentDashboardV50Tests(TestCase):
         self.assertContains(study, "data-save-state")
         self.assertContains(study, 'data-memory-layers')
         self.assertContains(study, 'vocabulary-arena-v509.css')
-        self.assertContains(study, '?v=510')
+        self.assertContains(study, '?v=511')
         self.assertContains(study, 'vocabulary-memory-v509.js')
 
     def test_vocabulary_mode_picker_includes_all_personal_decks(self):
@@ -965,7 +980,8 @@ class StudentDashboardV50Tests(TestCase):
         self.assertContains(response, "Change password")
         self.assertContains(response, "Edit profile")
         self.assertNotContains(response, "Rewards count")
-        self.assertContains(response, "No XP, discount or cash reward is configured yet.")
+        self.assertContains(response, "Managed by SATMakon.")
+        self.assertContains(response, "Account access")
 
         changed = self.client.post(
             reverse("edit_profile"),

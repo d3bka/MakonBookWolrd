@@ -1,0 +1,17 @@
+/* MakonBook V5612.3 — public placement header sync
+   Keep the public placement canvas/colors while using the exact landing-page
+   header shell (`mb56-page`, noise layer, shared _public_header template). */
+body.mb56-page.pp-page{
+  background:var(--pp-bg);
+  color:var(--pp-text);
+  font-family:Inter,sans-serif;
+}
+body.mb56-page.pp-page .mb56-nav-wrap{
+  font-family:var(--mb56-body);
+}
+body.mb56-page.pp-page .mb56-nav{
+  color:var(--mb56-ink);
+}
+body.mb56-page.pp-page .mb56-nav .mb56-btn-quiet{
+  color:var(--mb56-ink);
+}

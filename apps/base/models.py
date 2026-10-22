@@ -66,7 +66,7 @@ class UserProfile(models.Model):
         help_text="Time limit for Math section in minutes (default: 35)"
     )
     middle_name = models.CharField(max_length=150, blank=True)
-    phone_number = models.CharField(max_length=32, null=True, blank=True, unique=True)
+    phone_number = models.CharField(max_length=32, null=True, blank=True)
     hollihop_client_id = models.BigIntegerField(null=True, blank=True, unique=True)
     hollihop_teacher_id = models.BigIntegerField(null=True, blank=True, unique=True)
     hollihop_employee_id = models.BigIntegerField(null=True, blank=True, unique=True)

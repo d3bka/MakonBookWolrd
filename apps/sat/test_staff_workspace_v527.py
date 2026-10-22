@@ -191,9 +191,10 @@ class StaffWorkspaceV527Tests(TestCase):
                 settings = self.client.get(reverse("settings_page"))
                 self.assert_staff_shell(settings, mode)
                 self.assertContains(settings, "Settings, not another profile page.")
+                settings_url = f'{reverse("settings_page")}?workspace={mode}'
                 self.assertContains(
                     settings,
-                    f'class="mb50-nav-item is-active" href="{reverse("settings_page")}"',
+                    f'class="mb50-nav-item is-active" href="{settings_url}"',
                 )
 
 

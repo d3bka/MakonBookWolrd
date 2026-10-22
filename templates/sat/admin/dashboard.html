@@ -1,51 +1,54 @@
 {% extends 'sat/admin/base_admin.html' %}
 
 {% block admin_content %}
-<h2><i class="fa fa-tachometer"></i> Dashboard</h2>
+<div class="sf29-page sf212-admin-dashboard">
+  <section class="sf29-hero">
+    <span class="sf28-kicker"><i class="bi bi-shield-check"></i> Admin home</span>
+    <h1>Run MakonBook from one workspace.</h1>
+    <p>Manage students, tests, mock exams, support operations and public placement leads with the same workspace experience used by teachers and managers.</p>
+    <div class="sf28-actions">
+      <a href="{% url 'admin_mock_create' %}" class="sf28-btn primary"><i class="bi bi-plus-lg"></i>Create mock</a>
+      <a href="{% url 'admin:sat_publicplacementlead_changelist' %}" class="sf28-btn"><i class="bi bi-compass"></i>Placement leads</a>
+      <a href="{% url 'admin:index' %}" class="sf28-btn"><i class="bi bi-database-gear"></i>Django admin</a>
+    </div>
+  </section>
 
-<div class="stat-cards">
-  <div class="stat-card">
-    <h3>{{ user_count }}</h3>
-    <p>Total Users</p>
-  </div>
-  <div class="stat-card">
-    <h3>{{ group_count }}</h3>
-    <p>Groups</p>
-  </div>
-  <div class="stat-card">
-    <h3>{{ test_count }}</h3>
-    <p>Tests</p>
-  </div>
-  <div class="stat-card">
-    <h3>{{ mock_count }}</h3>
-    <p>Mocks Created</p>
-  </div>
-  <div class="stat-card">
-    <h3>{{ active_support_teacher_count }}/{{ support_teacher_count }}</h3>
-    <p>Active Support Teachers</p>
-  </div>
-  <div class="stat-card">
-    <h3>{{ support_booking_count }}</h3>
-    <p>Support Bookings</p>
-  </div>
-</div>
+  <section class="sf29-grid">
+    <article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-people"></i></span><div><strong>{{ user_count }}</strong><small>total users · {{ placement_today_count }} leads today</small></div></div></article>
+    <article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-file-earmark-text"></i></span><div><strong>{{ test_count }}</strong><small>tests available · {{ group_count }} groups</small></div></div></article>
+    <article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-stars"></i></span><div><strong>{{ mock_count }}</strong><small>mock exams created</small></div></div></article>
+    <article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-compass"></i></span><div><strong>{{ placement_lead_count }}</strong><small>placement leads · {{ placement_testing_count }} testing now</small></div></div></article>
 
-<div class="admin-card">
-  <h4>Quick Actions</h4>
-  <a href="{% url 'admin_mock_create' %}" class="btn-admin btn-primary" style="margin-right: 10px;">
-    <i class="fa fa-plus"></i> Create Mock
-  </a>
-  <a href="{% url 'admin_users' %}" class="btn-admin btn-secondary" style="margin-right: 10px;">
-    <i class="fa fa-users"></i> View Users
-  </a>
-  <a href="{% url 'admin_groups' %}" class="btn-admin btn-secondary" style="margin-right: 10px;">
-    <i class="fa fa-object-group"></i> View Groups
-  </a>
-  <a href="{% url 'admin_support_teachers' %}" class="btn-admin btn-secondary" style="margin-right: 10px;">
-    <i class="fa fa-calendar-check-o"></i> Support Teachers
-  </a>
-  <a href="{% url 'admin_support_bookings' %}" class="btn-admin btn-secondary">
-    <i class="fa fa-clock-o"></i> Support Bookings
-  </a>
+    <article class="sf29-card span-8">
+      <div class="sf29-section-head"><div><small>Public placement</small><h2>Recent level checks</h2></div><a class="sf212-text-link" href="{% url 'admin:sat_publicplacementlead_changelist' %}">View all <i class="bi bi-arrow-right"></i></a></div>
+      {% if recent_placement_leads %}
+      <div class="sf29-list">
+        {% for lead in recent_placement_leads %}
+        <a class="sf29-row sf212-lead-row" href="{% url 'admin:sat_publicplacementlead_change' lead.pk %}">
+          <span class="sf212-lead-avatar">{{ lead.first_name|first|upper }}{{ lead.last_name|first|upper }}</span>
+          <div class="grow"><strong>{{ lead.full_name|default:'Unnamed student' }}</strong><small>{{ lead.phone_number }} · {{ lead.event.title }}</small></div>
+          <div class="sf212-lead-status">
+            {% if lead.attempt and lead.attempt.status == 'submitted' %}<span class="sf28-chip sf212-chip-success">Completed</span>{% if lead.attempt.score != None %}<small>{{ lead.attempt.score|floatformat:1 }}%</small>{% endif %}
+            {% elif lead.attempt and lead.attempt.status == 'in_progress' %}<span class="sf28-chip sf212-chip-warning">Testing</span><small>{{ lead.attempt.answered_questions }}/{{ lead.attempt.total_questions }}</small>
+            {% elif lead.attempt and lead.attempt.status == 'expired' %}<span class="sf28-chip">Expired</span>
+            {% else %}<span class="sf28-chip">Created</span>{% endif %}
+          </div>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}<div class="sf29-empty">No placement leads yet. Public Check Your Level submissions will appear here automatically.</div>{% endif %}
+    </article>
+
+    <article class="sf29-card span-4">
+      <div class="sf29-section-head"><div><small>Operations</small><h2>Common actions</h2></div></div>
+      <div class="sf212-action-list">
+        <a class="sf29-action-card" href="{% url 'admin_users' %}"><i class="bi bi-people"></i><div><strong>Users</strong><small>Search and manage accounts.</small></div></a>
+        <a class="sf29-action-card" href="{% url 'admin_support_teachers' %}"><i class="bi bi-person-video3"></i><div><strong>Support team</strong><small>{{ active_support_teacher_count }}/{{ support_teacher_count }} active.</small></div></a>
+        <a class="sf29-action-card" href="{% url 'admin_support_bookings' %}"><i class="bi bi-calendar2-check"></i><div><strong>Bookings</strong><small>{{ support_booking_count }} total requests.</small></div></a>
+        <a class="sf29-action-card" href="{% url 'admin:sat_placementtelegramnotification_changelist' %}"><i class="bi bi-telegram"></i><div><strong>Telegram queue</strong><small>{{ telegram_pending_count }} pending.</small></div></a>
+      </div>
+    </article>
+  </section>
 </div>
 {% endblock admin_content %}

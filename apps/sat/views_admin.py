@@ -11,7 +11,11 @@ from django.db.models import Q, Count, Avg
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.core.paginator import Paginator
-from .models import Test, TestReview, Mock, SecretCode, SupportTeacherProfile, SupportTeacherAvailability, SupportLessonBooking
+from .models import (
+    Test, TestReview, Mock, SecretCode, SupportTeacherProfile,
+    SupportTeacherAvailability, SupportLessonBooking, PublicPlacementLead,
+    PlacementTelegramNotification,
+)
 from .forms_admin import UserFilterForm, UserGroupEditForm, GroupCreateForm, MockCreateForm, GroupAssignedTestsForm, SupportTeacherProfileForm, SupportTeacherAvailabilityForm
 from .roles import SUPPORT_TEACHER_GROUP, TEACHER_GROUP, in_group
 
@@ -60,6 +64,10 @@ admin_panel_required = user_passes_test(is_admin_user, login_url='/login/')
 @login_required
 @admin_panel_required
 def admin_dashboard(request):
+    today = timezone.localdate()
+    placement_leads = PublicPlacementLead.objects.select_related("event", "attempt")
+    recent_placement_leads = list(placement_leads.order_by("-created_at")[:6])
+
     context = {
         'user_count': User.objects.count(),
         'group_count': Group.objects.count(),
@@ -68,6 +76,12 @@ def admin_dashboard(request):
         'support_teacher_count': SupportTeacherProfile.objects.filter(user__groups__name__iexact=SUPPORT_TEACHER_GROUP).distinct().count(),
         'active_support_teacher_count': SupportTeacherProfile.objects.filter(is_active=True, user__groups__name__iexact=SUPPORT_TEACHER_GROUP).distinct().count(),
         'support_booking_count': SupportLessonBooking.objects.count(),
+        'placement_lead_count': placement_leads.count(),
+        'placement_today_count': placement_leads.filter(created_at__date=today).count(),
+        'placement_testing_count': placement_leads.filter(attempt__status='in_progress').count(),
+        'placement_completed_count': placement_leads.filter(attempt__status='submitted').count(),
+        'telegram_pending_count': PlacementTelegramNotification.objects.filter(status='pending').count(),
+        'recent_placement_leads': recent_placement_leads,
         'page_title': 'Admin Dashboard',
         'active_page': 'dashboard',
     }

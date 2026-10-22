@@ -1,0 +1,551 @@
+/* MakonBook SAT preview V53.1
+   Minimal exam-style overview. Inspired by modern digital testing UI, not a 1:1 copy
+   of any third-party proprietary interface. */
+
+:root {
+  --sat531-bg: #f4f5f7;
+  --sat531-card: #ffffff;
+  --sat531-text: #1f2530;
+  --sat531-muted: #6e7582;
+  --sat531-line: #d9dde3;
+  --sat531-blue: #2457d6;
+  --sat531-blue-dark: #173f9c;
+  --sat531-soft-blue: #edf3ff;
+  --sat531-shadow: 0 10px 26px rgba(34,46,70,.07);
+}
+
+html[data-theme="dark"] {
+  --sat531-bg: #11151b;
+  --sat531-card: #171c24;
+  --sat531-text: #f5f7fb;
+  --sat531-muted: #a6afbd;
+  --sat531-line: #303845;
+  --sat531-blue: #7aa2ff;
+  --sat531-blue-dark: #9cb8ff;
+  --sat531-soft-blue: #1a2c50;
+  --sat531-shadow: 0 10px 28px rgba(0,0,0,.22);
+}
+
+* { box-sizing: border-box; }
+
+html,
+body.sat531-page {
+  margin: 0;
+  min-height: 100%;
+  background: var(--sat531-bg);
+  color: var(--sat531-text);
+  font-family: Inter, Arial, sans-serif;
+}
+
+body.sat531-page {
+  min-height: 100dvh;
+  padding-bottom: 78px;
+  overflow-x: hidden;
+}
+
+.sat531-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--sat531-line);
+  background: color-mix(in srgb, var(--sat531-card) 94%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.sat531-header-inner {
+  width: min(1180px, calc(100% - 32px));
+  min-height: 66px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+}
+
+.sat531-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  width: max-content;
+  color: inherit;
+  text-decoration: none;
+}
+.sat531-brand img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+.sat531-brand div {
+  display: grid;
+  gap: 1px;
+}
+.sat531-brand strong {
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+.sat531-brand span {
+  color: var(--sat531-muted);
+  font-size: 9px;
+}
+
+.sat531-test-label {
+  text-align: center;
+  line-height: 1.15;
+}
+.sat531-test-label span {
+  display: block;
+  color: var(--sat531-muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+.sat531-test-label strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.sat531-header-actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sat531-icon-btn {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sat531-line);
+  border-radius: 8px;
+  background: var(--sat531-card);
+  color: var(--sat531-text);
+  text-decoration: none;
+}
+
+.sat531-main {
+  width: min(940px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 24px;
+}
+
+.sat531-active-guard,
+.sat531-retake-ready {
+  margin: 0 0 16px !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.sat531-overview,
+.sat531-structure {
+  border: 1px solid var(--sat531-line);
+  border-radius: 12px;
+  background: var(--sat531-card);
+  box-shadow: var(--sat531-shadow);
+}
+
+.sat531-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, .8fr);
+  gap: 0;
+  overflow: hidden;
+}
+
+.sat531-intro {
+  padding: 34px 36px 30px;
+}
+
+.sat531-kicker,
+.sat531-section-head span,
+.sat531-exam-note > span {
+  color: var(--sat531-blue);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sat531-intro h1 {
+  margin: 8px 0 8px;
+  font-size: clamp(34px, 5vw, 52px);
+  font-weight: 650;
+  letter-spacing: -.045em;
+  line-height: 1;
+}
+
+.sat531-intro > p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--sat531-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sat531-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 28px;
+  border-top: 1px solid var(--sat531-line);
+}
+.sat531-summary > div {
+  min-width: 0;
+  padding: 16px 14px 0 0;
+}
+.sat531-summary span {
+  display: block;
+  color: var(--sat531-muted);
+  font-size: 9px;
+}
+.sat531-summary strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.sat531-exam-note {
+  padding: 34px 28px;
+  border-left: 1px solid var(--sat531-line);
+  background: color-mix(in srgb, var(--sat531-soft-blue) 58%, var(--sat531-card));
+}
+
+.sat531-exam-note ul {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sat531-exam-note li {
+  position: relative;
+  padding: 11px 0 11px 19px;
+  color: var(--sat531-muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--sat531-line) 68%, transparent);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.sat531-exam-note li:last-child {
+  border-bottom: 0;
+}
+.sat531-exam-note li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sat531-blue);
+}
+
+.sat531-structure {
+  margin-top: 16px;
+  padding: 24px 26px;
+}
+
+.sat531-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--sat531-line);
+}
+.sat531-section-head h2 {
+  margin: 3px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.sat531-section-head small {
+  color: var(--sat531-muted);
+  font-size: 10px;
+}
+
+.sat531-module-list {
+  display: grid;
+}
+
+.sat531-module-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  border-bottom: 1px solid color-mix(in srgb, var(--sat531-line) 76%, transparent);
+}
+.sat531-module-row:last-child {
+  border-bottom: 0;
+}
+
+.sat531-module-index {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sat531-line);
+  border-radius: 7px;
+  background: var(--sat531-bg);
+  color: var(--sat531-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.sat531-module-name span {
+  display: block;
+  color: var(--sat531-muted);
+  font-size: 9px;
+}
+.sat531-module-name strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sat531-module-meta {
+  display: flex;
+  gap: 8px;
+}
+.sat531-module-meta span {
+  padding: 6px 8px;
+  border: 1px solid var(--sat531-line);
+  border-radius: 6px;
+  color: var(--sat531-muted);
+  background: var(--sat531-bg);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.sat531-empty {
+  padding: 24px 0;
+  color: var(--sat531-muted);
+  text-align: center;
+  font-size: 11px;
+}
+
+.sat531-footer {
+  position: fixed;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-top: 1px solid var(--sat531-line);
+  background: color-mix(in srgb, var(--sat531-card) 96%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.sat531-footer-inner {
+  width: min(1180px, calc(100% - 32px));
+  min-height: 68px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sat531-footer-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sat531-muted);
+  font-size: 10px;
+}
+.sat531-footer-note i {
+  color: var(--sat531-blue);
+}
+
+.sat531-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sat531-btn {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 17px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  text-decoration: none;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.sat531-btn.secondary {
+  border-color: var(--sat531-line);
+  background: var(--sat531-card);
+  color: var(--sat531-text);
+}
+.sat531-btn.primary {
+  border-color: var(--sat531-blue-dark);
+  background: var(--sat531-blue);
+  color: #fff;
+}
+.sat531-btn.primary:hover {
+  background: var(--sat531-blue-dark);
+}
+.sat531-btn.is-loading {
+  opacity: .72;
+  pointer-events: none;
+}
+
+.sat-retake-start-form {
+  margin: 0;
+}
+
+.sat531-watermark-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: .038;
+}
+.sat531-watermark {
+  position: absolute;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  transform: rotate(-24deg);
+  white-space: nowrap;
+}
+html[data-theme="dark"] .sat531-watermark {
+  color: #fff;
+}
+
+.sat531-privacy-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  place-items: center;
+  background: #111827;
+  color: #fff;
+  text-align: center;
+}
+.sat531-privacy-cover.is-visible {
+  display: grid;
+}
+.sat531-privacy-cover strong {
+  display: block;
+  font-size: 18px;
+}
+.sat531-privacy-cover span {
+  display: block;
+  margin-top: 8px;
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+/* Print deterrence. A normal web page cannot block OS-level screenshots. */
+@media print {
+  body.sat531-page > * {
+    display: none !important;
+  }
+  body.sat531-page::before {
+    content: "Printing is disabled for this test overview.";
+    display: block !important;
+    padding: 48px;
+    color: #111;
+    font: 700 18px/1.4 Arial,sans-serif;
+  }
+}
+
+/* On desktop the whole overview fits as an app-like window, so the PAGE itself
+   doesn't scroll. If a long custom test has many modules, only the module list scrolls. */
+@media (min-width: 900px) and (min-height: 700px) {
+  body.sat531-page {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .sat531-main {
+    height: calc(100dvh - 134px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sat531-active-guard,
+  .sat531-retake-ready,
+  .sat531-overview {
+    flex: 0 0 auto;
+  }
+  .sat531-structure {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+  }
+  .sat531-module-list {
+    min-height: 0;
+    overflow: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  body.sat531-page {
+    padding-bottom: 132px;
+  }
+  .sat531-header-inner {
+    width: calc(100% - 18px);
+    grid-template-columns: 1fr auto;
+  }
+  .sat531-test-label {
+    display: none;
+  }
+  .sat531-main {
+    width: calc(100% - 18px);
+    padding-top: 14px;
+  }
+  .sat531-overview {
+    grid-template-columns: 1fr;
+  }
+  .sat531-intro,
+  .sat531-exam-note {
+    padding: 22px 18px;
+  }
+  .sat531-exam-note {
+    border-left: 0;
+    border-top: 1px solid var(--sat531-line);
+  }
+  .sat531-summary {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .sat531-structure {
+    padding: 18px;
+  }
+  .sat531-module-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+  .sat531-module-meta {
+    grid-column: 2;
+    padding-bottom: 11px;
+  }
+  .sat531-footer-inner {
+    width: calc(100% - 18px);
+    min-height: 120px;
+    align-items: stretch;
+    justify-content: center;
+    flex-direction: column;
+    padding: 10px 0;
+  }
+  .sat531-footer-note {
+    justify-content: center;
+  }
+  .sat531-footer-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .sat531-btn,
+  .sat-retake-start-form,
+  .sat-retake-start-form .sat531-btn {
+    width: 100%;
+  }
+}

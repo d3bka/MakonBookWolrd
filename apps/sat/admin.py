@@ -1,9 +1,10 @@
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.db.models import Count, Avg, Q
 from django.contrib.auth.models import User, Group
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from django.utils import timezone
 from django.db import models
 import random
 import string
@@ -67,9 +68,9 @@ class QuestionTypeAdmin(admin.ModelAdmin):
 # Enhanced Test Admin
 @admin.register(Test)
 class TestAdmin(admin.ModelAdmin):
-    list_display = ['name', 'is_available', 'icon_preview', 'groups_display', 'total_questions', 'english_questions_count', 'math_questions_count', 
+    list_display = ['name', 'test_type', 'is_available', 'icon_preview', 'groups_display', 'total_questions', 'english_questions_count', 'math_questions_count', 
                    'reviews_count', 'average_score', 'created']
-    list_filter = ['is_available', 'created', 'groups']
+    list_filter = ['test_type', 'is_available', 'created', 'groups']
     search_fields = ['name']
     filter_horizontal = ['groups']
     ordering = ['-created']
@@ -77,7 +78,7 @@ class TestAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'is_available', 'groups', 'icon')
+            'fields': ('name', 'test_type', 'is_available', 'groups', 'icon')
         }),
         ('Additional info', {
             'fields': ('created',)
@@ -939,11 +940,16 @@ class ChatMessageAdmin(admin.ModelAdmin):
 class GlobalEventAdmin(admin.ModelAdmin):
     list_display = (
         "title",
+        "event_type",
         "test",
+        "source_test_type",
         "slug",
         "status",
         "is_public",
         "always_live",
+        "registration_enabled",
+        "branch",
+        "capacity",
         "show_score_immediately",
         "show_leaderboard",
         "start_at",
@@ -953,9 +959,96 @@ class GlobalEventAdmin(admin.ModelAdmin):
         "math_duration_minutes",
     )
     search_fields = ("title", "slug", "test__name")
-    list_filter = ("status", "is_public", "always_live", "show_score_immediately", "show_leaderboard")
+    list_filter = (
+        "event_type",
+        "status",
+        "is_public",
+        "always_live",
+        "registration_enabled",
+        "show_on_landing",
+        "show_score_immediately",
+        "show_leaderboard",
+        "test__test_type",
+    )
     autocomplete_fields = ("test",)
-    list_editable = ("show_score_immediately", "show_leaderboard", "status", "is_public", "always_live")
+    list_editable = ("event_type", "status", "is_public", "always_live", "show_score_immediately", "show_leaderboard")
+    readonly_fields = ("source_test_type_policy",)
+    fieldsets = (
+        (None, {
+            "fields": ("title", "slug", "description", "rules"),
+        }),
+        ("Global Event type", {
+            "fields": ("event_type",),
+            "description": (
+                "Choose where this Global Event appears: Event goes to Events; "
+                "Placement Test goes to Placement Tests. This does not change the linked source Test type."
+            ),
+        }),
+        ("Source test", {
+            "fields": ("test", "source_test_type_policy"),
+            "description": (
+                "The same source test can stay a Regular / Practice Test while also being used by a Global Event. "
+                "For example, DAY 60 may remain in Practice and also power a live mock Event."
+            ),
+        }),
+        ("Access & availability", {
+            "fields": ("access_code", "is_public", "status", "always_live"),
+            "description": (
+                "Public ON = the active event is listed for students. "
+                "Public OFF = hidden from the Events/Placement lists and accessible only by access code. "
+                "Status=Closed closes immediately. Scheduled live events close automatically five hours after End at. "
+                "Always active ignores Start at / End at and stays open until Status is changed from Live."
+            ),
+        }),
+        ("Schedule", {
+            "fields": ("start_at", "end_at"),
+            "description": (
+                "End at is the nominal end for scheduled events. They remain available for a 5-hour "
+                "completion/resume grace period, then close automatically. With Always active enabled, Start at and End at "
+                "are ignored completely; Status=Live keeps the event open 24/7 and Status=Closed stops it immediately."
+            ),
+        }),
+        ("Verified mock registration", {
+            "fields": (
+                "registration_enabled", "show_on_landing", "branch", "capacity",
+                "registration_opens_at", "registration_closes_at", "verification_minutes",
+            ),
+            "description": (
+                "Enable this for scheduled mock exams. External participants and Hollihop-backed MakonBook students "
+                "must verify their email before a seat is reserved. Pending verification holds a seat only until its code expires."
+            ),
+        }),
+        ("Timing", {
+            "fields": ("duration_minutes", "english_duration_minutes", "math_duration_minutes"),
+        }),
+        ("Results", {
+            "fields": ("show_score_immediately", "show_leaderboard", "allow_resume"),
+        }),
+    )
+
+    def get_queryset(self, request):
+        GlobalEvent.close_expired()
+        return super().get_queryset(request)
+
+    @admin.display(description="Source test type", ordering="test__test_type")
+    def source_test_type(self, obj):
+        if not obj.test_id:
+            return "—"
+        return obj.test.get_test_type_display()
+
+    @admin.display(description="Source test policy")
+    def source_test_type_policy(self, obj):
+        if obj and obj.pk and obj.test_id:
+            current = obj.test.get_test_type_display()
+            return format_html(
+                '<strong>{}</strong><br><span style="opacity:.72">{}</span>',
+                current,
+                'This source Test keeps its own Test Type. Saving the Global Event does not reclassify it.',
+            )
+        return format_html(
+            '<span style="opacity:.72">Choose any source test. Its own Test Type will stay unchanged.</span>'
+        )
+
 
 
 @admin.register(GuestParticipant)
@@ -969,6 +1062,152 @@ class GlobalEventAttemptAdmin(admin.ModelAdmin):
     list_display = ("event", "guest", "status", "score", "started_at", "submitted_at")
     list_filter = ("status", "event")
     search_fields = ("guest__full_name", "guest__display_name", "event__title")
+
+
+@admin.register(PublicPlacementLead)
+class PublicPlacementLeadAdmin(admin.ModelAdmin):
+    list_display = (
+        "full_name_display",
+        "phone_number",
+        "event",
+        "attempt_status",
+        "progress_display",
+        "result_display",
+        "duration_display",
+        "telegram_status_display",
+        "started_at",
+    )
+    list_filter = ("event", "attempt__status", "completed_at", "created_at")
+    search_fields = ("first_name", "last_name", "phone_number", "event__title")
+    readonly_fields = (
+        "guest",
+        "attempt",
+        "placement_summary",
+        "telegram_delivery_summary",
+        "started_at",
+        "completed_at",
+        "created_at",
+        "updated_at",
+    )
+    ordering = ("-created_at",)
+    list_select_related = ("event", "attempt", "guest")
+    date_hierarchy = "created_at"
+    list_per_page = 40
+    actions = ("retry_failed_telegram_notifications",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("telegram_notifications")
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description="Student")
+    def full_name_display(self, obj):
+        return obj.full_name
+
+    @admin.display(description="Placement status", ordering="attempt__status")
+    def attempt_status(self, obj):
+        if not obj.attempt_id:
+            return format_html('<span class="mk-admin-status-pill">Created</span>')
+        status = obj.attempt.status
+        css = {
+            "submitted": "is-completed",
+            "in_progress": "is-testing",
+            "expired": "is-expired",
+        }.get(status, "")
+        return format_html(
+            '<span class="mk-admin-status-pill {}">{}</span>',
+            css,
+            obj.attempt.get_status_display(),
+        )
+
+    @admin.display(description="Progress")
+    def progress_display(self, obj):
+        if not obj.attempt_id or not obj.attempt.total_questions:
+            return "—"
+        return f"{obj.attempt.answered_questions}/{obj.attempt.total_questions}"
+
+    @admin.display(description="Result")
+    def result_display(self, obj):
+        if not obj.attempt_id or obj.attempt.status != "submitted":
+            return "—"
+        total = int(obj.attempt.total_questions or 0)
+        raw = int(obj.attempt.raw_score or 0)
+        if total <= 0:
+            return "—"
+        return f"{round((raw / total) * 100, 1)}%"
+
+    @admin.display(description="Duration")
+    def duration_display(self, obj):
+        if not obj.started_at:
+            return "—"
+        end = obj.completed_at or timezone.now()
+        minutes = max(0, int((end - obj.started_at).total_seconds() // 60))
+        return f"{minutes} min" if minutes else "<1 min"
+
+    @admin.display(description="Telegram")
+    def telegram_status_display(self, obj):
+        notices = list(obj.telegram_notifications.all())
+        if not notices:
+            return format_html('<span class="mk-admin-status-pill">Not queued</span>')
+        preferred = next((n for n in notices if n.kind == PlacementTelegramNotification.KIND_COMPLETED), None)
+        notice = preferred or notices[-1]
+        css = {
+            PlacementTelegramNotification.STATUS_SENT: "is-completed",
+            PlacementTelegramNotification.STATUS_PENDING: "is-testing",
+            PlacementTelegramNotification.STATUS_FAILED: "is-expired",
+        }.get(notice.status, "")
+        return format_html('<span class="mk-admin-status-pill {}">{}</span>', css, notice.get_status_display())
+
+    @admin.display(description="Placement result")
+    def placement_summary(self, obj):
+        if not obj.attempt_id:
+            return "No attempt linked yet."
+        total = int(obj.attempt.total_questions or 0)
+        raw = int(obj.attempt.raw_score or 0)
+        percentage = round((raw / total) * 100, 1) if total else 0
+        return format_html(
+            '<strong>{}%</strong> &nbsp; · &nbsp; {} correct of {} &nbsp; · &nbsp; {} answered',
+            percentage, raw, total, obj.attempt.answered_questions,
+        )
+
+    @admin.display(description="Telegram delivery")
+    def telegram_delivery_summary(self, obj):
+        notices = list(obj.telegram_notifications.all())
+        if not notices:
+            return "No notifications queued."
+        parts = []
+        for notice in notices:
+            label = notice.get_kind_display()
+            status = notice.get_status_display()
+            detail = f"{label}: {status}"
+            if notice.last_error:
+                detail += f" — {notice.last_error[:160]}"
+            parts.append(detail)
+        return format_html_join(mark_safe("<br>"), "{}", ((part,) for part in parts))
+
+    @admin.action(description="Retry failed/pending Telegram notifications")
+    def retry_failed_telegram_notifications(self, request, queryset):
+        updated = PlacementTelegramNotification.objects.filter(
+            lead__in=queryset,
+            status__in=[
+                PlacementTelegramNotification.STATUS_FAILED,
+                PlacementTelegramNotification.STATUS_PENDING,
+            ],
+        ).update(
+            status=PlacementTelegramNotification.STATUS_PENDING,
+            next_attempt_at=timezone.now(),
+            last_error="",
+        )
+        self.message_user(request, f"Queued {updated} Telegram notification(s) for retry.")
+
+
+@admin.register(PlacementTelegramNotification)
+class PlacementTelegramNotificationAdmin(admin.ModelAdmin):
+    list_display = ("lead", "kind", "status", "attempts", "created_at", "sent_at")
+    list_filter = ("kind", "status", "created_at")
+    search_fields = ("lead__first_name", "lead__last_name", "lead__phone_number", "lead__event__title")
+    readonly_fields = ("lead", "kind", "created_at", "updated_at", "sent_at")
 
 
 @admin.register(GlobalEventAnswer)
@@ -1165,3 +1404,12 @@ class MakonNotificationAdmin(admin.ModelAdmin):
     list_display = ('user', 'type', 'title', 'is_read', 'created_at')
     list_filter = ('type', 'is_read')
     search_fields = ('user__username', 'title', 'message')
+
+
+@admin.register(EventRegistration)
+class EventRegistrationAdmin(admin.ModelAdmin):
+    list_display = ("event", "full_name", "participant_type", "status", "email", "phone", "verified_at", "created_at")
+    list_filter = ("status", "participant_type", "event")
+    search_fields = ("full_name", "email", "phone", "telegram_username", "user__username")
+    readonly_fields = ("registration_token", "verification_code_hash", "verification_sent_at", "verification_expires_at", "verified_at", "created_at", "updated_at")
+    autocomplete_fields = ("event", "user")

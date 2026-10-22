@@ -39,7 +39,7 @@ def _derive_status(progress: VocabularyWordProgress) -> str:
 
 
 @transaction.atomic
-def record_word_review(*, user, word, classroom=None, outcome: str):
+def record_word_review(*, user, word, classroom=None, outcome: str, expected_times_seen=None):
     """Persist a flashcard/quiz interaction and return the updated progress row.
 
     outcome values:
@@ -53,6 +53,24 @@ def record_word_review(*, user, word, classroom=None, outcome: str):
     )
 
     previous_status = progress.status
+
+    if expected_times_seen is not None:
+        try:
+            expected_times_seen = max(int(expected_times_seen), 0)
+        except (TypeError, ValueError):
+            expected_times_seen = None
+
+    # Browser/network retries send the times_seen value that was rendered with
+    # the card. If the server is already ahead, the original review committed
+    # and this request is an idempotent retry.
+    if expected_times_seen is not None and progress.times_seen != expected_times_seen:
+        progress._previous_status = previous_status
+        progress._duplicate_review = progress.times_seen > expected_times_seen
+        progress._sync_conflict = progress.times_seen < expected_times_seen
+        return progress
+
+    progress._duplicate_review = False
+    progress._sync_conflict = False
     now_value = timezone.now()
     progress.times_seen += 1
     progress.last_reviewed_at = now_value

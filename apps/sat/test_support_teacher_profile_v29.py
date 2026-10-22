@@ -139,14 +139,14 @@ class SupportTeacherProfileV29Tests(TestCase):
                 'is_active': 'on',
             },
         )
-        self.assertRedirects(response, reverse('support_teacher_planner'))
+        self.assertRedirects(response, reverse('support_teacher_dashboard_root'), fetch_redirect_response=False)
         availability = SupportTeacherAvailability.objects.get(teacher=self.profile)
         self.assertEqual(availability.slot_duration_minutes, 45)
 
         response = self.client.post(
             reverse('support_teacher_availability_delete', args=[availability.pk]),
         )
-        self.assertRedirects(response, reverse('support_teacher_planner'))
+        self.assertRedirects(response, reverse('support_teacher_dashboard_root'), fetch_redirect_response=False)
         self.assertFalse(SupportTeacherAvailability.objects.filter(pk=availability.pk).exists())
 
     def test_completed_lesson_review_is_private_from_students(self):

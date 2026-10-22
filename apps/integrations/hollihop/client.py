@@ -159,11 +159,20 @@ class HollihopClient:
             f"Hollihop pagination exceeded the safety limit of {max_pages} pages for {function}."
         )
 
-    def get_students(self, *, client_id=None, last_updated_from=None) -> list[dict]:
+    def get_students(self, *, client_id=None, student_id=None, last_updated_from=None) -> list[dict]:
+        """Return Hollihop students.
+
+        Hollihop exposes two different identifiers for a student:
+        - Id: the student ID shown in the CRM/UI;
+        - ClientId: the client identifier used by relations and MakonBook sync.
+
+        Keep both filters explicit so callers cannot accidentally use one as the
+        other. Existing sync code continues to use client_id.
+        """
         return self._paginate(
             "GetStudents",
             "Students",
-            {"clientId": client_id, "lastUpdatedFrom": last_updated_from},
+            {"clientId": client_id, "id": student_id, "lastUpdatedFrom": last_updated_from},
         )
 
     def get_employees(self, *, employee_id=None, corporative=None) -> list[dict]:

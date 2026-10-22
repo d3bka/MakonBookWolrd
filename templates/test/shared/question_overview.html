@@ -18,8 +18,8 @@
         <span>Unanswered</span>
         <strong data-test-unanswered-count>{{ questions|length }}</strong>
       </div>
-      <div class="overview-stat overview-stat-marked">
-        <span>Marked</span>
+      <div class="overview-stat overview-stat-marked" aria-label="Marked for review">
+        <span class="overview-marked-label"><i class="fa fa-bookmark" aria-hidden="true"></i><span class="overview-sr-only">Marked for review</span></span>
         <strong data-test-marked-count>0</strong>
       </div>
     </div>
@@ -35,7 +35,7 @@
     <div class="question-overview-legend" aria-label="Question status legend">
       <span class="legend-current">Current</span>
       <span class="legend-answered">Answered</span>
-      <span class="legend-marked">Marked for review</span>
+      <span class="legend-marked"><i class="fa fa-bookmark" aria-hidden="true"></i> Review flag</span>
     </div>
 
     <div class="question-overview-footer">

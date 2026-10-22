@@ -1,0 +1,11 @@
+/* Public placement runner branding only; standard SAT runner is unaffected. */
+body.pp-test-runner{--pp-runner-accent:#6d28d9;--pp-runner-accent-strong:#4c1d95}
+body.pp-test-runner header{border-bottom-color:rgba(109,40,217,.16)!important}
+body.pp-test-runner .github-test-heading{position:relative}
+body.pp-test-runner .pp-runner-badge{display:inline-flex;align-items:center;gap:6px;width:max-content;margin-bottom:5px;padding:4px 8px;border-radius:999px;background:rgba(109,40,217,.10);color:var(--pp-runner-accent);font-size:9px;font-weight:900;letter-spacing:.11em}
+body.pp-test-runner .pp-runner-badge:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+body.pp-test-runner .github-test-heading small{color:var(--pp-runner-accent)!important;font-weight:700}
+body.pp-test-runner #nextButton,body.pp-test-runner #finishButton,body.pp-test-runner [data-confirm-submit]{background:linear-gradient(135deg,var(--pp-runner-accent-strong),var(--pp-runner-accent))!important;border-color:transparent!important;color:#fff!important}
+body.pp-test-runner .question-progress{border-color:rgba(109,40,217,.22)!important}
+html[data-theme="dark"] body.pp-test-runner{--pp-runner-accent:#a78bfa;--pp-runner-accent-strong:#7c3aed}
+@media(max-width:700px){body.pp-test-runner .pp-runner-badge{font-size:8px;padding:3px 7px}}

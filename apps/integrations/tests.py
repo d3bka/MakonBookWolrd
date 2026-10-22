@@ -341,6 +341,24 @@ class HollihopSyncTests(TestCase):
         engine = HollihopSyncEngine(client=self.api, dry_run=True)
         self.assertEqual(engine.resolve_student_client_id_by_phone("90 123 45 67"), 236)
 
+    def test_two_students_can_share_parent_phone_without_being_merged(self):
+        shared_phone = "+998901234567"
+        self.api.students = [
+            self.student(238, email="first-child@example.com", phone=shared_phone),
+            self.student(239, email="second-child@example.com", phone=shared_phone),
+        ]
+        self.api.students[0]["FirstName"] = "First"
+        self.api.students[1]["FirstName"] = "Second"
+
+        summary = HollihopSyncEngine(client=self.api).sync_students()
+
+        first = User.objects.get(profile__hollihop_client_id=238)
+        second = User.objects.get(profile__hollihop_client_id=239)
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(first.profile.phone_number, shared_phone)
+        self.assertEqual(second.profile.phone_number, shared_phone)
+        self.assertEqual(summary.conflicts, 0)
+
     def test_pilot_phone_refuses_ambiguous_shared_number(self):
         self.api.students = [
             self.student(236, email="one@example.com", phone="+998901234567"),

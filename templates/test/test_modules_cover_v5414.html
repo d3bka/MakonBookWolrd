@@ -1,0 +1,124 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ test.name }} · Test overview</title>
+  <meta name="description" content="Review the test structure and timing before starting {{ test.name }}.">
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  {% include 'base/theme_init.html' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-test-start-v13.css' %}?v=39">
+</head>
+<body class="sat-start-page">
+  <div class="sat-start-bg" aria-hidden="true"></div>
+  <main class="sat-start-shell">
+    <header class="sat-start-topbar">
+      <a class="sat-start-brand" href="{% url 'practice_tests_root' %}">
+        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon">
+        <span>SAT Makon</span>
+      </a>
+      <div class="sat-start-top-actions">
+        {% include 'base/theme_toggle.html' %}
+        <a class="sat-start-close" href="{% url 'practice_tests_root' %}">
+          <i class="fa fa-times" aria-hidden="true"></i><span>Close</span>
+        </a>
+      </div>
+    </header>
+
+    <section class="sat-start-hero">
+      <div class="sat-start-copy">
+        <span class="sat-start-eyebrow"><i class="fa fa-bolt" aria-hidden="true"></i>{% if has_active_attempt %}Resume attempt{% else %}Test overview{% endif %}</span>
+        <h1>{{ test.name }}</h1>
+        <p>Review the module order, timing, autosave behavior, and submission rules before entering the timed test window.</p>
+        <div class="sat-start-summary" aria-label="Test summary">
+          <div><strong>{{ total_modules }}</strong><span>modules</span></div>
+          <div><strong>{{ total_questions }}</strong><span>questions</span></div>
+          <div><strong>≈ {{ total_duration_minutes }}</strong><span>minutes</span></div>
+        </div>
+      </div>
+
+      <aside class="sat-start-readiness">
+        <span class="sat-start-readiness-label">Before you begin</span>
+        <h2>Use one stable browser tab</h2>
+        <ul>
+          <li>Your answers and current question are saved to the server.</li>
+          <li>The timer continues after refresh, tab close, or device change.</li>
+          <li>Submitting a module is final; answers cannot be changed afterward.</li>
+        </ul>
+      </aside>
+    </section>
+
+    <section class="sat-start-layout">
+      <div class="sat-start-card sat-start-modules">
+        <div class="sat-start-section-heading">
+          <div><span>Test structure</span><h2>Modules in order</h2></div>
+          <small>{{ total_modules }} total</small>
+        </div>
+        <div class="sat-module-list">
+          {% for row in module_rows %}
+            <article class="sat-module-row" style="--delay: {{ forloop.counter0 }}">
+              <div class="sat-module-index">{{ forloop.counter }}</div>
+              <div class="sat-module-copy">
+                <span>{{ row.section_label }}</span>
+                <strong>Module {{ row.module_number }}</strong>
+              </div>
+              <div class="sat-module-meta"><span>{{ row.question_count }} questions</span><span>{{ row.duration_minutes }} min</span></div>
+            </article>
+          {% empty %}
+            <div class="sat-start-empty">This test has no available modules.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="sat-start-card sat-start-rules">
+        <div class="sat-start-section-heading"><div><span>Important</span><h2>Test rules</h2></div></div>
+        <div class="sat-rule-list">
+          <article><i class="fa fa-cloud" aria-hidden="true"></i><div><strong>Server autosave</strong><p>Responses sync while you work and recover after refresh or browser restart.</p></div></article>
+          <article><i class="fa fa-clock-o" aria-hidden="true"></i><div><strong>Server-controlled timer</strong><p>Closing the page does not pause the module timer.</p></div></article>
+          <article><i class="fa fa-bookmark" aria-hidden="true"></i><div><strong>Review before submit</strong><p>Use Mark for Review and the question navigator to find unfinished work.</p></div></article>
+          <article><i class="fa fa-lock" aria-hidden="true"></i><div><strong>Final submission</strong><p>After a module is submitted, the platform moves forward and locks that module.</p></div></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="sat-start-footer">
+    <div class="sat-start-footer-inner">
+      <div class="sat-start-footer-note"><i class="fa fa-shield" aria-hidden="true"></i><span>Do not open the same attempt in multiple tabs.</span></div>
+      <div class="sat-start-footer-actions">
+        <a class="sat-start-button secondary" href="{% url 'practice_tests_root' %}">Back</a>
+        {% if total_modules %}
+          {% if start_url %}
+            <a class="sat-start-button primary" data-start-test-link href="{{ start_url }}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+          {% else %}
+            <a class="sat-start-button primary" data-start-test-link href="{% url 'practice_test_module_root' test.name %}">{% if has_active_attempt %}Continue test{% else %}Start test{% endif %}<i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </footer>
+
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  <script src="{% static 'assets/js/sat-test-start-v13.js' %}?v=39"></script>
+  {% include 'base/issue_report_widget.html' %}
+  <script>
+    (function () {
+      var reportButton = document.querySelector('.issue-report-fab');
+      var footerActions = document.querySelector('.sat-start-footer-actions');
+      var startButton = footerActions && footerActions.querySelector('[data-start-test-link]');
+      if (!reportButton || !footerActions) return;
+      if (startButton) {
+        footerActions.insertBefore(reportButton, startButton);
+      } else {
+        footerActions.appendChild(reportButton);
+      }
+    })();
+  </script>
+</body>
+</html>

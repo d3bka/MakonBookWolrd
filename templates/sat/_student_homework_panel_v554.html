@@ -1,0 +1,33 @@
+<div class="v554-homework-panel {% if panel_name == panel_active %}is-active{% endif %}" data-v554-homework-panel="{{ panel_name }}" {% if panel_name != panel_active %}hidden{% endif %}>
+  <section class="v50210-homework-grid v554-homework-grid">
+    {% for assignment in rows %}
+      <a class="v50210-hw-card v554-hw-card v523-reveal {% if assignment.student_deadline_closed and assignment.student_submission_status != 'submitted' %}is-deadline-closed{% endif %}"
+         href="{% url 'student_homework_launch_root' assignment.id %}"
+         data-v554-assignment-link data-assignment-type="{{ assignment.assignment_type }}"
+         style="--reveal-index:{{ forloop.counter }}">
+        <div class="v50210-hw-top">
+          <span class="v50210-hw-type"><i class="bi {% if assignment.assignment_type == 'sat_test' %}bi-file-earmark-check{% elif assignment.assignment_type == 'vocabulary_quiz' %}bi-ui-checks{% else %}bi-journal-bookmark{% endif %}"></i>{{ assignment.get_assignment_type_display }}</span>
+          <div class="v552-hw-state-stack">
+            <span class="v552-hw-state is-{{ assignment.student_submission_status }}">
+              {% if assignment.student_submission_status == 'submitted' %}<i class="bi bi-check2-all"></i>{% elif assignment.student_submission_status == 'completed' %}<i class="bi bi-check2-circle"></i>{% elif assignment.student_submission_status == 'in_progress' %}<i class="bi bi-play-circle"></i>{% else %}<i class="bi bi-circle"></i>{% endif %}
+              {{ assignment.student_submission_label }}
+            </span>
+            {% if assignment.due_at %}<time class="v553-deadline {% if assignment.student_deadline_closed %}is-expired{% endif %}" datetime="{{ assignment.due_at|date:'c' }}" data-v553-deadline="{{ assignment.student_due_ms }}"><i class="bi bi-clock"></i><span data-v553-countdown>{% if assignment.student_deadline_closed %}Closed{% else %}Calculating…{% endif %}</span></time>{% else %}<time class="v553-deadline"><i class="bi bi-infinity"></i><span>No deadline</span></time>{% endif %}
+          </div>
+        </div>
+        <div class="v554-hw-copy"><h2>{{ assignment.title }}</h2><p>{{ assignment.instructions|default:'Open the assignment to begin.'|truncatechars:180 }}</p></div>
+        <div class="v50210-hw-meta">
+          <span><i class="bi bi-people"></i>{{ assignment.classroom.name }}</span>
+          {% if assignment.test %}<span><i class="bi bi-file-earmark-check"></i>{{ assignment.test.name }}</span>{% endif %}
+          {% if assignment.assignment_type == 'sat_test' %}<span><i class="bi bi-sliders"></i>{{ assignment.get_required_test_mode_display }}</span><span><i class="bi bi-shield-check"></i>Anti-Cheat {{ assignment.get_required_integrity_mode_display }}</span>{% endif %}
+          {% if assignment.vocabulary_unit %}<span><i class="bi bi-journal-text"></i>{{ assignment.vocabulary_unit.title }}</span>{% endif %}
+          {% if assignment.assignment_type == 'vocabulary_unit' %}<span>{{ assignment.get_vocabulary_mode_display }} · {{ assignment.question_count }} cards</span>{% elif assignment.assignment_type == 'vocabulary_quiz' %}<span>{{ assignment.get_vocabulary_quiz_mode_display }} · {{ assignment.question_count }} questions</span>{% endif %}
+        </div>
+        <span class="v50210-hw-cta v554-hw-cta"><i class="bi bi-play-fill v554-cta-play"></i><span data-v554-cta-text>{% if assignment.student_submission_status == 'submitted' %}View submitted work{% elif assignment.student_deadline_closed %}Deadline closed{% elif assignment.student_submission_status == 'in_progress' %}Continue assignment{% elif assignment.student_submission_status == 'completed' %}Submit completed work{% else %}Open assignment{% endif %}</span><i class="bi bi-arrow-right v554-cta-arrow"></i></span>
+      </a>
+    {% empty %}
+      <article class="v50210-empty v554-empty"><i class="bi bi-check2-circle"></i><h2>{% if panel_name == 'completed' %}No submitted homework yet.{% else %}You're clear.{% endif %}</h2><p>{% if panel_name == 'completed' %}Submitted assignments will stay here as your history.{% else %}No homework matches these filters.{% endif %}</p></article>
+    {% endfor %}
+  </section>
+  {% if page_obj.paginator.num_pages > 1 %}<nav class="sf210-pagination v50210-pages" aria-label="Homework pages">{% if page_obj.has_previous %}<a href="?view={{ panel_name }}&q={{ query|urlencode }}&classroom={{ classroom_filter }}&type={{ type_filter }}&status={{ status_filter }}&per_page={{ per_page }}&{{ panel_name }}_page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?view={{ panel_name }}&q={{ query|urlencode }}&classroom={{ classroom_filter }}&type={{ type_filter }}&status={{ status_filter }}&per_page={{ per_page }}&{{ panel_name }}_page={{ page_obj.next_page_number }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
+</div>

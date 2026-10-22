@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from dataclasses import dataclass
@@ -67,6 +68,42 @@ def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str] | None
             if status < 200 or status >= 300:
                 raise _SmsHttpError(status)
             return _read_json(response)
+    except HTTPError as exc:
+        raise _SmsHttpError(exc.code) from exc
+    except (URLError, TimeoutError, OSError) as exc:
+        raise SmsDeliveryError("SMS provider is unavailable.") from exc
+
+
+
+
+def _post_json_text(url: str, payload: dict[str, Any], headers: dict[str, str] | None = None) -> str:
+    """POST JSON and return a UTF-8 text body.
+
+    PlayMobile intentionally returns a plain-text success body (for example
+    "Request is received") rather than JSON. Keep this separate from the
+    legacy generic JSON adapter so existing behavior does not change.
+    """
+    request_headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Accept": "application/json, text/plain, */*",
+    }
+    request_headers.update(headers or {})
+    request = Request(
+        url,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=request_headers,
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=_timeout_seconds()) as response:
+            status = int(getattr(response, "status", 200))
+            if status < 200 or status >= 300:
+                raise _SmsHttpError(status)
+            raw = response.read()
+            try:
+                return raw.decode("utf-8").strip() if raw else ""
+            except UnicodeDecodeError as exc:
+                raise SmsDeliveryError("SMS provider returned an invalid response.") from exc
     except HTTPError as exc:
         raise _SmsHttpError(exc.code) from exc
     except (URLError, TimeoutError, OSError) as exc:
@@ -227,6 +264,81 @@ def _send_eskiz(phone: str, message: str) -> SmsSendResult:
     raise SmsDeliveryError("Eskiz authentication failed after token refresh.")
 
 
+
+
+def _playmobile_phone(phone: str) -> str:
+    normalized = normalize_phone(phone)
+    digits = normalized.lstrip("+") if normalized else ""
+    # PlayMobile documents recipients in Uzbekistan MSISDN form 998XXXXXXXXX
+    # without spaces or a leading plus. Do not guess non-Uzbek numbers.
+    if len(digits) != 12 or not digits.startswith("998"):
+        raise SmsDeliveryError("PlayMobile recipient must be a valid Uzbekistan phone number.")
+    return digits
+
+
+def _playmobile_basic_auth(login: str, password: str) -> str:
+    token = base64.b64encode(f"{login}:{password}".encode("utf-8")).decode("ascii")
+    return f"Basic {token}"
+
+
+def _send_playmobile(phone: str, message: str) -> SmsSendResult:
+    api_url = str(getattr(settings, "PLAYMOBILE_API_URL", "") or "").strip()
+    login = str(getattr(settings, "PLAYMOBILE_LOGIN", "") or "").strip()
+    password = str(getattr(settings, "PLAYMOBILE_PASSWORD", "") or "")
+    originator = str(getattr(settings, "PLAYMOBILE_ORIGINATOR", "SATMAKON") or "").strip()
+    template_id = str(getattr(settings, "PLAYMOBILE_TEMPLATE_ID", "") or "").strip()
+    text = str(message or "").strip()
+
+    if not api_url:
+        raise SmsDeliveryError("PLAYMOBILE_API_URL is not configured.")
+    if not login or not password:
+        raise SmsDeliveryError("PlayMobile credentials are not configured.")
+    if not originator:
+        raise SmsDeliveryError("PLAYMOBILE_ORIGINATOR is not configured.")
+    if len(originator) > 11:
+        raise SmsDeliveryError("PLAYMOBILE_ORIGINATOR is longer than 11 characters.")
+    if not text:
+        raise SmsDeliveryError("SMS message is empty.")
+
+    recipient = _playmobile_phone(phone)
+    # The current PlayMobile docs allow up to 40 chars, while older PDFs mention
+    # 20. Keep our id within 20 for compatibility with both.
+    message_id = "mb" + uuid.uuid4().hex[:18]
+    item: dict[str, Any] = {
+        "recipient": recipient,
+        "message-id": message_id,
+        "sms": {
+            "originator": originator,
+            "content": {"text": text},
+        },
+    }
+    if template_id:
+        item["template-id"] = template_id
+
+    try:
+        response_text = _post_json_text(
+            api_url,
+            {"messages": [item]},
+            headers={"Authorization": _playmobile_basic_auth(login, password)},
+        )
+    except _SmsHttpError as exc:
+        if exc.status_code in {401, 403}:
+            raise SmsDeliveryError("PlayMobile authentication was rejected. Check PLAYMOBILE_LOGIN and PLAYMOBILE_PASSWORD.") from exc
+        if exc.status_code in {400, 404, 422}:
+            raise SmsDeliveryError("PlayMobile rejected the SMS request. Check the phone, originator and approved SMS template.") from exc
+        if exc.status_code == 429:
+            raise SmsDeliveryError("PlayMobile SMS sending is rate-limited. Try again later.") from exc
+        raise SmsDeliveryError(f"PlayMobile SMS gateway returned HTTP {exc.status_code}.") from exc
+
+    # PlayMobile's documented successful body is plain text such as
+    # "Request is received". A 2xx response is the acceptance signal; delivery
+    # can be tracked separately if/when a delivery-report callback is added.
+    status = "accepted"
+    if response_text and "reject" in response_text.casefold():
+        raise SmsDeliveryError("PlayMobile rejected the SMS request.")
+    return SmsSendResult(provider="playmobile", message_id=message_id, status=status)
+
+
 def _send_generic_http(phone: str, message: str) -> SmsSendResult:
     api_url = str(getattr(settings, "MAKONBOOK_SMS_API_URL", "") or "").strip()
     if not api_url:
@@ -270,6 +382,18 @@ def validate_sms_configuration() -> tuple[bool, str]:
         if missing:
             return False, f"Eskiz configuration is incomplete: {', '.join(missing)}."
         return True, "Eskiz configuration is ready."
+    if provider == "playmobile":
+        missing = [
+            name
+            for name in ("PLAYMOBILE_API_URL", "PLAYMOBILE_LOGIN", "PLAYMOBILE_PASSWORD", "PLAYMOBILE_ORIGINATOR")
+            if not str(getattr(settings, name, "") or "").strip()
+        ]
+        if missing:
+            return False, f"PlayMobile configuration is incomplete: {', '.join(missing)}."
+        originator = str(getattr(settings, "PLAYMOBILE_ORIGINATOR", "") or "").strip()
+        if len(originator) > 11:
+            return False, "PLAYMOBILE_ORIGINATOR must be at most 11 characters."
+        return True, "PlayMobile configuration is ready."
     return False, f"Unsupported SMS provider: {provider}."
 
 
@@ -280,6 +404,7 @@ def send_sms(phone: str, message: str) -> SmsSendResult:
       - disabled / none: safe no-send mode
       - generic_http: legacy JSON adapter
       - eskiz: native Eskiz.uz token-based API adapter
+      - playmobile: native PlayMobile Basic-Auth JSON adapter
     """
     provider = str(getattr(settings, "MAKONBOOK_SMS_PROVIDER", "") or "").strip().lower()
     if provider in {"", "disabled", "none"}:
@@ -288,4 +413,6 @@ def send_sms(phone: str, message: str) -> SmsSendResult:
         return _send_generic_http(phone, message)
     if provider == "eskiz":
         return _send_eskiz(phone, message)
+    if provider == "playmobile":
+        return _send_playmobile(phone, message)
     raise SmsDeliveryError(f"Unsupported SMS provider: {provider}")

@@ -1,0 +1,100 @@
+/* V54.0.2 — show Exam Integrity even while another/this attempt is active.
+   Active attempts are read-only because their security policy is already frozen. */
+
+.sat54-integrity-current {
+  display: grid;
+  grid-template-columns: 38px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 22px;
+  padding: 12px 13px;
+  border: 1px solid rgba(109,40,217,.13);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(109,40,217,.065), rgba(192,132,252,.035)),
+    #fff;
+}
+
+.sat54-integrity-current-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.sat54-integrity-current-copy {
+  min-width: 0;
+}
+
+.sat54-integrity-current-copy > span {
+  display: block;
+  color: #6d28d9;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+}
+
+.sat54-integrity-current-copy > strong {
+  display: inline-block;
+  margin-top: 2px;
+  color: #28183a;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.sat54-integrity-current-copy > small {
+  display: block;
+  margin-top: 3px;
+  color: #7d7088;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.sat54-integrity-current-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: #6b5c77;
+  background: rgba(109,40,217,.055);
+  font-size: 8.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .sat54-integrity-current {
+  border-color: rgba(167,139,250,.16);
+  background:
+    linear-gradient(135deg, rgba(124,58,237,.11), rgba(192,132,252,.04)),
+    #17121c;
+}
+
+html[data-theme="dark"] .sat54-integrity-current-copy > strong {
+  color: #fff;
+}
+
+html[data-theme="dark"] .sat54-integrity-current-copy > small {
+  color: #b9aec1;
+}
+
+html[data-theme="dark"] .sat54-integrity-current-lock {
+  color: #d8cde1;
+  background: rgba(167,139,250,.09);
+}
+
+@media (max-width: 760px) {
+  .sat54-integrity-current {
+    grid-template-columns: 36px minmax(0,1fr);
+  }
+
+  .sat54-integrity-current-lock {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

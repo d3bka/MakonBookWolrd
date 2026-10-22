@@ -1,0 +1,77 @@
+/* MakonBook SAT Preview V53.3
+   - cleaner light-theme theme switcher
+   - stronger copy/selection deterrence
+   - balanced vertical composition so the page doesn't feel empty */
+
+body.sat531-page,
+body.sat531-page *:not(input):not(textarea) {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* ===== Better page balance ===== */
+.sat531-overview {
+  min-height: 330px !important;
+}
+
+.sat531-intro,
+.sat531-exam-note {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+.sat531-intro {
+  min-height: 330px !important;
+}
+
+.sat531-exam-note {
+  min-height: 330px !important;
+}
+
+.sat531-active-guard {
+  flex: 0 0 auto !important;
+}
+
+@media (min-width: 900px) and (min-height: 700px) {
+  .sat531-main {
+    height: calc(100dvh - 138px) !important;
+    padding-top: 18px !important;
+    padding-bottom: 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    overflow: hidden !important;
+  }
+
+  .sat531-active-guard,
+  .sat531-retake-ready,
+  .sat531-overview {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 900px) {
+  .sat531-main {
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+  }
+
+  .sat531-overview,
+  .sat531-intro,
+  .sat531-exam-note {
+    min-height: 0 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .sat531-overview,
+  .sat531-intro,
+  .sat531-exam-note {
+    min-height: 0 !important;
+  }
+
+}

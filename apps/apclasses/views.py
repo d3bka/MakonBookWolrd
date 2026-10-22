@@ -1,4 +1,6 @@
 from decimal import Decimal
+from datetime import timedelta
+from math import ceil
 
 from django.contrib import messages
 from django.db import IntegrityError, transaction
@@ -53,7 +55,7 @@ def _ensure_guest_session(request):
 
 
 def _current_display_name(request, attempt=None):
-    if request.user.is_authenticated and not request.session.get("guest_mode"):
+    if request.user.is_authenticated:
         return request.user.get_full_name().strip() or request.user.username
 
     guest_id = request.session.get("guest_id")
@@ -83,9 +85,9 @@ def _current_display_name(request, attempt=None):
 
 
 def _attempt_belongs_to_request(request, attempt):
-    if request.session.get("guest_mode"):
-        guest_key = _ensure_guest_session(request)
-        return bool(attempt.student_id is None and attempt.guest_session_key == guest_key)
+    # Authentication wins over any stale guest_mode flag left in the session.
+    # Without this, a user who completed a guest flow and later logged in could
+    # be treated as a guest across every AP module until the session was cleared.
     if request.user.is_authenticated:
         return attempt.student_id == request.user.id
     guest_key = _ensure_guest_session(request)
@@ -94,9 +96,6 @@ def _attempt_belongs_to_request(request, attempt):
 
 def _attempts_for_request(request, event):
     base = APExamAttempt.objects.filter(event=event).order_by("-attempt_number", "-started_at")
-    if request.session.get("guest_mode"):
-        guest_key = _ensure_guest_session(request)
-        return base.filter(student__isnull=True, guest_session_key=guest_key)
     if request.user.is_authenticated:
         return base.filter(student=request.user)
     guest_key = _ensure_guest_session(request)
@@ -108,7 +107,7 @@ def _get_existing_attempt_for_request(request, event):
 
 
 def _can_start_new_attempt(request, event, attempts=None):
-    is_guest_attempt = request.session.get("guest_mode") or not request.user.is_authenticated
+    is_guest_attempt = not request.user.is_authenticated
     if not _is_staff_user(request.user) and not event.allow_guest_attempts and is_guest_attempt:
         return False
     attempts = attempts if attempts is not None else _attempts_for_request(request, event)
@@ -131,7 +130,7 @@ def _create_attempt_for_request(request, event):
         "last_activity_at": timezone.now(),
     }
 
-    if request.user.is_authenticated and not request.session.get("guest_mode"):
+    if request.user.is_authenticated:
         return APExamAttempt.objects.create(event=event, student=request.user, **defaults)
 
     guest_session_key = _ensure_guest_session(request)
@@ -257,29 +256,37 @@ def start_ap_event_view(request, slug):
     if not _is_secret_unlocked(request, event):
         messages.error(request, "Enter the secret code before starting this AP mock exam.")
         return redirect("apclasses:event_detail", slug=slug)
-    is_guest_attempt = request.session.get("guest_mode") or not request.user.is_authenticated
+    is_guest_attempt = not request.user.is_authenticated
     if not event.allow_guest_attempts and is_guest_attempt:
         messages.error(request, "Guest attempts are not allowed for this AP mock exam.")
         return redirect("apclasses:event_detail", slug=slug)
 
-    attempts = _attempts_for_request(request, event)
-    active_attempt = attempts.filter(status="in_progress").first()
-    if active_attempt:
-        return redirect("apclasses:attempt", token=active_attempt.token)
-
-    if not _can_start_new_attempt(request, event, attempts):
-        latest_attempt = attempts.first()
-        messages.error(request, "You have reached the attempt limit for this AP mock exam.")
-        if latest_attempt and latest_attempt.status == "submitted":
-            return redirect("apclasses:event_result", token=latest_attempt.token)
-        return redirect("apclasses:event_detail", slug=slug)
-
+    # Serialize attempt creation on the event row and re-check state inside the
+    # transaction. Without this, a double-click/two tabs could both observe no
+    # active attempt and create parallel guest attempts (guest rows have no DB
+    # uniqueness constraint on attempt_number).
+    attempt = None
     try:
         with transaction.atomic():
-            attempt = _create_attempt_for_request(request, event)
+            locked_event = APExamEvent.objects.select_for_update().get(pk=event.pk)
+            attempts = _attempts_for_request(request, locked_event)
+            active_attempt = attempts.filter(status="in_progress").first()
+            if active_attempt:
+                attempt = active_attempt
+            elif not _can_start_new_attempt(request, locked_event, attempts):
+                latest_attempt = attempts.first()
+                if latest_attempt and latest_attempt.status == "submitted":
+                    attempt = latest_attempt
+                else:
+                    messages.error(request, "You have reached the attempt limit for this AP mock exam.")
+                    return redirect("apclasses:event_detail", slug=slug)
+            else:
+                attempt = _create_attempt_for_request(request, locked_event)
     except IntegrityError:
-        # Another tab may have created the same attempt a millisecond earlier.
-        attempt = _attempts_for_request(request, event).filter(status="in_progress").first() or _attempts_for_request(request, event).first()
+        # Student attempts also have a database constraint. If another request
+        # wins a race, recover the row instead of surfacing a 500.
+        attempts = _attempts_for_request(request, event)
+        attempt = attempts.filter(status="in_progress").first() or attempts.first()
 
     if not attempt:
         messages.error(request, "Could not start this AP mock exam. Try again.")
@@ -317,6 +324,25 @@ def _duration_for_ap_part(event, exam, part):
     if part == "frq":
         return int(getattr(event, "frq_duration_minutes", None) or getattr(exam, "frq_duration_minutes", 30) or 30)
     return 60
+
+
+def _ap_part_deadline(attempt, part):
+    field_name = AP_PART_FIELDS.get(part)
+    if not field_name:
+        return None
+    started_at = getattr(attempt, field_name, None)
+    if not started_at:
+        return None
+    duration_minutes = _duration_for_ap_part(attempt.event, attempt.event.exam, part)
+    return started_at + timedelta(minutes=max(1, int(duration_minutes)))
+
+
+def _ap_part_remaining_seconds(attempt, part, *, now=None):
+    deadline = _ap_part_deadline(attempt, part)
+    if deadline is None:
+        return None
+    now = now or timezone.now()
+    return max(0, int(ceil((deadline - now).total_seconds())))
 
 
 def _first_available_ap_part(exam):
@@ -403,6 +429,22 @@ def ap_attempt_view(request, token):
     else:
         current_question = ordered_questions[current_index - 1] if ordered_questions else None
 
+    # Start/read the module timer before processing POST data and enforce the
+    # deadline on the server. Browser timers are presentation only and may be
+    # throttled in background tabs.
+    duration_minutes = _duration_for_ap_part(attempt.event, exam, requested_part)
+    part_started_at = _get_or_start_ap_part_timer(request, attempt, requested_part)
+    remaining_seconds = _ap_part_remaining_seconds(attempt, requested_part)
+    if remaining_seconds is None:
+        remaining_seconds = max(0, int(duration_minutes) * 60)
+
+    if remaining_seconds <= 0 and total_questions:
+        next_part = _next_ap_part_after(exam, requested_part)
+        if next_part:
+            return redirect(_ap_part_url(attempt, next_part, 1))
+        _submit_ap_attempt(attempt)
+        return redirect("apclasses:event_result", token=attempt.token)
+
     if request.method == "POST":
         if requested_part == "frq":
             action = request.POST.get("action")
@@ -487,17 +529,6 @@ def ap_attempt_view(request, token):
 
     current_part = "FRQ" if requested_part == "frq" else ("Part A" if requested_part == APMultipleChoiceQuestion.PART_A else "Part B")
     section_title = current_part
-    duration_minutes = _duration_for_ap_part(attempt.event, exam, requested_part)
-    part_started_at = _get_or_start_ap_part_timer(request, attempt, requested_part)
-    elapsed_seconds = int((timezone.now() - part_started_at).total_seconds())
-    remaining_seconds = max(0, int(duration_minutes) * 60 - elapsed_seconds)
-
-    if remaining_seconds <= 0 and total_questions:
-        next_part = _next_ap_part_after(exam, requested_part)
-        if next_part:
-            return redirect(_ap_part_url(attempt, next_part, 1))
-        _submit_ap_attempt(attempt)
-        return redirect("apclasses:event_result", token=attempt.token)
 
     answered_ids = set()
     if requested_part != "frq":
@@ -556,11 +587,42 @@ def upload_frq_submission_view(request, token):
     except ValueError:
         page_number = 1
 
+    if not attempt.event.exam.frq_pages.filter(page_number=page_number).exists():
+        messages.error(request, "Invalid FRQ page.")
+        return redirect("apclasses:attempt", token=attempt.token)
+
+    # Never accept a late upload after the server-side FRQ deadline. The normal
+    # attempt view will advance/submit the attempt on the next request.
+    if attempt.frq_started_at:
+        remaining = _ap_part_remaining_seconds(attempt, "frq")
+        if remaining is not None and remaining <= 0:
+            messages.error(request, "The FRQ time limit has ended.")
+            return redirect(_ap_part_url(attempt, "frq", page_number))
+
     image = request.FILES.get("image")
     file = request.FILES.get("file")
     if not image and not file:
         messages.error(request, "Upload an image or file for the FRQ answer.")
         return redirect("apclasses:attempt", token=attempt.token)
+
+    max_upload_bytes = 15 * 1024 * 1024
+    allowed_image_types = {"image/jpeg", "image/png", "image/webp"}
+    if image:
+        if int(getattr(image, "size", 0) or 0) > max_upload_bytes:
+            messages.error(request, "FRQ image is too large. Maximum size is 15 MB.")
+            return redirect(_ap_part_url(attempt, "frq", page_number))
+        if (getattr(image, "content_type", "") or "").lower() not in allowed_image_types:
+            messages.error(request, "Upload a JPG, PNG, or WEBP image for the FRQ answer.")
+            return redirect(_ap_part_url(attempt, "frq", page_number))
+    if file:
+        if int(getattr(file, "size", 0) or 0) > max_upload_bytes:
+            messages.error(request, "FRQ file is too large. Maximum size is 15 MB.")
+            return redirect(_ap_part_url(attempt, "frq", page_number))
+        content_type = (getattr(file, "content_type", "") or "").lower()
+        filename = (getattr(file, "name", "") or "").lower()
+        if content_type != "application/pdf" or not filename.endswith(".pdf"):
+            messages.error(request, "Only PDF files are allowed for FRQ file uploads.")
+            return redirect(_ap_part_url(attempt, "frq", page_number))
 
     submission, _created = APFRQSubmission.objects.update_or_create(
         attempt=attempt,

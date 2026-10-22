@@ -1,0 +1,12 @@
+.v553-homework-tabs{display:flex;gap:8px;margin:0 0 16px;padding:5px;border:1px solid var(--workspace-border,rgba(109,40,217,.14));border-radius:16px;background:var(--workspace-card,#fff);width:max-content;max-width:100%}
+.v553-homework-tabs a{display:flex;align-items:center;gap:9px;padding:9px 14px;border-radius:11px;text-decoration:none;color:var(--workspace-muted,#6b6475);font-weight:750;font-size:.82rem}
+.v553-homework-tabs a strong{min-width:24px;padding:2px 7px;border-radius:999px;text-align:center;background:rgba(109,40,217,.08);color:inherit;font-size:.72rem}
+.v553-homework-tabs a.is-active{background:rgba(109,40,217,.1);color:#6d28d9}
+.v553-deadline{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:750;color:var(--workspace-muted,#716879);white-space:nowrap}
+.v553-deadline[data-urgency="soon"]{color:#b45309}
+.v553-deadline[data-urgency="critical"],.v553-deadline.is-expired{color:#dc2626}
+.v50210-hw-card.is-deadline-closed{opacity:.72}
+.v50210-hw-card.is-deadline-closed .v50210-hw-cta{color:#991b1b}
+html[data-theme="dark"] .v553-homework-tabs{background:rgba(19,12,39,.88);border-color:rgba(196,181,253,.14)}
+html[data-theme="dark"] .v553-homework-tabs a.is-active{color:#d8c8ff;background:rgba(139,92,246,.15)}
+@media(max-width:640px){.v553-homework-tabs{width:100%}.v553-homework-tabs a{flex:1;justify-content:center}}

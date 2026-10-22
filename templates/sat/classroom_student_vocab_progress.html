@@ -2,7 +2,7 @@
 {% block page_title %}Vocabulary Progress · {{ student_obj.get_full_name|default:student_obj.username }}{% endblock %}
 {% block content %}
 <div class="sf210-progress-shell">
-  <section class="sf210-progress-hero"><div class="sf210-progress-head"><div><span class="sf28-kicker"><i class="bi bi-journal-bookmark"></i> Student vocabulary progress</span><h1>{{ student_obj.get_full_name|default:student_obj.username }}</h1><p>@{{ student_obj.username }} · {{ classroom.name }} · real standalone Vocabulary activity</p></div><a class="sf28-btn" href="{% url 'teacher_classroom_progress_root' classroom.id %}"><i class="bi bi-arrow-left"></i>Progress dashboard</a></div></section>
+  <section class="sf210-progress-hero"><div class="sf210-progress-head"><div><span class="sf28-kicker"><i class="bi bi-journal-bookmark"></i> Student vocabulary progress</span><h1>{{ student_obj.get_full_name|default:student_obj.username }}</h1><p>@{{ student_obj.username }} · {{ classroom.name }} · Vocabulary is no longer tied to one classroom · real standalone Vocabulary activity</p></div><a class="sf28-btn" href="{% url 'teacher_classroom_progress_root' classroom.id %}"><i class="bi bi-arrow-left"></i>Progress dashboard</a></div></section>
 
   <section class="sf210-progress-stats">
     <article class="sf210-progress-stat"><small>Mastery</small><strong>{{ summary.completion_percent }}%</strong><span>{{ summary.mastered_words }}/{{ summary.total_words }} words</span></article>

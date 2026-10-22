@@ -23,13 +23,14 @@
       </a>
       <div class="public-nav-actions">
         {% include 'base/theme_toggle.html' %}
-        {% if request.user.is_authenticated %}<a href="{% url 'events' %}" class="public-link-pill">Back to events</a>{% else %}<a href="{% url 'global_event_list' %}" class="public-link-pill">Back to events</a>{% endif %}
+        {% if event.event_type == "placement" %}<a href="{% url 'public_placement_list' %}" class="public-link-pill">Check your level</a>{% elif request.user.is_authenticated %}<a href="{% url 'events' %}" class="public-link-pill">Back to events</a>{% else %}<a href="{% url 'global_event_list' %}" class="public-link-pill">Back to events</a>{% endif %}
       </div>
     </nav>
 
     <div class="result-card" data-page-reveal>
-      <span class="eyebrow">Attempt complete</span>
-      <h1>Thank you</h1>
+      {% if event.event_type == "placement" %}<span class="eyebrow">Level check complete</span>
+      <h1>Your result is ready</h1>{% else %}<span class="eyebrow">Attempt complete</span>
+      <h1>Thank you</h1>{% endif %}
       <p>You have completed <strong>{{ event.title }}</strong>.</p>
 
       {% if show_score %}
@@ -50,7 +51,7 @@
       <p><strong>Status:</strong> {{ attempt.status|title }}</p>
 
       <div class="actions">
-        {% if request.user.is_authenticated %}<a href="{% url 'events' %}" class="primary-btn">Back to events</a>{% else %}<a href="{% url 'global_event_list' %}" class="primary-btn">Back to events</a>{% endif %}
+        {% if event.event_type == "placement" %}<a href="{% url 'public_placement_list' %}" class="primary-btn">Check another level</a>{% elif request.user.is_authenticated %}<a href="{% url 'events' %}" class="primary-btn">Back to events</a>{% else %}<a href="{% url 'global_event_list' %}" class="primary-btn">Back to events</a>{% endif %}
         {% if can_review %}<a href="{% url 'global_event_review_root' attempt.guest_token %}" class="secondary-link">Review answers</a>{% endif %}
         {% if event.show_leaderboard and show_score %}
           <a href="{% url 'global_event_leaderboard_root' event.slug %}" class="secondary-link">Leaderboard</a>

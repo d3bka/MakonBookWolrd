@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var shell = document.querySelector('[data-student-workspace]');
+  var shell = document.querySelector('[data-student-workspace], [data-staff-workspace]');
   if (!shell || shell.dataset.workspaceReady === '50212') return;
   shell.dataset.workspaceReady = '50212';
 
@@ -360,6 +360,7 @@
   var prefetched = {};
   function prefetchLink(link) {
     if (!link || !link.href || prefetched[link.href]) return;
+    if (link.matches('[data-world-upcoming]')) return;
     // Only warm explicit workspace navigation. Never prefetch account actions
     // such as /logout/ or launch/start endpoints whose GET may mutate state.
     if (!link.matches('.mb50-brand,.mb50-mobile-brand,.mb50-nav a.mb50-nav-item,.mb50-more-grid a')) return;
@@ -383,13 +384,14 @@
     if (window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('speculationrules')) {
       var speculation = document.createElement('script');
       speculation.type = 'speculationrules';
-      speculation.textContent = JSON.stringify({prefetch:[{source:'document',where:{selector_matches:'.mb50-brand, .mb50-mobile-brand, .mb50-nav a.mb50-nav-item, .mb50-more-grid a'},eagerness:'moderate'}]});
+      speculation.textContent = JSON.stringify({prefetch:[{source:'document',where:{selector_matches:'.mb50-brand, .mb50-mobile-brand, .mb50-nav a.mb50-nav-item:not([data-world-upcoming]), .mb50-more-grid a'},eagerness:'moderate'}]});
       document.head.appendChild(speculation);
     }
   } catch (error) { /* optional browser optimization */ }
 
   function showRouteProgress(link){
     if(!link||!link.matches('.mb50-brand,.mb50-mobile-brand,.mb50-nav a.mb50-nav-item,.mb50-more-grid a,.v523-row-link,.v524-admissions-card,.v523-topic-card'))return;
+    if(link.matches('[data-world-upcoming]'))return;
     if(link.target&&link.target!=='_self')return;
     var bar=document.querySelector('.mb526-route-progress');if(bar)return;
     bar=document.createElement('div');bar.className='mb526-route-progress';document.body.appendChild(bar);

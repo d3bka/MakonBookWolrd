@@ -1,46 +1,44 @@
 {% extends 'sat/student_workspace.html' %}
+{% load static %}
 {% block page_title %}Homework · MakonBook{% endblock %}
+{% block student_workspace_style %}
+  <link rel="stylesheet" href="{% static 'assets/css/student-homework-v552.css' %}?v=552">
+  <link rel="stylesheet" href="{% static 'assets/css/student-homework-v553.css' %}?v=553">
+  <link rel="stylesheet" href="{% static 'assets/css/student-homework-v554.css' %}?v=554">
+{% endblock student_workspace_style %}
 {% block content %}
-<div class="v50210-homework">
-  <section class="v50210-homework-hero v523-reveal">
-    <div>
-      <span class="v523-kicker"><i class="bi bi-list-check"></i> Homework</span>
+<div class="v50210-homework v553-homework v554-homework" data-v553-homework-root data-v554-homework-root data-initial-view="{{ homework_view }}">
+  <section class="v50210-homework-hero v554-homework-hero v523-reveal">
+    <div class="v554-hero-copy">
+      <span class="v523-kicker"><i class="bi bi-list-check"></i> Homework {% if homework_todo_count %}<b class="v554-kicker-count">{{ homework_todo_count }}</b>{% endif %}</span>
       <h1>Your assigned work.</h1>
-      <p>Only work explicitly assigned by a teacher appears here. Filter instantly by classroom, type or status without mixing it with general test access.</p>
+      <p>Teacher assignments stay separate from normal practice. SAT homework can lock its required test mode and Anti-Cheat level without changing your regular <strong>/tests/</strong> preferences.</p>
     </div>
-    <span class="v50210-homework-count"><strong>{{ homework_page.paginator.count }}</strong><small>assignment{{ homework_page.paginator.count|pluralize }}</small></span>
+    <div class="v554-homework-visual" aria-hidden="true">
+      <span class="v554-visual-spark one"></span><span class="v554-visual-spark two"></span>
+      <div class="v554-visual-sheet"><i class="bi bi-card-checklist"></i><span></span><span></span><span></span></div>
+      <span class="v554-visual-cap"><i class="bi bi-mortarboard"></i></span>
+    </div>
+    <span class="v50210-homework-count v554-homework-count"><strong data-v554-hero-count>{{ homework_todo_count }}</strong><small data-v554-hero-label>to do</small></span>
   </section>
 
-  <form class="v50210-filterbar" method="get" action="{% url 'student_homework_root' %}" data-v50211-live-form data-v50211-region="student-homework">
+  <nav class="v553-homework-tabs v554-homework-tabs" aria-label="Homework status" role="tablist">
+    <button type="button" role="tab" data-v554-homework-tab="todo" class="{% if homework_view == 'todo' %}is-active{% endif %}" aria-selected="{% if homework_view == 'todo' %}true{% else %}false{% endif %}"><i class="bi bi-file-earmark-text"></i><span>To do</span><strong>{{ homework_todo_count }}</strong></button>
+    <button type="button" role="tab" data-v554-homework-tab="completed" class="{% if homework_view == 'completed' %}is-active{% endif %}" aria-selected="{% if homework_view == 'completed' %}true{% else %}false{% endif %}"><i class="bi bi-check2-circle"></i><span>Completed</span><strong>{{ homework_completed_count }}</strong></button>
+  </nav>
+
+  <form class="v50210-filterbar v554-filterbar" method="get" action="{% url 'student_homework_root' %}" data-v50211-live-form data-v50211-region="student-homework">
+    <input type="hidden" name="view" value="{{ homework_view }}" data-v554-view-input>
     <label class="search"><i class="bi bi-search"></i><input type="search" name="q" value="{{ query }}" placeholder="Search homework…" autocomplete="off"></label>
     <select name="classroom" aria-label="Classroom"><option value="">All classrooms</option>{% for c in homework_classrooms %}<option value="{{ c.id }}" {% if classroom_filter == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
     <select name="type" aria-label="Homework type"><option value="">All types</option>{% for value,label in homework_types %}<option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-    <select name="status" aria-label="Status"><option value="all" {% if status_filter == 'all' %}selected{% endif %}>All states</option><option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option><option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>Overdue</option></select>
+    <select name="status" aria-label="Deadline"><option value="all" {% if status_filter == 'all' %}selected{% endif %}>Any deadline</option><option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option><option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>Overdue</option></select>
     <select name="per_page" aria-label="Items per page"><option value="12" {% if per_page == 12 %}selected{% endif %}>12 / page</option><option value="24" {% if per_page == 24 %}selected{% endif %}>24 / page</option><option value="48" {% if per_page == 48 %}selected{% endif %}>48 / page</option><option value="60" {% if per_page == 60 %}selected{% endif %}>60 / page</option></select>
   </form>
 
-  <div data-v50211-live-region="student-homework"><section class="v50210-homework-grid">
-    {% for assignment in homework_assignments %}
-      <a class="v50210-hw-card v523-reveal" href="{% url 'student_homework_launch_root' assignment.id %}" style="--reveal-index:{{ forloop.counter }}">
-        <div class="v50210-hw-top">
-          <span class="v50210-hw-type"><i class="bi {% if assignment.assignment_type == 'sat_test' %}bi-clipboard2-check{% elif assignment.assignment_type == 'vocabulary_quiz' %}bi-ui-checks{% else %}bi-journal-bookmark{% endif %}"></i>{{ assignment.get_assignment_type_display }}</span>
-          {% if assignment.due_at %}<time class="v50210-due"><i class="bi bi-clock"></i>{{ assignment.due_at|date:'d M · H:i' }}</time>{% endif %}
-        </div>
-        <div><h2>{{ assignment.title }}</h2><p>{{ assignment.instructions|default:'Open the assignment to begin.'|truncatechars:180 }}</p></div>
-        <div class="v50210-hw-meta">
-          <span><i class="bi bi-people"></i>{{ assignment.classroom.name }}</span>
-          {% if assignment.test %}<span><i class="bi bi-file-earmark-check"></i>{{ assignment.test.name }}</span>{% endif %}
-          {% if assignment.vocabulary_unit %}<span><i class="bi bi-journal-text"></i>{{ assignment.vocabulary_unit.title }}</span>{% endif %}
-          {% if assignment.assignment_type == 'vocabulary_unit' %}<span>{{ assignment.get_vocabulary_mode_display }} · {{ assignment.question_count }} cards</span>{% elif assignment.assignment_type == 'vocabulary_quiz' %}<span>{{ assignment.get_vocabulary_quiz_mode_display }} · {{ assignment.question_count }} questions</span>{% endif %}
-        </div>
-        <span class="v50210-hw-cta"><span>Open assignment</span><i class="bi bi-arrow-right"></i></span>
-      </a>
-    {% empty %}
-      <article class="v50210-empty"><i class="bi bi-check2-circle"></i><h2>No homework matches these filters.</h2><p>Change a filter or wait for your teacher to assign new work.</p></article>
-    {% endfor %}
-  </section>
-
-  {% if homework_page.paginator.num_pages > 1 %}<nav class="sf210-pagination v50210-pages" aria-label="Homework pages">{% if homework_page.has_previous %}<a href="?q={{ query|urlencode }}&classroom={{ classroom_filter }}&type={{ type_filter }}&status={{ status_filter }}&per_page={{ per_page }}&page={{ homework_page.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span>{{ homework_page.number }} / {{ homework_page.paginator.num_pages }}</span>{% if homework_page.has_next %}<a href="?q={{ query|urlencode }}&classroom={{ classroom_filter }}&type={{ type_filter }}&status={{ status_filter }}&per_page={{ per_page }}&page={{ homework_page.next_page_number }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
-  </div>
+  {% include 'sat/_student_homework_panel_v554.html' with panel_name='todo' rows=homework_todo_assignments page_obj=homework_todo_page panel_active=homework_view %}
+  {% include 'sat/_student_homework_panel_v554.html' with panel_name='completed' rows=homework_completed_assignments page_obj=homework_completed_page panel_active=homework_view %}
 </div>
+<script src="{% static 'assets/js/student-homework-v553.js' %}?v=553" defer></script>
+<script src="{% static 'assets/js/student-homework-v554.js' %}?v=554" defer></script>
 {% endblock %}

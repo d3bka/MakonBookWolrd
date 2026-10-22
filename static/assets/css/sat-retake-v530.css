@@ -1,0 +1,145 @@
+
+/* MakonBook SAT test overview V53.0 — safe retake / single-active-attempt UX */
+
+.sat-retake-guard,
+.sat-retake-ready {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin: 14px 0 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+}
+
+.sat-retake-guard {
+  border: 1px solid rgba(217, 119, 6, .20);
+  background: linear-gradient(135deg, rgba(255, 251, 235, .96), rgba(255, 247, 237, .96));
+  box-shadow: 0 10px 28px rgba(120, 77, 18, .07);
+}
+
+.sat-retake-ready {
+  grid-template-columns: auto minmax(0, 1fr);
+  border: 1px solid rgba(124, 58, 237, .14);
+  background: linear-gradient(135deg, rgba(250, 245, 255, .98), rgba(253, 244, 255, .96));
+  box-shadow: 0 10px 28px rgba(124, 58, 237, .06);
+}
+
+.sat-retake-guard-icon,
+.sat-retake-ready > i {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  font-size: 16px;
+}
+
+.sat-retake-guard-icon {
+  color: #b45309;
+  background: rgba(251, 191, 36, .16);
+}
+
+.sat-retake-ready > i {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, .10);
+}
+
+.sat-retake-guard-copy,
+.sat-retake-ready > div {
+  min-width: 0;
+}
+
+.sat-retake-guard-copy > span {
+  display: block;
+  margin-bottom: 3px;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sat-retake-guard-copy strong,
+.sat-retake-ready strong {
+  display: block;
+  color: #211827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.sat-retake-guard-copy p,
+.sat-retake-ready span {
+  display: block;
+  margin: 4px 0 0;
+  color: #766a7e;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.sat-retake-guard-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  color: #fff !important;
+  text-decoration: none !important;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: linear-gradient(100deg, #7c3aed, #c43de9);
+  box-shadow: 0 10px 22px rgba(124, 58, 237, .18);
+}
+
+.sat-retake-start-form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.sat-retake-start-form .sat-start-button {
+  border: 0;
+}
+
+html[data-theme="dark"] .sat-retake-guard {
+  border-color: rgba(251, 191, 36, .16);
+  background: linear-gradient(135deg, rgba(67, 45, 12, .52), rgba(45, 30, 10, .46));
+}
+
+html[data-theme="dark"] .sat-retake-ready {
+  border-color: rgba(167, 139, 250, .16);
+  background: linear-gradient(135deg, rgba(76, 29, 149, .24), rgba(88, 28, 135, .18));
+}
+
+html[data-theme="dark"] .sat-retake-guard-copy strong,
+html[data-theme="dark"] .sat-retake-ready strong {
+  color: #fff;
+}
+
+html[data-theme="dark"] .sat-retake-guard-copy p,
+html[data-theme="dark"] .sat-retake-ready span {
+  color: rgba(240, 232, 246, .74);
+}
+
+@media (max-width: 760px) {
+  .sat-retake-guard,
+  .sat-retake-ready {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .sat-retake-guard-action {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .sat-retake-start-form {
+    width: 100%;
+  }
+
+  .sat-retake-start-form .sat-start-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

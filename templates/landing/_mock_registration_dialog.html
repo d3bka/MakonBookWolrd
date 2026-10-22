@@ -1,0 +1,119 @@
+<dialog class="mb597-dialog" id="mock-reg-{{ mock.slug }}" data-mock-register-dialog data-initial-step="{% if confirmed %}success{% else %}overview{% endif %}" data-student-url="{% url 'event_registration_student' mock.slug %}" data-external-url="{% url 'event_registration_external' mock.slug %}">
+  <div class="mb597-dialog-shell">
+    <header class="mb597-dialog-head">
+      <div>
+        <span class="mb597-kicker">Mock exam registration</span>
+        <h2>{{ mock.title }}</h2>
+        <p>{{ mock.branch|default:"SATMakon" }} · {% if mock.always_live %}Always live{% else %}{{ mock.start_at|date:"d M Y · H:i" }}{% endif %}</p>
+      </div>
+      <button class="mb597-close" type="button" data-mock-close aria-label="Close registration dialog">×</button>
+    </header>
+
+    <div class="mb597-event-strip">
+      <span>{{ registration_window.label }}</span>
+      {% if mock.capacity %}<span>{{ confirmed_count }} / {{ mock.capacity }} confirmed</span>{% endif %}
+      {% if mock.capacity %}<span>{{ seats_left }} seats left</span>{% endif %}
+    </div>
+
+    <div class="mb597-inline-alert" data-inline-error hidden></div>
+    <div class="mb597-email-warning" data-email-warning hidden>
+      <strong>Check the email address</strong>
+      <p data-email-warning-copy></p>
+      <div class="mb597-actions compact">
+        <button class="mb597-btn secondary" type="button" data-email-warning-dismiss>Edit it</button>
+        <button class="mb597-btn" type="button" data-email-warning-override>Send anyway</button>
+      </div>
+    </div>
+
+    <section class="mb597-step" data-step="overview" {% if confirmed %}hidden{% endif %}>
+      {% if registration_window.can_register %}
+      <div class="mb597-overview-copy">
+        <span class="mb597-kicker">Choose how you register</span>
+        <h3>Reserve your seat without leaving this page.</h3>
+        <p>Use your existing MakonBook account if you study at SATMakon. External participants can register with phone and email.</p>
+      </div>
+      <div class="mb597-choice-grid">
+        <button class="mb597-choice" type="button" data-register-kind="student">
+          <span class="mb597-choice-icon">MB</span>
+          <strong>I study at SATMakon</strong>
+          <small>MakonBook username → password → email code</small>
+          <i>↗</i>
+        </button>
+        <button class="mb597-choice" type="button" data-register-kind="external">
+          <span class="mb597-choice-icon alt">+</span>
+          <strong>External participant</strong>
+          <small>Name, phone and email → verification code</small>
+          <i>↗</i>
+        </button>
+      </div>
+      {% else %}
+      <div class="mb597-locked-panel">
+        <span class="mb597-kicker">Registration status</span>
+        <h3>{{ registration_window.label }}.</h3>
+        <p>This mock exam is not accepting new registrations right now. Please check the schedule later or contact SATMakon if the registration window changes.</p>
+        <div class="mb597-actions"><button class="mb597-btn secondary" type="button" data-mock-close>Close</button></div>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="mb597-step" data-step="student" hidden>
+      <div class="mb597-step-head"><button type="button" class="mb597-back" data-step-back="overview">← Back to options</button><span class="mb597-kicker">SATMakon student</span><h3>Use your MakonBook account.</h3><p>Enter the exact MakonBook username linked to your student workspace.</p></div>
+      <form class="mb597-form" data-student-lookup>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="lookup">
+        <label>MakonBook username<input name="username" autocomplete="username" required placeholder="Username"></label>
+        <button class="mb597-btn wide" type="submit">Continue</button>
+      </form>
+    </section>
+
+    <section class="mb597-step" data-step="student-password" hidden>
+      <div class="mb597-step-head"><button type="button" class="mb597-back" data-step-back="student">← Back to account</button><span class="mb597-kicker">Account found</span><h3 data-student-name>Student account</h3><p>Enter the account password. The verification code will be sent to <strong data-student-email>the saved email</strong>.</p></div>
+      <form class="mb597-form" data-student-password>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="password">
+        <input type="hidden" name="username" data-student-username>
+        <input type="hidden" name="student_user_id" data-student-user-id>
+        <input type="hidden" name="allow_suspicious_email" value="0" data-email-override>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required placeholder="Password"></label>
+        <button class="mb597-btn wide" type="submit">Send verification code</button>
+      </form>
+    </section>
+
+    <section class="mb597-step" data-step="external" hidden>
+      <div class="mb597-step-head"><button type="button" class="mb597-back" data-step-back="overview">← Back to options</button><span class="mb597-kicker">External participant</span><h3>Reserve a seat.</h3><p>No MakonBook account will be created. We only use these details for the mock exam registration.</p></div>
+      <form class="mb597-form mb597-form-grid" data-external-form>
+        {% csrf_token %}
+        <input type="hidden" name="allow_suspicious_email" value="0" data-email-override>
+        <label>Full name<input name="full_name" autocomplete="name" required></label>
+        <label>Phone<input name="phone" autocomplete="tel" required placeholder="+998 90 123 45 67"></label>
+        <label class="wide">Email<input type="email" name="email" autocomplete="email" required placeholder="name@example.com"></label>
+        <label class="wide">Telegram <small>optional</small><input name="telegram" placeholder="@username"></label>
+        <button class="mb597-btn wide span-all" type="submit">Send verification code</button>
+      </form>
+    </section>
+
+    <section class="mb597-step" data-step="verify" hidden>
+      <div class="mb597-verify-icon">6</div>
+      <div class="mb597-step-head centered"><span class="mb597-kicker">Email verification</span><h3>Enter the 6-digit code.</h3><p>We sent it to <strong data-verify-email>your email</strong>. Your seat is held while the code is active.</p></div>
+      <form class="mb597-form mb597-code-form" data-verify-form>
+        {% csrf_token %}
+        <input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+        <button class="mb597-btn wide" type="submit">Verify & reserve seat</button>
+      </form>
+      <div class="mb597-actions centered"><button class="mb597-btn secondary" type="button" data-resend>Resend code</button><button class="mb597-btn ghost" type="button" data-step-back="overview">Start over</button></div>
+      <p class="mb597-note" data-inline-note hidden></p>
+    </section>
+
+    <section class="mb597-step" data-step="success" {% if not confirmed %}hidden{% endif %}>
+      <div class="mb597-success-mark">✓</div>
+      <div class="mb597-step-head centered"><span class="mb597-kicker">Seat confirmed</span><h3>You're registered.</h3><p>Your registration is saved on this browser, so reopening this mock exam does not make you register again.</p></div>
+      <div class="mb597-success-grid">
+        <div><span>Branch</span><strong>{{ mock.branch|default:"SATMakon" }}</strong></div>
+        <div><span>Date & time</span><strong>{% if mock.always_live %}Always live{% else %}{{ mock.start_at|date:"d M Y · H:i" }}{% endif %}</strong></div>
+        <div><span>Registration ID</span><strong data-registration-id>{% if confirmed %}{{ confirmed.registration_id }}{% else %}—{% endif %}</strong></div>
+        <div><span>Status</span><strong>Confirmed</strong></div>
+      </div>
+      <div class="mb597-actions centered"><a class="mb597-btn" href="{% url 'global_event_detail_root' mock.slug %}">Open mock exam</a><button class="mb597-btn secondary" type="button" data-mock-close>Close</button></div>
+    </section>
+  </div>
+</dialog>

@@ -1,3 +1,5 @@
+import json
+
 from django.test import SimpleTestCase
 
 from .answer_matching import check_english_answer, normalize_text_answer
@@ -43,7 +45,7 @@ class EnglishAnswerMatchingTests(SimpleTestCase):
         self.assertEqual(normalize_text_answer("  It’s   going—now. "), "it's going-now")
 
 from django.contrib.auth.models import Group, User
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from .models import Classroom, ClassroomMembership
@@ -83,19 +85,24 @@ class ClassroomApprovalVisibilityTests(TestCase):
         response = student_client.get(reverse("student_dashboard_root"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Visible Classroom")
-        self.assertContains(response, "Open classroom")
+        self.assertContains(response, "Open your classroom")
+        self.assertContains(response, reverse("student_classroom_home_root", args=[self.classroom.pk]))
         self.assertNotContains(response, "waiting for teacher approval")
 
     def test_pending_request_page_contains_auto_refresh_watcher(self):
         student_client = Client()
         student_client.force_login(self.student)
-        response = student_client.get(reverse("student_dashboard_root"))
+        response = student_client.get(reverse("classroom_join_status"))
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-membership-status-watch')
         self.assertContains(response, "Pending")
 
 from .models import (
     StudentProgress,
     StudentSectionAccess,
+    VocabularyDeck,
+    VocabularyDeckWord,
+    VocabularyDeckWordProgress,
     VocabularyQuizAttempt,
     VocabularyUnit,
     VocabularyWord,
@@ -133,12 +140,12 @@ class VocabularyLearningProgressTests(TestCase):
         ]
         self.client.force_login(self.student)
 
-    def test_two_known_flashcard_reviews_master_a_word_and_sync_progress(self):
+    def test_legacy_classroom_flashcards_write_to_account_scope(self):
         url = reverse('classroom_vocabulary_flashcard_mark', args=[self.classroom.pk])
         for _ in range(2):
             response = self.client.post(
                 url,
-                data={'word_id': self.words[0].pk, 'outcome': 'known'},
+                data=json.dumps({'word_id': self.words[0].pk, 'outcome': 'known'}),
                 content_type='application/json',
             )
             self.assertEqual(response.status_code, 200)
@@ -146,10 +153,20 @@ class VocabularyLearningProgressTests(TestCase):
 
         progress = VocabularyWordProgress.objects.get(
             user=self.student,
-            classroom=self.classroom,
+            classroom__isnull=True,
             word=self.words[0],
         )
         self.assertEqual(progress.status, VocabularyWordProgress.STATUS_MASTERED)
+        self.assertFalse(VocabularyWordProgress.objects.filter(
+            user=self.student,
+            classroom=self.classroom,
+            word=self.words[0],
+        ).exists())
+
+        teacher_client = Client()
+        teacher_client.force_login(self.teacher)
+        dashboard = teacher_client.get(reverse('classroom_progress_dashboard', args=[self.classroom.pk]))
+        self.assertEqual(dashboard.status_code, 200)
         section_progress = StudentProgress.objects.get(
             classroom=self.classroom,
             student=self.student,
@@ -159,44 +176,49 @@ class VocabularyLearningProgressTests(TestCase):
         self.assertEqual(section_progress.total_items, 4)
         self.assertEqual(float(section_progress.completion_percent), 25.0)
 
-    def test_flashcard_reviews_update_classroom_progress_incrementally(self):
+    def test_legacy_flashcard_retry_is_idempotent(self):
         url = reverse('classroom_vocabulary_flashcard_mark', args=[self.classroom.pk])
+        payload = {'word_id': self.words[0].pk, 'outcome': 'known', 'expected_times_seen': 0}
 
-        first = self.client.post(
-            url,
-            data={'word_id': self.words[0].pk, 'outcome': 'known'},
-            content_type='application/json',
-        )
+        first = self.client.post(url, data=json.dumps(payload), content_type='application/json')
         self.assertEqual(first.status_code, 200)
-        self.assertNotIn('summary', first.json())
+        self.assertFalse(first.json()['duplicate'])
+        self.assertEqual(first.json()['times_seen'], 1)
 
-        second = self.client.post(
-            url,
-            data={'word_id': self.words[0].pk, 'outcome': 'known'},
-            content_type='application/json',
+        retry = self.client.post(url, data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(retry.status_code, 200)
+        self.assertTrue(retry.json()['duplicate'])
+        self.assertEqual(retry.json()['times_seen'], 1)
+
+        progress = VocabularyWordProgress.objects.get(
+            user=self.student,
+            classroom__isnull=True,
+            word=self.words[0],
         )
-        self.assertEqual(second.status_code, 200)
+        self.assertEqual(progress.times_seen, 1)
+        self.assertEqual(progress.correct_count, 1)
 
-        section_progress = StudentProgress.objects.get(
-            classroom=self.classroom,
-            student=self.student,
-            section='vocabulary',
-        )
-        self.assertEqual(section_progress.activity_count, 2)
-        self.assertEqual(section_progress.completed_items, 1)
+    def test_personal_deck_review_retry_is_idempotent(self):
+        deck = VocabularyDeck.objects.create(owner=self.student, title='Mobile retry deck')
+        word = VocabularyDeckWord.objects.create(deck=deck, word='lucid', meaning='clear', order=1)
+        url = reverse('vocabulary_deck_mark', args=[deck.pk])
+        payload = {'word_id': word.pk, 'outcome': 'known', 'expected_times_seen': 0}
 
-        missed = self.client.post(
-            url,
-            data={'word_id': self.words[0].pk, 'outcome': 'again'},
-            content_type='application/json',
-        )
-        self.assertEqual(missed.status_code, 200)
-        section_progress.refresh_from_db()
-        self.assertEqual(section_progress.activity_count, 3)
-        self.assertEqual(section_progress.completed_items, 0)
-        self.assertEqual(float(section_progress.completion_percent), 0.0)
+        first = self.client.post(url, data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(first.status_code, 200)
+        self.assertFalse(first.json()['duplicate'])
+        self.assertEqual(first.json()['times_seen'], 1)
 
-    def test_quiz_result_is_saved_and_updates_each_word(self):
+        retry = self.client.post(url, data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(retry.status_code, 200)
+        self.assertTrue(retry.json()['duplicate'])
+        self.assertEqual(retry.json()['times_seen'], 1)
+
+        progress = VocabularyDeckWordProgress.objects.get(user=self.student, word=word)
+        self.assertEqual(progress.times_seen, 1)
+        self.assertEqual(progress.correct_count, 1)
+
+    def test_quiz_result_from_legacy_classroom_route_is_saved_to_account_scope(self):
         session = self.client.session
         session['vocab_quiz_questions'] = [
             {
@@ -232,37 +254,56 @@ class VocabularyLearningProgressTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 200)
-        attempt = VocabularyQuizAttempt.objects.get(user=self.student, classroom=self.classroom)
+        attempt = VocabularyQuizAttempt.objects.get(user=self.student, classroom__isnull=True)
         self.assertEqual(attempt.score, 1)
         self.assertEqual(attempt.total_questions, 2)
         self.assertEqual(float(attempt.percentage), 50.0)
-        self.assertEqual(attempt.answers.count(), 2)
+        self.assertFalse(VocabularyQuizAttempt.objects.filter(user=self.student, classroom=self.classroom).exists())
 
-        first_progress = VocabularyWordProgress.objects.get(user=self.student, classroom=self.classroom, word=self.words[0])
-        second_progress = VocabularyWordProgress.objects.get(user=self.student, classroom=self.classroom, word=self.words[1])
+        first_progress = VocabularyWordProgress.objects.get(user=self.student, classroom__isnull=True, word=self.words[0])
+        second_progress = VocabularyWordProgress.objects.get(user=self.student, classroom__isnull=True, word=self.words[1])
         self.assertEqual(first_progress.correct_count, 1)
         self.assertEqual(second_progress.incorrect_count, 1)
 
-    def test_progress_dashboard_contains_approved_student_without_manual_refresh(self):
+    def test_progress_dashboard_mirrors_personal_deck_progress(self):
+        deck = VocabularyDeck.objects.create(owner=self.student, title='Current vocabulary')
+        word = VocabularyDeckWord.objects.create(deck=deck, word='pragmatic', meaning='practical', order=1)
+        url = reverse('vocabulary_deck_mark', args=[deck.pk])
+        for expected in (0, 1):
+            response = self.client.post(
+                url,
+                data=json.dumps({'word_id': word.pk, 'outcome': 'known', 'expected_times_seen': expected}),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 200)
+
         teacher_client = Client()
         teacher_client.force_login(self.teacher)
         response = teacher_client.get(reverse('classroom_progress_dashboard', args=[self.classroom.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'vocab_student')
-        self.assertContains(response, 'Vocabulary')
+        section_progress = StudentProgress.objects.get(
+            classroom=self.classroom,
+            student=self.student,
+            section='vocabulary',
+        )
+        self.assertEqual(section_progress.completed_items, 1)
+        self.assertEqual(section_progress.total_items, 1)
+        self.assertEqual(float(section_progress.completion_percent), 100.0)
+        self.assertEqual(section_progress.activity_count, 2)
 
-
-    def test_vocabulary_pages_render_with_new_tracked_context(self):
+    def test_legacy_classroom_vocabulary_routes_redirect_student_to_canonical_workspace(self):
         routes = [
-            reverse('classroom_vocabulary', args=[self.classroom.pk]),
-            reverse('classroom_vocabulary_section', args=[self.classroom.pk, 'word_lists']),
-            reverse('classroom_vocabulary_section', args=[self.classroom.pk, 'flashcards']),
-            reverse('classroom_vocabulary_section', args=[self.classroom.pk, 'practice-quiz']),
+            (reverse('classroom_vocabulary', args=[self.classroom.pk]), reverse('vocabulary_root')),
+            (reverse('classroom_vocabulary_section', args=[self.classroom.pk, 'word_lists']), reverse('vocabulary_section_root', args=['word_lists'])),
+            (reverse('classroom_vocabulary_section', args=[self.classroom.pk, 'flashcards']), reverse('vocabulary_section_root', args=['flashcards'])),
+            (reverse('classroom_vocabulary_section', args=[self.classroom.pk, 'practice-quiz']), reverse('vocabulary_section_root', args=['practice-quiz'])),
         ]
-        for url in routes:
+        for url, expected_location in routes:
             response = self.client.get(url)
-            self.assertEqual(response.status_code, 200, url)
-        self.assertContains(self.client.get(routes[2]), 'data-vocab-deck')
+            self.assertEqual(response.status_code, 302, url)
+            self.assertEqual(response['Location'], expected_location)
+
 
 from .models import (
     English_Question,
@@ -311,7 +352,7 @@ class PracticeTestLibraryTests(TestCase):
             has_access=True,
         )
         self.client.force_login(self.student)
-        self.url = reverse('classroom_practice_tests', args=[self.classroom.pk])
+        self.url = reverse('practice_tests_root')
 
     def test_fresh_test_card_has_batched_catalog_metadata(self):
         response = self.client.get(self.url)
@@ -326,7 +367,7 @@ class PracticeTestLibraryTests(TestCase):
         TestStage.objects.create(
             user=self.student,
             test=self.test_obj,
-            classroom=self.classroom,
+            classroom=None,
             stage=1,
             test_type='regular',
         )
@@ -339,14 +380,14 @@ class PracticeTestLibraryTests(TestCase):
         TestReview.objects.create(
             user=self.student,
             test=self.test_obj,
-            classroom=self.classroom,
+            classroom=None,
             score=1280,
             key='practice-library-review-key',
         )
         response = self.client.get(self.url)
         self.assertContains(response, '1280')
         self.assertContains(response, 'View results')
-        self.assertContains(response, 'data-practice-panel="past"')
+        self.assertContains(response, 'data-practice-panel="history"')
 
 import json
 import uuid
@@ -405,7 +446,7 @@ class SATTestFlowV13Tests(TestCase):
         self.client.force_login(self.student)
 
     def module_url(self):
-        return reverse('classroom_test', args=[self.classroom.pk, self.test_obj.name])
+        return reverse('practice_test_module_root', args=[self.test_obj.name])
 
     def open_first_module(self):
         response = self.client.get(self.module_url())
@@ -413,25 +454,25 @@ class SATTestFlowV13Tests(TestCase):
         stage = TestStage.objects.get(
             user=self.student,
             test=self.test_obj,
-            classroom=self.classroom,
+            classroom=None,
             test_type='regular',
         )
         draft = TestModuleDraft.objects.get(
             user=self.student,
             test=self.test_obj,
-            classroom=self.classroom,
+            classroom=None,
             attempt_id=stage.attempt_id,
             section='english',
             module='m1',
         )
         return stage, draft, response
 
-    def test_start_page_shows_real_module_overview(self):
-        response = self.client.get(reverse('classroom_practise', args=[self.classroom.pk, self.test_obj.name]))
+    def test_start_page_shows_current_test_overview(self):
+        response = self.client.get(reverse('practice_test_start_root', args=[self.test_obj.name]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<strong>3</strong><span>modules</span>', html=True)
-        self.assertContains(response, '<strong>3</strong><span>questions</span>', html=True)
-        self.assertContains(response, 'Server autosave')
+        self.assertContains(response, '<div><span>Questions</span><strong>3</strong></div>', html=True)
+        self.assertContains(response, 'Approx. time')
+        self.assertContains(response, 'Test-day reminders')
         self.assertContains(response, 'Start test')
 
     def test_draft_is_server_saved_and_restored(self):
@@ -441,7 +482,6 @@ class SATTestFlowV13Tests(TestCase):
             data=json.dumps({
                 'test': self.test_obj.name,
                 'attempt_id': str(stage.attempt_id),
-                'classroom_id': self.classroom.pk,
                 'section': 'english',
                 'module': 'm1',
                 'answers': [{'questionID': self.english_q.pk, 'answer': 'A', 'time_spent': 8}],
@@ -466,7 +506,6 @@ class SATTestFlowV13Tests(TestCase):
             data=json.dumps({
                 'test': self.test_obj.name,
                 'attempt_id': str(stage.attempt_id),
-                'classroom_id': self.classroom.pk,
                 'section': 'english',
                 'module': 'm1',
                 'answers': [{'questionID': self.other_english_q.pk, 'answer': 'A'}],
@@ -479,7 +518,7 @@ class SATTestFlowV13Tests(TestCase):
         stage = TestStage.objects.create(
             user=self.student,
             test=self.test_obj,
-            classroom=self.classroom,
+            classroom=None,
             stage=1,
             test_type='regular',
         )
@@ -488,7 +527,6 @@ class SATTestFlowV13Tests(TestCase):
             data=json.dumps({
                 'test': self.test_obj.name,
                 'attempt_id': str(stage.attempt_id),
-                'classroom_id': self.classroom.pk,
                 'section': 'english',
                 'module': 'm1',
                 'answers': [{'questionID': self.english_q.pk, 'answer': 'A', 'time_spent': 0}],
@@ -504,7 +542,6 @@ class SATTestFlowV13Tests(TestCase):
         payload = {
             'test': self.test_obj.name,
             'attempt_id': str(stage.attempt_id),
-            'classroom_id': self.classroom.pk,
             'section': 'english',
             'module': 'm1',
             'answers': [{'questionID': self.english_q.pk, 'answer': 'A', 'time_spent': 3}],
@@ -532,7 +569,6 @@ class SATTestFlowV13Tests(TestCase):
             data=json.dumps({
                 'test': self.test_obj.name,
                 'attempt_id': str(stage.attempt_id),
-                'classroom_id': self.classroom.pk,
                 'section': 'english',
                 'module': 'm1',
                 'answers': [{'questionID': self.english_q.pk, 'answer': 'B', 'time_spent': 100}],
@@ -563,7 +599,10 @@ class SATTestFlowV13Tests(TestCase):
             attempt_id=stage.attempt_id,
             answers=json.dumps({'answers': [{'questionID': self.english_q.pk, 'answer': 'A', 'time_spent': 1}]}),
         )
-        response = self.client.get(reverse('test', args=[self.test_obj.name]))
+        response = self.client.get(
+            reverse('practice_test_module_root', args=[self.test_obj.name]),
+            follow=True,
+        )
         self.assertEqual(response.status_code, 200)
         stage.refresh_from_db()
         self.assertEqual(stage.stage, 2)
@@ -586,14 +625,17 @@ class SATTestFlowV13Tests(TestCase):
         ]
         for index, (section, module, question, answer) in enumerate(submissions):
             if index:
-                module_page = self.client.get(self.module_url())
+                # The real runner inserts the SAT subject break between RW and Math.
+                # skip_break=1 simulates the student's explicit Continue action and
+                # follow=True opens the exact attempt-bound module, creating its
+                # server-authoritative timer draft before submission.
+                module_page = self.client.get(f"{self.module_url()}?skip_break=1", follow=True)
                 self.assertEqual(module_page.status_code, 200)
             response = self.client.post(
                 reverse('check_the_answers'),
                 data=json.dumps({
                     'test': self.test_obj.name,
                     'attempt_id': str(stage.attempt_id),
-                    'classroom_id': self.classroom.pk,
                     'section': section,
                     'module': module,
                     'answers': [{'questionID': question.pk, 'answer': answer, 'time_spent': 2}],
@@ -603,25 +645,22 @@ class SATTestFlowV13Tests(TestCase):
             self.assertEqual(response.status_code, 200, response.content)
             stage.refresh_from_db()
 
-        results_response = self.client.get(
-            reverse('results', args=[self.test_obj.name]),
-            {'classroom_id': self.classroom.pk},
-        )
+        results_response = self.client.get(reverse('practice_test_results_root', args=[self.test_obj.name]))
         self.assertEqual(results_response.status_code, 200)
         self.assertContains(results_response, 'FLOW TEST')
         review = TestReview.objects.get(
             user=self.student,
             test=self.test_obj,
-            classroom=self.classroom,
+            classroom=None,
             attempt_id=stage.attempt_id,
         )
         self.assertIsNotNone(review.score)
 
         english_review = self.client.get(
-            reverse('question', args=[review.key, 'english', 'm1', self.english_q.pk])
+            reverse('practice_test_review_question_root', args=[review.key, 'english', 'm1', self.english_q.pk])
         )
         math_review = self.client.get(
-            reverse('question', args=[review.key, 'math', 'm1', self.math_q.pk])
+            reverse('practice_test_review_question_root', args=[review.key, 'math', 'm1', self.math_q.pk])
         )
         self.assertEqual(english_review.status_code, 200)
         self.assertEqual(math_review.status_code, 200)
@@ -647,7 +686,7 @@ class SATTestFlowV13Tests(TestCase):
             score=800,
             key='flow-review-key',
         )
-        response = self.client.get(reverse('question', args=[review.key, 'english', 'm1', self.other_english_q.pk]))
+        response = self.client.get(reverse('practice_test_review_question_root', args=[review.key, 'english', 'm1', self.other_english_q.pk]))
         self.assertEqual(response.status_code, 404)
 
 from .models import (
@@ -660,6 +699,7 @@ from .models import (
 from .views import get_test_sequence
 
 
+@override_settings(MAKONBOOK_GUEST_MODE_ENABLED=True)
 class GuestModeV18Tests(TestCase):
     def setUp(self):
         self.test_obj = Test.objects.create(name='GUEST FLOW TEST')
@@ -720,11 +760,11 @@ class GuestModeV18Tests(TestCase):
 
     def test_guest_autosave_persists_full_ui_state(self):
         attempt = self.create_attempt()
-        response = self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        response = self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         self.assertEqual(response.status_code, 200)
         draft = GlobalEventModuleDraft.objects.get(attempt=attempt, section='english', module='m1')
         response = self.client.post(
-            reverse('save_global_event_answer', args=[attempt.guest_token]),
+            reverse('save_global_event_answer_root', args=[attempt.guest_token]),
             data=json.dumps({
                 'section': 'english',
                 'module': 'm1',
@@ -744,7 +784,7 @@ class GuestModeV18Tests(TestCase):
 
     def test_guest_math_uses_shared_test_core(self):
         attempt = self.create_attempt(completed_modules=['english:m1'])
-        response = self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        response = self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'test/shared/attempt_math.html')
         self.assertContains(response, 'sat-test-core-v13.js')
@@ -752,17 +792,17 @@ class GuestModeV18Tests(TestCase):
 
     def test_direct_result_url_does_not_submit_active_attempt(self):
         attempt = self.create_attempt()
-        response = self.client.get(reverse('global_event_result', args=[attempt.guest_token]))
+        response = self.client.get(reverse('global_event_result_root', args=[attempt.guest_token]))
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse('global_event_attempt', args=[attempt.guest_token]), response.url)
+        self.assertIn(reverse('global_event_attempt_root', args=[attempt.guest_token]), response.url)
         attempt.refresh_from_db()
         self.assertEqual(attempt.status, 'in_progress')
 
     def test_atomic_guest_submit_saves_answers_and_advances(self):
         attempt = self.create_attempt()
-        self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         response = self.client.post(
-            reverse('submit_global_event', args=[attempt.guest_token]),
+            reverse('submit_global_event_root', args=[attempt.guest_token]),
             data=json.dumps({
                 'section': 'english',
                 'module': 'm1',
@@ -782,14 +822,14 @@ class GuestModeV18Tests(TestCase):
 
     def test_guest_submit_is_idempotent(self):
         attempt = self.create_attempt()
-        self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         payload = {
             'section': 'english', 'module': 'm1',
             'answers': [{'questionID': self.english_q.pk, 'answer': 'A'}],
         }
-        first = self.client.post(reverse('submit_global_event', args=[attempt.guest_token]), json.dumps(payload), content_type='application/json')
+        first = self.client.post(reverse('submit_global_event_root', args=[attempt.guest_token]), json.dumps(payload), content_type='application/json')
         self.assertEqual(first.status_code, 200)
-        second = self.client.post(reverse('submit_global_event', args=[attempt.guest_token]), json.dumps(payload), content_type='application/json')
+        second = self.client.post(reverse('submit_global_event_root', args=[attempt.guest_token]), json.dumps(payload), content_type='application/json')
         self.assertEqual(second.status_code, 200)
         self.assertTrue(second.json().get('already_submitted'))
         attempt.refresh_from_db()
@@ -797,13 +837,13 @@ class GuestModeV18Tests(TestCase):
 
     def test_expired_guest_module_uses_server_draft_not_late_answer(self):
         attempt = self.create_attempt()
-        self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         draft = GlobalEventModuleDraft.objects.get(attempt=attempt, section='english', module='m1')
         draft.answers = [{'questionID': self.english_q.pk, 'answer': 'A', 'time_spent': 4}]
         draft.deadline_at = timezone.now() - timedelta(seconds=1)
         draft.save(update_fields=['answers', 'deadline_at', 'updated_at'])
         response = self.client.post(
-            reverse('submit_global_event', args=[attempt.guest_token]),
+            reverse('submit_global_event_root', args=[attempt.guest_token]),
             json.dumps({
                 'section': 'english', 'module': 'm1',
                 'answers': [{'questionID': self.english_q.pk, 'answer': 'B', 'time_spent': 99}],
@@ -817,13 +857,13 @@ class GuestModeV18Tests(TestCase):
 
     def test_expired_guest_module_accepts_frozen_deadline_snapshot_within_grace(self):
         attempt = self.create_attempt()
-        self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         draft = GlobalEventModuleDraft.objects.get(attempt=attempt, section='english', module='m1')
         draft.answers = [{'questionID': self.english_q.pk, 'answer': 'A', 'time_spent': 4}]
         draft.deadline_at = timezone.now() - timedelta(seconds=2)
         draft.save(update_fields=['answers', 'deadline_at', 'updated_at'])
         response = self.client.post(
-            reverse('submit_global_event', args=[attempt.guest_token]),
+            reverse('submit_global_event_root', args=[attempt.guest_token]),
             json.dumps({
                 'section': 'english',
                 'module': 'm1',
@@ -842,8 +882,8 @@ class GuestModeV18Tests(TestCase):
 
     def test_guest_submit_status_reports_pending_then_completed(self):
         attempt = self.create_attempt()
-        self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
-        status_url = reverse('global_event_submit_status', args=[attempt.guest_token])
+        self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
+        status_url = reverse('global_event_submit_status_root', args=[attempt.guest_token])
         pending = self.client.get(status_url, {'section': 'english', 'module': 'm1'})
         self.assertEqual(pending.status_code, 200)
         self.assertEqual(pending.json()['state'], 'pending')
@@ -854,7 +894,7 @@ class GuestModeV18Tests(TestCase):
             'answers': [{'questionID': self.english_q.pk, 'answer': 'A'}],
         }
         submitted = self.client.post(
-            reverse('submit_global_event', args=[attempt.guest_token]),
+            reverse('submit_global_event_root', args=[attempt.guest_token]),
             json.dumps(payload),
             content_type='application/json',
         )
@@ -864,18 +904,20 @@ class GuestModeV18Tests(TestCase):
         self.assertEqual(completed.json()['state'], 'completed')
         self.assertTrue(completed.json()['redirect_url'])
 
-    def test_always_live_event_with_past_calendar_end_gets_future_attempt_expiry(self):
+    def test_always_live_event_ignores_calendar_end_and_can_start(self):
         self.event.always_live = True
         self.event.end_at = timezone.now() - timedelta(days=5)
         self.event.save(update_fields=['always_live', 'end_at'])
-        response = self.client.post(reverse('start_global_event', args=[self.event.slug]), {})
+        response = self.client.post(reverse('start_global_event_root', args=[self.event.slug]), {})
         self.assertEqual(response.status_code, 302)
         attempt = GlobalEventAttempt.objects.get(event=self.event, guest=self.guest)
+        self.assertIn(str(attempt.guest_token), response.url)
         self.assertGreater(attempt.expires_at, timezone.now())
+        self.assertIsNone(self.event.effective_end_at)
 
     def test_guest_review_is_only_available_after_submission(self):
         attempt = self.create_attempt()
-        response = self.client.get(reverse('global_event_review', args=[attempt.guest_token]))
+        response = self.client.get(reverse('global_event_review_root', args=[attempt.guest_token]))
         self.assertEqual(response.status_code, 302)
         GlobalEventAnswer.objects.create(
             attempt=attempt, section='english', module='m1',
@@ -885,12 +927,12 @@ class GuestModeV18Tests(TestCase):
         attempt.save(update_fields=['completed_modules'])
         from .guest_views import finalize_attempt
         finalize_attempt(attempt)
-        response = self.client.get(reverse('global_event_review', args=[attempt.guest_token]))
+        response = self.client.get(reverse('global_event_review_root', args=[attempt.guest_token]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Question review')
         self.assertContains(response, 'Start review')
         detail = self.client.get(reverse(
-            'global_event_review_question',
+            'global_event_review_question_root',
             args=[attempt.guest_token, 'english', 'm1', self.english_q.pk],
         ))
         self.assertEqual(detail.status_code, 200)
@@ -918,7 +960,7 @@ class GuestModeV18Tests(TestCase):
 
     def test_leaderboard_masks_full_name_when_no_display_name(self):
         attempt = self.create_attempt(status='submitted', submitted_at=timezone.now(), score=400)
-        response = self.client.get(reverse('global_event_leaderboard', args=[self.event.slug]))
+        response = self.client.get(reverse('global_event_leaderboard_root', args=[self.event.slug]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'John S.')
         self.assertNotContains(response, 'John Smith')
@@ -934,18 +976,18 @@ class GuestModeV18Tests(TestCase):
         self.event.show_score_immediately = False
         self.event.save(update_fields=['show_score_immediately'])
         self.create_attempt(status='submitted', submitted_at=timezone.now(), score=600)
-        response = self.client.get(reverse('global_event_leaderboard', args=[self.event.slug]))
+        response = self.client.get(reverse('global_event_leaderboard_root', args=[self.event.slug]))
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse('global_event_detail', args=[self.event.slug]), response.url)
+        self.assertIn(reverse('global_event_detail_root', args=[self.event.slug]), response.url)
 
     def test_admin_disabling_event_stops_active_guest_attempt(self):
         attempt = self.create_attempt()
-        self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         self.event.status = 'closed'
         self.event.save(update_fields=['status'])
-        response = self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        response = self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse('global_event_result', args=[attempt.guest_token]), response.url)
+        self.assertIn(reverse('global_event_result_root', args=[attempt.guest_token]), response.url)
         attempt.refresh_from_db()
         self.assertEqual(attempt.status, 'submitted')
 
@@ -954,10 +996,10 @@ class GuestModeV18Tests(TestCase):
         extended_end = self.event.end_at + timedelta(hours=2)
         self.event.end_at = extended_end
         self.event.save(update_fields=['end_at'])
-        response = self.client.get(reverse('global_event_attempt', args=[attempt.guest_token]))
+        response = self.client.get(reverse('global_event_attempt_root', args=[attempt.guest_token]))
         self.assertEqual(response.status_code, 200)
         attempt.refresh_from_db()
-        self.assertEqual(attempt.expires_at, extended_end)
+        self.assertEqual(attempt.expires_at, self.event.effective_end_at)
 
 from django.contrib.auth.models import Group
 from .models import MakeupTest, MakeupTestModuleDraft
@@ -993,7 +1035,7 @@ class MakeupTestFlowV18Tests(TestCase):
         self.client.force_login(self.user)
 
     def submit(self, section, module, question, answer):
-        self.client.get(reverse('makeup_test_module', args=[self.makeup.name]))
+        self.client.get(reverse('makeup_test_module_root', args=[self.makeup.name]))
         return self.client.post(
             reverse('check_the_answers'),
             data=json.dumps({
@@ -1010,7 +1052,7 @@ class MakeupTestFlowV18Tests(TestCase):
     def test_makeup_submit_advances_and_returns_next_url(self):
         response = self.submit('english', 'm1', self.english_q, 'A')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['redirect_url'], reverse('makeup_test_module', args=[self.makeup.name]))
+        self.assertEqual(response.json()['redirect_url'], reverse('makeup_test_module_root', args=[self.makeup.name]))
         self.stage.refresh_from_db()
         self.assertEqual(self.stage.stage, 2)
         self.assertTrue(TestModule.objects.filter(
@@ -1042,7 +1084,7 @@ class MakeupTestFlowV18Tests(TestCase):
         self.assertEqual(self.stage.stage, 2)
 
     def test_makeup_draft_is_saved_and_restored(self):
-        page = self.client.get(reverse('makeup_test_module', args=[self.makeup.name]))
+        page = self.client.get(reverse('makeup_test_module_root', args=[self.makeup.name]))
         self.assertEqual(page.status_code, 200)
         draft = MakeupTestModuleDraft.objects.get(
             user=self.user, makeup_test=self.makeup, section='english', module='m1'
@@ -1066,12 +1108,12 @@ class MakeupTestFlowV18Tests(TestCase):
         draft.refresh_from_db()
         self.assertEqual(draft.answers[0]['answer'], 'A')
         self.assertEqual(draft.marked_for_review, [True])
-        restored = self.client.get(reverse('makeup_test_module', args=[self.makeup.name]))
+        restored = self.client.get(reverse('makeup_test_module_root', args=[self.makeup.name]))
         self.assertEqual(restored.status_code, 200)
         self.assertContains(restored, '"answers": ["A"]')
 
     def test_makeup_expired_module_uses_server_draft(self):
-        self.client.get(reverse('makeup_test_module', args=[self.makeup.name]))
+        self.client.get(reverse('makeup_test_module_root', args=[self.makeup.name]))
         draft = MakeupTestModuleDraft.objects.get(
             user=self.user, makeup_test=self.makeup, section='english', module='m1'
         )

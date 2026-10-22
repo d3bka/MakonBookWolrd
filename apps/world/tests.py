@@ -5,7 +5,7 @@ from django.contrib.auth.models import Group, User
 from datetime import timedelta
 from unittest.mock import patch
 
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 
@@ -46,6 +46,7 @@ from .services import (
 )
 
 
+@override_settings(MAKONBOOK_WORLD_ENABLED=True)
 class WorldV503Tests(TestCase):
     def setUp(self):
         self.u1 = User.objects.create_user("world_a", password="x", first_name="Alpha")
@@ -334,8 +335,17 @@ class WorldV503Tests(TestCase):
         merged = WorldMatch.objects.filter(status=WorldMatch.STATUS_ACTIVE).get()
         self.assertIn(merged.player1_id, {self.u1.id, self.u2.id})
         self.assertIn(merged.player2_id, {self.u1.id, self.u2.id})
+        first.refresh_from_db()
         second.refresh_from_db()
-        self.assertEqual(second.status, WorldMatch.STATUS_CANCELLED)
+        statuses = {first.status, second.status}
+        self.assertEqual(statuses, {WorldMatch.STATUS_ACTIVE, WorldMatch.STATUS_CANCELLED})
+        self.assertEqual(
+            WorldMatch.objects.filter(
+                status=WorldMatch.STATUS_CANCELLED,
+                pk__in=[first.pk, second.pk],
+            ).count(),
+            1,
+        )
 
     def test_rating_tier_ladder_uses_new_world_labels(self):
         rating = ensure_ratings(self.u1)["math"]

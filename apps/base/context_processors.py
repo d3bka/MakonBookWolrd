@@ -14,7 +14,10 @@ def site_meta(request):
     would make every alias advertise itself as a separate copy of the site, so
     templates use this fixed value instead.
     """
-    return {"SITE_URL": settings.SITE_URL}
+    return {
+        "SITE_URL": settings.SITE_URL,
+        "makonbook_world_enabled": getattr(settings, "MAKONBOOK_WORLD_ENABLED", False),
+    }
 
 
 def test_import_meta(request):
@@ -116,6 +119,31 @@ def test_import_meta(request):
 
 
 STAFF_WORKSPACE_ROUTE_MAP = {
+    "admin_dashboard": "home",
+    "admin_users": "users",
+    "admin_user_detail": "users",
+    "admin_user_edit": "users",
+    "admin_user_delete": "users",
+    "admin_user_create": "users",
+    "admin_groups": "groups",
+    "admin_group_detail": "groups",
+    "admin_group_delete": "groups",
+    "admin_group_remove_user": "groups",
+    "edit_group_tests": "groups",
+    "admin_tests": "tests",
+    "admin_test_detail": "tests",
+    "admin_mocks": "mocks",
+    "admin_mock_create": "mocks",
+    "admin_mock_detail": "mocks",
+    "admin_mock_download": "mocks",
+    "admin_mock_delete": "mocks",
+    "admin_support_teachers": "support-teachers",
+    "admin_support_teacher_create": "support-teachers",
+    "admin_support_teacher_edit": "support-teachers",
+    "admin_support_teacher_toggle": "support-teachers",
+    "admin_support_teacher_availability_add": "support-teachers",
+    "admin_support_teacher_availability_delete": "support-teachers",
+    "admin_support_bookings": "support-bookings",
     "teacher_dashboard_root": "home",
     "teacher_classrooms_root": "classrooms",
     "teacher_classroom_list": "classrooms",
@@ -258,6 +286,7 @@ def staff_workspace_meta(request):
         allowed = {
             "teacher": has_teacher,
             "manager": bool(has_manager or has_admin),
+            "admin": has_admin,
             "support": has_support,
         }
         if candidate in allowed and allowed[candidate]:
@@ -266,8 +295,11 @@ def staff_workspace_meta(request):
     # V50.2.12: account pages preserve the workspace the user explicitly
     # opened. A multi-role Teacher/Manager should not switch back to Teacher
     # chrome just because Settings/Profile are shared routes.
+    admin_route = route_name.startswith("admin_") and route_name != "admin:index"
     if requested_account_mode:
         mode = requested_account_mode
+    elif admin_route and has_admin:
+        mode = "admin"
     elif route_name.startswith('manager_') or active == "manager":
         mode = "manager"
     elif route_name.startswith('support_teacher_') or active in {"support", "support-profile"}:
@@ -283,7 +315,7 @@ def staff_workspace_meta(request):
     elif active:
         mode = "teacher" if has_teacher else ("manager" if has_manager or has_admin else "support")
     else:
-        mode = "teacher" if has_teacher else ("manager" if has_manager or has_admin else ("support" if has_support else ""))
+        mode = "teacher" if has_teacher else ("manager" if has_manager else ("support" if has_support else ("admin" if has_admin else "")))
 
     return {
         "staff_workspace_enabled": enabled,
@@ -293,5 +325,7 @@ def staff_workspace_meta(request):
         "staff_has_manager": has_manager,
         "staff_has_support": has_support,
         "staff_has_admin": has_admin,
-        "staff_role_count": sum((has_teacher, has_manager or has_admin, has_support)),
+        # Admin remains a distinct switchable workspace. Manager access is still
+        # available to platform admins for backwards-compatible operational overrides.
+        "staff_role_count": sum((has_teacher, has_manager or has_admin, has_admin, has_support)),
     }

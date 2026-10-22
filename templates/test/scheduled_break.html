@@ -1,0 +1,9 @@
+{% load static %}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ test.name }} · Scheduled Break</title>{% include 'base/theme_init.html' %}
+<link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
+<link rel="stylesheet" href="{% static 'assets/css/sat-scheduled-break-v54.css' %}?v=5544"></head>
+<body class="sat54-break-page" data-break-seconds="{{ break_remaining_seconds }}" data-continue-url="{{ continue_url }}" data-skip-break-url="{{ skip_break_url }}">
+<header><div><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""><strong>MakonBook</strong></div><span>{{ test.name }}</span></header>
+<main><section class="sat54-break-card"><span class="kicker">Scheduled break</span><h1>Take a break before {{ next_section_label }}</h1><p>Step away from the screen, stretch, get water, and return when the break timer ends. If needed, you can also skip this break and continue immediately.</p><div class="clock" data-break-clock>10:00</div><div class="track"><span data-break-track></span></div><div class="sat54-break-actions"><button type="button" class="is-secondary" data-break-skip>Skip break</button><button type="button" data-break-continue disabled>Continue to {{ next_section_label }} <i class="fa fa-arrow-right"></i></button></div></section></main>
+<script>document.body.dataset.theme=document.documentElement.dataset.theme||'dark';</script><script src="{% static 'assets/js/sat-scheduled-break-v54.js' %}?v=5603"></script></body></html>

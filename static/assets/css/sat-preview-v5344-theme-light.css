@@ -1,0 +1,67 @@
+/* MakonBook SAT Preview V53.4.4
+   Keep the original global theme-switcher component, but give the preview page
+   explicit LIGHT-MODE variables so the dropdown does not stay dark on mobile.
+   No custom structure, no fake icons — just the original component with the
+   correct light palette. */
+
+html[data-theme="light"] body.sat531-page .theme-switcher {
+  --theme-switch-text: #211337;
+  --theme-switch-border: rgba(124,58,237,.16);
+  --theme-switch-border-active: rgba(124,58,237,.34);
+  --theme-switch-bg-a: rgba(255,255,255,.94);
+  --theme-switch-bg-b: rgba(248,245,255,.76);
+  --theme-switch-menu-bg: rgba(255,255,255,.96);
+  --theme-switch-menu-border: rgba(124,58,237,.16);
+  --theme-switch-menu-text: #211337;
+  --theme-switch-menu-hover: rgba(124,58,237,.08);
+  --theme-switch-shadow: 0 12px 32px rgba(76,29,149,.12);
+  --theme-switch-shadow-active: 0 18px 46px rgba(124,58,237,.20);
+}
+
+/* Make sure the preview header gets the same behavior even if the page uses a
+   different shell than landing/auth/public pages. */
+html[data-theme="light"] body.sat531-page .theme-menu {
+  background: rgba(255,255,255,.96) !important;
+  border-color: rgba(124,58,237,.16) !important;
+  color: #211337 !important;
+  box-shadow: 0 24px 80px rgba(76,29,149,.18), 0 0 0 1px rgba(255,255,255,.72) inset !important;
+}
+
+html[data-theme="light"] body.sat531-page .theme-menu button {
+  color: #211337 !important;
+}
+
+html[data-theme="light"] body.sat531-page .theme-menu button:hover {
+  background: rgba(124,58,237,.08) !important;
+}
+
+html[data-theme="light"] body.sat531-page .theme-menu button span {
+  background: rgba(124,58,237,.08) !important;
+  color: #24113e !important;
+}
+
+html[data-theme="light"] body.sat531-page .theme-menu button[aria-checked="true"] {
+  background: linear-gradient(135deg, rgba(139,92,246,.95), rgba(236,72,153,.86)) !important;
+  color: #fff !important;
+}
+
+html[data-theme="light"] body.sat531-page .theme-menu button[aria-checked="true"] span {
+  background: rgba(255,255,255,.12) !important;
+  color: #fff !important;
+}
+
+/* Keep the top pill consistent with the original component and ensure the icon
+   is the dynamic one provided by makon-theme-switcher.js. */
+html[data-theme="light"] body.sat531-page .theme-toggle {
+  color: #211337 !important;
+}
+
+html[data-theme="light"] body.sat531-page .theme-toggle-icon {
+  color: #fff !important;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 10px 24px rgba(139,92,246,.30) !important;
+}
+
+html[data-theme="light"] body.sat531-page .theme-toggle-label {
+  color: #211337 !important;
+}

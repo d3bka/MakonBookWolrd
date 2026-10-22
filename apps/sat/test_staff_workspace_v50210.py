@@ -193,14 +193,18 @@ class StaffWorkspaceV50210Tests(TestCase):
         ok = self.client.post(preview_url, {"access_code": "2468"})
         self.assertRedirects(
             ok,
-            reverse("student_classroom_test_start_root", args=[self.classroom.pk, self.test.pk]),
+            reverse("practice_test_start_root", args=[self.test.name]),
             fetch_redirect_response=False,
         )
         # A unit password is session-scoped; it must not silently open the global Tests library.
         self.assertFalse(StudentSectionAccess.objects.filter(membership=self.membership, section="practice_tests", has_access=True).exists())
         self.assertFalse(StudentPracticeTestAccess.objects.filter(membership=self.membership, test=self.test, has_access=True).exists())
         launch = self.client.get(reverse("student_classroom_test_start_root", args=[self.classroom.pk, self.test.pk]))
-        self.assertEqual(launch.status_code, 200)
+        self.assertRedirects(
+            launch,
+            reverse("practice_test_start_root", args=[self.test.name]),
+            fetch_redirect_response=False,
+        )
 
         fresh = Client()
         fresh.force_login(self.student)

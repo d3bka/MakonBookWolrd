@@ -20,6 +20,8 @@ from django.conf import settings
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'satmakon.settings')
 django.setup()
 
+from .placement_notifications import placement_notification_worker
+
 from .handlers import (
     StartHandler,
     HelpHandler,
@@ -274,8 +276,16 @@ async def start_bot():
         # Delete webhook if any
         await bot.delete_webhook(drop_pending_updates=True)
         
-        # Start polling
-        await dp.start_polling(bot)
+        # Deliver public placement notifications independently from exam requests.
+        notifier_task = asyncio.create_task(placement_notification_worker(bot))
+        try:
+            await dp.start_polling(bot)
+        finally:
+            notifier_task.cancel()
+            try:
+                await notifier_task
+            except asyncio.CancelledError:
+                pass
         
     except Exception as e:
         logger.error(f"Error during bot polling: {e}")

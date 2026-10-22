@@ -1,0 +1,142 @@
+/* MakonBook Results V52.9 — light-mode cleanup + sidebar layout
+   Loaded after results-v528.css. Keeps result logic intact. */
+
+/* Desktop layout: real sticky sidebar instead of only a topbar */
+@media (min-width: 981px) {
+  .mr527-page {
+    display: grid !important;
+    grid-template-columns: 250px minmax(0, 1fr) !important;
+    gap: 18px !important;
+    align-items: start !important;
+  }
+
+  .mr527-page > .mr527-topbar {
+    grid-column: 1 !important;
+    position: sticky !important;
+    top: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    min-height: calc(100vh - 24px) !important;
+    margin: 0 !important;
+    padding: 16px 14px !important;
+    border-radius: 22px !important;
+  }
+
+  .mr527-page > :not(.mr527-topbar) {
+    grid-column: 2 !important;
+  }
+
+  .mr527-brand {
+    padding-bottom: 14px !important;
+    border-bottom: 1px solid rgba(76,58,91,.08) !important;
+  }
+
+  .mr527-top-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .mr527-top-action {
+    justify-content: flex-start !important;
+    width: 100% !important;
+  }
+
+  .mr527-topbar::after {
+    content: "Navigation";
+    display: block;
+    margin-top: 6px;
+    color: #9a8ca2;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  .mr527-topbar::before {
+    content: "Score report";
+    display: block;
+    order: -1;
+    margin: -2px 0 4px;
+    color: #7c3aed;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+}
+
+/* LIGHT MODE ONLY: remove black / near-black surfaces */
+html:not([data-theme="dark"]) .mr527-topbar {
+  background: rgba(255,255,255,.94) !important;
+  border-color: rgba(70,52,84,.09) !important;
+  box-shadow: 0 12px 30px rgba(51,34,64,.05) !important;
+}
+
+html:not([data-theme="dark"]) .mr527-top-action {
+  background: #ffffff !important;
+  color: #4d4156 !important;
+}
+html:not([data-theme="dark"]) .mr527-top-action.is-primary {
+  color: #ffffff !important;
+  border-color: transparent !important;
+  background: linear-gradient(100deg, #7c3aed, #a544ef 55%, #ca3fe8) !important;
+}
+
+html:not([data-theme="dark"]) .mr527-hero {
+  box-shadow: 0 18px 46px rgba(54,37,67,.07) !important;
+}
+
+/* The dark action metric looked wrong in light mode. Make it part of the same system. */
+html:not([data-theme="dark"]) .mr527-metric.is-action {
+  background:
+    radial-gradient(circle at 96% 0, rgba(199,78,236,.11), transparent 26%),
+    linear-gradient(135deg, #f8f1ff 0%, #f3ebff 100%) !important;
+  border-color: rgba(124,58,237,.12) !important;
+}
+html:not([data-theme="dark"]) .mr527-metric.is-action small {
+  color: #8f66af !important;
+}
+html:not([data-theme="dark"]) .mr527-metric.is-action strong {
+  color: #271d2f !important;
+}
+html:not([data-theme="dark"]) .mr527-metric.is-action span {
+  color: #7e7088 !important;
+}
+html:not([data-theme="dark"]) .mr527-metric.is-action .retake-form button {
+  box-shadow: 0 10px 22px rgba(124,58,237,.16) !important;
+}
+
+/* Match buttons / CTAs to the same light system */
+html:not([data-theme="dark"]) .mr527-page .btn-danger,
+html:not([data-theme="dark"]) .mr527-page .btn-primary {
+  color: #ffffff !important;
+  background: linear-gradient(100deg, #7c3aed, #a544ef 55%, #ca3fe8) !important;
+  border: 0 !important;
+}
+html:not([data-theme="dark"]) .mr527-page .btn-warning {
+  color: #6d3ca0 !important;
+  background: #f8f2ff !important;
+  border-color: rgba(124,58,237,.14) !important;
+}
+
+/* Cleaner light cards */
+html:not([data-theme="dark"]) .mr527-page .total_score.print_div,
+html:not([data-theme="dark"]) .mr527-page .module-card,
+html:not([data-theme="dark"]) .mr527-page .chart-container,
+html:not([data-theme="dark"]) .mr527-metric,
+html:not([data-theme="dark"]) .mr527-attempts {
+  box-shadow: 0 10px 28px rgba(53,36,67,.04) !important;
+}
+
+/* On tablet/mobile, keep normal top header instead of fake sidebar */
+@media (max-width: 980px) {
+  .mr527-topbar::before,
+  .mr527-topbar::after {
+    content: none !important;
+  }
+}

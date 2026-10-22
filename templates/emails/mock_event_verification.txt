@@ -1,0 +1,13 @@
+Hi, {{ registration.full_name }}!
+
+Your verification code for {{ event.title }} is:
+
+{{ code }}
+
+This code is valid for {{ expires_minutes }} minutes.
+{% if event.branch %}Branch: {{ event.branch }}
+{% endif %}Date: {{ event.start_at|date:"d M Y H:i" }}
+
+If you did not request this registration, you can ignore this message.
+
+SATMakon / MakonBook

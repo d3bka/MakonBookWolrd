@@ -30,7 +30,7 @@
   function openHomeworkEdit(btn){
     var modal=document.querySelector('[data-v50210-homework-edit-modal]'); if(!modal)return;
     function set(name,val){var el=modal.querySelector('[name="'+name+'"]');if(el)el.value=val==null?'':val;}
-    ['assignment_id','classroom','assignment_type','title','instructions','due_at','test','vocabulary_unit','vocabulary_mode','vocabulary_quiz_mode','question_count','is_active'].forEach(function(k){set(k,btn.getAttribute('data-'+k.replace(/_/g,'-')));});
+    ['assignment_id','classroom','assignment_type','title','instructions','due_at','test','required_test_mode','required_integrity_mode','vocabulary_unit','vocabulary_mode','vocabulary_quiz_mode','question_count','is_active'].forEach(function(k){set(k,btn.getAttribute('data-'+k.replace(/_/g,'-')));});
     var type=modal.querySelector('[name=assignment_type]'); if(type)type.dispatchEvent(new Event('change',{bubbles:true}));
     modal.setAttribute('aria-hidden','false'); modal.classList.add('is-open');
     var title=modal.querySelector('[name=title]'); if(title){window.setTimeout(function(){title.focus();title.select();},0);}

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="{% static 'assets/css/makon-auth.css' %}">
   <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
   <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/mock-registration-v5581.css' %}">
   {% include 'base/responsive_css.html' %}
 </head>
 <body class="public-page">
@@ -23,7 +24,7 @@
       </a>
       <div class="public-nav-actions">
         {% include 'base/theme_toggle.html' %}
-        <a href="{% url 'global_event_list' %}" class="public-link-pill">Back to events</a>
+        <a href="/" class="public-link-pill">Home</a>
       </div>
     </nav>
 
@@ -66,7 +67,28 @@
         </div>
       {% endif %}
 
-      {% if existing_attempt and existing_attempt.status == "in_progress" %}
+      {% if event.registration_enabled and not event_registration %}
+        <div class="mb5581-card" style="margin-top:18px">
+          <span class="mb5581-eyebrow">Verified registration required</span>
+          <h2>Reserve your seat before the exam.</h2>
+          <p>{% if event.branch %}{{ event.branch }} · {% endif %}{{ event.start_at|date:"d M Y · H:i" }}{% if event.capacity %} · {{ event_confirmed_count }} / {{ event.capacity }} confirmed{% endif %}</p>
+          <div class="mb5581-actions"><a class="mb5581-btn" href="{% url 'event_registration_choice' event.slug %}">Register for this mock</a></div>
+        </div>
+      {% elif event.registration_enabled and event_registration %}
+        <div class="mb5581-alert success" style="margin-top:18px">✓ Registration confirmed for {{ event_registration.full_name }}.</div>
+        {% if existing_attempt and existing_attempt.status == "in_progress" %}
+          <div class="actions"><a href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}" class="primary-btn">Resume attempt</a></div>
+        {% elif existing_attempt and existing_attempt.status == "submitted" %}
+          <div class="actions"><a href="{% url 'global_event_result_root' existing_attempt.guest_token %}" class="primary-btn">View result</a></div>
+        {% elif availability.can_start %}
+          <form action="{% url 'start_global_event_root' event.slug %}" method="POST" class="signin-form auth-form" data-guest-start-form>{% csrf_token %}
+            {% if event.access_code and not event_code_verified %}<div class="form-group"><label class="form-label" for="access-code-field">Access code</label><input id="access-code-field" type="password" name="access_code" placeholder="Enter access code" autocomplete="one-time-code" required></div>{% endif %}
+            <div class="actions"><button type="submit" class="primary-btn" data-start-event-button>Start event</button></div>
+          </form>
+        {% else %}
+          <div class="alert-box"><p>Your seat is confirmed. The exam is not open yet: <strong>{{ availability.label }}</strong>.</p></div>
+        {% endif %}
+      {% elif existing_attempt and existing_attempt.status == "in_progress" %}
         <div class="actions">
           <a href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}" class="primary-btn">Resume attempt</a>
         </div>

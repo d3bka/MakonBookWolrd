@@ -1,0 +1,47 @@
+/* MakonBook SAT Preview V53.4.1
+   Fix the theme-switch icon only.
+   The glyph is now CSS-drawn and visually identical in System/Light/Dark.
+   makon-theme-switcher.js may still update the hidden textContent, but that
+   no longer changes what the user sees. */
+
+body.sat531-page .theme-toggle-icon {
+  position: relative !important;
+  width: 24px !important;
+  height: 24px !important;
+  flex: 0 0 24px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  background: linear-gradient(135deg, #8b5cf6 0%, #c084fc 52%, #ec4899 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.30),
+    0 7px 16px rgba(124,58,237,.20) !important;
+}
+
+/* Remove the temporary unicode glyph from v534 completely. */
+body.sat531-page .theme-toggle-icon::before {
+  content: "" !important;
+  width: 11px !important;
+  height: 11px !important;
+  display: block !important;
+  border: 1.5px solid rgba(255,255,255,.96) !important;
+  border-radius: 50% !important;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,255,255,.96) 0 50%,
+      rgba(255,255,255,.22) 50% 100%
+    ) !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+}
+
+/* Prevent any older pseudo-element/theme rule from adding another symbol. */
+body.sat531-page .theme-toggle-icon::after {
+  content: none !important;
+  display: none !important;
+}

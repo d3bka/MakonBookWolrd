@@ -1,7 +1,7 @@
 {% extends 'template.html' %}
 {% load static %}
 {% block title-main %}Memory Layers | MakonBook{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=510">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=511">{% endblock %}
 {% block body %}
 <div class="va509-shell va509-memory-shell" data-memory-layers data-mark-url="{{ mark_url }}" data-deck-url="{% url 'vocabulary_deck_detail_root' deck.id %}" data-study-all-url="{% url 'vocabulary_deck_study_root' deck.id %}?all=1">
   <div class="va509-topbar">
@@ -29,7 +29,7 @@
         <span class="va509-pill">Space to flip</span>
       </div>
       {% for item in cards %}
-      <article class="va509-memory-item" data-study-item data-word-id="{{ item.word.id }}" data-status="{{ item.status }}" hidden>
+      <article class="va509-memory-item" data-study-item data-word-id="{{ item.word.id }}" data-status="{{ item.status }}" data-times-seen="{{ item.times_seen }}" hidden>
         <div class="va509-memory-inner">
           <div class="va509-memory-side va509-memory-front">
             <span class="va509-memory-status">{{ item.status }}</span>
@@ -75,4 +75,4 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}{{ block.super }}{% if cards %}<script src="{% static 'assets/js/vocabulary-memory-v509.js' %}?v=510"></script>{% endif %}{% endblock %}
+{% block scripts %}{{ block.super }}{% if cards %}<script src="{% static 'assets/js/vocabulary-memory-v509.js' %}?v=511"></script>{% endif %}{% endblock %}

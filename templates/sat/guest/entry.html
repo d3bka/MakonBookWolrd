@@ -25,7 +25,7 @@
       </a>
       <div class="auth-nav-actions">
         {% include 'base/theme_toggle.html' %}
-        <a href="{% url 'register' %}" class="auth-link-pill muted-pill">Create account</a>
+        <a href="{% url 'login' %}" class="auth-link-pill muted-pill">Sign in</a>
         <a href="{% url 'login' %}" class="auth-link-pill">Login</a>
       </div>
     </nav>
@@ -104,7 +104,7 @@
 
         <div class="auth-card-footer compact-footer">
           <a href="{% url 'login' %}">Back to sign in</a>
-          <a href="{% url 'register' %}">Create account</a>
+          <a href="{% url 'login' %}">Sign in</a>
         </div>
       </section>
     </div>

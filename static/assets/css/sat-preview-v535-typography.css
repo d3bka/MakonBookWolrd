@@ -1,0 +1,120 @@
+/* MakonBook SAT Preview V53.5 — typography density pass
+   Makes the existing overview feel intentionally filled without enlarging the cards. */
+
+.sat531-intro > p {
+  max-width: 610px !important;
+  margin-top: 12px !important;
+  font-size: 13px !important;
+  line-height: 1.62 !important;
+  color: #615570 !important;
+}
+
+.sat531-summary {
+  margin-top: 30px !important;
+}
+
+.sat531-summary > div {
+  padding-top: 17px !important;
+}
+
+.sat531-summary span {
+  font-size: 10px !important;
+  font-weight: 650 !important;
+  letter-spacing: .01em !important;
+}
+
+.sat531-summary strong {
+  margin-top: 4px !important;
+  font-size: 18px !important;
+  line-height: 1.1 !important;
+  letter-spacing: -.025em !important;
+}
+
+/* Right-side exam instructions */
+.sat531-exam-note > span {
+  margin-bottom: 4px !important;
+  font-size: 10px !important;
+  letter-spacing: .09em !important;
+}
+
+.sat531-exam-note ul {
+  margin-top: 14px !important;
+}
+
+.sat531-exam-note li {
+  padding: 13px 0 13px 21px !important;
+  font-size: 12px !important;
+  line-height: 1.58 !important;
+}
+
+.sat531-exam-note li::before {
+  top: 19px !important;
+  width: 6px !important;
+  height: 6px !important;
+}
+
+/* Active-attempt guard */
+.sat-retake-guard-copy > span {
+  font-size: 10px !important;
+  letter-spacing: .08em !important;
+}
+
+.sat-retake-guard-copy strong {
+  margin-top: 2px !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+}
+
+.sat-retake-guard-copy p {
+  max-width: 760px !important;
+  margin-top: 5px !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+}
+
+.sat-retake-guard-action {
+  min-height: 46px !important;
+  padding-inline: 18px !important;
+  font-size: 11px !important;
+}
+
+/* Keep visual rhythm balanced at desktop sizes. */
+@media (min-width: 900px) {
+  .sat531-intro {
+    padding-left: 40px !important;
+    padding-right: 40px !important;
+  }
+
+  .sat531-exam-note {
+    padding-left: 30px !important;
+    padding-right: 30px !important;
+  }
+}
+
+/* Tablet/mobile: don't let the larger type become cramped. */
+@media (max-width: 760px) {
+  .sat531-intro > p {
+    font-size: 12px !important;
+    line-height: 1.56 !important;
+  }
+
+  .sat531-exam-note li {
+    font-size: 11.5px !important;
+    line-height: 1.52 !important;
+  }
+
+  .sat-retake-guard-copy strong {
+    font-size: 15px !important;
+  }
+
+  .sat-retake-guard-copy p {
+    font-size: 11.5px !important;
+  }
+}
+
+/* Dark mode contrast tuning for the enlarged copy. */
+html[data-theme="dark"] .sat531-intro > p,
+html[data-theme="dark"] .sat531-exam-note li,
+html[data-theme="dark"] .sat-retake-guard-copy p {
+  color: #bdb3c7 !important;
+}

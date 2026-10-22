@@ -1,0 +1,8 @@
+/* MakonBook V55.2 — Stage 3 personal homework submission state */
+.v552-hw-state-stack{display:flex;align-items:flex-end;flex-direction:column;gap:7px;min-width:0}
+.v552-hw-state{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--mb50-border);border-radius:999px;background:rgba(148,163,184,.08);color:var(--mb50-muted);font-size:10px;font-weight:850;letter-spacing:.02em;white-space:nowrap}
+.v552-hw-state.is-in_progress{border-color:rgba(139,92,246,.28);background:rgba(139,92,246,.10);color:#a78bfa}
+.v552-hw-state.is-completed{border-color:rgba(34,197,94,.26);background:rgba(34,197,94,.09);color:#22c55e}
+.v552-hw-state.is-submitted{border-color:rgba(16,185,129,.32);background:rgba(16,185,129,.12);color:#10b981}
+.v552-hw-state i{font-size:12px}
+@media(max-width:620px){.v50210-hw-top{align-items:flex-start}.v552-hw-state-stack{align-items:flex-end}.v552-hw-state{font-size:9px}}

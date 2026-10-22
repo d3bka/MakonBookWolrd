@@ -1,0 +1,139 @@
+/* MakonBook SAT preview V53.2
+   Refinement over V53.1:
+   - remove module-detail card from overview;
+   - keep the cleaner background;
+   - restore MakonBook-style buttons (purple gradient / rounded);
+   - reduce vertical dead space. */
+
+.sat531-main {
+  width: min(940px, calc(100% - 32px));
+  padding-top: 24px !important;
+  padding-bottom: 18px !important;
+}
+
+.sat531-overview {
+  border-radius: 16px !important;
+  box-shadow: 0 14px 34px rgba(34,46,70,.075) !important;
+}
+
+.sat531-intro {
+  padding: 32px 36px 30px !important;
+}
+
+.sat532-summary {
+  grid-template-columns: repeat(2, minmax(0, 180px)) !important;
+  gap: 36px !important;
+  justify-content: start !important;
+}
+
+.sat532-summary > div {
+  padding-right: 0 !important;
+}
+
+/* Restore the previous MakonBook button language instead of the blue SAT-style buttons. */
+.sat531-btn {
+  min-height: 44px !important;
+  padding: 0 18px !important;
+  border-radius: 12px !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  transition:
+    transform .16s ease,
+    box-shadow .16s ease,
+    border-color .16s ease,
+    background .16s ease !important;
+}
+
+.sat531-btn.primary {
+  border: 0 !important;
+  color: #fff !important;
+  background: linear-gradient(100deg, #7c3aed 0%, #9f43ef 55%, #c43de9 100%) !important;
+  box-shadow: 0 10px 22px rgba(124,58,237,.20) !important;
+}
+
+.sat531-btn.primary:hover {
+  transform: translateY(-1px) !important;
+  background: linear-gradient(100deg, #7132da 0%, #983be7 55%, #ba35df 100%) !important;
+  box-shadow: 0 13px 26px rgba(124,58,237,.25) !important;
+}
+
+.sat531-btn.secondary {
+  border: 1px solid rgba(124,58,237,.14) !important;
+  color: #5f5269 !important;
+  background: #fff !important;
+  box-shadow: 0 5px 14px rgba(39,28,48,.035) !important;
+}
+
+.sat531-btn.secondary:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(124,58,237,.28) !important;
+  color: #6d28d9 !important;
+  background: #faf7ff !important;
+}
+
+/* The active-attempt button already had the right visual language in v530.
+   Keep it consistent with the footer CTA. */
+.sat-retake-guard-action {
+  min-height: 44px !important;
+  padding: 0 16px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(100deg, #7c3aed, #c43de9) !important;
+  box-shadow: 0 10px 22px rgba(124,58,237,.18) !important;
+}
+
+/* Keep footer visually light and consistent with the old MakonBook controls. */
+.sat531-footer {
+  background: color-mix(in srgb, var(--sat531-card) 97%, transparent) !important;
+}
+
+.sat531-footer-inner {
+  min-height: 72px !important;
+}
+
+.sat531-footer-note i {
+  color: #7c3aed !important;
+}
+
+/* Header close button should remain neutral, but use the same radius family. */
+.sat531-icon-btn {
+  border-radius: 12px !important;
+}
+
+html[data-theme="dark"] .sat531-btn.secondary {
+  color: #ddd4e5 !important;
+  border-color: rgba(167,139,250,.18) !important;
+  background: #171c24 !important;
+}
+
+/* With module details removed, desktop no longer needs an inner scrolling region. */
+@media (min-width: 900px) and (min-height: 700px) {
+  body.sat531-page {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .sat531-main {
+    height: calc(100dvh - 138px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    overflow: hidden !important;
+  }
+
+  .sat531-overview,
+  .sat531-active-guard,
+  .sat531-retake-ready {
+    flex: 0 0 auto !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .sat532-summary {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .sat531-btn {
+    min-height: 46px !important;
+  }
+}

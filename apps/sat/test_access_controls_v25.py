@@ -29,7 +29,7 @@ class ClassroomJoinCodeV25Tests(TestCase):
             reverse("teacher_classroom_dashboard", args=[self.classroom.pk])
         )
         self.assertEqual(response.status_code, 200)
-        action = reverse("generate_classroom_join_code", args=[self.classroom.pk])
+        action = reverse("teacher_generate_classroom_join_code_root", args=[self.classroom.pk])
         self.assertContains(response, f'action="{action}"')
         self.assertContains(response, 'method="post"')
         self.assertContains(response, "csrfmiddlewaretoken")

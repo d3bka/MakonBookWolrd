@@ -521,6 +521,13 @@ class HollihopSyncEngine:
                     Q(hollihop_teacher_id__isnull=False) | Q(hollihop_employee_id__isnull=False)
                 ).values_list("user_id", flat=True)
                 candidate_ids.difference_update(staff_linked_ids)
+                # A phone number can belong to a parent and therefore be shared
+                # by siblings. Never attach a new Hollihop StudentClient record
+                # to an account already linked to a different StudentClient ID.
+                already_linked_student_ids = linked_profiles.filter(
+                    hollihop_client_id__isnull=False
+                ).exclude(hollihop_client_id=external_id).values_list("user_id", flat=True)
+                candidate_ids.difference_update(already_linked_student_ids)
             elif external_kind in {"teacher", "manager"}:
                 student_linked_ids = linked_profiles.filter(
                     hollihop_client_id__isnull=False
@@ -595,7 +602,17 @@ class HollihopSyncEngine:
         if phone and phone != (profile.phone_number or ""):
             other = UserProfile.objects.filter(phone_number=phone).exclude(user_id=user.id)
             other_ids = list(other.values_list("user_id", flat=True))
-            if other_ids:
+            if other_ids and external_kind == "student":
+                # Student phone numbers are contact data, not identity keys. A
+                # parent may intentionally use one number for multiple children.
+                # Keep the same normalized number on every matching student.
+                profile.phone_number = phone
+                self._log(
+                    "student_phone_shared",
+                    entity_type=external_kind, external_id=external_id, user=user,
+                    details={"field": "phone", "other_user_ids": other_ids},
+                )
+            elif other_ids:
                 if self._contact_collision_is_cross_identity_only(
                     external_kind=external_kind, other_user_ids=other_ids
                 ):

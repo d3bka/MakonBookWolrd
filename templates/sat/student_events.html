@@ -1,13 +1,376 @@
 {% extends 'sat/student_workspace.html' %}
+{% load static %}
 {% block page_title %}Events · MakonBook{% endblock %}
+{% block student_workspace_style %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'assets/css/student-test-hubs-v5561.css' %}?v=5567">
+  <link rel="stylesheet" href="{% static 'assets/css/student-test-hubs-v5565.css' %}?v=5567">
+  <link rel="stylesheet" href="{% static 'assets/css/student-test-hubs-v5566.css' %}?v=5567">
+  <link rel="stylesheet" href="{% static 'assets/css/mock-registration-v5581.css' %}?v=5594">
+{% endblock student_workspace_style %}
+
 {% block content %}
-<div class="v523-page v524-events-page">
-  <section class="v523-hero v523-reveal"><span class="v523-kicker"><i class="bi bi-calendar-event"></i> Events</span><h1>Mocks, global events and access codes in one place.</h1><p>Use your MakonBook account for scheduled mocks, public competitions and access-code events. Your results stay connected to the same student workspace.</p></section>
-  <section class="v524-events-grid">
-    <article class="v523-card v524-code-card v523-reveal" style="--reveal-index:1"><span class="v523-card-label">Access code</span><h2>Have a six-character code?</h2><p>Classroom, assigned SAT, makeup, global event and live AP codes can be resolved here.</p><form method="post" class="v524-event-code-form">{% csrf_token %}<input name="code" maxlength="6" autocomplete="one-time-code" placeholder="ABC123" required><button class="mb50-primary-btn" type="submit">Continue <i class="bi bi-arrow-right"></i></button></form></article>
-    <a class="v523-card v524-placement-card v523-reveal" href="{% url 'placement_tests' %}" style="--reveal-index:2"><span class="v523-card-label">Placement tests</span><h2>Diagnostics &amp; level checks</h2><p>{{ placement_count }} placement or level-check test{{ placement_count|pluralize }} available.</p><span class="v523-text-action">Open placement tests <i class="bi bi-arrow-right"></i></span></a>
+<div class="mb5561-page">
+  <section class="mb5561-hero mb5561-events-hero">
+    <div class="mb5561-hero-copy">
+      <span class="mb5561-eyebrow"><i class="bi bi-calendar-event"></i> Events</span>
+      <h1>Active events.</h1>
+      <p>Only active public events appear here. Private events stay hidden and can be opened with an access code.</p>
+    </div>
+    <div class="mb5561-live-stat">
+      <span class="mb5561-live-dot"></span>
+      <strong>{{ active_event_count }}</strong>
+      <span>Live now</span>
+    </div>
   </section>
-  <section class="v523-card v523-reveal" style="margin-top:18px;--reveal-index:3"><div class="v523-card-headline"><div><span class="v523-card-label">Global events</span><h2>Live and scheduled</h2></div></div><div class="v524-event-list">{% for event in public_events %}<a href="{% url 'global_event_detail_root' event.slug %}"><span class="v524-event-icon"><i class="bi bi-trophy"></i></span><span><strong>{{ event.title }}</strong><small>{% if event.always_live %}Always available{% else %}{{ event.start_at|date:"M j, H:i" }} → {{ event.end_at|date:"M j, H:i" }}{% endif %} · {{ event.test.name }}</small></span><em class="{% if event.is_live_now %}is-live{% endif %}">{% if event.is_live_now %}Live{% else %}{{ event.get_status_display }}{% endif %}</em><i class="bi bi-chevron-right"></i></a>{% empty %}<div class="v523-empty"><i class="bi bi-calendar-x"></i><h2>No public events right now.</h2><p>New mock events will appear here when published.</p></div>{% endfor %}</div></section>
-  {% if assigned_tests %}<section class="v523-card v523-reveal" style="margin-top:18px;--reveal-index:4"><div class="v523-card-headline"><div><span class="v523-card-label">Assigned mocks</span><h2>Classroom-authorized tests</h2></div><a class="mb50-secondary-btn" href="{% url 'practice_tests_root' %}">Open Tests</a></div><div class="v523-list-stack">{% for row in assigned_tests|slice:":6" %}<a class="v523-row-link" href="{{ row.url }}"><span class="v523-row-icon"><i class="bi bi-clipboard2-check"></i></span><span class="v523-row-copy"><strong>{{ row.test.name }}</strong><small>{{ row.classroom.name }} · assigned through classroom</small></span><i class="bi bi-chevron-right"></i></a>{% endfor %}</div></section>{% endif %}
+
+  {% if registration_events %}
+  <section class="mb5561-events-panel mb5583-registration-panel mb5585-registration-panel">
+    <div class="mb5561-section-head"><div><span class="mb5561-section-kicker">Mock exams</span><h2>Registration & your seat</h2></div></div>
+    <div class="mb5561-event-list">
+      {% for event in registration_events %}
+        {% if event.student_registration %}
+          <button class="mb5561-event-card mb5585-event-trigger" type="button" onclick="document.getElementById('mb5585-event-{{ event.pk }}').showModal()">
+            <span class="mb5561-event-icon"><i class="bi bi-calendar-check-fill"></i></span>
+            <span class="mb5561-event-copy"><strong>{{ event.title }}</strong><small>{{ event.branch }} · {{ event.start_at|date:"M j, H:i" }} · {{ event.student_confirmed_count }}/{{ event.capacity }} confirmed{% if event.student_pending_hold_count %} · {{ event.student_pending_hold_count }} verifying{% endif %}</small></span>
+            <span class="mb5561-live-pill"><span></span> Registered</span><i class="bi bi-chevron-right"></i>
+          </button>
+          <dialog class="mb5585-event-dialog mb5587-inline-registration" id="mb5585-event-{{ event.pk }}" data-event-id="{{ event.pk }}" data-initial-step="success">
+            <div class="mb5585-dialog-head">
+              <div><span class="mb5581-eyebrow">Mock exam</span><h2>{{ event.title }}</h2></div>
+              <form method="dialog"><button class="mb5585-dialog-close" aria-label="Close" type="submit">×</button></form>
+            </div>
+            <div class="mb5587-step" data-step="success">
+              <div class="mb5581-confirm mb5587-inline-success">
+                <div class="mb5581-check"><i class="bi bi-check-lg"></i></div>
+                <span class="mb5581-eyebrow">Registration confirmed</span>
+                <h3>Your seat is reserved.</h3>
+                <div class="mb5585-event-info">
+                  <div><span>Branch</span><strong>{{ event.branch|default:"SATMakon" }}</strong></div>
+                  <div><span>Date & time</span><strong>{{ event.start_at|date:"d M Y · H:i" }}</strong></div>
+                  <div><span>Registration ID</span><strong>{{ event.student_registration.registration_id }}</strong></div>
+                  <div><span>Status</span><strong>Confirmed</strong></div>
+                </div>
+                <p>Your confirmation checklist was sent to <strong>{{ event.student_registration.email }}</strong>.</p>
+                <div class="mb5581-actions">
+                  {% if event.is_live_now %}<a class="mb5581-btn" href="{% url 'global_event_detail_root' event.slug %}">Open event</a>{% endif %}
+                  <form method="dialog"><button class="mb5581-btn secondary" type="submit">Close</button></form>
+                </div>
+              </div>
+            </div>
+          </dialog>
+        {% else %}
+          <button class="mb5561-event-card mb5585-event-trigger" type="button" onclick="document.getElementById('mb5585-event-{{ event.pk }}').showModal()">
+            <span class="mb5561-event-icon"><i class="bi bi-calendar-check-fill"></i></span>
+            <span class="mb5561-event-copy"><strong>{{ event.title }}</strong><small>{{ event.branch }} · {{ event.start_at|date:"M j, H:i" }} · {{ event.student_confirmed_count }}/{{ event.capacity }} confirmed{% if event.student_pending_hold_count %} · {{ event.student_pending_hold_count }} verifying{% endif %}</small></span>
+            {% if event.is_live_now %}<span class="mb5561-live-pill"><span></span> Live · register</span>{% else %}<span class="mb5566-code-pill">{{ event.student_registration_window.label }}</span>{% endif %}
+            <i class="bi bi-chevron-right"></i>
+          </button>
+          <dialog class="mb5585-event-dialog mb5587-inline-registration" id="mb5585-event-{{ event.pk }}" data-event-id="{{ event.pk }}">
+            <div class="mb5585-dialog-head">
+              <div><span class="mb5581-eyebrow">Mock exam</span><h2>{{ event.title }}</h2></div>
+              <form method="dialog"><button class="mb5585-dialog-close" aria-label="Close" type="submit">×</button></form>
+            </div>
+
+            <div class="mb5587-step" data-step="info">
+              <div class="mb5585-event-info">
+                <div><span>Branch</span><strong>{{ event.branch|default:"SATMakon" }}</strong></div>
+                <div><span>Date & time</span><strong>{{ event.start_at|date:"d M Y · H:i" }}</strong></div>
+                <div><span>Seats</span><strong>{{ event.student_confirmed_count }} confirmed{% if event.student_pending_hold_count %} · {{ event.student_pending_hold_count }} verifying{% endif %} · {{ event.student_seats_left }} left</strong></div>
+                <div><span>Status</span><strong>{{ event.student_registration_window.label }}</strong></div>
+              </div>
+              <p>Your MakonBook account is already signed in. Registering will send a 6-digit verification code to the email saved in your MakonBook profile.</p>
+              <div class="mb5587-inline-alert" data-inline-error hidden></div>
+              <div class="mb5594-email-warning" data-email-warning hidden>
+                <strong>Check your email address</strong>
+                <p data-email-warning-copy></p>
+                <div class="mb5581-actions">
+                  <a class="mb5581-btn secondary" href="#" data-update-email>Update email</a>
+                  <button class="mb5581-btn" type="button" data-send-anyway>Send anyway</button>
+                </div>
+              </div>
+              <div class="mb5581-actions">
+                {% if event.student_registration_window.can_register %}
+                <form class="mb5587-register-form" method="post" action="{% url 'event_registration_student' event.slug %}">{% csrf_token %}<input type="hidden" name="action" value="send"><input type="hidden" name="allow_suspicious_email" value="0" data-email-override><button class="mb5581-btn" type="submit">Register & send code</button></form>
+                {% else %}
+                <button class="mb5581-btn" type="button" disabled>{{ event.student_registration_window.label }}</button>
+                {% endif %}
+                <form method="dialog"><button class="mb5581-btn secondary" type="submit">Close</button></form>
+              </div>
+            </div>
+
+            <div class="mb5587-step" data-step="verify" hidden>
+              <div class="mb5587-verify-copy">
+                <span class="mb5581-eyebrow">Email verification</span>
+                <h3>Check <span data-masked-email>your email</span></h3>
+                <p>Enter the 6-digit code to reserve your seat for {{ event.title }}.</p>
+              </div>
+              <div class="mb5587-inline-alert" data-verify-error hidden></div>
+              <form class="mb5587-verify-form" method="post">{% csrf_token %}
+                <div class="mb5581-field mb5581-code"><input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required></div>
+                <button class="mb5581-btn mb5587-verify-submit" type="submit">Verify & reserve seat</button>
+              </form>
+              <div class="mb5581-actions mb5587-verify-actions">
+                <button class="mb5581-btn secondary" type="button" data-resend-code>Resend code</button>
+                <button class="mb5581-btn secondary" type="button" data-back-info>Back</button>
+              </div>
+              <div class="mb5587-inline-note" data-inline-note hidden></div>
+            </div>
+
+            <div class="mb5587-step" data-step="success" hidden>
+              <div class="mb5581-confirm mb5587-inline-success">
+                <div class="mb5581-check"><i class="bi bi-check-lg"></i></div>
+                <span class="mb5581-eyebrow">Registration confirmed</span>
+                <h3>Your seat is reserved.</h3>
+                <div class="mb5585-event-info">
+                  <div><span>Branch</span><strong>{{ event.branch|default:"SATMakon" }}</strong></div>
+                  <div><span>Date & time</span><strong>{{ event.start_at|date:"d M Y · H:i" }}</strong></div>
+                  <div><span>Registration ID</span><strong data-registration-id>—</strong></div>
+                  <div><span>Status</span><strong>Confirmed</strong></div>
+                </div>
+                <p data-confirmation-email-note>Your confirmation checklist is being sent to your email.</p>
+                <div class="mb5581-actions">
+                  {% if event.is_live_now %}<a class="mb5581-btn" href="{% url 'global_event_detail_root' event.slug %}">Open event</a>{% endif %}
+                  <form method="dialog"><button class="mb5581-btn secondary" type="submit">Close</button></form>
+                </div>
+              </div>
+            </div>
+          </dialog>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="mb5561-events-layout">
+    <section class="mb5561-events-panel">
+      <div class="mb5561-section-head"><div><span class="mb5561-section-kicker">Global Events</span><h2>Live now</h2></div></div>
+      {% if public_events %}
+        <div class="mb5561-event-list">
+          {% for event in public_events %}
+            <a class="mb5561-event-card" href="{% url 'global_event_detail_root' event.slug %}">
+              <span class="mb5561-event-icon"><i class="bi bi-trophy-fill"></i></span>
+              <span class="mb5561-event-copy"><strong>{{ event.title }}</strong><small>{{ event.test.name }}{% if not event.always_live %} · Closes {{ event.effective_end_at|date:"M j, H:i" }}{% endif %}</small></span>
+              {% if event.access_code %}<span class="mb5566-code-pill"><i class="bi bi-lock-fill"></i> Code required</span>{% else %}<span class="mb5561-live-pill"><span></span> Live</span>{% endif %}
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="mb5561-empty compact"><span class="mb5561-empty-icon"><i class="bi bi-calendar-x"></i></span><h2>No active events right now.</h2><p class="mb5565-empty-note">When a public event goes live, it will appear here. Private events can be opened with an access code.</p></div>
+      {% endif %}
+    </section>
+
+    <aside class="mb5561-code-card" id="event-access-code">
+      <span class="mb5561-section-kicker">Access code</span><h2>Have a code?</h2><p>Enter a six-character event or classroom code.</p>
+      <form method="post" class="mb5561-code-form">{% csrf_token %}<input name="code" maxlength="6" autocomplete="one-time-code" placeholder="ABC123" required><button type="submit">Continue <i class="bi bi-arrow-right"></i></button></form>
+    </aside>
+  </div>
 </div>
+<script>
+(function () {
+  function showStep(dialog, name) {
+    dialog.querySelectorAll('[data-step]').forEach(function (step) {
+      step.hidden = step.getAttribute('data-step') !== name;
+    });
+  }
+
+  function setAlert(node, message) {
+    if (!node) return;
+    node.textContent = message || '';
+    node.hidden = !message;
+  }
+
+  async function jsonPost(url, formData) {
+    var response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json'
+      }
+    });
+    var data;
+    try { data = await response.json(); }
+    catch (error) { data = {ok: false, error: 'The server returned an unexpected response.'}; }
+    if (!response.ok || !data.ok) {
+      var requestError = new Error(data.error || 'Unable to complete the request. Please try again.');
+      requestError.payload = data;
+      requestError.status = response.status;
+      throw requestError;
+    }
+    return data;
+  }
+
+  document.querySelectorAll('.mb5585-event-dialog').forEach(function (dialog) {
+    var registerForm = dialog.querySelector('.mb5587-register-form');
+    var verifyForm = dialog.querySelector('.mb5587-verify-form');
+    var infoError = dialog.querySelector('[data-inline-error]');
+    var verifyError = dialog.querySelector('[data-verify-error]');
+    var note = dialog.querySelector('[data-inline-note]');
+    var emailNode = dialog.querySelector('[data-masked-email]');
+    var resendButton = dialog.querySelector('[data-resend-code]');
+    var backButton = dialog.querySelector('[data-back-info]');
+    var registrationIdNode = dialog.querySelector('[data-registration-id]');
+    var confirmationEmailNote = dialog.querySelector('[data-confirmation-email-note]');
+    var emailWarning = dialog.querySelector('[data-email-warning]');
+    var emailWarningCopy = dialog.querySelector('[data-email-warning-copy]');
+    var updateEmailLink = dialog.querySelector('[data-update-email]');
+    var sendAnywayButton = dialog.querySelector('[data-send-anyway]');
+    var emailOverrideInput = registerForm && registerForm.querySelector('[data-email-override]');
+
+    function clearEmailWarning() {
+      if (emailWarning) emailWarning.hidden = true;
+      if (emailWarningCopy) emailWarningCopy.textContent = '';
+      if (emailOverrideInput) emailOverrideInput.value = '0';
+    }
+
+    function showEmailWarning(payload) {
+      if (!emailWarning) return false;
+      var copy = payload.error || 'Please check the email saved in your MakonBook profile.';
+      if (payload.masked_suggested_email) {
+        copy += ' Did you mean ' + payload.masked_suggested_email + '?';
+      }
+      emailWarningCopy.textContent = copy;
+      emailWarning.hidden = false;
+      if (updateEmailLink && payload.profile_url) updateEmailLink.href = payload.profile_url;
+      if (sendAnywayButton) sendAnywayButton.hidden = !payload.can_override;
+      return true;
+    }
+
+    showStep(dialog, dialog.dataset.initialStep || 'info');
+
+    dialog.addEventListener('click', function (event) {
+      var rect = dialog.getBoundingClientRect();
+      var outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+      if (outside) dialog.close();
+    });
+
+    dialog.addEventListener('close', function () {
+      setAlert(infoError, '');
+      setAlert(verifyError, '');
+      setAlert(note, '');
+      clearEmailWarning();
+      if (verifyForm) verifyForm.reset();
+      showStep(dialog, dialog.dataset.initialStep || 'info');
+    });
+
+    if (registerForm) {
+      registerForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        setAlert(infoError, '');
+        if (!emailOverrideInput || emailOverrideInput.value !== '1') clearEmailWarning();
+        var button = registerForm.querySelector('button[type="submit"]');
+        if (button) button.disabled = true;
+        try {
+          var registerUrl = registerForm.getAttribute('action') || window.location.href;
+          var data = await jsonPost(registerUrl, new FormData(registerForm));
+          if (data.confirmed) {
+            if (registrationIdNode) registrationIdNode.textContent = data.registration_id || 'Confirmed';
+            if (confirmationEmailNote) confirmationEmailNote.textContent = 'Your registration is already confirmed.';
+            showStep(dialog, 'success');
+            return;
+          }
+          dialog.dataset.verifyUrl = data.verify_url;
+          dialog.dataset.resendUrl = data.resend_url;
+          dialog.dataset.confirmationUrl = data.confirmation_url;
+          if (emailNode) emailNode.textContent = data.masked_email || 'your email';
+          if (verifyForm) {
+            verifyForm.setAttribute('action', data.verify_url);
+            verifyForm.reset();
+          }
+          showStep(dialog, 'verify');
+          var codeInput = verifyForm && verifyForm.querySelector('input[name="code"]');
+          if (codeInput) codeInput.focus();
+        } catch (error) {
+          var payload = error.payload || {};
+          if ((payload.error_code === 'suspicious_email' || payload.error_code === 'invalid_email' || payload.error_code === 'missing_email') && showEmailWarning(payload)) {
+            setAlert(infoError, '');
+          } else {
+            setAlert(infoError, error.message);
+          }
+        } finally {
+          if (button) button.disabled = false;
+        }
+      });
+    }
+
+    if (sendAnywayButton && registerForm) {
+      sendAnywayButton.addEventListener('click', function () {
+        if (emailOverrideInput) emailOverrideInput.value = '1';
+        if (emailWarning) emailWarning.hidden = true;
+        registerForm.requestSubmit();
+      });
+    }
+
+    if (verifyForm) {
+      verifyForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        setAlert(verifyError, '');
+        setAlert(note, '');
+        var button = verifyForm.querySelector('button[type="submit"]');
+        if (button) button.disabled = true;
+        try {
+          var verifyUrl = dialog.dataset.verifyUrl || verifyForm.getAttribute('action') || window.location.href;
+          var data = await jsonPost(verifyUrl, new FormData(verifyForm));
+          if (registrationIdNode) registrationIdNode.textContent = data.registration_id || 'Confirmed';
+          if (confirmationEmailNote) {
+            confirmationEmailNote.textContent = data.confirmation_email_sent === false
+              ? 'Your seat is confirmed, but the checklist email could not be delivered. Please contact SATMakon staff.'
+              : 'Your confirmation checklist has been sent to your email.';
+          }
+          showStep(dialog, 'success');
+          var trigger = document.querySelector('[onclick*="mb5585-event-' + dialog.dataset.eventId + '"]');
+          if (trigger) {
+            var pill = trigger.querySelector('.mb5561-live-pill, .mb5566-code-pill');
+            if (pill) {
+              pill.className = 'mb5561-live-pill';
+              pill.innerHTML = '<span></span> Registered';
+            }
+          }
+        } catch (error) {
+          setAlert(verifyError, error.message);
+        } finally {
+          if (button) button.disabled = false;
+        }
+      });
+    }
+
+    if (resendButton) {
+      resendButton.addEventListener('click', async function () {
+        setAlert(verifyError, '');
+        setAlert(note, '');
+        resendButton.disabled = true;
+        try {
+          var csrfInput = verifyForm && verifyForm.querySelector('input[name="csrfmiddlewaretoken"]');
+          var formData = new FormData();
+          if (csrfInput) formData.append('csrfmiddlewaretoken', csrfInput.value);
+          var data = await jsonPost(dialog.dataset.resendUrl, formData);
+          if (data.confirmed) {
+            if (registrationIdNode) registrationIdNode.textContent = data.registration_id || 'Confirmed';
+            if (confirmationEmailNote) confirmationEmailNote.textContent = 'Your registration is already confirmed.';
+            showStep(dialog, 'success');
+            return;
+          }
+          if (emailNode && data.masked_email) emailNode.textContent = data.masked_email;
+          setAlert(note, data.message || 'A new verification code has been sent.');
+        } catch (error) {
+          setAlert(verifyError, error.message);
+        } finally {
+          resendButton.disabled = false;
+        }
+      });
+    }
+
+    if (backButton) {
+      backButton.addEventListener('click', function () {
+        setAlert(verifyError, '');
+        setAlert(note, '');
+        showStep(dialog, 'info');
+      });
+    }
+  });
+})();
+</script>
 {% endblock %}

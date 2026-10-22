@@ -46,7 +46,6 @@ class StaticViewSitemap(CanonicalSitemap):
     # (path, priority, changefreq)
     pages = [
         ("/", 1.0, "weekly"),
-        (reverse_lazy("register"), 0.7, "monthly"),
         (reverse_lazy("apclasses:event_list"), 0.7, "weekly"),
         (reverse_lazy("rating_home"), 0.6, "daily"),
     ]

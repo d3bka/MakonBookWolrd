@@ -34,12 +34,12 @@ class TestAvailabilityGateV36Tests(TestCase):
     def test_closed_test_cannot_open_start_page(self):
         response = self.client.get(reverse("practise", kwargs={"pk": self.test.name}))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("practice_tests"))
+        self.assertEqual(response.url, reverse("practice_tests_root"))
 
     def test_closed_test_cannot_open_live_module(self):
         response = self.client.get(reverse("test", kwargs={"pk": self.test.name}))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("practice_tests"))
+        self.assertEqual(response.url, reverse("practice_tests_root"))
 
     def test_closed_test_rejects_autosave_before_touching_stage(self):
         response = self.client.post(
@@ -96,10 +96,7 @@ class TestAvailabilityGateV36Tests(TestCase):
             reverse("classroom_practise", kwargs={"classroom_id": classroom.pk, "pk": self.test.name})
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            reverse("classroom_practice_tests", kwargs={"classroom_id": classroom.pk}),
-        )
+        self.assertEqual(response.url, reverse("practice_tests_root"))
 
     def test_guest_event_remains_available_when_student_access_is_closed(self):
         now = timezone.now()
@@ -123,7 +120,7 @@ class TestAvailabilityGateV36Tests(TestCase):
         self.client.force_login(teacher)
         response = self.client.get(reverse("practise", kwargs={"pk": self.test.name}))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("practice_tests"))
+        self.assertEqual(response.url, reverse("practice_tests_root"))
 
     def test_closed_test_blocks_support_teacher(self):
         support = User.objects.create_user(username="support-v36", password="pass12345")
@@ -132,7 +129,7 @@ class TestAvailabilityGateV36Tests(TestCase):
         self.client.force_login(support)
         response = self.client.get(reverse("practise", kwargs={"pk": self.test.name}))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("practice_tests"))
+        self.assertEqual(response.url, reverse("practice_tests_root"))
 
     def test_closed_test_blocks_teacher_inside_classroom(self):
         teacher = User.objects.create_user(username="classroom-teacher-v36", password="pass12345")
@@ -145,10 +142,7 @@ class TestAvailabilityGateV36Tests(TestCase):
             reverse("classroom_practise", kwargs={"classroom_id": classroom.pk, "pk": self.test.name})
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            reverse("classroom_practice_tests", kwargs={"classroom_id": classroom.pk}),
-        )
+        self.assertEqual(response.url, reverse("practice_tests_root"))
 
     def test_manager_keeps_qa_access_when_test_is_closed(self):
         manager = User.objects.create_user(username="manager-qa-v36", password="pass12345")
@@ -165,7 +159,7 @@ class TestAvailabilityGateV36Tests(TestCase):
         self.client.force_login(manager)
 
         response = self.client.post(
-            reverse("managed_test_toggle_availability", kwargs={"test_name": self.test.name}),
+            reverse("manager_managed_test_toggle_availability_root", kwargs={"test_name": self.test.name}),
             {"state": "open"},
         )
         self.assertEqual(response.status_code, 302)
@@ -179,7 +173,7 @@ class TestAvailabilityGateV36Tests(TestCase):
         self.client.force_login(manager)
 
         response = self.client.post(
-            reverse("managed_test_toggle_availability", kwargs={"test_name": self.test.name}),
+            reverse("manager_managed_test_toggle_availability_root", kwargs={"test_name": self.test.name}),
             {"state": "open"},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
             HTTP_ACCEPT="application/json",

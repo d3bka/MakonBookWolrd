@@ -161,3 +161,23 @@ html[data-theme="dark"]{
 /* Keep every tracked vocabulary tool on the same compact V50 scale. */
 .vocab-shell>.vocab-hero{padding:22px 24px;border-radius:20px;box-shadow:0 12px 34px rgba(45,28,72,.06)}.vocab-shell>.vocab-hero .vocab-title{margin:10px 0 7px;font-size:clamp(30px,3.6vw,44px);line-height:1}.vocab-shell>.vocab-hero .vocab-copy{font-size:13px;line-height:1.55}.vocab-shell>.vocab-hero .vocab-stat{padding:13px 14px;border-radius:15px}.vocab-shell>.vocab-hero .vocab-stat strong{margin-top:4px;font-size:22px}.vocab-shell>.vocab-hero .vocab-stat span{font-size:10px}.vocab-shell>.vocab-hero .vocab-summary-grid{gap:8px}.vocab-flash-layout{gap:14px}.vocab-deck-sidebar,.vocab-deck{border-radius:18px}.vocab-deck{min-height:520px}.vocab-card-stage,.vocab-flashcard-inner{min-height:340px}.vocab-deck-controls{gap:8px}.vocab-deck-controls .vocab-btn{min-height:44px}
 @media(max-width:700px){.vocab-shell>.vocab-hero{padding:17px}.vocab-shell>.vocab-hero-grid{grid-template-columns:1fr}.vocab-shell>.vocab-hero .vocab-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* V50.1.11 — tablet/phone Flashcards progress + explicit sync state. */
+.vocab-mobile-progress{display:none}
+@media(max-width:1050px){
+  .vocab-deck{overflow:visible}
+  .vocab-mobile-progress{position:sticky;top:76px;z-index:32;display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:8px;align-items:center;margin:12px 0 4px;padding:10px;border:1px solid var(--vocab-line);border-radius:18px;background:color-mix(in srgb,var(--vocab-surface-strong) 94%,transparent);box-shadow:0 14px 34px rgba(73,37,123,.12)}
+  .vocab-mobile-progress>div:not(.vocab-mobile-save-state){min-width:0;padding:7px 9px;border-radius:12px;background:rgba(124,58,237,.06)}
+  .vocab-mobile-progress small{display:block;color:var(--vocab-muted);font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+  .vocab-mobile-progress strong{display:block;margin-top:3px;overflow:hidden;color:var(--vocab-text);font-size:13px;font-weight:900;text-overflow:ellipsis;white-space:nowrap}
+  .vocab-mobile-save-state{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 11px;border-radius:999px;background:rgba(16,185,129,.11);color:#10b981;font-size:10px;font-weight:900;letter-spacing:.045em;text-transform:uppercase;white-space:nowrap}
+  .vocab-mobile-save-state.is-saving{background:rgba(124,58,237,.12);color:#a78bfa}
+  .vocab-mobile-save-state.has-error{background:rgba(239,68,68,.13);color:#f87171}
+}
+@media(max-width:700px){
+  .vocab-mobile-progress{top:68px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vocab-mobile-save-state{grid-column:1/-1}
+  .vocab-deck-head{gap:10px}
+  .vocab-deck-meta{width:100%;justify-items:start}
+}
+@media(max-width:440px){.vocab-mobile-progress{top:64px;margin-inline:-4px}}

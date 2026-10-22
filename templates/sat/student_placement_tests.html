@@ -1,8 +1,53 @@
 {% extends 'sat/student_workspace.html' %}
+{% load static %}
 {% block page_title %}Placement Tests · MakonBook{% endblock %}
+{% block student_workspace_style %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'assets/css/student-test-hubs-v5561.css' %}?v=5567">
+  <link rel="stylesheet" href="{% static 'assets/css/student-test-hubs-v5565.css' %}?v=5567">
+  <link rel="stylesheet" href="{% static 'assets/css/student-test-hubs-v5566.css' %}?v=5567">
+{% endblock student_workspace_style %}
+
 {% block content %}
-<div class="v523-page v524-placement-page">
-  <section class="v523-hero v523-reveal"><span class="v523-kicker"><i class="bi bi-ui-checks-grid"></i> Placement Tests</span><h1>Start with the right level.</h1><p>Placement and level checks are separated from normal classroom tests. A configured test can still require teacher assignment before you can open it.</p></section>
-  <section class="v524-placement-grid">{% for row in placement_tests %}{% if row.assigned %}<a class="v524-placement-test v523-reveal" href="{{ row.url }}" style="--reveal-index:{{ forloop.counter }}">{% else %}<article class="v524-placement-test is-locked v523-reveal" style="--reveal-index:{{ forloop.counter }}">{% endif %}<span class="v524-placement-icon"><i class="bi {% if row.assigned %}bi-play-fill{% else %}bi-lock-fill{% endif %}"></i></span><div><span class="v523-card-label">{% if row.assigned %}Ready{% else %}Locked{% endif %}</span><h2>{{ row.test.name }}</h2><p>{% if row.assigned %}Your classroom has assigned this diagnostic.{% else %}Ask your teacher to assign this placement test.{% endif %}</p></div><i class="bi bi-chevron-right"></i>{% if row.assigned %}</a>{% else %}</article>{% endif %}{% empty %}<div class="v523-card"><div class="v523-empty"><i class="bi bi-ui-checks-grid"></i><h2>No placement tests configured.</h2><p>When an administrator marks placement or level-check tests available, they will appear here.</p></div></div>{% endfor %}</section>
+<div class="mb5561-page">
+  <section class="mb5561-hero mb5561-placement-hero">
+    <div class="mb5561-hero-copy">
+      <span class="mb5561-eyebrow"><i class="bi bi-ui-checks-grid"></i> Placement Tests</span>
+      <h1>Find your starting point.</h1>
+      <p>Active placement sessions published by MakonBook appear here.</p>
+    </div>
+    <div class="mb5561-hero-stat">
+      <strong>{{ placement_total }}</strong>
+      <span>Available</span>
+    </div>
+  </section>
+
+  {% if placement_tests %}
+    <section class="mb5561-grid" aria-label="Available placement tests">
+      {% for row in placement_tests %}
+        <a class="mb5561-test-card state-{{ row.state }}" href="{{ row.url }}">
+          <div class="mb5561-card-top">
+            <span class="mb5561-card-icon">
+              <i class="bi {% if row.state == 'resume' %}bi-play-circle-fill{% elif row.state == 'completed' %}bi-arrow-repeat{% else %}bi-compass-fill{% endif %}"></i>
+            </span>
+            <span class="mb5561-state">{{ row.state_label }}</span>
+          </div>
+          <div class="mb5561-card-copy">
+            <h2>{{ row.display_name }}</h2>
+            <p>{{ row.description }}</p>
+          </div>
+          <div class="mb5561-card-action">
+            <span>{{ row.cta }}</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </a>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="mb5561-empty">
+      <span class="mb5561-empty-icon"><i class="bi bi-ui-checks-grid"></i></span>
+      <h2>No placement tests available right now.</h2>
+    </section>
+  {% endif %}
 </div>
 {% endblock %}

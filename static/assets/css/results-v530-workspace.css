@@ -1,0 +1,180 @@
+
+/* MakonBook Results V53.0 — real workspace integration
+   Loaded after results-v529-light-tune.css.
+   Removes the fake score-report sidebar and uses the ONE canonical MakonBook sidebar. */
+
+/* The parent sat/student_workspace.html or sat/staff_workspace.html owns navigation.
+   Undo v529's temporary fake-sidebar grid completely. */
+.mr527-page {
+  display: block !important;
+  width: min(100%, 1440px) !important;
+  max-width: 1440px !important;
+  margin: 0 auto !important;
+  padding: 18px 18px 40px !important;
+}
+
+.mr527-page > * {
+  grid-column: auto !important;
+}
+
+.mr527-topbar {
+  display: none !important;
+}
+
+/* Prevent legacy page chrome / fake full-page spacing from fighting the workspace shell. */
+body:has(.mr527-page) {
+  padding-top: 0 !important;
+}
+body:has(.mr527-page) #main,
+.mb50-main:has(.mr527-page) {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 92% -5%, rgba(196,61,233,.055), transparent 24%),
+    radial-gradient(circle at 12% 0, rgba(124,58,237,.045), transparent 27%),
+    #f8f6fb !important;
+}
+
+html[data-theme="dark"] .mb50-main:has(.mr527-page) {
+  background:
+    radial-gradient(circle at 92% -5%, rgba(196,61,233,.08), transparent 24%),
+    radial-gradient(circle at 12% 0, rgba(124,58,237,.08), transparent 27%),
+    #0f0b13 !important;
+}
+
+/* Tight vertical rhythm. */
+.mr527-page > section,
+.mr527-page .mr527-hero,
+.mr527-page .mr527-metrics {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.mr527-hero {
+  margin-top: 0 !important;
+}
+
+.mr527-metrics {
+  margin-top: 12px !important;
+}
+
+.mr527-attempts {
+  margin-top: 12px !important;
+}
+
+.mr527-section-title {
+  margin-top: 20px !important;
+}
+
+/* Back / certificate now live INSIDE the report hero, not in another navigation rail. */
+.mr530-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.mr530-hero-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(74,54,88,.10);
+  border-radius: 11px;
+  background: rgba(255,255,255,.78);
+  color: #55475f !important;
+  text-decoration: none !important;
+  font-size: 9px;
+  font-weight: 800;
+  backdrop-filter: blur(10px);
+}
+
+.mr530-hero-link:hover {
+  border-color: rgba(124,58,237,.22);
+  color: #6d28d9 !important;
+  background: #fff;
+}
+
+.mr530-hero-link.is-primary {
+  color: #fff !important;
+  border-color: transparent;
+  background: linear-gradient(100deg,#7c3aed,#a344ee 55%,#ca3fe8);
+  box-shadow: 0 9px 20px rgba(124,58,237,.16);
+}
+
+html[data-theme="dark"] .mr530-hero-link {
+  border-color: rgba(255,255,255,.08);
+  background: rgba(255,255,255,.045);
+  color: #e9e1ed !important;
+}
+
+/* Light mode: absolutely no black action islands. */
+html:not([data-theme="dark"]) .mr527-metric.is-action {
+  background:
+    radial-gradient(circle at 96% 0, rgba(199,78,236,.10), transparent 26%),
+    linear-gradient(135deg,#f9f4ff 0%,#f3ebff 100%) !important;
+  border-color: rgba(124,58,237,.12) !important;
+}
+html:not([data-theme="dark"]) .mr527-metric.is-action strong {
+  color: #281f2f !important;
+}
+html:not([data-theme="dark"]) .mr527-metric.is-action small {
+  color: #8e63ac !important;
+}
+html:not([data-theme="dark"]) .mr527-metric.is-action span {
+  color: #7f7188 !important;
+}
+
+/* Make the workspace content feel native beside the canonical sidebar. */
+.mr527-hero,
+.mr527-metric,
+.mr527-attempts,
+.mr527-page .total_score.print_div,
+.mr527-page .module-card,
+.mr527-page .chart-container {
+  border-color: rgba(67,48,79,.085) !important;
+}
+
+/* Remove the huge blank band produced by the temporary v529 grid sidebar row. */
+@media (min-width: 981px) {
+  .mr527-page {
+    display: block !important;
+    grid-template-columns: none !important;
+  }
+  .mr527-page > :not(.mr527-topbar) {
+    grid-column: auto !important;
+  }
+}
+
+/* Let results use the full workspace width without becoming too wide to scan. */
+@media (min-width: 1280px) {
+  .mr527-page {
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .mr527-page {
+    width: 100% !important;
+    padding: 12px 12px 32px !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .mr527-page {
+    padding: 8px 8px 28px !important;
+  }
+
+  .mr530-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mr530-hero-link {
+    width: 100%;
+  }
+}

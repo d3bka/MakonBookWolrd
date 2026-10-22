@@ -17,7 +17,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--message",
-            default="This is test from Eskiz",
+            default="MakonBook SMS test",
             help="Test message used only together with --send-to.",
         )
 

@@ -903,13 +903,16 @@
 document.addEventListener('DOMContentLoaded', function () {
     const timer = document.getElementById('apTimer');
     const attemptForm = document.getElementById('apAttemptForm');
-    let seconds = Number(timer ? timer.dataset.seconds : 0) || 0;
-
+    const initialSeconds = Math.max(0, Number(timer ? timer.dataset.seconds : 0) || 0);
+    const monotonicNow = () => (window.performance && typeof window.performance.now === 'function') ? window.performance.now() : Date.now();
+    const timerStartedAt = monotonicNow();
     let timerSubmitted = false;
+    let timerInterval = null;
 
     function submitBecauseTimeExpired() {
         if (timerSubmitted || !attemptForm) return;
         timerSubmitted = true;
+        if (timerInterval) window.clearInterval(timerInterval);
         const actionInput = document.createElement('input');
         actionInput.type = 'hidden';
         actionInput.name = 'action';
@@ -918,19 +921,21 @@ document.addEventListener('DOMContentLoaded', function () {
         attemptForm.submit();
     }
 
+    function remainingSeconds() {
+        const elapsed = Math.max(0, (monotonicNow() - timerStartedAt) / 1000);
+        return Math.max(0, Math.ceil(initialSeconds - elapsed));
+    }
+
     function paintTimer() {
+        const seconds = remainingSeconds();
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         if (timer) timer.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
-        if (seconds > 0) {
-            seconds -= 1;
-        } else {
-            submitBecauseTimeExpired();
-        }
+        if (seconds <= 0) submitBecauseTimeExpired();
     }
 
     paintTimer();
-    setInterval(paintTimer, 1000);
+    timerInterval = window.setInterval(paintTimer, 250);
 
     const attemptKey = 'ap_attempt_{{ attempt.token }}';
     const questionKey = attemptKey + '_q_{{ current_item_id|default:"none" }}';

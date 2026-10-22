@@ -1,77 +1,140 @@
 {% load static %}
 <!doctype html>
-<html lang="{{ parent_lang|default:'en' }}">
+<html lang="{{ parent_lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{{ parent_t.page_title }}</title>
   {% include 'base/theme_init.html' %}
-  <link rel="icon" href="{% static 'assets/img/icons/original-icon-nobg.png' %}">
+  <title>{{ parent_t.page_title }}</title>
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-ratings-v523.css' %}?v=523">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,500..800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5601">
 </head>
-<body class="rating523-parent-body">
-  <div class="rating523-parent-shell">
-    <header class="rating523-parent-nav">
-      <a class="rating523-parent-brand" href="/"><span><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""></span><strong>SAT Makon</strong></a>
-      <nav>
-        <a href="/">{{ parent_t.home }}</a>
-        <a href="{% url 'rating_home' %}">{{ parent_t.leaderboard }}</a>
-        <a class="is-active" href="{% url 'rating_parent_lookup' %}">{{ parent_t.parent_access }}</a>
-      </nav>
-      <div class="rating523-parent-actions">
-        <div class="rating523-lang" aria-label="{{ parent_t.language }}">{% for code, label in parent_languages %}<a href="{% url 'rating_parent_lookup' %}?lang={{ code }}" class="{% if parent_lang == code %}is-active{% endif %}">{{ code|upper }}</a>{% endfor %}</div>
-        {% include 'base/theme_toggle.html' %}
-        <a class="rating523-back" href="/">{{ parent_t.back_to_makonbook }}</a>
-      </div>
-    </header>
+<body class="mkp-page rating523-parent-body mkp-parent-v5597 mb56-shared-header-page">
+<div class="mkp-shell">
+  {% include 'landing/_public_header.html' %}
 
-    <main class="rating523-parent-main">
-      <section class="rating523-parent-hero">
-        <span class="rating523-parent-kicker">SAT MAKON · FAMILY VIEW</span>
-        <h1>{{ parent_t.parent_title }}</h1>
-        <p>{{ parent_t.parent_intro }}</p>
-        <div class="rating523-parent-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
-      </section>
-
-      <section class="rating523-parent-access">
-        <div>
-          <span class="rating523-parent-kicker">PRIVATE ACCESS</span>
-          <h2>{{ parent_t.student_access_code }}</h2>
+  <main class="mkp-parent-main">
+    <div class="mkp-container">
+      <header class="mkp-parent-head mkp-parent-head-v5597">
+        <div class="mkp-parent-head-copy">
+          <span class="mkp-kicker">SAT Makon · Family view</span>
+          <h1>{{ parent_t.parent_title }}</h1>
           <p>{{ parent_t.parent_intro }}</p>
         </div>
-        <form method="post">
-          {% csrf_token %}<input type="hidden" name="lang" value="{{ parent_lang }}">
-          <label for="code">{{ parent_t.student_access_code }}</label>
-          <div class="rating523-code-entry"><input id="code" name="code" maxlength="16" required autocomplete="one-time-code" placeholder="{{ parent_t.code_placeholder }}"><button type="submit">{{ parent_t.open_rating }} <span>→</span></button></div>
-          {% for message in messages %}<p class="rating523-parent-message">{{ message }}</p>{% endfor %}
-        </form>
-      </section>
+        <div class="mkp-parent-head-tools">
+          <span class="mkp-parent-private" aria-hidden="true"><i>●</i> {{ parent_t.parent_access }}</span>
+          <div class="mkp-lang" aria-label="{{ parent_t.language }}">
+            {% for code, label in parent_languages %}<a href="{% url 'rating_parent_lookup' %}?lang={{ code }}" class="{% if parent_lang == code %}is-active{% endif %}">{{ code|upper }}</a>{% endfor %}
+          </div>
+        </div>
+      </header>
 
       {% if profile %}
-      <section class="rating523-parent-result">
-        <div class="rating523-parent-result-head"><div><span class="rating523-parent-kicker">STUDENT SNAPSHOT</span><h2>{{ profile.user.get_full_name|default:profile.user.username }}</h2></div><a href="{% url 'rating_home' %}">{{ parent_t.public_leaderboard }} →</a></div>
-        <div class="rating523-parent-stats">
-          <article><span>{{ parent_t.rank }}</span><strong>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</strong></article>
-          <article><span>{{ parent_t.rating }}</span><strong>{% if entry %}{{ entry.rating }}{% else %}—{% endif %}</strong></article>
-          <article><span>{{ parent_t.assessments }}</span><strong>{% if entry %}{{ entry.assessment_count }}{% else %}0{% endif %}</strong></article>
-          <article><span>{{ parent_t.classrooms }}</span><strong>{% if entry %}{{ entry.streams|length }}{% else %}0{% endif %}</strong></article>
-        </div>
-        <div class="rating523-parent-history">
-          <div class="rating523-parent-history-title"><h3>{{ parent_t.assessments }}</h3><span>{{ history|length }}</span></div>
-          {% for item in history %}
-          <article><time>{{ item.assessed_at|date:"d.m.Y" }}</time><span><strong>{{ item.classroom.name }}</strong><small>{{ parent_t.homework }} {{ item.homework }} · {{ parent_t.progress }} {{ item.progress }} · {{ parent_t.activity }} {{ item.activity }}</small></span><b>{{ item.mean_score|floatformat:2 }}</b></article>
-          {% empty %}<div class="rating523-parent-empty">{{ parent_t.no_history }}</div>{% endfor %}
-        </div>
-      </section>
-      {% endif %}
-    </main>
+        <section class="mkp-student-banner">
+          <div class="mkp-student-id">
+            <div class="mkp-avatar">{{ profile.user.first_name|default:profile.user.username|first|upper }}</div>
+            <div>
+              <h2>{{ profile.user.get_full_name|default:profile.user.username }}</h2>
+              <p>{{ parent_t.student_access_code }}: <strong>{{ registered_phone|default:"—" }}</strong></p>
+            </div>
+          </div>
+          <div>
+            <span class="mkp-remembered">✓ {{ parent_t.remembered_on_device }}</span>
+            <form method="post" style="margin-top:9px;text-align:right">
+              {% csrf_token %}<input type="hidden" name="lang" value="{{ parent_lang }}"><input type="hidden" name="action" value="switch">
+              <button class="mkp-btn danger-ghost small" type="submit">{{ parent_t.switch_student }}</button>
+            </form>
+          </div>
+        </section>
 
-    <footer class="rating523-parent-footer"><span>© SAT Makon · MakonBook</span><span>{{ parent_t.footer_text }}</span></footer>
-  </div>
-  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+        <section class="mkp-stats">
+          <article class="mkp-stat"><span>{{ parent_t.rank }}</span><strong>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</strong></article>
+          <article class="mkp-stat"><span>{{ parent_t.rating }}</span><strong>{% if entry %}{{ entry.rating }}{% else %}—{% endif %}</strong></article>
+          <article class="mkp-stat"><span>{{ parent_t.assessments }}</span><strong>{% if entry %}{{ entry.assessment_count }}{% else %}0{% endif %}</strong></article>
+          <article class="mkp-stat"><span>{{ parent_t.classrooms }}</span><strong>{% if entry %}{{ entry.streams|length }}{% else %}0{% endif %}</strong></article>
+        </section>
+
+        <section class="mkp-history">
+          <div class="mkp-history-head"><h3>{{ parent_t.assessments }}</h3><span>{{ history|length }} {{ parent_t.records }}</span></div>
+          <div class="mkp-history-list">
+            {% for item in history %}
+              <article class="mkp-history-row">
+                <time>{{ item.assessed_at|date:"d.m.Y" }}</time>
+                <div><strong>{{ item.classroom.name }}</strong><small>{{ parent_t.homework }} {{ item.homework }} · {{ parent_t.progress }} {{ item.progress }} · {{ parent_t.activity }} {{ item.activity }} · {{ parent_t.attendance }} {{ item.attendance }} · {{ parent_t.behavior }} {{ item.behavior }}</small></div>
+                <div class="mkp-history-score">{{ item.mean_score|floatformat:1 }}</div>
+              </article>
+            {% empty %}<div class="mkp-history-empty">{{ parent_t.no_history }}</div>{% endfor %}
+          </div>
+        </section>
+      {% elif parent_candidates %}
+        <section class="mkp-parent-choice-card">
+          <div class="mkp-parent-choice-head">
+            <span class="mkp-kicker">{{ parent_t.parent_access }}</span>
+            <h2>{{ parent_t.multiple_students_title }}</h2>
+            <p>{{ parent_t.multiple_students_intro }}</p>
+          </div>
+          <div class="mkp-parent-candidates">
+            {% for student in parent_candidates %}
+              <form method="post" class="mkp-parent-candidate">
+                {% csrf_token %}
+                <input type="hidden" name="lang" value="{{ parent_lang }}">
+                <input type="hidden" name="action" value="select">
+                <input type="hidden" name="student_user_id" value="{{ student.id }}">
+                <div class="mkp-parent-candidate-avatar">{{ student.first_name|default:student.username|first|upper }}</div>
+                <div class="mkp-parent-candidate-copy">
+                  <strong>{{ student.get_full_name|default:student.username }}</strong>
+                  <span>@{{ student.username }}</span>
+                </div>
+                <button class="mkp-parent-candidate-open" type="submit">{{ parent_t.select_student }} <span>→</span></button>
+              </form>
+            {% endfor %}
+          </div>
+          <form method="post" class="mkp-parent-choice-reset">
+            {% csrf_token %}
+            <input type="hidden" name="lang" value="{{ parent_lang }}">
+            <input type="hidden" name="action" value="reset">
+            <button class="mkp-btn secondary" type="submit">{{ parent_t.use_another_phone }}</button>
+          </form>
+        </section>
+      {% else %}
+        <section class="mkp-parent-access mkp-parent-access-v5597">
+          <div class="mkp-parent-access-copy">
+            <span class="mkp-kicker">{{ parent_t.parent_access }}</span>
+            <h2>{{ parent_t.student_access_code }}</h2>
+            <p>{{ parent_t.registration_help }}</p>
+            <div class="mkp-parent-code-preview" aria-hidden="true">
+              <div><span>{{ parent_t.student_access_code }}</span><strong>+998 90 123 45 67</strong></div>
+              <i>→</i>
+              <div class="mkp-parent-code-destination"><span>MakonBook</span><strong>Progress</strong></div>
+            </div>
+            <div class="mkp-parent-note"><span>✓</span><div>{{ parent_t.device_note }}</div></div>
+            <div class="mkp-parent-help-line"><span>{{ parent_t.use_registered_phone }}</span><span class="mkp-parent-support">{{ parent_t.support }}: <strong>+998951211600</strong></span></div>
+          </div>
+          <form method="post" class="mkp-parent-form mkp-parent-form-v5597">
+            {% csrf_token %}
+            <input type="hidden" name="lang" value="{{ parent_lang }}">
+            <input type="hidden" name="action" value="lookup">
+            <div class="mkp-parent-form-head"><span class="mkp-parent-form-icon">#</span><div><span>{{ parent_t.parent_access }}</span><strong>{{ parent_t.open_rating }}</strong></div></div>
+            <div class="mkp-field">
+              <label for="student-phone">{{ parent_t.student_access_code }}</label>
+              <input id="student-phone" name="phone_number" inputmode="tel" autocomplete="tel" placeholder="{{ parent_t.code_placeholder }}" value="{{ phone_number_value|default:'' }}" required autofocus>
+            </div>
+            <button class="mkp-btn wide mkp-parent-submit" type="submit">{{ parent_t.open_rating }} <span>→</span></button>
+            {% for message in messages %}<p class="mkp-parent-message">{{ message }}</p>{% endfor %}
+          </form>
+        </section>
+      {% endif %}
+    </div>
+  </main>
+
+  <footer class="mkp-footer"><div class="mkp-container mkp-footer-inner"><span>© {% now "Y" %} SAT Makon · MakonBook</span><div class="mkp-footer-links"><a href="/">{{ parent_t.home }}</a><a href="{% url 'global_event_list' %}">Mock exams</a><a href="{% url 'login' %}">Login</a></div></div></footer>
+</div>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>
 </body>
 </html>

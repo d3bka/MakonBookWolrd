@@ -120,7 +120,7 @@ class SupportBookingV33Tests(TestCase):
                 'is_open_for_requests': 'on',
             },
         )
-        self.assertRedirects(response, reverse('support_teacher_planner'))
+        self.assertRedirects(response, reverse('support_teacher_dashboard_root'), fetch_redirect_response=False)
         session = SupportLessonSession.objects.get(lesson_topic=self.topic)
         bookings = SupportLessonBooking.objects.filter(session=session).order_by('student__username')
         self.assertEqual(bookings.count(), 2)
@@ -207,11 +207,11 @@ class SupportBookingV33Tests(TestCase):
 
         self.client.force_login(multi_role)
         response = self.client.get(reverse('student_dashboard_root'))
-        self.assertRedirects(response, reverse('teacher_classroom_list'))
+        self.assertRedirects(response, reverse('teacher_dashboard_root'), fetch_redirect_response=False)
 
-        manager_response = self.client.get(reverse('manager_dashboard'))
+        manager_response = self.client.get(reverse('manager_dashboard_root'))
         self.assertEqual(manager_response.status_code, 200)
-        self.assertContains(manager_response, 'Manager Overview')
+        self.assertContains(manager_response, 'Manager home')
 
     def test_manager_panel_is_in_account_menu_and_replaces_admin_panel_label(self):
         multi_role = User.objects.create_user(
@@ -225,10 +225,10 @@ class SupportBookingV33Tests(TestCase):
         Classroom.objects.create(teacher=multi_role, name='V37 Staff Classroom')
 
         self.client.force_login(multi_role)
-        response = self.client.get(reverse('teacher_classroom_list'))
+        response = self.client.get(reverse('teacher_classrooms_root'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Manager Panel')
-        self.assertContains(response, reverse('manager_dashboard'))
+        self.assertContains(response, 'Manager</span>')
+        self.assertContains(response, reverse('manager_dashboard_root'))
         self.assertNotContains(response, '> Admin Panel')
 
     def test_manager_dashboard_is_group_scoped(self):
@@ -236,14 +236,16 @@ class SupportBookingV33Tests(TestCase):
         manager_group, _ = Group.objects.get_or_create(name='Manager')
         manager.groups.add(manager_group)
         self.client.force_login(manager)
-        response = self.client.get(reverse('manager_dashboard'))
+        response = self.client.get(reverse('manager_dashboard_root'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Manager Overview')
-        self.assertContains(response, self.support_teacher.name)
-        self.assertContains(response, self.classroom_teacher.username)
+        self.assertContains(response, 'Manager home')
+        self.assertContains(response, 'Main teachers')
+        self.assertContains(response, 'Support teachers')
+        self.assertContains(response, reverse('manager_teacher_list_root'))
+        self.assertContains(response, reverse('manager_support_teacher_list_root'))
 
         self.client.force_login(self.student)
-        response = self.client.get(reverse('manager_dashboard'))
+        response = self.client.get(reverse('manager_dashboard_root'))
         self.assertEqual(response.status_code, 403)
 
 

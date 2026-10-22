@@ -21,7 +21,20 @@
 
     <article class="v523-card v523-reveal v524-event-action-card" style="--reveal-index:2">
       <span class="v523-card-label">Your attempt</span>
-      {% if existing_attempt and existing_attempt.status == 'in_progress' %}
+      {% if event.registration_enabled and not event_registration %}
+        <h2>Reserve your seat first.</h2><p>This mock requires email-verified registration before an official attempt can start.</p>
+        <a class="mb50-primary-btn" href="{% url 'event_registration_student' event.slug %}">Register with this MakonBook account <i class="bi bi-arrow-right"></i></a>
+      {% elif event.registration_enabled and event_registration %}
+        <h2>Registration confirmed.</h2><p>Your seat is reserved for {{ event.branch|default:"this mock" }}.</p>
+        {% if existing_attempt and existing_attempt.status == 'in_progress' %}<a class="mb50-primary-btn" href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}">Resume attempt <i class="bi bi-arrow-right"></i></a>
+        {% elif existing_attempt and existing_attempt.status == 'submitted' %}<a class="mb50-primary-btn" href="{% url 'global_event_result_root' existing_attempt.guest_token %}">View result <i class="bi bi-arrow-right"></i></a>
+        {% elif availability.can_start %}
+          <form action="{% url 'start_global_event_root' event.slug %}" method="post" class="v524-event-start-form">{% csrf_token %}
+            {% if event.access_code and not event_code_verified %}<label><span>Event access code</span><input type="password" name="access_code" autocomplete="one-time-code" required placeholder="Enter code"></label>{% endif %}
+            <button class="mb50-primary-btn" type="submit">Start event <i class="bi bi-arrow-right"></i></button>
+          </form>
+        {% else %}<p>The exam opens at {{ event.start_at|date:"M j · H:i" }}.</p>{% endif %}
+      {% elif existing_attempt and existing_attempt.status == 'in_progress' %}
         <h2>Continue where you stopped.</h2><p>Your saved answers and remaining event state are waiting.</p>
         <a class="mb50-primary-btn" href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}">Resume attempt <i class="bi bi-arrow-right"></i></a>
       {% elif existing_attempt and existing_attempt.status == 'submitted' %}
@@ -30,7 +43,11 @@
       {% elif availability.can_start %}
         <h2>Ready when you are.</h2><p>Starting creates one official attempt for this event.</p>
         <form action="{% url 'start_global_event_root' event.slug %}" method="post" class="v524-event-start-form">{% csrf_token %}
-          {% if event.access_code %}<label><span>Event access code</span><input type="password" name="access_code" autocomplete="one-time-code" required placeholder="Enter code"></label>{% endif %}
+          {% if event.access_code and not event_code_verified %}
+            <label><span>Event access code</span><input type="password" name="access_code" autocomplete="one-time-code" required placeholder="Enter code"></label>
+          {% elif event.access_code and event_code_verified %}
+            <div class="v524-event-code-verified"><i class="bi bi-check-circle"></i><span>Access code verified</span></div>
+          {% endif %}
           <button class="mb50-primary-btn" type="submit">Start event <i class="bi bi-arrow-right"></i></button>
         </form>
       {% else %}

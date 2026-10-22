@@ -375,6 +375,13 @@ mjx-container {
         font-size: 17px;
     }
 }
+html[data-theme="dark"] .reference-overlay{background:rgba(2,6,23,.58)}
+html[data-theme="dark"] .reference-sheet,html[data-theme="dark"] .reference-header,html[data-theme="dark"] .reference-body,html[data-theme="dark"] .reference-card{background:#120f1a!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}
+html[data-theme="dark"] .reference-body{background:#0f0b16!important}
+html[data-theme="dark"] .reference-close-btn,html[data-theme="dark"] .formula{background:rgba(255,255,255,.05)!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}
+html[data-theme="dark"] .reference-note,html[data-theme="dark"] .ref-section-title{color:rgba(236,233,254,.72)!important}
+html[data-theme="dark"] .ref-svg,html[data-theme="dark"] .ref-formula,html[data-theme="dark"] .ref-footer,html[data-theme="dark"] .ref-footer p,html[data-theme="dark"] .ref-svg text{color:#f7f3ff!important;fill:#f7f3ff!important;stroke:currentColor}
+body[data-theme="dark"] .reference-overlay{background:rgba(2,6,23,.58)!important}body[data-theme="dark"] .reference-sheet,body[data-theme="dark"] .reference-header,body[data-theme="dark"] .reference-body,body[data-theme="dark"] .reference-card{background:#120f1a!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}body[data-theme="dark"] .reference-body{background:#0f0b16!important}body[data-theme="dark"] .reference-close-btn,body[data-theme="dark"] .formula{background:rgba(255,255,255,.05)!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}body[data-theme="dark"] .reference-note,body[data-theme="dark"] .ref-section-title{color:rgba(236,233,254,.72)!important}body[data-theme="dark"] .ref-svg,body[data-theme="dark"] .ref-formula,body[data-theme="dark"] .ref-footer,body[data-theme="dark"] .ref-footer p,body[data-theme="dark"] .ref-svg text{color:#f7f3ff!important;fill:#f7f3ff!important;stroke:currentColor}
 
 /* Make math header tool icons white */
 .math-header-tools .math-tool-btn,
@@ -392,4 +399,95 @@ mjx-container {
 .fa-home {
     color: #ffffff !important;
     opacity: 1 !important;
+}
+
+/* Improved SAT Reference Sheet V54.1.1 */
+.sat-reference-wrapper {
+    padding: 10px;
+}
+.sat-ref-flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-end;
+    margin-bottom: 24px;
+}
+.ref-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    flex: 0 1 120px;
+}
+.ref-svg {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 4px;
+    color: var(--sat-text, var(--mk-text, #111827));
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.ref-svg-text {
+    font-family: 'Times New Roman', Times, serif;
+    font-style: italic;
+    font-size: 16px;
+    stroke: none;
+}
+.ref-formula {
+    font-family: 'Times New Roman', Times, serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--sat-text, var(--mk-text, #111827));
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.ref-section-title {
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--mk-text-muted, #4b5563);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.ref-footer {
+    width: 100%;
+    margin-top: 30px;
+    padding-top: 15px;
+    border-top: 1px solid var(--sat-border, var(--mk-card-border, #e5e7eb));
+    text-align: left;
+    font-size: 15px;
+    color: var(--sat-text, var(--mk-text, #111827));
+    font-family: 'Times New Roman', Times, serif;
+    line-height: 1.5;
+}
+.ref-footer p {
+    margin: 6px 0;
+}
+@media (max-width: 600px) {
+    .sat-ref-flex { gap: 10px; margin-bottom: 16px; }
+    .ref-item { flex: 0 1 100px; }
+    .ref-svg { width: 80px; height: 80px; }
+    .ref-formula { font-size: 14px; }
+}
+
+.math-frac {
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+    font-size: 0.8em;
+    margin: 0 1px;
+}
+.math-num {
+    display: block;
+    border-bottom: 1.5px solid currentColor;
+    line-height: 1.2;
+    padding: 0 1px;
+}
+.math-den {
+    display: block;
+    line-height: 1.2;
+    padding: 0 1px;
 }

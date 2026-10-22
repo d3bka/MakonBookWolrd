@@ -16,11 +16,8 @@
 
   function saveMode(mode) {
     try {
-      if (mode === "system") {
-        localStorage.removeItem(storageKey);
-      } else {
-        localStorage.setItem(storageKey, mode);
-      }
+      if (mode === "system") localStorage.removeItem(storageKey);
+      else localStorage.setItem(storageKey, mode);
     } catch (error) {}
   }
 
@@ -34,10 +31,10 @@
     return mode === "light" ? "☀" : "☾";
   }
 
-  function labelFor(mode) {
+  function labelFor(mode, resolved) {
     if (mode === "light") return "Light";
     if (mode === "dark") return "Dark";
-    return "System";
+    return "System · " + (resolved === "light" ? "Light" : "Dark");
   }
 
   function applyTheme(mode) {
@@ -50,8 +47,12 @@
     document.querySelectorAll("[data-theme-switcher]").forEach(function (switcher) {
       var label = switcher.querySelector("[data-theme-label]");
       var icon = switcher.querySelector("[data-theme-icon]");
-      if (label) label.textContent = labelFor(mode);
+      var status = switcher.querySelector("[data-theme-system-status]");
+      var toggle = switcher.querySelector("[data-theme-toggle]");
+      if (label) label.textContent = labelFor(mode, resolved);
       if (icon) icon.textContent = iconFor(mode, resolved);
+      if (status) status.textContent = "Device · " + (resolved === "light" ? "Light" : "Dark");
+      if (toggle) toggle.setAttribute("aria-label", "Theme: " + labelFor(mode, resolved) + ". Change color theme");
 
       switcher.querySelectorAll("[data-theme-choice]").forEach(function (choice) {
         choice.setAttribute("aria-checked", String(choice.dataset.themeChoice === mode));
@@ -59,17 +60,33 @@
     });
   }
 
+  function closeSwitcher(switcher, restoreFocus) {
+    if (!switcher) return;
+    switcher.classList.remove("is-open");
+    var toggle = switcher.querySelector("[data-theme-toggle]");
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", "false");
+      if (restoreFocus) toggle.focus();
+    }
+  }
+
   function closeAll(except) {
     document.querySelectorAll("[data-theme-switcher].is-open").forEach(function (switcher) {
-      if (switcher === except) return;
-      switcher.classList.remove("is-open");
-      var toggle = switcher.querySelector("[data-theme-toggle]");
-      if (toggle) toggle.setAttribute("aria-expanded", "false");
+      if (switcher !== except) closeSwitcher(switcher, false);
     });
+  }
+
+  function focusChoice(switcher, index) {
+    var choices = Array.prototype.slice.call(switcher.querySelectorAll("[data-theme-choice]"));
+    if (!choices.length) return;
+    index = (index + choices.length) % choices.length;
+    choices[index].focus();
   }
 
   function setupSwitcher(switcher) {
     var toggle = switcher.querySelector("[data-theme-toggle]");
+    var choices = Array.prototype.slice.call(switcher.querySelectorAll("[data-theme-choice]"));
+
     if (toggle) {
       toggle.addEventListener("click", function (event) {
         event.stopPropagation();
@@ -77,17 +94,38 @@
         closeAll(switcher);
         switcher.classList.toggle("is-open", willOpen);
         toggle.setAttribute("aria-expanded", String(willOpen));
+        if (willOpen) {
+          var current = choices.findIndex(function (item) { return item.getAttribute("aria-checked") === "true"; });
+          window.setTimeout(function () { focusChoice(switcher, current < 0 ? 0 : current); }, 20);
+        }
+      });
+      toggle.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          if (!switcher.classList.contains("is-open")) toggle.click();
+          else {
+            var current = choices.findIndex(function (item) { return item.getAttribute("aria-checked") === "true"; });
+            focusChoice(switcher, current < 0 ? 0 : current);
+          }
+        }
       });
     }
 
-    switcher.querySelectorAll("[data-theme-choice]").forEach(function (choice) {
+    choices.forEach(function (choice, index) {
       choice.addEventListener("click", function (event) {
         event.stopPropagation();
         var mode = choice.dataset.themeChoice;
         if (!allowed[mode]) return;
         saveMode(mode);
         applyTheme(mode);
-        closeAll();
+        closeSwitcher(switcher, true);
+      });
+      choice.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowDown") { event.preventDefault(); focusChoice(switcher, index + 1); }
+        else if (event.key === "ArrowUp") { event.preventDefault(); focusChoice(switcher, index - 1); }
+        else if (event.key === "Home") { event.preventDefault(); focusChoice(switcher, 0); }
+        else if (event.key === "End") { event.preventDefault(); focusChoice(switcher, choices.length - 1); }
+        else if (event.key === "Escape") { event.preventDefault(); closeSwitcher(switcher, true); }
       });
     });
   }
@@ -97,22 +135,16 @@
     applyTheme(getSavedMode());
   });
 
-  document.addEventListener("click", function () {
-    closeAll();
-  });
-
+  document.addEventListener("click", function () { closeAll(); });
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") closeAll();
+    if (event.key === "Escape") document.querySelectorAll("[data-theme-switcher].is-open").forEach(function (switcher) { closeSwitcher(switcher, true); });
   });
 
   if (media) {
     var onSystemThemeChange = function () {
       if (getSavedMode() === "system") applyTheme("system");
     };
-    if (media.addEventListener) {
-      media.addEventListener("change", onSystemThemeChange);
-    } else if (media.addListener) {
-      media.addListener(onSystemThemeChange);
-    }
+    if (media.addEventListener) media.addEventListener("change", onSystemThemeChange);
+    else if (media.addListener) media.addListener(onSystemThemeChange);
   }
 })();

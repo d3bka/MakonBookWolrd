@@ -1,10 +1,11 @@
-{% extends 'template.html' %}
-{% load sat_extras %}
+{% extends results_base_template %}
+{% load sat_extras static %}
 
 {% block title-main %} Results {% endblock title-main %}
 {% block title %} Results {% endblock title %}
 
 {% block style %}
+{{ block.super }}
 <style>
   :root {
     --themeColor: #6d28d9;
@@ -359,89 +360,119 @@
   .retake-form button { border: 0; }
   .retake-form button[disabled] { opacity:.68; cursor:wait; }
   .chart-container.charts-unavailable::after { content:'Timing chart could not load. Question review and scores are still available above.'; display:block; margin-top:14px; padding:14px; border:1px solid var(--results-border); border-radius:14px; color:var(--results-muted); }
+  .v553-hw-result{margin:18px 0 22px;padding:20px 22px;border:1px solid var(--results-border);border-radius:20px;background:var(--results-surface);box-shadow:0 10px 28px rgba(15,23,42,.08)}
+  .v553-hw-result.is-success{border-color:rgba(22,163,74,.24);background:linear-gradient(135deg,rgba(34,197,94,.08),var(--results-surface-2))}
+  .v553-hw-result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.v553-hw-result-head h2{display:flex;align-items:center;gap:10px;font-size:1.04rem;margin:0}.v553-hw-result-head p{margin:6px 0 0;color:var(--results-muted);font-size:.82rem;line-height:1.55}
+  .v553-hw-list{display:grid;gap:10px}.v553-hw-choice{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid var(--results-border);border-radius:14px;background:var(--results-surface-2);cursor:pointer}.v553-hw-choice input{margin-top:4px}.v553-hw-choice strong{display:block;font-size:.86rem}.v553-hw-choice small{display:block;margin-top:4px;color:var(--results-muted);line-height:1.45}.v553-hw-choice>span{min-width:0}.v553-hw-choice i{margin-top:2px;color:var(--results-correct)}
+  .v553-hw-submit{margin-top:14px;display:flex;justify-content:flex-end}.v553-hw-submit button{border:0;border-radius:999px;padding:12px 18px;background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;font-weight:800;box-shadow:0 14px 28px rgba(109,40,217,.22)}
+  .v553-hw-choice:hover{border-color:rgba(139,92,246,.36);transform:translateY(-1px)}
+  @media (max-width: 900px){.v553-hw-result{padding:18px}.v553-hw-submit{justify-content:stretch}.v553-hw-submit button{width:100%}}
 </style>
+<link rel="stylesheet" href="{% static 'assets/css/results-v527.css' %}?v=527">
+<link rel="stylesheet" href="{% static 'assets/css/results-v528.css' %}?v=528">
+<link rel="stylesheet" href="{% static 'assets/css/results-v530-workspace.css' %}?v=530">
 {% endblock style %}
 
 {% block content %}
-<div class="mx-auto results-shell" style="width:90%;">
-  <div data-v-27935a7a="" class="row mx-auto sat">
-    <a data-v-27935a7a="" href="{% if classroom %}{% url 'classroom_practice_tests_root' classroom.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}" class="col-md-4 sat_left print_div">
-      <p data-v-27935a7a="">SAT</p><span data-v-27935a7a="">®</span>
-    </a>
-    <div data-v-27935a7a="" class="col-md-4 sat_right row">
-      <div data-v-27935a7a="" class="ml-3">
-        <ul data-v-27935a7a="">
-          <li data-v-27935a7a=""><b data-v-27935a7a="">Name: </b><span data-v-27935a7a="">{{ display_user|default:user }}</span></li>
-          <li data-v-27935a7a="">
-            <b data-v-27935a7a="">Total Score: </b>
-            <b data-v-27935a7a="" style="color: var(--themeColor);">{{ score.total }}</b>
-          </li>
-          <li data-v-27935a7a=""><b data-v-27935a7a="">Test Name: </b><span data-v-27935a7a="">{{ stats.test }}</span></li>
-        </ul>
+<div class="results-shell mr527-page">
+
+  <section class="mr527-hero">
+    <div>
+      <span class="mr527-eyebrow"><i class="bi bi-bar-chart-line"></i> Test results</span>
+      <h1>{{ stats.test }}</h1>
+      <p>
+        {% if is_teacher_review %}Teacher review for {{ display_user|default:user }}.
+        {% else %}Completed by {{ display_user|default:user }}. Review your section scores, question accuracy and time spent below.{% endif %}
+      </p>
+      <div class="mr527-chips">
+        <span class="mr527-chip"><i class="bi bi-person"></i>{{ display_user|default:user }}</span>
+        <span class="mr527-chip"><i class="bi bi-clipboard2-check"></i>{% if test_mode == 'full' %}Full SAT{% else %}Partial test{% endif %}</span>
+        {% if is_teacher_review %}<span class="mr527-chip"><i class="bi bi-person-check"></i>Teacher review</span>{% endif %}
       </div>
-    </div>
-    {% if not is_teacher_review %}
-    <div class="col-md-1" style="padding-top: 30px; padding-right: 30px;">
-      <div class="button-container">
-        <a href="{% url 'practice_test_certificate_root' stats.test %}?review_key={{ key|urlencode }}" style="text-decoration:none; color:inherit; margin-left:10px;">
-          <i class="fa fa-vcard" style="font-size: -webkit-xxx-large;"></i> Certificate
+      <div class="mr530-hero-actions">
+        <a class="mr530-hero-link" href="{% if is_teacher_review %}{% url 'classroom_student_practice_progress' classroom.id review_student.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">
+          <i class="bi bi-arrow-left"></i><span>Back to tests</span>
         </a>
+        {% if not is_teacher_review %}
+        <a class="mr530-hero-link is-primary" href="{% url 'practice_test_certificate_root' stats.test %}?review_key={{ key|urlencode }}">
+          <i class="bi bi-patch-check"></i><span>Certificate</span>
+        </a>
+        {% endif %}
       </div>
     </div>
-    {% else %}
-    <div class="col-md-4" style="padding-top: 30px;">
-      <div class="teacher-mode-badge">
-        Teacher review mode · {{ display_user|default:user }}
-      </div>
+    <div class="mr527-score-orb">
+      <small>TOTAL SCORE</small>
+      <strong>{{ score.total }}</strong>
+      <span>{% if test_mode == 'full' %}400–1600{% else %}Partial test score{% endif %}</span>
     </div>
-    {% endif %}
-  </div>
+  </section>
 
   {% if attempt_options and attempt_options|length > 1 %}
-  <div class="row" style="margin: 20px 0;">
-    <div class="col-md-8">
-      <label for="review_attempt_url" style="font-weight:700;margin-right:10px;">Select attempt for review:</label>
-      <select id="review_attempt_url" onchange="if(this.value){window.location.assign(this.value)}" style="padding:8px 12px;border-radius:10px;border:1px solid var(--results-border);background:var(--results-surface-2);color:var(--results-text);">
-        {% for option in attempt_options %}
-          <option value="{{ option.url }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
-        {% endfor %}
-      </select>
-    </div>
+  <div class="mr527-attempts">
+    <label for="review_attempt_url">Attempt history</label>
+    <select id="review_attempt_url" onchange="if(this.value){window.location.assign(this.value)}">
+      {% for option in attempt_options %}
+        <option value="{{ option.url }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+      {% endfor %}
+    </select>
   </div>
   {% endif %}
 
-  <div data-v-049b5cac="" class="row mx-auto total">
-    <div data-v-049b5cac="" class="col-md-6 col-sm-12 total_score print_div">
-      {% if status.total %}
-      <h4 data-v-049b5cac="" class="title"> Your Total Score </h4>
-      <div data-v-049b5cac="" class="row total_above">
-        <p data-v-049b5cac="" class="col-xs-8 score">{{ score.total }}</p>
-        <p data-v-049b5cac="" class="col-xs-4 t_score">
-          {% if test_mode == 'full' %}
-            400 to 1600
-          {% else %}
-            Partial Test
-          {% endif %}
-        </p>
-      </div>
-      {% if not is_teacher_review %}
-      <div class="restart-btn-container">
-        <form method="post" action="{% url 'practice_test_restart_root' pk=stats.test %}" class="retake-form">
-          {% csrf_token %}
-          {% if classroom %}<input type="hidden" name="classroom_id" value="{{ classroom.id }}">{% endif %}
-          <button type="submit" class="btn btn-danger btn-sm">
-            <i class="fa fa-refresh"></i> Retake Full Test
-          </button>
-        </form>
-      </div>
-      {% endif %}
-      {% else %}
-      <h4 data-v-049b5cac="" class="title" style="color: red;"> You need to complete all sections </h4>
-      {% endif %}
-    </div>
-  </div>
+  {% if homework_auto_submitted %}
+  <section class="v553-hw-result is-success">
+    <div class="v553-hw-result-head"><div><h2><i class="bi bi-check2-all"></i> Homework submitted automatically</h2><p>You launched this attempt from Homework, so no extra confirmation was needed.</p></div></div>
+    <div class="v553-hw-list">{% for assignment in homework_auto_submitted %}<div class="v553-hw-choice"><i class="bi bi-check-circle-fill"></i><span><strong>{{ assignment.title }}</strong><small>{{ assignment.classroom.name }}{% if assignment.due_at %} · due {{ assignment.due_at|date:'d M, H:i' }}{% endif %}</small></span></div>{% endfor %}</div>
+  </section>
+  {% endif %}
 
-  <hr style="margin-top: 10px; margin-bottom: 30px;">
+  {% if homework_submit_candidates and not is_teacher_review %}
+  <section class="v553-hw-result">
+    <div class="v553-hw-result-head"><div><h2><i class="bi bi-send-check"></i> Submit this attempt as homework?</h2><p>This result satisfies the teacher requirements below. Nothing is sent until you confirm.</p></div></div>
+    <form method="post" action="{% url 'student_homework_submit_attempt_root' %}">
+      {% csrf_token %}<input type="hidden" name="review_key" value="{{ key }}">
+      <div class="v553-hw-list">
+        {% for assignment in homework_submit_candidates %}
+        <label class="v553-hw-choice"><input type="checkbox" name="assignment_ids" value="{{ assignment.id }}" checked><span><strong>{{ assignment.title }}</strong><small>{{ assignment.classroom.name }} · {{ assignment.get_required_test_mode_display }} · Anti-Cheat {{ assignment.get_required_integrity_mode_display }}{% if assignment.due_at %} · due {{ assignment.due_at|date:'d M, H:i' }}{% endif %}</small></span></label>
+        {% endfor %}
+      </div>
+      <div class="v553-hw-submit"><button type="submit"><i class="bi bi-send"></i> Submit selected homework</button></div>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="mr527-metrics">
+    <article class="mr527-metric">
+      <small>Correct answers</small>
+      <strong>{{ stats.total }}</strong>
+      <span>across completed modules</span>
+    </article>
+    <article class="mr527-metric">
+      <small>Total time</small>
+      <strong>{{ stats.time_spent }}</strong>
+      <span>seconds recorded</span>
+    </article>
+    {% if not is_teacher_review %}
+    <article class="mr527-metric is-action">
+      <div><small>Try again</small><strong>Retake this test</strong><span>Your previous result stays in history.</span></div>
+      <form method="post" action="{% url 'practice_test_restart_root' pk=stats.test %}" class="retake-form">
+        {% csrf_token %}
+        {% if classroom %}<input type="hidden" name="classroom_id" value="{{ classroom.id }}">{% endif %}
+        <button type="submit" class="btn btn-danger btn-sm"><i class="fa fa-refresh"></i> Retake</button>
+      </form>
+    </article>
+    {% else %}
+    <article class="mr527-metric">
+      <small>Review mode</small>
+      <strong>Teacher</strong>
+      <span>{{ display_user|default:user }}</span>
+    </article>
+    {% endif %}
+  </section>
+
+  <div class="mr527-section-title">
+    <div><small>Score breakdown</small><h2>Section scores</h2></div>
+    <p>Use section retakes to target one area without losing this result.</p>
+  </div>
   <div class="row module-row">
     {% if has_english %}
     <div class="col-md-6">
@@ -510,7 +541,10 @@
     {% endif %}
   </div>
 
-  <hr style="margin-top: 10px; margin-bottom: 30px;">
+  <div class="mr527-section-title">
+    <div><small>Review</small><h2>Question map</h2></div>
+    <p>Open any question to review the selected attempt.</p>
+  </div>
   <div class="row module-row">
     {% if has_english_m1 %}
     <div class="col-md-3 module-card">
@@ -565,8 +599,12 @@
     {% endif %}
   </div>
 
+  <div class="mr527-section-title">
+    <div><small>Timing</small><h2>Time per question</h2></div>
+    <p>See where this attempt spent the most time.</p>
+  </div>
   <div class="chart-container">
-    <h4>Time Spent Per Question for Each Module</h4>
+    <h4>Time spent per question for each module</h4>
 
     <div class="row" style="row-gap:24px;">
       {% if has_english_m1 %}<div class="col-md-6"><h5>English Module 1</h5><canvas id="chart-english-m1"></canvas></div>{% endif %}
@@ -709,14 +747,32 @@
     {% endif %}
   </script>
   <script>
+    (function(){
+      try {
+        var saved = localStorage.getItem('sat-makon-theme');
+        var mode = saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
+        var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        var resolved = mode === 'system' ? (prefersLight ? 'light' : 'dark') : mode;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+        document.body.dataset.theme = resolved;
+      } catch (error) {}
+    })();
+  </script>
+  <script>
     document.querySelectorAll('.retake-form').forEach(function(form){
       form.addEventListener('submit',function(event){
         if(form.dataset.submitting==='1'){event.preventDefault();return;}
-        if(!window.confirm('Start a new attempt? The selected previous result will remain available in attempt history.')){event.preventDefault();return;}
+        if(!window.confirm('Open the retake overview? Your selected result will stay in attempt history.')){event.preventDefault();return;}
         form.dataset.submitting='1';
         const button=form.querySelector('button[type="submit"]');
-        if(button){button.disabled=true;button.innerHTML='<i class="fa fa-circle-o-notch fa-spin"></i> Starting…';}
+        if(button){button.disabled=true;button.innerHTML='<i class="fa fa-circle-o-notch fa-spin"></i> Opening…';}
       });
     });
   </script>
 {% endblock content %}
+
+{% block issue_report_widget %}
+  {% include 'base/issue_report_widget.html' %}
+{% endblock issue_report_widget %}

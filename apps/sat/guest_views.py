@@ -1,9 +1,12 @@
 import json
+import logging
 from datetime import timedelta
 from functools import wraps
 from itertools import chain
+from math import ceil
 
 from django.contrib import messages
+from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponseForbidden
@@ -19,6 +22,7 @@ from .models import (
     GlobalEventModuleDraft,
     GuestParticipant,
     Math_Question,
+    PublicPlacementLead,
 )
 from .views import (
     _canonical_partial_module_answers,
@@ -34,11 +38,22 @@ from .views import (
 from .libs import calculator
 from .text_formatting import format_english_questions_for_display
 from .answer_matching import check_english_answer
+from .event_registration import (
+    bind_registration_to_session,
+    event_confirmed_count,
+    event_pending_hold_count,
+    registration_for_request,
+    registration_window,
+    seats_left,
+)
 
 try:
     from apps.apclasses.models import APExamEvent
 except Exception:  # pragma: no cover
     APExamEvent = None
+
+
+logger = logging.getLogger(__name__)
 
 
 # =========================
@@ -74,6 +89,23 @@ def is_guest_mode(request):
 def _event_home_redirect(request):
     """Return the correct events home without exposing guest UX to students."""
     return redirect("events" if getattr(request.user, "is_authenticated", False) else "global_event_list")
+
+
+def _event_secret_session_key(event):
+    return f"global_event_{event.pk}_secret_ok"
+
+
+def _event_code_verified(request, event):
+    return bool(request.session.get(_event_secret_session_key(event)))
+
+
+def _grant_event_code_access(request, event):
+    request.session[_event_secret_session_key(event)] = True
+    request.session.modified = True
+
+
+def _normalized_event_code(value):
+    return "".join(str(value or "").split()).upper()
 
 
 def ensure_authenticated_event_participant(request):
@@ -116,6 +148,12 @@ def guest_required(view_func):
             return view_func(request, *args, **kwargs)
         if not is_guest_mode(request) or get_guest_from_session(request) is None:
             return redirect("guest_entry")
+        if (
+            not getattr(settings, "MAKONBOOK_GUEST_MODE_ENABLED", False)
+            and not request.session.get("verified_event_registration")
+            and not request.session.get("public_placement_guest")
+        ):
+            return redirect("home")
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
@@ -215,16 +253,22 @@ def get_guest_current_step(attempt):
 
 
 def _event_availability(event, now=None):
+    """Return schedule/status availability, independent of discoverability.
+
+    ``is_public`` only controls whether an event is listed. Private events can
+    still be live and accessible after a valid access code.
+    """
     now = now or timezone.now()
-    if not event.is_public or event.status in {"draft", "closed"}:
+    if event.status in {"draft", "closed"}:
         return {"state": "unavailable", "label": "Unavailable", "can_start": False}
     if event.always_live:
         if event.status == "live":
             return {"state": "live", "label": "Live now", "can_start": True}
         return {"state": "upcoming", "label": "Scheduled", "can_start": False}
-    if now > event.end_at:
+    effective_end = event.effective_end_at or event.end_at
+    if effective_end and now > effective_end:
         return {"state": "ended", "label": "Ended", "can_start": False}
-    if now < event.start_at:
+    if event.start_at and now < event.start_at:
         return {"state": "upcoming", "label": "Upcoming", "can_start": False}
     if event.status == "live":
         return {"state": "live", "label": "Live now", "can_start": True}
@@ -234,21 +278,28 @@ def _event_availability(event, now=None):
 def _event_hard_ended(event, now=None):
     """Return whether an in-progress attempt must stop immediately.
 
-    An admin making an event private or moving it out of the Live state must
-    close existing guest attempts too.  Previously only the calendar end or
-    explicit Closed state was checked, so a hidden/draft event could keep
-    running through a bookmarked attempt URL.
+    Visibility is intentionally not part of this decision. Turning off
+    ``is_public`` hides an event from discovery but must not terminate students
+    who entered it with a valid code. Use status=closed to stop an event.
     """
     now = now or timezone.now()
-    if not event.is_public or event.status != "live":
+    if event.status != "live":
         return True
-    return not event.always_live and now >= event.end_at
+    if event.always_live:
+        return False
+    effective_end = event.effective_end_at or event.end_at
+    return bool(effective_end and now >= effective_end)
 
 
 def _guest_attempt_expiry(event, sequence, now=None):
     now = now or timezone.now()
+    # Always-active events ignore their calendar end entirely. Attempts still
+    # receive their own resume/runtime expiry so abandoned sessions do not stay
+    # open forever.
     if not event.always_live:
-        return event.end_at
+        effective_end = event.effective_end_at or event.end_at
+        if effective_end:
+            return effective_end
     total_seconds = sum(max(int(event.get_module_duration(section) or 0), 1) * 60 for section, _ in sequence)
     if event.allow_resume:
         return now + timedelta(days=7)
@@ -266,7 +317,7 @@ def _repair_guest_attempt_expiry(attempt):
         return
     now = timezone.now()
     if attempt.event.always_live:
-        if attempt.expires_at <= now:
+        if attempt.event.allow_resume and attempt.expires_at <= now:
             attempt.expires_at = _guest_attempt_expiry(
                 attempt.event,
                 get_test_sequence(attempt.event.test),
@@ -274,8 +325,9 @@ def _repair_guest_attempt_expiry(attempt):
             )
             attempt.save(update_fields=["expires_at"])
         return
-    if attempt.expires_at != attempt.event.end_at:
-        attempt.expires_at = attempt.event.end_at
+    effective_end = attempt.event.effective_end_at or attempt.event.end_at
+    if effective_end and attempt.expires_at != effective_end:
+        attempt.expires_at = effective_end
         attempt.save(update_fields=["expires_at"])
 
 
@@ -294,7 +346,7 @@ def _finalize_guest_attempt_safely(attempt_id):
 
 
 def _draft_remaining_seconds(draft):
-    return max(int((draft.deadline_at - timezone.now()).total_seconds()), 0)
+    return max(ceil((draft.deadline_at - timezone.now()).total_seconds()), 0)
 
 
 def _guest_submit_recovery_allowed(draft, payload, now=None):
@@ -400,6 +452,9 @@ def _guest_draft_state_payload(draft, questions):
         "markedForReview": flags(draft.marked_for_review),
         "currentQuestionIndex": min(max(int(draft.current_question_index or 0), 0), max(len(question_ids) - 1, 0)),
         "deadlineAt": int(draft.deadline_at.timestamp() * 1000),
+        # Use a server-time anchor in the browser. Comparing deadlineAt with the
+        # student's local clock directly can end an exam early on misconfigured PCs.
+        "serverNow": int(timezone.now().timestamp() * 1000),
         "updatedAt": int((draft.updated_at or draft.created_at or timezone.now()).timestamp() * 1000),
     }
 
@@ -1049,12 +1104,39 @@ def apply_attempt_score(attempt, *, submit=False):
     return attempt
 
 
+def _mark_public_placement_completed(attempt):
+    """Best-effort CRM/Telegram hook; never block exam finalisation."""
+    if getattr(attempt.event, "event_type", None) != GlobalEvent.TYPE_PLACEMENT:
+        return
+    try:
+        lead = attempt.public_placement_lead
+    except Exception:
+        return
+    try:
+        from .models import PlacementTelegramNotification
+
+        now = timezone.now()
+        if lead.completed_at is None:
+            lead.completed_at = attempt.submitted_at or now
+            lead.attempt = attempt
+            lead.save(update_fields=["completed_at", "attempt", "updated_at"])
+        PlacementTelegramNotification.objects.get_or_create(
+            lead=lead,
+            kind=PlacementTelegramNotification.KIND_COMPLETED,
+        )
+    except Exception:
+        logger.exception("Could not queue public placement completion notification for attempt %s", attempt.pk)
+
+
 def finalize_attempt(attempt):
     if attempt.status == "submitted":
         apply_attempt_score(attempt, submit=False)
+        _mark_public_placement_completed(attempt)
         return attempt
 
-    return apply_attempt_score(attempt, submit=True)
+    attempt = apply_attempt_score(attempt, submit=True)
+    _mark_public_placement_completed(attempt)
+    return attempt
 
 
 def auto_submit_attempt(attempt):
@@ -1070,6 +1152,10 @@ def auto_submit_attempt(attempt):
 
 
 def guest_entry_view(request):
+    # V5581: anonymous guest entry is disabled; verified event registration owns external identity.
+    if not getattr(settings, "MAKONBOOK_GUEST_MODE_ENABLED", False) and not getattr(request.user, "is_authenticated", False):
+        messages.info(request, "Anonymous guest mode has been replaced by verified Mock Exam registration.")
+        return redirect("home")
     # Authenticated students never see the old guest identity screen.  Keep the
     # legacy anonymous endpoint for backwards compatibility while normal
     # MakonBook navigation stays account-backed.
@@ -1124,6 +1210,14 @@ def _serialize_sat_global_event(event, now=None):
         "end_at": event.end_at,
         "english_duration_minutes": event.english_duration_minutes,
         "math_duration_minutes": event.math_duration_minutes,
+        "registration_enabled": event.registration_enabled,
+        "branch": event.branch,
+        "capacity": event.capacity,
+        "confirmed_count": event_confirmed_count(event) if event.registration_enabled else 0,
+        "pending_hold_count": event_pending_hold_count(event, now) if event.registration_enabled else 0,
+        "seats_left": seats_left(event, now) if event.registration_enabled else None,
+        "registration_state": registration_window(event, now).state if event.registration_enabled else "disabled",
+        "registration_url": reverse("event_registration_choice", kwargs={"slug": event.slug}) if event.registration_enabled else "",
         "detail_url": reverse("global_event_detail_root", kwargs={"slug": event.slug}),
     }
 
@@ -1157,14 +1251,15 @@ def _serialize_ap_global_event(request, event):
     }
 
 
-@guest_required
 def global_event_list_view(request):
-    if getattr(request.user, "is_authenticated", False):
-        return redirect("events")
     now = timezone.now()
+    GlobalEvent.close_expired(now)
     sat_events = []
     for event in GlobalEvent.objects.filter(is_public=True, status__in=["live", "scheduled"]).select_related("test"):
         serialized = _serialize_sat_global_event(event, now)
+        if event.registration_enabled:
+            serialized["registration_window"] = registration_window(event, now)
+            serialized["registration"] = registration_for_request(request, event)
         if serialized["availability"]["state"] not in {"ended", "unavailable"}:
             sat_events.append(serialized)
 
@@ -1190,10 +1285,22 @@ def global_event_list_view(request):
     return render(request, "sat/guest/event_list.html", {"events": events, "now": now})
 
 
-@guest_required
 def global_event_detail_view(request, slug):
-    event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug, is_public=True)
-    guest = get_guest_from_session(request)
+    event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug)
+    code_verified = _event_code_verified(request, event)
+    # v5566: signed-in students may open a private/code-gated event card and
+    # enter the code on the detail page. Anonymous guest discovery remains
+    # public-only and still requires prior code verification.
+    if (
+        not event.is_public
+        and not code_verified
+        and not getattr(request.user, "is_authenticated", False)
+    ):
+        messages.error(request, "This event is private. Enter its access code to continue.")
+        return _event_home_redirect(request)
+
+    event_registration = registration_for_request(request, event) if event.registration_enabled else None
+    guest = event_registration.guest if event_registration and event_registration.guest_id else get_guest_from_session(request)
     existing_attempt = GlobalEventAttempt.objects.filter(event=event, guest=guest).first() if guest else None
     if existing_attempt:
         _repair_guest_attempt_expiry(existing_attempt)
@@ -1206,6 +1313,11 @@ def global_event_detail_view(request, slug):
         "event": event,
         "existing_attempt": existing_attempt,
         "availability": _event_availability(event),
+        "event_code_verified": code_verified,
+        "event_registration": event_registration,
+        "event_registration_window": registration_window(event) if event.registration_enabled else None,
+        "event_confirmed_count": event_confirmed_count(event) if event.registration_enabled else 0,
+        "event_seats_left": seats_left(event) if event.registration_enabled else None,
     }
     if getattr(request.user, "is_authenticated", False):
         from .student_workspace import student_workspace_context
@@ -1214,14 +1326,34 @@ def global_event_detail_view(request, slug):
     return render(request, "sat/guest/event_detail.html", context)
 
 
-@guest_required
 def start_global_event_view(request, slug):
     if request.method != "POST":
         return redirect("global_event_detail_root", slug=slug)
-    event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug, is_public=True)
-    guest = get_guest_from_session(request)
-    if not guest:
-        return redirect("guest_entry")
+    event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug)
+    if (
+        request.session.get("public_placement_guest")
+        and not request.session.get("verified_event_registration")
+        and not getattr(request.user, "is_authenticated", False)
+        and event.event_type != GlobalEvent.TYPE_PLACEMENT
+    ):
+        messages.info(request, "This public session is only valid for placement tests.")
+        return redirect("public_placement_list")
+    if event.registration_enabled:
+        event_registration = registration_for_request(request, event)
+        if not event_registration or not event_registration.guest_id:
+            messages.info(request, "Verify your registration before starting this mock exam.")
+            return redirect("event_registration_choice", slug=event.slug)
+        guest = event_registration.guest
+        bind_registration_to_session(request, event_registration)
+    else:
+        guest = get_guest_from_session(request)
+        if not guest and getattr(request.user, "is_authenticated", False):
+            guest = ensure_authenticated_event_participant(request)
+        if not guest:
+            if getattr(settings, "MAKONBOOK_GUEST_MODE_ENABLED", False):
+                return redirect("guest_entry")
+            messages.info(request, "This event does not accept anonymous guest attempts.")
+            return redirect("home")
 
     key, _, now_ts, blocked_until = _guest_access_failure_state(request, event)
     if blocked_until > now_ts:
@@ -1231,11 +1363,24 @@ def start_global_event_view(request, slug):
         messages.error(request, "This event is not available right now.")
         return redirect("global_event_detail_root", slug=slug)
 
-    submitted_code = request.POST.get("access_code", "").strip()
-    if event.access_code and submitted_code != event.access_code:
-        _record_guest_access_failure(request, event)
-        messages.error(request, "Invalid access code.")
-        return redirect("global_event_detail_root", slug=slug)
+    code_verified = _event_code_verified(request, event)
+    submitted_code = _normalized_event_code(request.POST.get("access_code", ""))
+    expected_code = _normalized_event_code(event.access_code)
+
+    # Public controls listing only. A private event is valid when its access
+    # code has been verified in this session. Public events may also require a
+    # code if the administrator configured one.
+    if event.access_code and not code_verified:
+        if submitted_code != expected_code:
+            _record_guest_access_failure(request, event)
+            messages.error(request, "Invalid access code.")
+            return redirect("global_event_detail_root", slug=slug)
+        _grant_event_code_access(request, event)
+        code_verified = True
+    elif not event.is_public and not code_verified:
+        messages.error(request, "This private event requires an access code.")
+        return _event_home_redirect(request)
+
     _clear_guest_access_failures(request, event)
 
     sequence = get_test_sequence(event.test)
@@ -1305,6 +1450,10 @@ def global_event_attempt_view(request, guest_token):
     if _draft_remaining_seconds(draft) <= 0:
         return redirect(_complete_guest_module(attempt, section, module))
 
+    public_placement_mode = bool(
+        request.session.get("public_placement_guest")
+        and attempt.event.event_type == GlobalEvent.TYPE_PLACEMENT
+    )
     context = {
         "attempt": attempt,
         "event": attempt.event,
@@ -1316,6 +1465,8 @@ def global_event_attempt_view(request, guest_token):
         "custom_time_seconds": _draft_remaining_seconds(draft),
         "test_session_state": _guest_draft_state_payload(draft, questions),
         "attempt_id": attempt.guest_token,
+        "public_placement_mode": public_placement_mode,
+        "display_test_name": attempt.event.title if public_placement_mode else attempt.event.test.name,
     }
     if section == "english":
         return render(request, "sat/guest/attempt_eng.html", context)
@@ -1404,6 +1555,7 @@ def save_global_event_answer_view(request, guest_token):
         "ok": True,
         "remaining_seconds": remaining_seconds,
         "deadline_at": deadline_at,
+        "server_now": int(timezone.now().timestamp() * 1000),
         "saved_at": saved_at,
     })
 
@@ -1447,7 +1599,18 @@ def submit_global_event_view(request, guest_token):
         if not draft:
             return JsonResponse({"ok": False, "error": "Open the active module before submitting it.", "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})}, status=409)
 
-        submitted_after_deadline = _draft_remaining_seconds(draft) <= 0
+        server_remaining = _draft_remaining_seconds(draft)
+        if bool(payload.get("deadline_reached")) and server_remaining > 0:
+            return JsonResponse({
+                "ok": False,
+                "error": "Timer was resynchronised with the server.",
+                "timer_not_expired": True,
+                "remaining_seconds": server_remaining,
+                "deadline_at": int(draft.deadline_at.timestamp() * 1000),
+                "server_now": int(timezone.now().timestamp() * 1000),
+            }, status=409)
+
+        submitted_after_deadline = draft.deadline_at <= timezone.now()
         recovered_deadline_snapshot = False
         if "answers" in payload:
             may_persist = not submitted_after_deadline
@@ -1554,9 +1717,39 @@ def global_event_result_view(request, guest_token):
 
     breakdown = calculate_attempt_breakdown(attempt)
     test_mode = get_test_mode(attempt.event.test)
-    return render(request, "sat/guest/result.html", {
+    lead = None
+    if attempt.event.event_type == GlobalEvent.TYPE_PLACEMENT:
+        lead = PublicPlacementLead.objects.filter(attempt=attempt).first()
+    public_placement_mode = bool(
+        attempt.event.event_type == GlobalEvent.TYPE_PLACEMENT
+        and (request.session.get("public_placement_guest") or lead)
+    )
+    completed_at = attempt.submitted_at or timezone.now()
+    elapsed_minutes = None
+    if attempt.started_at and completed_at:
+        elapsed_minutes = max(1, int((completed_at - attempt.started_at).total_seconds() // 60))
+
+    placement = breakdown["placement"]
+    percentage = (placement or {}).get("percentage")
+    if percentage is None:
+        percentage = calculate_level_check_percentage(
+            breakdown["total_raw"],
+            breakdown["placement_total_questions"],
+        )
+
+    level_number = (placement or {}).get("level_number")
+    level_messages = {
+        1: "You have a solid starting point. Build the foundations first, then move up step by step.",
+        2: "Your basics are forming. Focus on accuracy and core skills before increasing difficulty.",
+        3: "You are ready for intermediate work with targeted practice on weaker topics.",
+        4: "You can handle demanding material. Refine accuracy, timing, and advanced question types.",
+        5: "Your current performance is advanced. Focus on consistency, speed, and the hardest question types.",
+    }
+
+    context = {
         "attempt": attempt,
         "event": attempt.event,
+        "lead": lead,
         "test_mode": test_mode,
         "show_score": attempt.event.show_score_immediately,
         "can_review": attempt.event.show_score_immediately,
@@ -1566,12 +1759,18 @@ def global_event_result_view(request, guest_token):
         "range_total": breakdown["range_total"],
         "scoring_label": breakdown["scoring_label"],
         "scoring_type": breakdown["scoring_type"],
-        "placement": breakdown["placement"],
+        "placement": placement,
+        "placement_percentage": percentage,
         "placement_total_questions": breakdown["placement_total_questions"],
         "total_raw": breakdown["total_raw"],
         "ebrw_raw": breakdown["ebrw_raw"],
         "math_raw": breakdown["math_raw"],
-    })
+        "elapsed_minutes": elapsed_minutes,
+        "level_message": level_messages.get(level_number, "Your result has been recorded and is ready to use as your starting point."),
+        "public_placement_mode": public_placement_mode,
+    }
+    template_name = "sat/public_placement/result.html" if public_placement_mode else "sat/guest/result.html"
+    return render(request, template_name, context)
 
 
 def _guest_review_access_or_redirect(request, guest_token):
@@ -1768,7 +1967,10 @@ def _mask_guest_name(attempt):
 
 @guest_required
 def global_event_leaderboard_view(request, slug):
-    event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug, is_public=True)
+    event = get_object_or_404(GlobalEvent.objects.select_related("test"), slug=slug)
+    if not event.is_public and not _event_code_verified(request, event):
+        messages.error(request, "This event is private. Enter its access code to continue.")
+        return _event_home_redirect(request)
     if not event.show_leaderboard or not event.show_score_immediately:
         messages.info(request, "The leaderboard is not available until scores are released.")
         return redirect("global_event_detail_root", slug=slug)

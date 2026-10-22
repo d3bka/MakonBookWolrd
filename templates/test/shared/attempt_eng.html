@@ -3,13 +3,14 @@
     {% url 'save_global_event_answer_root' guest_token=attempt.guest_token as form_action %}
     {% url 'submit_global_event_root' guest_token=attempt.guest_token as submit_url %}
     {% url 'global_event_submit_status_root' guest_token=attempt.guest_token as submit_status_url %}
-    {% url 'events' as home_url %}
+    {% if public_placement_mode %}
+        {% url 'public_placement_list' as home_url %}
+    {% else %}
+        {% url 'events' as home_url %}
+    {% endif %}
 {% else %}
     {% url 'practice_test_check_answers_root' as form_action %}
-    {% if classroom %}
-        {% url 'student_classroom_test_module_root' classroom.id test.name as next_url %}
-        {% url 'classroom_practice_tests_root' classroom.id as home_url %}
-    {% elif is_makeup %}
+    {% if is_makeup %}
         {% url 'makeup_test_module_root' pk=test.name as next_url %}
         {% url 'practice_tests_root' as home_url %}
     {% else %}
@@ -23,7 +24,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     {% include 'base/theme_init.html' %}
-    <title>{{ test.name|default:'SAT' }} · Reading and Writing · {{ module|upper }}</title>
+    <title>{{ display_test_name|default:test.name|default:'SAT' }} · Reading and Writing · {{ module|upper }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
@@ -39,15 +40,21 @@
   <link rel="stylesheet" href="{% static 'assets/css/sat-test-interactions-v21.css' %}?v=42">
   <link rel="stylesheet" href="{% static 'assets/css/sat-test-theme-v49.css' %}?v=49.2">
   <link rel="stylesheet" href="{% static 'assets/css/sat-image-focus-v49.css' %}?v=49">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-exam-experience-v54.css' %}?v=5410">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-exam-header-v5405.css' %}?v=5405">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-exam-header-v5406.css' %}?v=5406">
+  <link rel="stylesheet" href="{% static 'assets/css/sat-exam-timer-v5407.css' %}?v=5410">
   {% include 'base/responsive_css.html' %}
+  {% if public_placement_mode %}<link rel="stylesheet" href="{% static 'assets/css/public-placement-runner-v5612.css' %}?v=5612">{% endif %}
 </head>
-<body class="scroll-hide mk-test-window github-test-template-v20 github-test-english">
+<body class="scroll-hide mk-test-window github-test-template-v20 github-test-english{% if public_placement_mode %} pp-test-runner{% endif %}">
     <noscript><div class="sat-test-noscript" role="alert">JavaScript is required for this timed module. Enable JavaScript and reload the page. The server timer is still running.</div></noscript>
     <div class="container">
         <header>
             <div class="github-test-heading">
+                {% if public_placement_mode %}<span class="pp-runner-badge">LEVEL CHECK</span>{% endif %}
                 <h1>Section 1: Reading and Writing</h1>
-                <small>{{ test.name }} · Module {% if module == 'm2' or module == 'module_2' %}2{% else %}1{% endif %}</small>
+                <small>{{ display_test_name|default:test.name }} · Module {% if module == 'm2' or module == 'module_2' %}2{% else %}1{% endif %}</small>
             </div>
             <div class="github-test-timer-wrap">
                 <div class="timer" id="timer" aria-label="Time remaining">0:00</div>
@@ -103,7 +110,11 @@
         </footer>
     </div>
     {% include 'test/shared/question_overview.html' %}
-    {% include 'test/shared/flow_overlays.html' %}
+    {% if display_test_name %}
+    {% include 'test/shared/flow_overlays.html' with overlay_test_name=display_test_name %}
+    {% else %}
+    {% include 'test/shared/flow_overlays.html' with overlay_test_name=test.name %}
+    {% endif %}
     <canvas id="drawing-canvas"></canvas>
 
     <script id="sat-test-config" type="application/json">
@@ -122,7 +133,13 @@
         "submitStatusUrl": "{% if attempt %}{{ submit_status_url|escapejs }}{% endif %}",
         "nextUrl": "{% if not attempt %}{{ next_url|escapejs }}{% endif %}",
         "storageScope": "{% if attempt %}guest-{{ attempt.guest_token }}{% else %}user-{{ request.user.id }}-{{ test.name|escapejs }}{% endif %}",
-        "submitTimeoutMs": 180000
+        "submitTimeoutMs": 180000,
+        "integrityMode": "{{ integrity_mode|default:'off'|escapejs }}",
+        "integrityMaxViolations": {{ integrity_max_violations|default:3 }},
+        "integrityViolationCount": {{ integrity_violation_count|default:0 }},
+        "integrityFullscreenRequired": {% if integrity_fullscreen_required %}true{% else %}false{% endif %},
+        "integrityMonitoredEvents": {{ integrity_monitored_events_json|default:"[]"|safe }},
+        "integrityViolationUrl": "{% url 'exam_integrity_violation' %}"
     }
     </script>
 
@@ -144,7 +161,8 @@
     ]</script>
 
     {% if test_session_state %}{{ test_session_state|json_script:"sat-test-session-state" }}{% else %}<script id="sat-test-session-state" type="application/json">{}</script>{% endif %}
-    <script src="{% static 'assets/js/sat-test-core-v13.js' %}?v=25"></script>
+    <script src="{% static 'assets/js/sat-test-core-v13.js' %}?v=5603"></script>
+    <script src="{% static 'assets/js/sat-exam-experience-v54.js' %}?v=5603"></script>
     <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
     <script src="{% static 'assets/js/sat-image-focus-v49.js' %}?v=49"></script>
     <script src="{% static 'assets/js/test-eng.js' %}?v=44"></script>
