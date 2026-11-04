@@ -1,4 +1,4 @@
-{% load static %}
+{% load static question_text %}
 {% if attempt %}
     {% url 'save_global_event_answer_root' guest_token=attempt.guest_token as form_action %}
     {% url 'submit_global_event_root' guest_token=attempt.guest_token as submit_url %}
@@ -26,6 +26,7 @@
     {% include 'base/theme_init.html' %}
     <title>{{ display_test_name|default:test.name|default:'SAT' }} · Reading and Writing · {{ module|upper }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <link rel="stylesheet" href="{% static 'assets/css/makon-rich-text.css' %}?v=1">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
     <link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
@@ -146,14 +147,15 @@
     <script id="sat-test-questions" type="application/json">[
     {% for question in questions %}
         {
-            "passage": "{{ question.passage|default_if_none:''|escapejs }}",
+            "passage": "{{ question|question_html:'passage'|default_if_none:''|escapejs }}",
             "number": {{ question.number|default:forloop.counter }},
-            "question": "{{ question.question|default_if_none:''|escapejs }}",
+            "question": "{{ question|question_html:'question'|default_if_none:''|escapejs }}",
             "response_type": "{{ question.response_type|default:'multiple_choice'|escapejs }}",
-            "a": "{{ question.a|default_if_none:''|escapejs }}",
-            "b": "{{ question.b|default_if_none:''|escapejs }}",
-            "c": "{{ question.c|default_if_none:''|escapejs }}",
-            "d": "{{ question.d|default_if_none:''|escapejs }}",
+            "format": "{{ question|question_format|escapejs }}",
+            "a": "{{ question|question_html:'a'|default_if_none:''|escapejs }}",
+            "b": "{{ question|question_html:'b'|default_if_none:''|escapejs }}",
+            "c": "{{ question|question_html:'c'|default_if_none:''|escapejs }}",
+            "d": "{{ question|question_html:'d'|default_if_none:''|escapejs }}",
             "id": {{ question.id }},
             "graph": "{{ question.graph_url|default_if_none:''|escapejs }}"
         }{% if not forloop.last %},{% endif %}
@@ -165,7 +167,7 @@
     <script src="{% static 'assets/js/sat-exam-experience-v54.js' %}?v=5603"></script>
     <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
     <script src="{% static 'assets/js/sat-image-focus-v49.js' %}?v=49"></script>
-    <script src="{% static 'assets/js/test-eng.js' %}?v=44"></script>
+    <script src="{% static 'assets/js/test-eng.js' %}?v=45"></script>
   {% include 'base/issue_report_widget.html' %}
 </body>
 </html>

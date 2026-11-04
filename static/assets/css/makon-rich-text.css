@@ -1,0 +1,15 @@
+/* Question text in MakonBook's format (apps/sat/rich_text.py): tables,
+   figures, lists and paragraphs, in both themes. */
+.mk-table-wrap { overflow-x: auto; margin: .6em 0; max-width: 100%; }
+.mk-table { border-collapse: collapse; margin: 0 auto; font-size: .95em; }
+.mk-table th, .mk-table td { border: 1px solid rgba(127, 127, 127, .55); padding: .35em .75em; text-align: center; vertical-align: middle; }
+.mk-table th { font-weight: 600; background: rgba(127, 127, 127, .10); }
+.mk-list { margin: .4em 0 .6em 1.3em; padding: 0; list-style: disc; }
+.mk-list li { margin: .15em 0; }
+.mk-figure-block { margin: .7em 0; text-align: center; }
+.mk-figure { max-width: 100%; height: auto; border-radius: 6px; background: #fff; }
+.mk-figure-missing { font-style: italic; opacity: .75; }
+.mk-gap { min-height: .6em; margin: 0; }
+#passage p, #question-text p, .mk-rich p { margin: 0 0 .65em; white-space: normal; }
+#passage p:last-child, #question-text p:last-child, .mk-rich p:last-child { margin-bottom: 0; }
+.choice-content .mk-figure, .mk-rich .mk-figure { max-height: 340px; }

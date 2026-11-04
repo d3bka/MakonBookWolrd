@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "apps.gamification.apps.GamificationConfig",
     "apps.world.apps.WorldConfig",
     "apps.integrations.apps.IntegrationsConfig",
+    "apps.content_sync.apps.ContentSyncConfig",
     "apps.telegram_bot",
 ]
 
@@ -223,6 +224,56 @@ else:
                 "NAME": BASE_DIR / "db.sqlite3",
             }
         }
+
+
+# -----------------------------------------------------------------------------
+# makonbook-api's database (read only)
+# -----------------------------------------------------------------------------
+# Practice tests and vocabulary come from makonbook-api's own database on the
+# same PostgreSQL server (apps.content_sync). Django only reads it with raw
+# SELECTs; every session is read only, nothing is migrated there
+# (apps.content_sync.routers), and makonbook-api never notices.
+#
+# MAKONBOOK_API_DATABASE_URL names it explicitly. Without it, the same server
+# and login as the default database are used with the database name
+# MAKONBOOK_API_DB_NAME (default makonbook_api) — on the VPS Django logs in as
+# the postgres superuser, so no new role or grant is needed.
+def _makonbook_api_database():
+    url = os.getenv("MAKONBOOK_API_DATABASE_URL", "").strip()
+    if url:
+        config = database_from_url(url)
+    else:
+        default = DATABASES["default"]
+        if default.get("ENGINE") != "django.db.backends.postgresql":
+            return None
+        config = {key: value for key, value in default.items() if key != "TEST"}
+        config["OPTIONS"] = dict(default.get("OPTIONS") or {})
+        config["NAME"] = os.getenv("MAKONBOOK_API_DB_NAME", "makonbook_api").strip() or "makonbook_api"
+    if config.get("ENGINE") != "django.db.backends.postgresql":
+        return None
+    options = dict(config.get("OPTIONS") or {})
+    options["options"] = (options.get("options", "") + " -c default_transaction_read_only=on").strip()
+    config["OPTIONS"] = options
+    config["CONN_MAX_AGE"] = 0
+    config["TEST"] = {"MIRROR": None}
+    return config
+
+
+_makonbook_api_db = _makonbook_api_database() if env_bool("MAKONBOOK_API_SYNC_ENABLED", True) else None
+if _makonbook_api_db:
+    DATABASES["makonbook_api"] = _makonbook_api_db
+DATABASE_ROUTERS = ["apps.content_sync.routers.MakonbookApiRouter"]
+
+MAKONBOOK_API_SYNC_ENABLED = env_bool("MAKONBOOK_API_SYNC_ENABLED", True)
+MAKONBOOK_API_SYNC_INTERVAL_MINUTES = max(1, int(os.getenv("MAKONBOOK_API_SYNC_INTERVAL_MINUTES", "10")))
+# makonbook-api's private R2 bucket, read only: published question images
+# (p/img/) and vocabulary pictures (v/img/) are copied from it into this
+# site's public bucket. Use an R2 API token with Object Read on that bucket only.
+MAKONBOOK_API_R2_BUCKET = env_str("MAKONBOOK_API_R2_BUCKET", "")
+MAKONBOOK_API_R2_ACCESS_KEY_ID = env_str("MAKONBOOK_API_R2_ACCESS_KEY_ID", "")
+MAKONBOOK_API_R2_SECRET_ACCESS_KEY = env_str("MAKONBOOK_API_R2_SECRET_ACCESS_KEY", "")
+MAKONBOOK_API_R2_ENDPOINT_URL = env_str("MAKONBOOK_API_R2_ENDPOINT_URL", "") or (os.getenv("R2_ENDPOINT_URL") or "")
+MAKONBOOK_API_R2_REGION = env_str("MAKONBOOK_API_R2_REGION", "auto")
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -683,6 +734,12 @@ CELERY_BEAT_SCHEDULE["hollihop-smart-reconciliation"] = {
     "schedule": HOLLIHOP_SYNC_INTERVAL_MINUTES * 60.0,
 }
 # END MAKONBOOK HOLLIHOP SMART BEAT
+
+# makonbook-api content: new published tests and vocabulary (apps.content_sync).
+CELERY_BEAT_SCHEDULE["makonbook-api-content-sync"] = {
+    "task": "apps.content_sync.tasks.sync_makonbook_api_content",
+    "schedule": MAKONBOOK_API_SYNC_INTERVAL_MINUTES * 60.0,
+}
 
 # AI is used for administrator/manager-run question-bank audits.
 # Structured-PDF imports themselves are deterministic and do not require an AI provider.

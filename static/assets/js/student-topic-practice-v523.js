@@ -48,7 +48,21 @@
       answer.textContent = 'Correct answer: ' + String(payload.answer || '');
       box.appendChild(answer);
     }
-    if (payload.explanation) {
+    if (payload.explanation_html) {
+      // Rendered and escaped by the server (apps/sat/rich_text.py).
+      var richExplanation = document.createElement('div');
+      richExplanation.className = 'mk-rich';
+      richExplanation.innerHTML = String(payload.explanation_html);
+      box.appendChild(richExplanation);
+      if (typeof window.renderMathInElement === 'function') {
+        try {
+          window.renderMathInElement(richExplanation, { delimiters: [
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true }
+          ], throwOnError: false });
+        } catch (error) { /* math stays as text */ }
+      }
+    } else if (payload.explanation) {
       var explanation = document.createElement('p');
       explanation.textContent = String(payload.explanation);
       box.appendChild(explanation);

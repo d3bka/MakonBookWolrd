@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from apps.gamification.services import award_xp
 from apps.sat.models import English_Question, Math_Question
+from apps.sat.rich_text import question_display
 
 from .models import (
     GameQuestionPool,
@@ -103,6 +104,10 @@ def _structurally_valid_question(question, subject: str) -> bool:
 
 
 def _infer_difficulty(question) -> str:
+    source = str(getattr(question, "source_difficulty", "") or "").lower()
+    if source in {GameQuestionPool.DIFFICULTY_EASY, GameQuestionPool.DIFFICULTY_MEDIUM, GameQuestionPool.DIFFICULTY_HARD}:
+        # Synced from makonbook-api, which tags each question.
+        return source
     # The source bank does not yet expose a universal calibrated difficulty field.
     # Module 2 is adaptive/harder on average; late questions are also a useful
     # conservative heuristic until the quality team calibrates rows explicitly.
@@ -2059,6 +2064,13 @@ def multiplayer_play_payload(room: WorldMultiplayerRoom, *, viewer=None, include
                 "b": question.b,
                 "c": question.c,
                 "d": question.d,
+                # Display HTML: MakonBook-format text rendered, legacy text escaped.
+                "passage_html": str(question_display(question, "passage")),
+                "text_html": str(question_display(question, "question")),
+                "a_html": str(question_display(question, "a", inline=True)),
+                "b_html": str(question_display(question, "b", inline=True)),
+                "c_html": str(question_display(question, "c", inline=True)),
+                "d_html": str(question_display(question, "d", inline=True)),
                 "difficulty": pool.difficulty if pool else "medium",
                 "token": ticket.token,
                 "seconds_remaining": max(0, int((ticket.deadline_at - now).total_seconds())),

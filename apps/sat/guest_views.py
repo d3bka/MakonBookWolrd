@@ -37,6 +37,7 @@ from .views import (
 )
 from .libs import calculator
 from .text_formatting import format_english_questions_for_display
+from .rich_text import runner_question_fields
 from .answer_matching import check_english_answer
 from .event_registration import (
     bind_registration_to_session,
@@ -1473,13 +1474,8 @@ def global_event_attempt_view(request, guest_token):
 
     context["questions_data"] = [{
         "id": question.id,
-        "passage": question.passage or "",
+        **runner_question_fields(question),
         "number": question.number,
-        "question": question.question or "",
-        "a": question.get_a() if hasattr(question, "get_a") else "",
-        "b": question.get_b() if hasattr(question, "get_b") else "",
-        "c": question.get_c() if hasattr(question, "get_c") else "",
-        "d": question.get_d() if hasattr(question, "get_d") else "",
         "type": str(question.written),
         "graph": question.get_graph() if hasattr(question, "get_graph") else "",
     } for question in questions]

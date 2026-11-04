@@ -1,223 +1,253 @@
-# Student goal v32 deployment note
+# Deploying MakonBook to makonbook.uz
 
-This build includes migration `sat.0030_student_goal_v32_qs_top_200`. Do not deploy only the static files. Apply migrations before testing the goal form:
+This repository is the MakonBook web app (Django). It is the newer version of
+makonBook-2.0 and replaces it **in place**: same image name, same Compose
+project, same database, same nginx.
 
-```bash
-python manage.py migrate
-python manage.py collectstatic --noinput
+```
+                         :80/:443
+Internet ──▶ makonbook-nginx ──┬─▶ makonbook-web:8000      makonbook.uz          (this repo)
+             (/opt/sat-makon/  ├─▶ makonbook-api:8080      api/admin.makonbook.uz (makonbook-api)
+              makonbook)       └─▶ sat-makon-site:80       sat-makon.uz
+
+sat_makon_network ──▶ db (PostgreSQL 16)
+                       ├─ makonbook       this app's database (read/write, migrated by this app)
+                       └─ makonbook_api   makonbook-api's database — this app only READS it
 ```
 
-The migration adds QS ranking fields, allows a missing SAT average, and seeds the top-200 university catalogue.
+The image is `nazacd/makonbook`. The VPS never builds anything: it pulls the
+image and starts it.
+
+## What this app takes from makonbook-api
+
+Practice tests and vocabulary come from makonbook-api — the reviewed, fixed
+and approved content of the question bank, and the vocabulary lists with their
+pictures. `apps/content_sync` copies them into this app every 10 minutes
+(Celery Beat):
+
+- **Practice tests:** the latest *published* version of every test
+  (`practice_test_versions`, so only tests whose every question is approved).
+  Each becomes a regular test of the same name (DAY12, …) with its questions.
+  The text keeps makonbook-api's format and is rendered when a page shows it
+  (`apps/sat/rich_text.py`): math, tables, lists, figures. When makonbook-api
+  publishes a new version, the test is updated in place.
+- **Vocabulary:** the lists become vocabulary units with their words, parts of
+  speech and pictures. They replace the units made in this app (those are
+  switched off, not deleted).
+- **Images** (question figures, word pictures) are in makonbook-api's private
+  R2 bucket. Each file is copied once into this site's public bucket under
+  `media/makonbook-api/`.
+
+Nothing is ever written to makonbook-api's database or bucket. The database
+connection is read only (`default_transaction_read_only=on`), and Django never
+migrates it. makonbook-api, its database and its deploy are not touched.
 
 ---
 
-# Cutover: makonbook-sat-main → production on makonbook.uz
+## First deploy (replacing makonBook-2.0)
 
-This stack replaces `makonbook-old` as production. It ships the **complete edge** — web,
-telegram-bot, nginx and certbot — and its nginx also serves **sat-makon.uz** by proxying to the
-`sat-makon-site` container, exactly as the outgoing stack does.
+Everything happens in `/opt/sat-makon/makonbook/` on the VPS.
+**`docker-compose.yml` and `nginx/` there stay exactly as they are.** This
+repo's `docker-compose.prod.yml` is identical to the file already there.
+Never copy this repo's `nginx/default.conf` over the VPS one: the VPS file also
+holds the api/admin.makonbook.uz blocks.
 
-```
-                    :80/:443
-Internet ──▶ makonbook-nginx ──┬─▶ web:8000            makonbook.uz, www.makonbook.uz
-                   │           └─▶ sat-makon-site:80   sat-makon.uz, www.sat-makon.uz
-                   │
-             makonbook-certbot ── one SAN cert, 4 names, renews every 12h
-```
+### 1. Keep the current image for a rollback
 
-`sat-makon-site` runs in its own Compose project and stays up throughout — only the edge in
-front of it changes. The shared `db` container is likewise untouched.
-
-Because the old edge is torn down, **both sites go down for the length of steps 6–7.** Steps 1–5
-all run while the old stack is still serving, so if the image is pre-pulled the window is well
-under a minute.
-
----
-
-## Read this first
-
-**`ALLOWED_HOSTS` must be added to the production `.env`.** The live
-`/opt/sat-makon/makonbook-old/.env` has no such line. `.dockerignore` excludes `.env` from the
-image, so the container's only env source is that file, and `settings.py:37-40` then falls back
-to `127.0.0.1,localhost,makonbook.satmakon.com`. The currently running image tolerates this — it
-was built from source predating this tree. **An image built from this tree will not.** Without
-the line, every request to makonbook.uz returns HTTP 400 `DisallowedHost`.
-
-```
-ALLOWED_HOSTS=makonbook.uz,www.makonbook.uz,127.0.0.1,localhost
-```
-
-`CSRF_TRUSTED_ORIGINS` is already present and correct; this is its missing sibling.
-
-Two smaller notes on the same file:
-
-- **`DATABASE_URL` wins over every `DB_*` variable** (`settings.py:151-155`), and the live `.env`
-  sets it. Editing `DB_NAME` or `DB_HOST` there has no effect unless you also change the URL.
-- `sat-makon.uz` is **not** a Django host — it is served straight from the static container — so
-  it does not belong in `ALLOWED_HOSTS`.
-
----
-
-## Cutover
-
-### 1. Preserve makonbook-new's image
-
-`nazacd/makonbook:latest` is currently makonbook-new's image (it is `APP_IMAGE` in that project's
-`.env`). This cutover overwrites that tag, so save it first or lose the rollback path to that
-codebase:
+On any machine logged in to Docker Hub as `nazacd`:
 
 ```bash
 docker pull nazacd/makonbook:latest
-docker tag  nazacd/makonbook:latest nazacd/makonbook:new-rollback
-docker push nazacd/makonbook:new-rollback
+docker tag nazacd/makonbook:latest nazacd/makonbook:2.0-final
+docker push nazacd/makonbook:2.0-final
 ```
 
-### 2. Preserve makonbook-new's bundle on the VPS
-
-`/opt/sat-makon/makonbook/` holds makonbook-new's compose file, `.env` and nginx config. Move it
-aside rather than overwriting:
+### 2. Back up the databases
 
 ```bash
-mv /opt/sat-makon/makonbook /opt/sat-makon/makonbook-new-bundle
-mkdir -p /opt/sat-makon/makonbook/nginx
+/opt/makonbook-api/backup-postgres.sh
+ls -lh /opt/backups/postgres | tail
 ```
 
-### 3. Build and push
+Step 7 deletes the old tests and their results, and that cannot be undone
+without this backup.
 
-The dated tag makes this cutover itself reversible:
+### 3. A read-only R2 token for makonbook-api's bucket
+
+In Cloudflare → R2 → Manage API tokens, create a token with **Object Read
+only**, scoped to makonbook-api's bucket (`R2_UPLOADS_BUCKET` in
+`/opt/makonbook-api/.env`). Keep its access key ID and secret for step 4.
+
+### 4. Add the new settings to `.env`
+
+Append them to `/opt/sat-makon/makonbook/.env`. Don't replace the file: it has
+the live secrets.
 
 ```bash
-docker build -t nazacd/makonbook:latest -t nazacd/makonbook:sat-20260719 .
-docker push nazacd/makonbook:latest
-docker push nazacd/makonbook:sat-20260719
+cd /opt/sat-makon/makonbook
+cat >> .env <<'EOF'
+
+# --- makonbook-api content (practice tests, vocabulary) ---
+MAKONBOOK_API_SYNC_ENABLED=true
+MAKONBOOK_API_SYNC_INTERVAL_MINUTES=10
+MAKONBOOK_API_R2_BUCKET=<makonbook-api's bucket name>
+MAKONBOOK_API_R2_ACCESS_KEY_ID=<read-only token id>
+MAKONBOOK_API_R2_SECRET_ACCESS_KEY=<read-only token secret>
+EOF
+chmod 600 .env
 ```
 
-### 4. Copy the certificate into the new volume
+The database needs no setting. This app reads `makonbook_api` on the same
+server with the same login as its own database. On this VPS that login is
+`postgres`, which can already read it. To use another login, set
+`MAKONBOOK_API_DATABASE_URL=postgres://user:pass@db:5432/makonbook_api?sslmode=disable`.
+`MAKONBOOK_API_R2_ENDPOINT_URL` defaults to `R2_ENDPOINT_URL` (same
+Cloudflare account). Set it only if the bucket is in another account.
 
-The cert lives in `makonbook-old_certbot_conf`. Compose volumes are project-scoped, so the new
-`makonbook` project looks for `makonbook_certbot_conf` — copy rather than re-issue, and both the
-Let's Encrypt rate limit and the cold-start bootstrap are avoided entirely.
+### 5. Build and push the image
 
-`cp -a` is required: `live/` is a tree of symlinks into `archive/`, and a plain copy flattens
-them, which breaks renewal.
+Merging to `main` does it: `.github/workflows/docker.yml` runs the tests,
+then pushes `nazacd/makonbook:latest` and `:sha-<commit>`. It needs the
+repository secrets `DOCKERHUB_USERNAME` (`nazacd`) and `DOCKERHUB_TOKEN`.
 
-```bash
-docker volume create makonbook_certbot_conf
-docker run --rm -v makonbook-old_certbot_conf:/from:ro -v makonbook_certbot_conf:/to \
-  alpine sh -c 'cd /from && cp -a . /to/'
-```
-
-**Verify the copy — do not trust its exit code.** `docker run -v name:/path` silently *creates*
-an empty volume when `name` does not exist, so a mistyped source reports success and produces
-nothing. nginx would then fail to start on a missing certificate, mid-cutover:
-
-```bash
-docker run --rm -v makonbook_certbot_conf:/c:ro alpine ls -l /c/live/makonbook.uz/
-```
-
-Expect four **symlinks** — `cert.pem`, `chain.pem`, `fullchain.pem`, `privkey.pem` — pointing
-into `../../archive/makonbook.uz/`. Regular files instead of symlinks means `-a` did not take:
-nginx will start now but renewal breaks later.
-
-`media_files` is **not** copied — verified empty on 2026-07-19, since uploads go to Cloudflare R2
-(`apps/sat/storages.py:14-16`). `static_files` is not copied either; `collectstatic` regenerates
-it on start.
-
-### 5. Stage the bundle and pre-pull
-
-```bash
-# from this repo
-scp docker-compose.prod.yml root@188.245.175.83:/opt/sat-makon/makonbook/docker-compose.yml
-scp nginx/default.conf      root@188.245.175.83:/opt/sat-makon/makonbook/nginx/default.conf
-scp init-letsencrypt.sh     root@188.245.175.83:/opt/sat-makon/makonbook/
-```
-
-Ship the production env file. **It must land named `.env`** — the compose file's
-`env_file: .env` reads that name from the deploy directory:
-
-```bash
-scp .env.production root@188.245.175.83:/opt/sat-makon/makonbook/.env
-```
-
-Do **not** copy the repo's `.env` — that is the dev template (`DEBUG=True`, `ALLOWED_HOSTS`
-pointing at `makonbook.satmakon.com`, `DB_HOST` set to the VPS public IP, and a different
-`SECRET_KEY` that would log out every user). `.env.production` is that file with those five
-corrections applied; the reasons are marked `[CHANGED]` inline. Transfer over `scp` only.
-
-```bash
-# on the VPS — pull now so step 7 has nothing to download
-cd /opt/sat-makon/makonbook && docker compose pull
-```
-
-### 6. Stop the old stack — downtime begins
-
-```bash
-cd /opt/sat-makon/makonbook-old && docker compose down
-```
-
-**Never add `-v`.** That would delete `makonbook-old_certbot_conf` and every other old volume,
-destroying the rollback path and the original certificate.
-
-### 7. Start the new stack — downtime ends
-
-```bash
-cd /opt/sat-makon/makonbook && docker compose up -d
-```
-
-`RUN_MIGRATIONS=1` on `web`, so migrations apply on boot. Watch them land:
-
-```bash
-docker logs -f makonbook-web
-```
-
-### 8. Re-point the DNS record for dev (optional housekeeping)
-
-`dev.makonbook.uz` still has an A record pointing at this VPS but nothing serves it — it will hit
-the `_` default_server block and get `444`. Harmless; remove the record if you want it tidy.
-
----
-
-## Rollback
-
-The old directory and all `makonbook-old_*` volumes are intact, so returning to the current
-production state takes about as long as the cutover did:
-
-```bash
-cd /opt/sat-makon/makonbook     && docker compose down
-cd /opt/sat-makon/makonbook-old && docker compose up -d
-```
-
-Keep `/opt/sat-makon/makonbook-old/` and its volumes until the new stack has run cleanly for
-several days.
-
----
-
-## Afterwards
-
-**Renewals are automatic** — `makonbook-certbot` attempts renewal every 12h and no-ops until the
-cert is inside its renewal window; `makonbook-nginx` reloads every 6h to pick up a renewed cert.
-Nothing to schedule.
-
-**Updating code later:**
+Or by hand, from a checkout:
 
 ```bash
 docker build -t nazacd/makonbook:latest .
 docker push nazacd/makonbook:latest
-# on the VPS
+```
+
+### 6. Start it
+
+```bash
+cd /opt/sat-makon/makonbook
+docker compose pull
+docker compose up -d
+docker compose logs -f web      # "Applying database migrations..." then gunicorn
+```
+
+The web container applies this version's migrations to `makonbook` when it
+starts (`RUN_MIGRATIONS=1`). They only add tables and columns.
+
+### 7. Remove the old tests (once)
+
+Every test made in this app before is removed, with its questions and
+results: regular, placement, event and makeup tests, and the events built on
+them. Look first, then confirm:
+
+```bash
+docker compose exec web python manage.py remove_legacy_tests
+docker compose exec web python manage.py remove_legacy_tests --confirm
+```
+
+### 8. First sync from makonbook-api
+
+```bash
+docker compose exec web python manage.py sync_makonbook_api --dry-run
+docker compose exec web python manage.py sync_makonbook_api
+```
+
+It prints what it created. From now on `celery-beat` runs it every 10 minutes
+and it only does work when something changed. State and the last error are in
+Django admin → *makonbook-api content sync*.
+
+### 9. Give classes their tests
+
+Practice tests are opened per classroom, as before. Classrooms set to *All
+practice tests* get new tests automatically. For the others, teachers choose
+them in the classroom's settings.
+
+---
+
+## HolliHop
+
+HolliHop sync only reads HolliHop, and only in one direction, HolliHop →
+MakonBook. It creates and updates students, teachers, managers, one classroom
+per HolliHop GROUP, memberships and attendance. It never writes to HolliHop.
+It runs next to makonbook-api's own HolliHop sync, and the two share
+HolliHop's rate limit (600 requests per 30 s) comfortably.
+
+How it runs once it's on:
+
+- `celery-beat` starts a smart sync every 5 minutes: changes since the last
+  run, plus slower safety sweeps.
+- HolliHop's webhook (`/integrations/hollihop/webhook/`) applies student
+  changes immediately.
+- Both stay blocked until the **initial sync** has finished once.
+- Nothing runs when containers start.
+
+### Turning it on (first time)
+
+1. Add to `.env`, keeping `SCHOOL_DATA_PROVIDER=local` for now:
+
+   ```
+   HOLLIHOP_ENABLED=true
+   HOLLIHOP_API_URL=https://satmakon.t8s.ru/Api/V2
+   HOLLIHOP_AUTH_KEY=<same key as HOLLIHOP_AUTHKEY in /opt/makonbook-api/.env>
+   HOLLIHOP_WEBHOOK_SECRET=<openssl rand -hex 24>
+   HOLLIHOP_SEND_CREDENTIALS=false
+   HOLLIHOP_AUTO_SEND_CREDENTIALS=false
+   ```
+
+   Then run `docker compose up -d` so the containers read it.
+
+2. Dry run. It reads HolliHop and reports, without writing anything:
+
+   ```bash
+   docker compose exec web python manage.py sync_hollihop --all --dry-run
+   ```
+
+3. When the report looks right, set `SCHOOL_DATA_PROVIDER=hollihop` in `.env`
+   and run `docker compose up -d`.
+
+4. Run the initial import once. Either use **Manager → HolliHop Integration →
+   Run initial sync**, or run:
+
+   ```bash
+   docker compose exec web python manage.py sync_hollihop --all --mark-initial
+   ```
+
+5. In HolliHop, set the webhook for StudentClient events to
+   `https://makonbook.uz/integrations/hollihop/webhook/?key=<HOLLIHOP_WEBHOOK_SECRET>`.
+
+**Logins for HolliHop students:** each new account gets a temporary password,
+which must be changed at first login. It is delivered only by SMS (Eskiz,
+`MAKONBOOK_SMS_PROVIDER=eskiz` with `HOLLIHOP_SEND_CREDENTIALS=true`) or from
+the Manager panel (resend credentials). Public sign-up is closed in this
+version, so until SMS is on, managers hand out the logins.
+
+---
+
+## Every later release
+
+```bash
+# build machine (or just merge to main)
+docker build -t nazacd/makonbook:latest . && docker push nazacd/makonbook:latest
+
+# VPS
 cd /opt/sat-makon/makonbook && docker compose pull && docker compose up -d
 ```
 
-**If the certificate ever has to be rebuilt from nothing**, `init-letsencrypt.sh` does the
-self-signed bootstrap dance. It requests all four names against the `makonbook.uz` lineage with
-an ECDSA key. Certbot *replaces* a lineage's name set rather than appending, so any name dropped
-from `LETSENCRYPT_DOMAINS` loses its TLS — which is exactly how an earlier version of that script
-would have silently broken sat-makon.uz.
+Migrations run by themselves. To pin a build, set
+`APP_IMAGE=nazacd/makonbook:sha-<commit>` in `.env`.
 
-## Files
+## Rollback
 
-| File | Role |
-|---|---|
-| `docker-compose.prod.yml` | full stack; `name: makonbook` pins the project so volumes resolve to `makonbook_*` |
-| `nginx/default.conf` | edge config for both makonbook.uz and sat-makon.uz |
-| `nginx/letsencrypt-bootstrap.conf` | temporary HTTP-only config, cold-start cert rebuild only |
-| `init-letsencrypt.sh` | cold-start cert rebuild; not needed for this cutover |
+**To an earlier build of this app:** set `APP_IMAGE=nazacd/makonbook:sha-<commit>`
+in `.env` and run `docker compose up -d`.
+
+**Back to makonBook-2.0:** the image alone is not enough. This app's
+migrations add required columns that makonBook-2.0 doesn't fill (for example
+`teststage.integrity_mode`, `testreview.run_mode`), so 2.0 fails when it saves
+an attempt. Restore the `makonbook` database from the step 2 backup, then
+start 2.0's image:
+
+```bash
+cd /opt/sat-makon/makonbook
+docker compose stop web celery-worker celery-beat telegram-bot
+docker exec -i db pg_restore -U postgres --clean --if-exists -d makonbook < /opt/backups/postgres/makonbook-<stamp>.dump
+sed -i 's|^APP_IMAGE=.*|APP_IMAGE=nazacd/makonbook:2.0-final|' .env   # add the line if .env has none
+docker compose up -d
+```
+
+Anything people did on the new version after the backup is lost by a restore.

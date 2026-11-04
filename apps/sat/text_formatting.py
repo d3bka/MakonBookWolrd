@@ -129,6 +129,9 @@ def convert_reading_latex_to_html(value):
 def format_english_question_for_display(question):
     if not question:
         return question
+    if getattr(question, "content_format", "legacy") == "makon":
+        # MakonBook-format text is rendered by apps.sat.rich_text when shown.
+        return question
     for field_name in ENGLISH_TEXT_FIELDS:
         if hasattr(question, field_name):
             current_value = getattr(question, field_name)

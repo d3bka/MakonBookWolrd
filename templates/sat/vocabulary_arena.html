@@ -1,7 +1,7 @@
 {% extends 'template.html' %}
 {% load static %}
 {% block title-main %}{{ arena_config.title }}{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=510">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=510"><link rel="stylesheet" href="{% static 'assets/css/makon-vocab-images.css' %}?v=1">{% endblock %}
 {% block body %}
 <div class="va509-shell" data-vocab-arena data-mode="{{ arena_mode }}" data-mark-url="{{ mark_url }}" data-deck-url="{% url 'vocabulary_deck_detail_root' deck.id %}" data-lives="3">
   <div class="va509-topbar">
@@ -29,4 +29,4 @@
   {{ arena_words|json_script:"vocab-arena-data" }}
 </div>
 {% endblock %}
-{% block scripts %}{{ block.super }}<script src="{% static 'assets/js/vocabulary-arena-v509.js' %}?v=509"></script>{% endblock %}
+{% block scripts %}{{ block.super }}<script src="{% static 'assets/js/vocabulary-arena-v509.js' %}?v=510"></script>{% endblock %}

@@ -1,5 +1,5 @@
 {% extends 'sat/student_workspace.html' %}
-{% load static %}
+{% load static question_text %}
 {% block page_title %}{{ practice_type.name }} · Practice{% endblock %}
 {% block content %}
 <div class="v523-page v523-drill" data-topic-drill data-check-url="{% url 'student_topic_check_root' %}" data-section="{{ practice_section }}">
@@ -10,17 +10,17 @@
       {% for q in practice_questions %}
         <article class="v523-question-slide{% if forloop.first %} is-active{% endif %}" data-question-slide data-question-id="{{ q.id }}" data-index="{{ forloop.counter0 }}" data-open="{% if practice_section == 'english' and q.is_open_text %}1{% elif practice_section == 'math' and q.written %}1{% else %}0{% endif %}">
           <div class="v523-question-meta"><span>{{ q.test.name }}</span><span>{{ q.get_module_display }}</span><span>#{{ q.number }}</span></div>
-          {% if q.passage %}<div class="v523-question-passage">{{ q.passage|linebreaksbr }}</div>{% endif %}
+          {% if q.passage %}<div class="v523-question-passage mk-rich">{{ q|question_display:"passage" }}</div>{% endif %}
           {% if q.image %}<img class="v523-question-image" src="{{ q.image.url }}" alt="Question visual">{% endif %}
-          <h2>{{ q.question|linebreaksbr }}</h2>
+          <h2 class="mk-rich">{{ q|question_display:"question" }}</h2>
           <div class="v523-answer-zone">
             {% if practice_section == 'english' and q.is_open_text or practice_section == 'math' and q.written %}
               <input class="v523-open-answer" type="text" placeholder="Type your answer" data-open-answer autocomplete="off">
             {% else %}
-              {% if q.a %}<button type="button" data-choice="A"><b>A</b><span>{{ q.a }}</span></button>{% endif %}
-              {% if q.b %}<button type="button" data-choice="B"><b>B</b><span>{{ q.b }}</span></button>{% endif %}
-              {% if q.c %}<button type="button" data-choice="C"><b>C</b><span>{{ q.c }}</span></button>{% endif %}
-              {% if q.d %}<button type="button" data-choice="D"><b>D</b><span>{{ q.d }}</span></button>{% endif %}
+              {% if q.a %}<button type="button" data-choice="A"><b>A</b><span class="mk-rich">{{ q|question_display:"a" }}</span></button>{% endif %}
+              {% if q.b %}<button type="button" data-choice="B"><b>B</b><span class="mk-rich">{{ q|question_display:"b" }}</span></button>{% endif %}
+              {% if q.c %}<button type="button" data-choice="C"><b>C</b><span class="mk-rich">{{ q|question_display:"c" }}</span></button>{% endif %}
+              {% if q.d %}<button type="button" data-choice="D"><b>D</b><span class="mk-rich">{{ q|question_display:"d" }}</span></button>{% endif %}
             {% endif %}
           </div>
           <div class="v523-answer-feedback" data-feedback hidden></div>
@@ -31,4 +31,9 @@
   {% else %}<div class="v523-card"><div class="v523-empty">No assigned questions are available for this topic.</div></div>{% endif %}
 </div>
 {% endblock %}
-{% block student_workspace_scripts %}<script src="{% static 'assets/js/student-topic-practice-v523.js' %}?v=523"></script>{% endblock %}
+{% block student_workspace_scripts %}<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<link rel="stylesheet" href="{% static 'assets/css/makon-rich-text.css' %}?v=1">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+<script>document.querySelectorAll('.v523-drill-stage').forEach(function (el) { try { window.renderMathInElement(el, { delimiters: [{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }], throwOnError: false }); } catch (error) {} });</script>
+<script src="{% static 'assets/js/student-topic-practice-v523.js' %}?v=524"></script>{% endblock %}

@@ -1,5 +1,5 @@
 {% extends 'sat/student_workspace.html' %}
-{% load static %}
+{% load static question_text %}
 {% block page_title %}Question Bank · MakonBook{% endblock %}
 {% block content %}
 <div class="v523-page v523-qbank-page v524-qbank-page">
@@ -37,8 +37,8 @@
         {% if q.type_id %}<a class="v523-qbank-card v524-qbank-card v523-reveal" href="{% url 'student_topic_practice_root' row.section q.type_id %}?question={{ q.id }}" style="--reveal-index:{{ forloop.counter|add:2 }}">{% else %}<article class="v523-qbank-card v524-qbank-card v523-reveal" style="--reveal-index:{{ forloop.counter|add:2 }}">{% endif %}
           <div class="v523-qbank-meta"><span class="is-{{ row.section }}">{% if row.section == 'math' %}Math{% else %}EBRW{% endif %}</span><span>{{ q.get_module_display|default:q.module }}</span>{% if q.type %}<span>{{ q.type.name }}</span>{% endif %}</div>
           <h2>#{{ q.number|default:"—" }} · {{ q.test.name }}</h2>
-          {% if q.passage %}<div class="v523-qbank-passage">{{ q.passage|truncatechars:420 }}</div>{% endif %}
-          <p class="v523-qbank-question">{{ q.question|truncatechars:360 }}</p>
+          {% if q.passage %}<div class="v523-qbank-passage">{{ q|question_plain:"passage"|truncatechars:420 }}</div>{% endif %}
+          <p class="v523-qbank-question">{{ q|question_plain:"question"|truncatechars:360 }}</p>
           <div class="v523-qbank-foot"><span>{{ q.domain.name|default:"SAT" }}</span>{% if q.type_id %}<span class="v524-card-open">Open question <i class="bi bi-arrow-up-right"></i></span>{% endif %}</div>
         {% if q.type_id %}</a>{% else %}</article>{% endif %}
         {% endwith %}

@@ -5,7 +5,7 @@
 {% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
 {% block title %}Flashcards{% endblock title %}
 
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=506">{% endblock style %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=506"><link rel="stylesheet" href="{% static 'assets/css/makon-vocab-images.css' %}?v=1">{% endblock style %}
 
 {% block content %}
 <div class="vocab-shell">
@@ -93,10 +93,11 @@
             <span class="vocab-status vocab-status-{{ item.status }}" data-card-status>{{ item.status }}</span>
             <div class="vocab-flashcard-inner">
               <div class="vocab-flashcard-face vocab-flashcard-front">
-                <div class="vocab-flashcard-word">{{ item.word.word }}</div>
+                <div class="vocab-flashcard-word">{{ item.word.word }}{% if item.word.part_of_speech %}<span class="mk-vocab-pos">{{ item.word.part_of_speech }}</span>{% endif %}</div>
                 <div class="vocab-flashcard-hint">Click the card or press Space to reveal the answer.</div>
               </div>
               <div class="vocab-flashcard-face vocab-flashcard-back">
+                {% if item.word.image_url %}<img class="mk-vocab-image" src="{{ item.word.image_url }}" alt="" loading="lazy">{% endif %}
                 <div class="vocab-flashcard-meaning">{{ item.word.meaning }}</div>
                 {% if item.word.example %}<div class="vocab-flashcard-example">{{ item.word.example }}</div>{% endif %}
                 <div class="vocab-flashcard-hint">Rate recall below. Keyboard: 1 Again, 2 Learning, 3 Know it.</div>

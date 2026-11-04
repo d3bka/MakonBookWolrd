@@ -1,7 +1,7 @@
 {% extends 'template.html' %}
 {% load static %}
 {% block title-main %}Memory Layers | MakonBook{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=511">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-arena-v509.css' %}?v=511"><link rel="stylesheet" href="{% static 'assets/css/makon-vocab-images.css' %}?v=1">{% endblock %}
 {% block body %}
 <div class="va509-shell va509-memory-shell" data-memory-layers data-mark-url="{{ mark_url }}" data-deck-url="{% url 'vocabulary_deck_detail_root' deck.id %}" data-study-all-url="{% url 'vocabulary_deck_study_root' deck.id %}?all=1">
   <div class="va509-topbar">
@@ -33,12 +33,13 @@
         <div class="va509-memory-inner">
           <div class="va509-memory-side va509-memory-front">
             <span class="va509-memory-status">{{ item.status }}</span>
-            <div class="va509-memory-word">{{ item.word.word }}</div>
+            <div class="va509-memory-word">{{ item.word.word }}{% if item.word.part_of_speech %}<span class="mk-vocab-pos">{{ item.word.part_of_speech }}</span>{% endif %}</div>
             <div class="va509-memory-prompt"><i class="bi bi-arrow-repeat"></i> Recall first, then reveal.</div>
           </div>
           <div class="va509-memory-side va509-memory-back">
             <span class="va509-memory-status">Answer</span>
             <div class="va509-memory-back-word">{{ item.word.word }}</div>
+            {% if item.word.image_url %}<img class="mk-vocab-image" src="{{ item.word.image_url }}" alt="" loading="lazy">{% endif %}
             <div class="va509-memory-meaning">{{ item.word.meaning }}</div>
             {% if item.word.example %}<div class="va509-memory-example"><span>Example</span>{{ item.word.example }}</div>{% endif %}
             <div class="va509-memory-prompt">Rate the recall you had before flipping.</div>

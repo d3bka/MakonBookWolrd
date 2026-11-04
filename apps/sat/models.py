@@ -184,6 +184,12 @@ class Test(BaseModel):
         ),
     )
     groups = models.ManyToManyField(Group, related_name='tests')
+    # Practice tests synced from makonbook-api (apps.content_sync) say so here;
+    # tests made in this app leave it blank.
+    SOURCE_MAKONBOOK_API = 'makonbook_api'
+    source = models.CharField(max_length=20, blank=True, default='', db_default='', db_index=True)
+    source_version = models.PositiveIntegerField(null=True, blank=True)
+    source_synced_at = models.DateTimeField(null=True, blank=True)
     icon = models.ImageField(
         'Icon',
         upload_to='sat/test_icons',
@@ -249,6 +255,16 @@ class English_Question(BaseModel):
         help_text="Optional regular expressions, one per line. Each pattern must match the entire normalized response.",
     )
     explained = models.TextField('Explanation', blank=True, null=True)
+    # "makon": the text is in MakonBook's format (synced from makonbook-api)
+    # and apps.sat.rich_text renders it; "legacy": stored HTML/plain text.
+    content_format = models.CharField(
+        max_length=10,
+        choices=[('legacy', 'Legacy'), ('makon', 'MakonBook format')],
+        default='legacy',
+        db_default='legacy',
+    )
+    source_question_id = models.CharField(max_length=36, blank=True, default='', db_default='')
+    source_difficulty = models.CharField(max_length=10, blank=True, default='', db_default='')
 
     @property
     def is_open_text(self):
@@ -286,6 +302,16 @@ class Math_Question(BaseModel):
     answer = models.CharField('Answer', null=True, blank=True, max_length=400)
     explained = models.TextField('Explanation', blank=True, null=True)
     img_explain = models.ImageField('Image Explanation', upload_to='sat/question_images', storage=PublicStorage(), null=True, blank=True)
+    # "makon": the text is in MakonBook's format (synced from makonbook-api)
+    # and apps.sat.rich_text renders it; "legacy": stored HTML/plain text.
+    content_format = models.CharField(
+        max_length=10,
+        choices=[('legacy', 'Legacy'), ('makon', 'MakonBook format')],
+        default='legacy',
+        db_default='legacy',
+    )
+    source_question_id = models.CharField(max_length=36, blank=True, default='', db_default='')
+    source_difficulty = models.CharField(max_length=10, blank=True, default='', db_default='')
 
     def get_a(self):
         if self.choice_graph and self.image_a:
@@ -975,6 +1001,9 @@ class VocabularyUnit(models.Model):
     description = models.TextField(blank=True, null=True)
     order = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
+    # The makonbook-api list this unit mirrors (e.g. sat-unit-1); blank for
+    # units made in this app.
+    source_slug = models.CharField(max_length=100, null=True, blank=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -997,6 +1026,9 @@ class VocabularyWord(models.Model):
     word = models.CharField(max_length=255)
     meaning = models.TextField()
     example = models.TextField(blank=True, null=True)
+    part_of_speech = models.CharField(max_length=40, blank=True, default='', db_default='')
+    image_url = models.URLField(max_length=500, blank=True, default='', db_default='')
+    source_id = models.CharField(max_length=36, blank=True, default='', db_default='', db_index=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1052,6 +1084,8 @@ class VocabularyDeckWord(models.Model):
     word = models.CharField(max_length=255)
     meaning = models.TextField()
     example = models.TextField(blank=True)
+    part_of_speech = models.CharField(max_length=40, blank=True, default='', db_default='')
+    image_url = models.URLField(max_length=500, blank=True, default='', db_default='')
     order = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -5,7 +5,7 @@
 {% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
 {% block title %}Word Lists{% endblock title %}
 
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=505">{% endblock style %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=505"><link rel="stylesheet" href="{% static 'assets/css/makon-vocab-images.css' %}?v=1">{% endblock style %}
 
 {% block content %}
 <div class="vocab-shell">
@@ -41,7 +41,7 @@
         <div class="vocab-word-list">
           {% for item in row.words %}
             <div class="vocab-word-row" data-vocab-word-row data-search="{{ item.word.word|lower }} {{ item.word.meaning|lower }} {{ item.word.example|default:''|lower }} {{ row.unit.title|lower }}">
-              <div class="vocab-word-main"><strong>{{ item.word.word }}</strong><small>{{ row.unit.title }}</small></div>
+              {% if item.word.image_url %}<img class="mk-vocab-thumb" src="{{ item.word.image_url }}" alt="" loading="lazy">{% endif %}<div class="vocab-word-main"><strong>{{ item.word.word }}</strong><small>{% if item.word.part_of_speech %}{{ item.word.part_of_speech }} · {% endif %}{{ row.unit.title }}</small></div>
               <div class="vocab-word-meaning"><span>{{ item.word.meaning }}</span>{% if item.word.example %}<small>Example: {{ item.word.example }}</small>{% endif %}</div>
               <span class="vocab-status vocab-status-{{ item.status }}">{{ item.status }}</span>
             </div>

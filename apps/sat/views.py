@@ -15,6 +15,7 @@ from satmakon.settings import BASE_DIR
 from .libs import calculator
 from .answer_matching import check_english_answer, reference_answer
 from .numeric_answer_matching import check_written_answer, normalize_written_value as _normalize_written_value_v5613
+from .rich_text import is_makon, question_display, runner_question_fields
 from .vocabulary_progress import (
     build_unit_progress_rows,
     get_vocabulary_summary,
@@ -3934,6 +3935,32 @@ def _review_question_payload(question, section):
     if not question:
         return {}
 
+    if is_makon(question):
+        # MakonBook-format text (synced from makonbook-api), rendered to safe HTML.
+        written = bool(getattr(question, 'written', False)) if section == 'math' else (
+            getattr(question, 'response_type', 'multiple_choice') == 'open_text'
+        )
+        payload = {
+            'id': question.id,
+            'rich': True,
+            'passage': question_display(question, 'passage'),
+            'number': question.number or 0,
+            'question': question_display(question, 'question'),
+            'a': question_display(question, 'a', inline=True),
+            'b': question_display(question, 'b', inline=True),
+            'c': question_display(question, 'c', inline=True),
+            'd': question_display(question, 'd', inline=True),
+            'explanation': question_display(question, 'explained'),
+            'graph': '',
+            'written': written,
+        }
+        if section == 'math':
+            payload['type'] = written
+        else:
+            payload['response_type'] = getattr(question, 'response_type', 'multiple_choice')
+            payload['reference_answer'] = reference_answer(question)
+        return payload
+
     if section == 'math':
         return {
             'id': question.id,
@@ -3973,6 +4000,7 @@ def _review_choices_payload(question, section):
         is_image = isinstance(content, str) and content.startswith('IMAGE:')
         choices.append({
             'letter': letter,
+            'rich': bool(payload.get('rich')),
             'content': '' if is_image else content,
             'is_image': is_image,
             'image_url': content[6:] if is_image else '',
@@ -4266,13 +4294,8 @@ def makeup_test_module(request, pk):
             for q in questions:
                 questions_data.append({
                     'id': q.id,
-                    'passage': q.passage or '',
+                    **runner_question_fields(q),
                     'number': q.number,
-                    'question': q.question or '',
-                    'a': q.get_a() if hasattr(q, 'get_a') else '',
-                    'b': q.get_b() if hasattr(q, 'get_b') else '',
-                    'c': q.get_c() if hasattr(q, 'get_c') else '',
-                    'd': q.get_d() if hasattr(q, 'get_d') else '',
                     'type': str(q.written),
                     'graph': q.get_graph() if hasattr(q, 'get_graph') else '',
                 })
@@ -4516,14 +4539,8 @@ def module_test(request, pk, attempt_id=None):
             questions_data.append({
 
                 "id": q.id,
-                "passage": q.passage or "",
+                **runner_question_fields(q),
                 "number": q.number,
-                "question": q.question or "",
-
-                "a": q.get_a() if hasattr(q, "get_a") else "",
-                "b": q.get_b() if hasattr(q, "get_b") else "",
-                "c": q.get_c() if hasattr(q, "get_c") else "",
-                "d": q.get_d() if hasattr(q, "get_d") else "",
 
                 "type": str(q.written),
 
@@ -5350,6 +5367,8 @@ def vocabulary_deck_clone_unit(request, unit_id):
                 word=item.word,
                 meaning=item.meaning,
                 example=item.example or '',
+                part_of_speech=item.part_of_speech or '',
+                image_url=item.image_url or '',
                 order=index,
             )
             for index, item in enumerate(active_words, start=1)
@@ -5499,6 +5518,8 @@ def vocabulary_deck_arena(request, deck_id, mode):
             'word': item.word,
             'meaning': item.meaning,
             'example': item.example or '',
+            'part_of_speech': item.part_of_speech or '',
+            'image': item.image_url or '',
         }
         for item in session_words
     ]
@@ -13218,7 +13239,11 @@ def student_topic_check(request):
     else:
         correct = str(response or '').strip().upper() == str(question.answer or '').strip().upper()
         reference = question.answer or ''
-    return JsonResponse({'ok': True, 'correct': bool(correct), 'answer': reference, 'explanation': question.explained or ''})
+    payload = {'ok': True, 'correct': bool(correct), 'answer': reference, 'explanation': question.explained or ''}
+    if is_makon(question):
+        # Safe HTML rendered on the server; the page inserts it as is.
+        payload['explanation_html'] = str(question_display(question, 'explained'))
+    return JsonResponse(payload)
 
 
 @login_required(login_url='/login/')
@@ -13666,7 +13691,10 @@ def _v524_ensure_unit_deck(user, unit):
             source_unit=unit,
         )
         VocabularyDeckWord.objects.bulk_create([
-            VocabularyDeckWord(deck=deck, word=item.word, meaning=item.meaning, example=item.example or '', order=index)
+            VocabularyDeckWord(
+                deck=deck, word=item.word, meaning=item.meaning, example=item.example or '',
+                part_of_speech=item.part_of_speech or '', image_url=item.image_url or '', order=index,
+            )
             for index, item in enumerate(active_words, start=1)
         ])
     return deck

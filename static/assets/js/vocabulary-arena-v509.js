@@ -149,7 +149,7 @@
 
   function renderAnimated(w){
     activeKeyHandler=null;
-    card.innerHTML=`${renderArenaHud('Animated Immersion','<span class="va509-pill">Guided recall</span>')}<div class="va509-center va509-immersion"><div class="va509-word va509-reveal">${escapeHtml(w.word)}</div><div class="va509-divider va509-reveal"></div><div class="va509-meaning va509-reveal">${escapeHtml(w.meaning)}</div>${w.example?`<div class="va509-example va509-reveal"><span>Example</span>${escapeHtml(w.example)}</div>`:''}</div>`;
+    card.innerHTML=`${renderArenaHud('Animated Immersion','<span class="va509-pill">Guided recall</span>')}<div class="va509-center va509-immersion"><div class="va509-word va509-reveal">${escapeHtml(w.word)}</div><div class="va509-divider va509-reveal"></div>${w.image?`<img class="mk-vocab-image va509-reveal" src="${escapeHtml(w.image)}" alt="" loading="lazy">`:''}<div class="va509-meaning va509-reveal">${escapeHtml(w.meaning)}</div>${w.example?`<div class="va509-example va509-reveal"><span>Example</span>${escapeHtml(w.example)}</div>`:''}</div>`;
     footer.innerHTML=`<button class="va509-btn danger" type="button" data-again><i class="bi bi-arrow-counterclockwise"></i> Again</button><button class="va509-btn primary" type="button" data-got>Got it <i class="bi bi-arrow-right"></i></button>`;
 
     footer.querySelector('[data-again]').onclick=()=>{

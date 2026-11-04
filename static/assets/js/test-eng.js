@@ -83,7 +83,21 @@
     });
   }
 
-  function choiceMarkup(core, letter, content) {
+
+  // Questions synced from makonbook-api (format "makon") arrive already
+  // rendered to safe HTML by the server (apps/sat/rich_text.py). The legacy
+  // clean-up in fixContent() must not touch them: it turns a literal
+  // backslash-n or backslash-t into a newline or a tab, which breaks LaTeX
+  // commands such as \neq, \text and \times.
+  function isRich(question) {
+    return Boolean(question && question.format === 'makon');
+  }
+
+  function questionContent(question, value) {
+    return isRich(question) ? String(value == null ? '' : value) : fixContent(value);
+  }
+
+  function choiceMarkup(core, letter, content, rich) {
     const index = core.currentQuestionIndex;
     const selected = SATTestUtils.normalizeChoice(core.answers[index]) === letter;
     const eliminated = (core.eliminatedChoices[index] || []).includes(letter);
@@ -93,7 +107,7 @@
         <input class="choice-input" type="radio" id="${inputId}" name="answer" value="${letter}" ${selected ? 'checked' : ''}>
         <label class="choice-container${selected ? ' selected' : ''}" for="${inputId}">
           <span class="mark" aria-hidden="true">${letter}</span>
-          <span class="choice-content">${fixContent(content)}</span>
+          <span class="choice-content">${rich ? String(content == null ? '' : content) : fixContent(content)}</span>
         </label>
         <button type="button" class="crossing-zone" data-eliminate-choice="${letter}" aria-label="${eliminated ? 'Restore' : 'Eliminate'} option ${letter}">
           <span aria-hidden="true">${eliminated ? '↩' : '×'}</span>
@@ -141,8 +155,8 @@
     const answers = document.getElementById('answers');
     const crossing = document.querySelector('.crossing-options');
 
-    if (passage) passage.innerHTML = fixContent(question.passage);
-    if (questionText) questionText.innerHTML = fixContent(question.question);
+    if (passage) passage.innerHTML = questionContent(question, question.passage);
+    if (questionText) questionText.innerHTML = questionContent(question, question.question);
     if (number) number.textContent = question.number || core.currentQuestionIndex + 1;
     if (graph) {
       graph.innerHTML = question.graph
@@ -165,7 +179,7 @@
     } else {
       if (crossing) crossing.hidden = false;
       answers.innerHTML = ['A', 'B', 'C', 'D']
-        .map((letter) => choiceMarkup(core, letter, question[letter.toLowerCase()]))
+        .map((letter) => choiceMarkup(core, letter, question[letter.toLowerCase()], isRich(question)))
         .join('');
       answers.querySelectorAll('.choice-input').forEach((input) => {
         input.addEventListener('change', () => core.selectChoice(input.value));

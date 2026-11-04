@@ -1,0 +1,5 @@
+/* Vocabulary pictures and parts of speech (words synced from makonbook-api). */
+.mk-vocab-pos { display: block; margin-top: .25em; font-size: .78em; font-style: italic; letter-spacing: .02em; opacity: .72; }
+.mk-vocab-image { display: block; width: auto; max-width: min(240px, 80%); max-height: 170px; margin: .55em auto; border-radius: 12px; object-fit: contain; background: #fff; }
+.mk-vocab-thumb { width: 52px; height: 52px; flex: 0 0 52px; margin-right: .6em; border-radius: 10px; object-fit: cover; background: #fff; }
+@media (max-width: 520px) { .mk-vocab-image { max-height: 130px; } .mk-vocab-thumb { width: 42px; height: 42px; flex-basis: 42px; } }

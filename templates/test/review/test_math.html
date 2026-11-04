@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
     {% include 'base/theme_init.html' %}
-    {% load static %}
+    {% load static question_text %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Math Review</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <link rel="stylesheet" href="{% static 'assets/css/makon-rich-text.css' %}?v=1">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
 
@@ -168,13 +169,13 @@
                 {% else %}
                     <div class="just-div" id="graph-container"></div>
                 {% endif %}
-                <div class="passage-card"><p id="passage">{{ question_payload.passage|default_if_none:""|linebreaksbr }}</p></div>
+                <div class="passage-card">{% if question_payload.rich %}<div id="passage" class="mk-rich">{{ question_payload.passage }}</div>{% else %}<p id="passage">{{ question_payload.passage|default_if_none:""|linebreaksbr }}</p>{% endif %}</div>
 
                 <div class="review-meta meta-card">
                     <h3><span class="meta-label">Domain:</span> {{ question.domain|default:"—" }}</h3>
                     <h3><span class="meta-label">Type:</span> {{ question.type|default:"—" }}</h3>
                     <p><span class="meta-label">Explanation:</span></p>
-                    <div id="explanation"><div class="review-explanation-content">{{ question.get_exp|default_if_none:"" }}</div><div class="review-answer-hidden-message">Explanation hidden. Solve the question again before revealing it.</div></div>
+                    <div id="explanation"><div class="review-explanation-content">{% if question_payload.rich %}{{ question_payload.explanation }}{% else %}{{ question.get_exp|default_if_none:"" }}{% endif %}</div><div class="review-answer-hidden-message">Explanation hidden. Solve the question again before revealing it.</div></div>
                 </div>
             </section>
 
@@ -187,7 +188,7 @@
                 </div>
 
                 <div class="question-card">
-                    <div class="question-text" id="question-text">{{ question_payload.question|default_if_none:""|linebreaksbr }}</div>
+                    <div class="question-text" id="question-text">{% if question_payload.rich %}{{ question_payload.question }}{% else %}{{ question_payload.question|default_if_none:""|linebreaksbr }}{% endif %}</div>
                     <div class="answers" id="answers">
                         
                         {% if question_payload.written %}
@@ -201,7 +202,7 @@
                                             {% if choice.is_image %}
                                                 <img class="choice-image" src="{{ choice.image_url }}" alt="Choice {{ choice.letter }}">
                                             {% else %}
-                                                {{ choice.content|default_if_none:""|linebreaksbr }}
+                                                {% if choice.rich %}{{ choice.content }}{% else %}{{ choice.content|default_if_none:""|linebreaksbr }}{% endif %}
                                             {% endif %}
                                         </div>
                                         {% if choice.letter == correct_choice %}<div class="choice-note correct-note">Correct answer</div>{% endif %}
