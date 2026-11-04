@@ -1,0 +1,81 @@
+# Background services for makonbook.uz: Redis, the Celery worker and Celery Beat.
+#
+# On the VPS this file sits next to the existing compose file as
+# /opt/sat-makon/makonbook/docker-compose.override.yml. `docker compose` merges
+# it automatically, so the existing web, telegram-bot, nginx and certbot
+# services (and the nginx folder) stay exactly as they are.
+#
+# Celery Beat starts the makonbook-api content sync (every
+# MAKONBOOK_API_SYNC_INTERVAL_MINUTES) and the HolliHop smart sync (only once
+# SCHOOL_DATA_PROVIDER=hollihop and the initial import has run). The Celery
+# worker also runs the Manager panel's background jobs.
+#
+# .env must point at this Redis: CELERY_BROKER_URL=redis://redis:6379/1,
+# CELERY_RESULT_BACKEND=redis://redis:6379/2,
+# REGISTRATION_RATE_LIMIT_CACHE_URL=redis://redis:6379/3.
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    container_name: makonbook-redis
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    networks:
+      - sat_makon_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  celery-worker:
+    image: ${APP_IMAGE:-nazacd/makonbook:latest}
+    pull_policy: always
+    restart: always
+    container_name: makonbook-celery-worker
+    command: celery -A satmakon worker --loglevel=INFO --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      # Migrations and static files belong to the web service only.
+      RUN_MIGRATIONS: "0"
+      COLLECTSTATIC_ON_START: "0"
+      DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-90}
+    networks:
+      - sat_makon_network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  celery-beat:
+    image: ${APP_IMAGE:-nazacd/makonbook:latest}
+    pull_policy: always
+    restart: always
+    container_name: makonbook-celery-beat
+    command: celery -A satmakon beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      RUN_MIGRATIONS: "0"
+      COLLECTSTATIC_ON_START: "0"
+      DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-90}
+    networks:
+      - sat_makon_network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+
+networks:
+  sat_makon_network:
+    external: true

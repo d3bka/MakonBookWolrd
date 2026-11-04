@@ -47,8 +47,12 @@ migrates it. makonbook-api, its database and its deploy are not touched.
 ## First deploy (replacing makonBook-2.0)
 
 Everything happens in `/opt/sat-makon/makonbook/` on the VPS.
-**`docker-compose.yml` and `nginx/` there stay exactly as they are.** This
-repo's `docker-compose.prod.yml` is identical to the file already there.
+**`docker-compose.yml` and `nginx/` there stay exactly as they are.** The
+VPS file runs `web`, `telegram-bot`, `nginx` and `certbot` only. The background
+services (Redis, Celery worker, Celery Beat) come from one extra file,
+`deploy/docker-compose.override.yml`, saved next to it as
+`docker-compose.override.yml` (step 6). `docker compose` merges the two by
+itself.
 Never copy this repo's `nginx/default.conf` over the VPS one: the VPS file also
 holds the api/admin.makonbook.uz blocks.
 
@@ -119,12 +123,25 @@ docker push nazacd/makonbook:latest
 
 ### 6. Start it
 
+Once, add the background services, from your computer in a checkout of this repo:
+
+```bash
+scp deploy/docker-compose.override.yml root@188.245.175.83:/opt/sat-makon/makonbook/docker-compose.override.yml
+```
+
+`.env` must point Celery and the rate-limit cache at that Redis
+(`CELERY_BROKER_URL=redis://redis:6379/1`, `CELERY_RESULT_BACKEND=redis://redis:6379/2`,
+`REGISTRATION_RATE_LIMIT_CACHE_URL=redis://redis:6379/3`). Then:
+
 ```bash
 cd /opt/sat-makon/makonbook
 docker compose pull
 docker compose up -d
 docker compose logs -f web      # "Applying database migrations..." then gunicorn
 ```
+
+`docker compose ps` should list 7 containers: web, telegram-bot, nginx,
+certbot, redis, celery-worker and celery-beat.
 
 The web container applies this version's migrations to `makonbook` when it
 starts (`RUN_MIGRATIONS=1`). They only add tables and columns.
