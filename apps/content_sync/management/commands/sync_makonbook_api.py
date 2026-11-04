@@ -27,7 +27,8 @@ class Command(BaseCommand):
         if conflicts:
             self.stderr.write(self.style.WARNING(
                 f"Not synced, because a test made in this app has the same name: {', '.join(conflicts)}. "
-                "Run `python manage.py remove_legacy_tests` (then with --confirm) first."
+                "Run `python manage.py remove_legacy_tests` (then with --confirm) first; a test an event "
+                "runs on stays until the event uses another test."
             ))
         if "skipped" in result:
             raise CommandError(result["skipped"])

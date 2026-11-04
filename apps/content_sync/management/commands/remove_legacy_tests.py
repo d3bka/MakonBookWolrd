@@ -5,8 +5,9 @@ from apps.content_sync.legacy import remove_legacy_tests
 
 class Command(BaseCommand):
     help = (
-        "Remove every test not synced from makonbook-api (regular, placement, event and makeup "
-        "tests) with its questions and results. Shows what it would delete unless --confirm."
+        "Remove the regular practice tests made in this app (not synced from makonbook-api) with "
+        "their questions and results. Placement, event and makeup tests stay. Shows what it would "
+        "delete unless --confirm."
     )
 
     def add_arguments(self, parser):
@@ -19,6 +20,11 @@ class Command(BaseCommand):
         self.stdout.write(f"{verb} {len(tests)} test(s): {', '.join(map(str, tests[:80]))}{' …' if len(tests) > 80 else ''}")
         for label, n in result["deleted"].items():
             self.stdout.write(f"  {label}: {n}")
+        for test, events in result["kept_for_events"].items():
+            self.stdout.write(self.style.WARNING(
+                f"Kept {test}: the event(s) {', '.join(events)} run on it. The synced test of the same "
+                "name can't be created until the event is moved to another test or removed."
+            ))
         if not result["confirmed"]:
             self.stdout.write(self.style.WARNING("Nothing was deleted. Run again with --confirm to delete."))
         else:

@@ -69,8 +69,8 @@ docker push nazacd/makonbook:2.0-final
 ls -lh /opt/backups/postgres | tail
 ```
 
-Step 7 deletes the old tests and their results, and that cannot be undone
-without this backup.
+Step 7 deletes the old practice tests and their results, and that cannot be
+undone without this backup.
 
 ### 3. A read-only R2 token for makonbook-api's bucket
 
@@ -129,16 +129,23 @@ docker compose logs -f web      # "Applying database migrations..." then gunicor
 The web container applies this version's migrations to `makonbook` when it
 starts (`RUN_MIGRATIONS=1`). They only add tables and columns.
 
-### 7. Remove the old tests (once)
+### 7. Remove the old practice tests (once)
 
-Every test made in this app before is removed, with its questions and
-results: regular, placement, event and makeup tests, and the events built on
-them. Look first, then confirm:
+The regular practice tests made in this app are removed with their questions
+and results (attempts, scores, reviews, homework that assigned them), so the
+synced tests can take their names. Placement, event and makeup tests and
+their results stay. Questions that a makeup test uses also stay. Look first,
+then confirm:
 
 ```bash
 docker compose exec web python manage.py remove_legacy_tests
 docker compose exec web python manage.py remove_legacy_tests --confirm
 ```
+
+A regular test that an event runs on is kept and listed, because deleting it
+would delete the event. Its synced namesake can't be created until the event
+uses another test or is over and removed. `sync_makonbook_api` lists those
+names as conflicts.
 
 ### 8. First sync from makonbook-api
 

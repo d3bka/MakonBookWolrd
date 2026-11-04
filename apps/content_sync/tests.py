@@ -21,6 +21,8 @@ from apps.sat.models import (
     ClassroomSectionAccessPolicy,
     English_Question,
     GlobalEvent,
+    MakeupTest,
+    MakeupTestMathQuestion,
     Math_Question,
     StudentPracticeTestAccess,
     Test,
@@ -364,32 +366,55 @@ class RemoveLegacyTestsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("u", password="x")
         self.old = Test.objects.create(name="DAY1")
+        self.event_day = Test.objects.create(name="DAY5")
         self.placement = Test.objects.create(name="Placement", test_type=Test.TYPE_PLACEMENT)
+        self.event_bank = Test.objects.create(name="Event bank", test_type=Test.TYPE_EVENT)
         English_Question.objects.create(test=self.old, module="module_1", number=1, question="q", answer="A")
-        Math_Question.objects.create(test=None, module="module_1", number=1, question="orphan", answer="A")
+        self.makeup_question = Math_Question.objects.create(
+            test=self.old, module="module_1", number=2, question="used by a makeup test", answer="A"
+        )
+        Math_Question.objects.create(test=self.placement, module="module_1", number=1, question="p", answer="A")
+        self.orphan = Math_Question.objects.create(test=None, module="module_1", number=1, question="orphan", answer="A")
         TestStage.objects.create(user=self.user, test=self.old, stage=1)
         TestReview.objects.create(user=self.user, test=self.old, key="r1", score=1000)
+        TestStage.objects.create(user=self.user, test=self.placement, stage=1)
+        self.makeup = MakeupTest.objects.create(name="Makeup A")
+        MakeupTestMathQuestion.objects.create(makeup_test=self.makeup, math_question=self.makeup_question)
         GlobalEvent.objects.create(
             title="Mock", slug="mock", test=self.placement, start_at=timezone.now(), end_at=timezone.now()
+        )
+        GlobalEvent.objects.create(
+            title="Day 5 live", slug="day5", test=self.event_day, start_at=timezone.now(), end_at=timezone.now()
         )
         sync_practice([package()], fake_mirror())
 
     def test_without_confirm_nothing_is_deleted(self):
         result = remove_legacy_tests()
         self.assertFalse(result["confirmed"])
-        self.assertEqual(sorted(result["tests"]), ["DAY1", "Placement"])
-        self.assertEqual(result["deleted"]["sat.Test"], 2)
-        self.assertEqual(Test.objects.count(), 3)
-        self.assertTrue(TestStage.objects.exists())
+        self.assertEqual(result["tests"], ["DAY1"])
+        self.assertEqual(result["kept_for_events"], {"DAY5": ["Day 5 live"]})
+        self.assertEqual(result["deleted"]["sat.Test"], 1)
+        self.assertEqual(Test.objects.count(), 5)
+        self.assertEqual(TestStage.objects.count(), 2)
 
-    def test_confirm_deletes_old_tests_questions_and_results_but_keeps_synced_ones(self):
+    def test_confirm_deletes_only_old_regular_tests(self):
         remove_legacy_tests(confirm=True)
-        self.assertEqual(list(Test.objects.values_list("name", flat=True)), ["DAY12"])
-        self.assertFalse(English_Question.objects.exclude(content_format="makon").exists())
-        self.assertFalse(Math_Question.objects.exclude(content_format="makon").exists())
-        self.assertFalse(TestStage.objects.exists())
+        self.assertEqual(
+            sorted(Test.objects.values_list("name", flat=True)), ["DAY12", "DAY5", "Event bank", "Placement"]
+        )
+        # The regular test's results and questions are gone ...
         self.assertFalse(TestReview.objects.exists())
-        self.assertFalse(GlobalEvent.objects.exists())
+        self.assertFalse(English_Question.objects.filter(question="q").exists())
+        # ... except a question a makeup test uses, which stays with the makeup test.
+        self.makeup_question.refresh_from_db()
+        self.assertIsNone(self.makeup_question.test_id)
+        self.assertTrue(MakeupTestMathQuestion.objects.filter(makeup_test=self.makeup).exists())
+        # Placement, event and makeup tests, their results and events stay.
+        self.assertTrue(TestStage.objects.filter(test=self.placement).exists())
+        self.assertTrue(Math_Question.objects.filter(test=self.placement).exists())
+        self.assertEqual(GlobalEvent.objects.count(), 2)
+        self.assertTrue(MakeupTest.objects.filter(pk=self.makeup.pk).exists())
+        self.assertTrue(Math_Question.objects.filter(pk=self.orphan.pk).exists())
         self.assertEqual(Math_Question.objects.filter(test__name="DAY12").count(), 2)
 
     def test_command(self):
@@ -397,7 +422,8 @@ class RemoveLegacyTestsTests(TestCase):
 
         out = StringIO()
         call_command("remove_legacy_tests", stdout=out)
-        self.assertIn("Would delete 2 test(s)", out.getvalue())
-        self.assertEqual(Test.objects.count(), 3)
+        self.assertIn("Would delete 1 test(s): DAY1", out.getvalue())
+        self.assertIn("Kept DAY5", out.getvalue())
+        self.assertEqual(Test.objects.count(), 5)
         call_command("remove_legacy_tests", "--confirm", stdout=out)
-        self.assertEqual(Test.objects.count(), 1)
+        self.assertEqual(Test.objects.count(), 4)
