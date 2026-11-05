@@ -713,6 +713,66 @@ def _draft_remaining_seconds(draft):
     return max(ceil((draft.deadline_at - timezone.now()).total_seconds()), 0)
 
 
+# An unfinished attempt the student walked away from without answering a single
+# question: its module's time ran out well before they came back, or it hasn't
+# been touched for a day. Resuming it would only submit it straight away and
+# show a result of 0 (an old attempt from the previous site, typically), so it
+# is discarded and a fresh attempt starts. An attempt with any answer is never
+# discarded: it continues (or is scored) as before.
+SAT_ABANDONED_AFTER_DEADLINE = timedelta(minutes=30)
+SAT_ABANDONED_IDLE = timedelta(days=1)
+
+
+def _has_given_answer(value):
+    if isinstance(value, dict):
+        value = value.get('answer')
+    return value is not None and str(value).strip() != ''
+
+
+def _abandoned_unanswered_stage(stage, now=None):
+    if stage is None or getattr(stage, 'test_type', 'regular') != 'regular':
+        return False
+    step = get_current_test_step(stage)
+    if step is None:
+        return False
+    now = now or timezone.now()
+    drafts = list(TestModuleDraft.objects.filter(user=stage.user, test=stage.test, attempt_id=stage.attempt_id))
+    section, module = step
+    current = next(
+        (
+            draft for draft in drafts
+            if _normalize_test_section(draft.section) == _normalize_test_section(section)
+            and _normalize_test_module(draft.module) == _normalize_test_module(module)
+        ),
+        None,
+    )
+    expired_while_away = bool(current and current.deadline_at and current.deadline_at + SAT_ABANDONED_AFTER_DEADLINE <= now)
+    last_touched = max(
+        [moment for moment in [stage.updated_at, stage.created_at] + [draft.updated_at for draft in drafts] if moment],
+        default=None,
+    )
+    idle = bool(last_touched and last_touched + SAT_ABANDONED_IDLE <= now)
+    if not (expired_while_away or idle):
+        return False
+    if any(_has_given_answer(answer) for draft in drafts for answer in (draft.answers or [])):
+        return False
+    for submitted in TestModule.objects.filter(user=stage.user, test=stage.test, attempt_id=stage.attempt_id).only('answers'):
+        if any(_has_given_answer(answer) for answer in _safe_answers_list(submitted.answers)):
+            return False
+    return True
+
+
+def _discard_abandoned_stage(request, stage):
+    """Remove an abandoned, unanswered attempt (see _abandoned_unanswered_stage)."""
+    attempt_scope = {'user': stage.user, 'test': stage.test, 'attempt_id': stage.attempt_id}
+    with transaction.atomic():
+        TestModuleDraft.objects.filter(**attempt_scope).delete()
+        TestModule.objects.filter(**attempt_scope).delete()
+        TestReview.objects.filter(score__isnull=True, **attempt_scope).delete()
+        stage.delete()
+    _clear_bound_active_attempt(request, stage.test, stage.attempt_id)
+
+
 def _deadline_snapshot_recovery_allowed(draft, payload, now=None):
     """Accept only a frozen near-deadline snapshot that arrived slightly late.
 
@@ -4395,6 +4455,16 @@ def module_test(request, pk, attempt_id=None):
                 classroom=None,
                 mode=requested_mode,
             )
+
+        # Coming back to an attempt abandoned without a single answer (this test's,
+        # or another test's that would block starting this one): discard it and
+        # start this test afresh instead of showing a result of 0.
+        stale = blocked_stage if blocked_stage is not None else (None if created else test_stage)
+        if stale is not None and _abandoned_unanswered_stage(stale):
+            _discard_abandoned_stage(request, stale)
+            fresh_url = reverse('practice_test_module_root', kwargs={'pk': test.name})
+            query = request.GET.urlencode()
+            return redirect(f"{fresh_url}?{query}" if query else fresh_url)
 
     sequence = get_test_sequence(test, mode=getattr(test_stage, 'mode', requested_mode)) if test_stage else []
 

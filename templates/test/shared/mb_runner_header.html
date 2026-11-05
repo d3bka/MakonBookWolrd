@@ -8,7 +8,6 @@ and home_url. The ids and classes the runner scripts use stay as they were:
 {% endcomment %}{% with module_no=module|default:'' %}
 <header class="mbr-header">
     <div class="mbr-head-start">
-        {% if public_placement_mode %}<span class="pp-runner-badge">LEVEL CHECK</span>{% endif %}
         <h1 class="mbr-module">
             <span class="mbr-only-wide">{% if mbr_math %}Math{% else %}Reading and Writing{% endif %} · Module {% if module_no == 'm2' or module_no == 'module_2' %}2{% else %}1{% endif %}</span>
             <span class="mbr-only-narrow">{% if mbr_math %}Math{% else %}R&amp;W{% endif %} · M{% if module_no == 'm2' or module_no == 'module_2' %}2{% else %}1{% endif %}</span>

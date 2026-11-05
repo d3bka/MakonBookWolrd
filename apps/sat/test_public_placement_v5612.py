@@ -71,8 +71,9 @@ class PublicPlacementV5612Tests(TestCase):
         response = self.client.get(reverse("global_event_attempt_root", args=[lead.attempt.guest_token]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "pp-test-runner")
-        self.assertContains(response, "LEVEL CHECK")
         self.assertContains(response, "public-placement-runner-v5612.css")
+        # The test screen's header shows only the section, as for every test.
+        self.assertNotContains(response, "pp-runner-badge")
 
     def test_completed_public_placement_uses_dedicated_result_experience(self):
         lead = self.start_public_attempt()

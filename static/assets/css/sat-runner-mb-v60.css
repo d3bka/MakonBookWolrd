@@ -131,7 +131,6 @@ body.mb-runner .mbr-directions-toggle {
 body.mb-runner .mbr-directions-toggle:active { color: var(--mb-accent); }
 body.mb-runner .mbr-directions-toggle[aria-expanded="true"] .mbr-icon { transform: rotate(180deg); }
 
-body.mb-runner .pp-runner-badge { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 2px; padding: 2px 8px; border-radius: 999px; background: var(--mb-accent-tint); color: var(--mb-accent); font-size: 9px; font-weight: 800; letter-spacing: .11em; }
 
 /* The clock: the time with its hide toggle beside it, whether the work is saved under it. */
 body.mb-runner .mbr-clock {
@@ -158,10 +157,12 @@ body.mb-runner .mbr-clock .exam54-time-toggle:hover { color: var(--mb-ink); back
 body.mb-runner .mbr-clock .exam54-time-toggle:active { background: var(--mb-paper-2); }
 body.mb-runner .mbr-clock .exam54-time-toggle span { display: none; }
 body.mb-runner .mbr-clock .exam54-time-toggle.is-five-minute-locked { color: var(--mb-bad); opacity: 1; }
-/* Time hidden: a clock icon stands in for the numbers. */
-body.mb-runner.exam54-time-hidden .mbr-clock .timer { font-size: 0; width: 28px; height: 28px; }
-body.mb-runner.exam54-time-hidden .mbr-clock .timer::after {
-  content: ""; display: block; width: 22px; height: 22px; margin: 3px auto 0; background: var(--mb-ink);
+/* Time hidden: a clock icon stands in for the numbers, the same size as the time
+   so nothing moves. #timer beats sat-exam-experience-v54.css, which would make
+   the box 48px tall and write "Timer hidden" in it. */
+body.mb-runner.exam54-time-hidden .mbr-clock #timer { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; min-height: 0; font-size: 0 !important; }
+body.mb-runner.exam54-time-hidden .mbr-clock #timer::after {
+  content: ""; display: block; width: 22px; height: 22px; margin: 0; font-size: 0; letter-spacing: 0; background: var(--mb-ink);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='10' x2='14' y1='2' y2='2'/%3E%3Cline x1='12' x2='15' y1='14' y2='11'/%3E%3Ccircle cx='12' cy='14' r='8'/%3E%3C/svg%3E") center / contain no-repeat;
           mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='10' x2='14' y1='2' y2='2'/%3E%3Cline x1='12' x2='15' y1='14' y2='11'/%3E%3Ccircle cx='12' cy='14' r='8'/%3E%3C/svg%3E") center / contain no-repeat;
 }
