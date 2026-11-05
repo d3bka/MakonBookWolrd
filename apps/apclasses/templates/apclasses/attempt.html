@@ -1,11 +1,11 @@
 {% extends "apclasses/base.html" %}
-{% load static %}
+{% load static runner_tags %}
 {% block title %}{{ exam.title }}{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.3/dist/katex.min.css">
 {% if current_part_key == "part_b" %}
-<script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"
+{% desmos_calculator_src as desmos_src %}<script src="{{ desmos_src }}"
         onerror="console.error('Failed to load Desmos script'); window.desmosLoadError = true;"></script>
 {% endif %}
 <style>
@@ -990,7 +990,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             const script = document.createElement('script');
-            script.src = 'https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
+            script.src = '{% desmos_calculator_src as desmos_src %}{{ desmos_src|escapejs }}';
             script.async = true;
             script.onerror = function() { console.error('Failed to load Desmos script'); window.desmosLoadError = true; resolve(false); };
             script.onload = function() { window.desmosLoadError = false; resolve(true); };

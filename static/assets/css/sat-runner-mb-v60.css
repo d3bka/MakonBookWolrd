@@ -27,8 +27,10 @@ body.mb-runner {
   --mb-accent: #4b12a6;
   --mb-on-accent: #ffffff;
   --mb-accent-tint: #efe7fb;
-  --mb-engine: #2f44b7;
-  --mb-engine-soft: #8392d7;
+  /* The test screen's action colour: Back and Next, the chosen answer, ABC, Submit. MakonBook purple. */
+  --mb-engine: #5b21b6;
+  --mb-engine-soft: #b7a4e3;
+  --mb-on-engine: #ffffff;
   --mb-good: #15803d;
   --mb-good-tint: #dcfce7;
   --mb-watch: #a16207;
@@ -64,8 +66,9 @@ html[data-theme="dark"] body.mb-runner {
   --mb-accent: #b9a1ff;
   --mb-on-accent: #160c2c;
   --mb-accent-tint: #2b2340;
-  --mb-engine: #7d8cff;
-  --mb-engine-soft: #4b558f;
+  --mb-engine: #a78bfa;
+  --mb-engine-soft: #4c3d78;
+  --mb-on-engine: #1c0f3a;
   --mb-good: #4ade80;
   --mb-good-tint: #16301f;
   --mb-watch: #facc15;
@@ -285,7 +288,7 @@ body.mb-runner .mbr-strip .crossing-options {
   color: var(--mb-ink); font-size: 11px; line-height: 1; font-weight: 800; letter-spacing: .04em; text-decoration: line-through;
 }
 body.mb-runner .mbr-strip .crossing-options::before, body.mb-runner .mbr-strip .crossing-options::after { content: none; display: none; }
-body.mb-runner .mbr-strip .crossing-options.active-options { border-color: var(--mb-engine); background: var(--mb-engine); color: #fff; }
+body.mb-runner .mbr-strip .crossing-options.active-options { border-color: var(--mb-engine); background: var(--mb-engine); color: var(--mb-on-engine); }
 
 /* Answer choices: Bluebook's rounded card with the circled letter; the whole card selects it. */
 body.mb-runner #answers { display: flex; flex-direction: column; gap: 12px; margin: 20px 0 0; padding: 0; }
@@ -308,8 +311,7 @@ body.mb-runner #answers .choice-content p { margin: 0; }
 body.mb-runner #answers .big-container.selected .choice-container,
 body.mb-runner #answers .choice-container.selected { border: 2px solid var(--mb-engine); padding: 7.5px 11.5px; background: var(--mb-paper); }
 body.mb-runner #answers .big-container.selected .mark,
-body.mb-runner #answers .choice-container.selected .mark { border-color: var(--mb-engine); background: var(--mb-engine); color: #fff; }
-html[data-theme="dark"] body.mb-runner #answers .big-container.selected .mark { color: #0d1030; }
+body.mb-runner #answers .choice-container.selected .mark { border-color: var(--mb-engine); background: var(--mb-engine); color: var(--mb-on-engine); }
 body.mb-runner #answers .big-container.is-eliminated .choice-container { opacity: .5; cursor: default; }
 body.mb-runner #answers .big-container.is-eliminated .choice-container::after { content: ""; position: absolute; left: 8px; right: 8px; top: 50%; height: 2px; background: var(--mb-ink); pointer-events: none; }
 /* The strike button beside each choice while ABC is on. */
@@ -363,13 +365,13 @@ body.question-modal-open.mb-runner .mbr-qbutton-chevron { transform: rotate(180d
 body.mb-runner .mbr-footer .footer-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 0; }
 body.mb-runner .mbr-nav {
   height: 40px; min-width: 0; margin: 0; padding: 0 24px; border: 0; border-radius: 999px;
-  background: var(--mb-engine); box-shadow: none; color: #fff; font-size: 15px; line-height: 21px; font-weight: 600; white-space: nowrap; transform: none;
+  background: var(--mb-engine); box-shadow: none; color: var(--mb-on-engine); font-size: 15px; line-height: 21px; font-weight: 600; white-space: nowrap; transform: none;
 }
-html[data-theme="dark"] body.mb-runner .mbr-nav { color: #0d1030; }
 body.mb-runner .mbr-nav:hover { background: var(--mb-engine); filter: brightness(1.08); transform: none; }
 body.mb-runner .mbr-nav.mbr-back { padding: 0 20px; }
 body.mb-runner .mbr-nav:disabled,
-body.mb-runner .mbr-nav:disabled:hover { background: var(--mb-engine-soft); color: #fff; filter: none; opacity: 1; }
+body.mb-runner .mbr-nav:disabled:hover { background: var(--mb-engine-soft); color: var(--mb-on-engine); filter: none; opacity: 1; }
+html[data-theme="dark"] body.mb-runner .mbr-nav:disabled { color: var(--mb-ink-2); }
 
 /* ---- the question navigator: Bluebook's popover above the footer ---- */
 body.mb-runner .question-overview-modal { position: fixed; inset: 0; z-index: 1250; display: none; padding: 0; background: transparent; }
@@ -533,8 +535,7 @@ body.mb-runner .finish-marked-icon { min-width: 0; min-height: 0; margin-top: 2p
 body.mb-runner .finish-summary-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 body.mb-runner .finish-summary-actions .nav-button { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 20px; border-radius: 999px; font-size: 15px; font-weight: 600; }
 body.mb-runner .finish-summary-actions .nav-button.secondary { border: 1px solid var(--mb-engine); background: none; color: var(--mb-engine); }
-body.mb-runner .finish-summary-actions .nav-button.primary { border: 0; background: var(--mb-engine); color: #fff; }
-html[data-theme="dark"] body.mb-runner .finish-summary-actions .nav-button.primary { color: #0d1030; }
+body.mb-runner .finish-summary-actions .nav-button.primary { border: 0; background: var(--mb-engine); color: var(--mb-on-engine); }
 body.mb-runner .finish-summary-actions .nav-button:disabled { opacity: .6; }
 body.mb-runner .overview-sr-only, body.mb-runner .finish-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
@@ -562,7 +563,7 @@ body.mb-runner .exam54-five-minute-alert-card { width: min(420px, 100%); padding
 body.mb-runner .exam54-five-minute-kicker { display: block; color: var(--mb-bad); font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 body.mb-runner .exam54-five-minute-alert-card strong { display: block; margin-top: 6px; font-size: 21px; line-height: 27px; }
 body.mb-runner .exam54-five-minute-alert-card p { margin: 8px 0 0; color: var(--mb-ink-2); font-size: 14px; line-height: 20px; }
-body.mb-runner .exam54-five-minute-alert-card button { height: 40px; margin-top: 18px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--mb-engine); color: #fff; font-weight: 600; }
+body.mb-runner .exam54-five-minute-alert-card button { height: 40px; margin-top: 18px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--mb-engine); color: var(--mb-on-engine); font-weight: 600; }
 
 /* Another tab took over, and no JavaScript. */
 body.mb-runner .test-tab-conflict-overlay { position: fixed; inset: 0; z-index: 21000; display: grid; place-items: center; padding: 20px; background: rgba(16, 19, 26, .5); }
@@ -570,7 +571,7 @@ body.mb-runner .test-tab-conflict-card { width: min(480px, 100%); padding: 28px;
 body.mb-runner .test-tab-conflict-card > span { display: inline-flex; margin-bottom: 8px; color: var(--mb-accent); font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 body.mb-runner .test-tab-conflict-card h2 { margin: 0 0 10px; font-size: 26px; line-height: 32px; }
 body.mb-runner .test-tab-conflict-card p { margin: 0 auto 20px; max-width: 420px; color: var(--mb-ink-2); line-height: 1.55; }
-body.mb-runner .test-tab-conflict-card button { height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--mb-engine); color: #fff; font-weight: 600; }
+body.mb-runner .test-tab-conflict-card button { height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--mb-engine); color: var(--mb-on-engine); font-weight: 600; }
 body.mb-runner .sat-test-noscript { position: fixed; inset: 16px; z-index: 20000; display: grid; place-items: center; padding: 28px; border: 1px solid var(--mb-bad); border-radius: var(--mb-radius-panel); background: var(--mb-paper); color: var(--mb-bad); font-weight: 700; text-align: center; }
 
 /* "Report an issue" lives in the header here; the floating button would cover Next. */
@@ -582,7 +583,7 @@ body.mb-runner .exam54-overlay { background: rgba(16, 19, 26, .55); }
 body.mb-runner .exam54-card { border: 1px solid var(--mb-line); border-radius: var(--mb-radius-panel); background: var(--mb-paper); color: var(--mb-ink); box-shadow: var(--mb-shadow-pop); font-family: var(--mb-font); }
 body.mb-runner .exam54-card .kicker { color: var(--mb-accent); }
 body.mb-runner .exam54-card p { color: var(--mb-ink-2); }
-body.mb-runner .exam54-btn.primary { border: 0; border-radius: 999px; background: var(--mb-engine); color: #fff; }
+body.mb-runner .exam54-btn.primary { border: 0; border-radius: 999px; background: var(--mb-engine); color: var(--mb-on-engine); }
 
 /* ---- narrow windows and phones ---- */
 @media (max-width: 899px) {

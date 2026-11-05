@@ -1,4 +1,4 @@
-{% load static %}
+{% load static runner_tags %}
 {% if attempt %}
     {% url 'save_global_event_answer_root' guest_token=attempt.guest_token as form_action %}
     {% url 'submit_global_event_root' guest_token=attempt.guest_token as submit_url %}
@@ -312,7 +312,8 @@
         "integrityViolationCount": {{ integrity_violation_count|default:0 }},
         "integrityFullscreenRequired": {% if integrity_fullscreen_required %}true{% else %}false{% endif %},
         "integrityMonitoredEvents": {{ integrity_monitored_events_json|default:"[]"|safe }},
-        "integrityViolationUrl": "{% url 'exam_integrity_violation' %}"
+        "integrityViolationUrl": "{% url 'exam_integrity_violation' %}",
+        "desmosSrc": "{% desmos_calculator_src as desmos_src %}{{ desmos_src|escapejs }}"
     }
     </script>
 

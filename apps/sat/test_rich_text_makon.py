@@ -67,3 +67,15 @@ class ReviewPayloadTests(TestCase):
         self.assertEqual(payload["a"], "<strong>1</strong>")
         self.assertIn("<li>step</li>", payload["explanation"])
         self.assertTrue(_review_choices_payload(q, "math")[0]["rich"])
+
+
+class DesmosKeyTests(TestCase):
+    def test_the_key_comes_from_settings(self):
+        from django.test import override_settings
+
+        from apps.sat.templatetags.runner_tags import DESMOS_DEMO_KEY, desmos_calculator_src
+
+        with override_settings(DESMOS_API_KEY="our-key"):
+            self.assertEqual(desmos_calculator_src(), "https://www.desmos.com/api/v1.10/calculator.js?apiKey=our-key")
+        with override_settings(DESMOS_API_KEY=""):
+            self.assertTrue(desmos_calculator_src().endswith(f"apiKey={DESMOS_DEMO_KEY}"))

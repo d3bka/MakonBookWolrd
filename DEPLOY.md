@@ -97,6 +97,9 @@ MAKONBOOK_API_SYNC_INTERVAL_MINUTES=10
 MAKONBOOK_API_R2_BUCKET=<makonbook-api's bucket name>
 MAKONBOOK_API_R2_ACCESS_KEY_ID=<read-only token id>
 MAKONBOOK_API_R2_SECRET_ACCESS_KEY=<read-only token secret>
+
+# --- the Desmos calculator (SAT Math, AP exams) ---
+DESMOS_API_KEY=<your key from desmos.com/api>
 EOF
 chmod 600 .env
 ```

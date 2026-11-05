@@ -11,7 +11,6 @@
   //   the whole module, kept in this browser as it changes, so it survives
   //   closing the panel, moving between questions or reloading the page.
 
-  const DESMOS_SRC = 'https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
   const WIDE_QUERY = '(min-width: 900px)';
   const WIDTH_KEY = 'mb.calc.width';
   const CALC_MIN = 300;
@@ -23,6 +22,10 @@
   const configNode = document.getElementById('sat-test-config');
   let config = {};
   try { config = JSON.parse(configNode?.textContent || '{}'); } catch (error) { config = {}; }
+
+  // The script's URL, with the key from DESMOS_API_KEY (.env), comes from the
+  // page (runner_tags.desmos_calculator_src).
+  const DESMOS_SRC = config.desmosSrc || '';
 
   const stateKey = [
     'sat-desmos-v60',
@@ -97,6 +100,7 @@
 
   function loadDesmosScript(force = false) {
     if (window.Desmos?.GraphingCalculator) return Promise.resolve(true);
+    if (!DESMOS_SRC) return Promise.resolve(false);
     if (force) {
       loadingPromise = null;
       document.querySelectorAll('script[data-sat-desmos-loader]').forEach((script) => script.remove());

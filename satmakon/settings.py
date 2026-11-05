@@ -741,6 +741,11 @@ CELERY_BEAT_SCHEDULE["makonbook-api-content-sync"] = {
     "schedule": MAKONBOOK_API_SYNC_INTERVAL_MINUTES * 60.0,
 }
 
+# The Desmos graphing calculator (SAT Math and AP exams). A key from
+# desmos.com/api, allowed for this site's domain. Without one the calculator
+# still works on Desmos's demo key, with a "Desmos Trial Key" notice.
+DESMOS_API_KEY = env_str("DESMOS_API_KEY", "")
+
 # AI is used for administrator/manager-run question-bank audits.
 # Structured-PDF imports themselves are deterministic and do not require an AI provider.
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
