@@ -16,13 +16,14 @@ class TestRunnerThemeImageFocusV49Tests(TestCase):
         return path.read_text(encoding="utf-8")
 
     def test_test_runner_bootstraps_saved_theme_before_styles(self):
+        # The runner is styled by sat-runner-mb-v60.css (the MakonBook web app's
+        # test screen); the saved theme must be applied before it loads.
         for path in (ENG_TEMPLATE, MATH_TEMPLATE):
             source = self._template(path)
             theme_init = source.index("{% include 'base/theme_init.html' %}")
-            first_test_stylesheet = source.index("assets/css/makon-eng.css")
+            first_test_stylesheet = source.index("assets/css/sat-runner-mb-v60.css")
             self.assertLess(theme_init, first_test_stylesheet, path.name)
             self.assertIn("assets/js/makon-theme-switcher.js", source)
-            self.assertIn("assets/css/sat-test-theme-v49.css", source)
 
     def test_both_test_sections_load_image_focus_assets(self):
         for path in (ENG_TEMPLATE, MATH_TEMPLATE):
@@ -47,10 +48,12 @@ class TestRunnerThemeImageFocusV49Tests(TestCase):
         self.assertIn("color: #5b21b6 !important", css)
         self.assertIn("#pen-button.active", css)
 
-    def test_test_runner_theme_css_cache_busts_v492(self):
+    def test_test_runner_styles_follow_light_and_dark_theme(self):
+        css = (ROOT / "static/assets/css/sat-runner-mb-v60.css").read_text(encoding="utf-8")
+        self.assertIn("body.mb-runner {", css)
+        self.assertIn('html[data-theme="dark"] body.mb-runner {', css)
         for path in (ENG_TEMPLATE, MATH_TEMPLATE):
-            source = self._template(path)
-            self.assertIn("assets/css/sat-test-theme-v49.css' %}?v=49.2", source)
+            self.assertIn("assets/css/sat-runner-mb-v60.css' %}?v=60", self._template(path))
 
     def test_timer_and_save_status_are_readable_in_light_theme(self):
         css = THEME_CSS.read_text(encoding="utf-8")

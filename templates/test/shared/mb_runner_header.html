@@ -1,0 +1,69 @@
+{% comment %}
+The test screen's header, laid out like Bluebook (and the MakonBook web app):
+the section and its directions on the left, the clock and whether the work is
+saved in the middle, the tools on the right. Takes mbr_math (true for Math)
+and home_url. The ids and classes the runner scripts use stay as they were:
+#timer, [data-test-save-status], .header-tools, [data-test-exit],
+#open-calculator, #open-reference, #pen-button, #clear-button.
+{% endcomment %}{% with module_no=module|default:'' %}
+<header class="mbr-header">
+    <div class="mbr-head-start">
+        {% if public_placement_mode %}<span class="pp-runner-badge">LEVEL CHECK</span>{% endif %}
+        <h1 class="mbr-module">
+            <span class="mbr-only-wide">{% if mbr_math %}Math{% else %}Reading and Writing{% endif %} · Module {% if module_no == 'm2' or module_no == 'module_2' %}2{% else %}1{% endif %}</span>
+            <span class="mbr-only-narrow">{% if mbr_math %}Math{% else %}R&amp;W{% endif %} · M{% if module_no == 'm2' or module_no == 'module_2' %}2{% else %}1{% endif %}</span>
+        </h1>
+        <button type="button" class="mbr-directions-toggle" data-mbr-directions-toggle aria-expanded="false" aria-controls="mbr-directions">
+            Directions {% include 'test/shared/mb_icon.html' with name='chevron-down' size=14 stroke='2' %}
+        </button>
+    </div>
+
+    <div class="github-test-timer-wrap mbr-clock">
+        <div class="timer" id="timer" role="timer" aria-label="Time remaining">0:00</div>
+        <div class="test-save-status" data-test-save-status data-state="saved" role="status" aria-live="polite">
+            <span class="save-status-dot" aria-hidden="true"></span><span data-test-save-label>Ready</span>
+        </div>
+    </div>
+
+    <div class="header-tools mbr-tools" aria-label="{% if mbr_math %}Math{% else %}Reading and Writing{% endif %} tools">
+        {% if mbr_math %}
+        <button id="open-calculator" type="button" class="header-tool mbr-tool" aria-pressed="false" aria-label="Calculator">
+            {% include 'test/shared/mb_icon.html' with name='calculator' %}<span>Calculator</span>
+        </button>
+        <button id="open-reference" type="button" class="header-tool mbr-tool" aria-pressed="false" aria-label="Reference sheet">
+            {% include 'test/shared/mb_icon.html' with name='book-open' %}<span>Reference</span>
+        </button>
+        {% else %}
+        <button id="pen-button" type="button" class="header-tool mbr-tool" aria-pressed="false" title="Turn on highlighter" aria-label="Turn on highlighter">
+            {% include 'test/shared/mb_icon.html' with name='highlighter' %}<span>Highlight</span>
+        </button>
+        <button id="clear-button" type="button" class="header-tool mbr-tool" title="Clear highlights" aria-label="Clear highlights">
+            {% include 'test/shared/mb_icon.html' with name='eraser' %}<span>Clear</span>
+        </button>
+        {% endif %}
+        <button type="button" class="header-tool mbr-tool mbr-tool-issue" data-issue-report-open aria-label="Report an issue">
+            {% include 'test/shared/mb_icon.html' with name='flag' %}<span>Issue</span>
+        </button>
+        <a href="{{ home_url|default:'/' }}" data-test-exit class="header-tool mbr-tool home-link" aria-label="Leave the test">
+            {% include 'test/shared/mb_icon.html' with name='house' %}<span>Leave</span>
+        </a>
+    </div>
+
+    <div class="mbr-directions" id="mbr-directions" role="dialog" aria-label="Directions" hidden>
+        <div class="mbr-directions-card">
+            <div class="mbr-directions-head">
+                <h2>Directions</h2>
+                <button type="button" class="mbr-icon-button" data-mbr-directions-close aria-label="Close the directions">{% include 'test/shared/mb_icon.html' with name='x' size=18 %}</button>
+            </div>
+            {% if mbr_math %}
+            <p>The questions in this section cover a range of important math skills. A calculator is allowed on every question. Unless stated otherwise, figures are drawn to scale, lie in a plane, and the domain of a function is the set of all real numbers for which the function is defined.</p>
+            <p>For multiple-choice questions, choose the best answer. For student-produced response questions, type your answer: a number or a fraction (for example 1/2). Don’t type a mixed number; 3 1/2 should be entered as 7/2 or 3.5.</p>
+            {% else %}
+            <p>The questions in this section cover reading and writing skills. Each question has one or more passages, which may include a table or graph. Read each passage and question carefully, then choose the best answer based on the passage or passages.</p>
+            <p>All questions in this section are multiple choice with four answer choices. Each question has a single best answer.</p>
+            {% endif %}
+            <button type="button" class="mbr-pill-button" data-mbr-directions-close>Close</button>
+        </div>
+    </div>
+</header>
+{% endwith %}

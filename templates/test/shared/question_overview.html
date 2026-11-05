@@ -3,10 +3,10 @@
     <div class="question-overview-header">
       <div>
         <span class="question-overview-kicker">Module progress</span>
-        <h2 id="question-overview-title">Question overview</h2>
+        <h2 id="question-overview-title">{% if section == 'math' %}Math{% else %}Reading and Writing{% endif %} · Module {% if module == 'm2' or module == 'module_2' %}2{% else %}1{% endif %} questions</h2>
         <p>Select any question to jump directly to it. Your answers and review marks are saved automatically.</p>
       </div>
-      <button type="button" class="close-button" onclick="closeQuestionModal()" aria-label="Close question overview">×</button>
+      <button type="button" class="close-button" onclick="closeQuestionModal()" aria-label="Close question overview">{% include 'test/shared/mb_icon.html' with name='x' size=18 %}</button>
     </div>
 
     <div class="question-overview-summary" aria-label="Question status summary">
@@ -24,6 +24,12 @@
       </div>
     </div>
 
+    <div class="question-overview-legend" aria-label="Question status legend">
+      <span class="legend-current">{% include 'test/shared/mb_icon.html' with name='map-pin' size=14 stroke='2' %} Current</span>
+      <span class="legend-unanswered"><span class="legend-box" aria-hidden="true"></span> Unanswered</span>
+      <span class="legend-marked">{% include 'test/shared/mb_icon.html' with name='bookmark' size=14 stroke='2' %} For review</span>
+    </div>
+
     <div class="question-grid" role="list" aria-label="Questions">
       {% for q in questions %}
       <button type="button" class="rect-question" role="listitem" data-question-index="{{ forloop.counter0 }}">
@@ -32,14 +38,8 @@
       {% endfor %}
     </div>
 
-    <div class="question-overview-legend" aria-label="Question status legend">
-      <span class="legend-current">Current</span>
-      <span class="legend-answered">Answered</span>
-      <span class="legend-marked"><i class="fa fa-bookmark" aria-hidden="true"></i> Review flag</span>
-    </div>
-
     <div class="question-overview-footer">
-      <button type="button" class="overview-return-button" onclick="closeQuestionModal()">Return to question</button>
+      <button type="button" class="overview-return-button" onclick="closeQuestionModal(); finishTest();">Go to review page</button>
     </div>
   </div>
 </div>
