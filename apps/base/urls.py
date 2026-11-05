@@ -11,6 +11,9 @@ from apps.ratings import views as rating_views
 urlpatterns = [
     path('', views.home, name='home'),
     path('check-level/', public_placement_views.public_placement_list, name='public_placement_list'),
+    # Direct one-section links (QR codes); before <slug> so they aren't taken for an event.
+    path('check-level/english/', public_placement_views.public_placement_direct, {'section': 'english'}, name='public_placement_direct_english'),
+    path('check-level/math/', public_placement_views.public_placement_direct, {'section': 'math'}, name='public_placement_direct_math'),
     path('check-level/<slug:slug>/', public_placement_views.public_placement_start, name='public_placement_start'),
     path('login/', views.loginUser, name='login'),
     path('logout/', views.logoutUser, name='logout'),

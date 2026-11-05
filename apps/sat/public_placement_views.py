@@ -231,3 +231,147 @@ def public_placement_start(request, slug):
     request.session.modified = True
 
     return redirect("global_event_attempt_root", guest_token=attempt.guest_token)
+
+
+# ---------------------------------------------------------------------------
+# Direct links: /check-level/english/ and /check-level/math/
+# ---------------------------------------------------------------------------
+# One section of the placement test, without the name and phone form: for QR
+# codes on posters and in class. The link always points at whichever public
+# placement event is live, so a printed code keeps working when events change.
+# The result shows the level and the section's score out of 800.
+
+DIRECT_SECTIONS = {
+    "english": {
+        "run_mode": GlobalEventAttempt.RUN_ENGLISH,
+        "label": "Reading and Writing",
+        "short": "English",
+    },
+    "math": {
+        "run_mode": GlobalEventAttempt.RUN_MATH,
+        "label": "Math",
+        "short": "Math",
+    },
+}
+DIRECT_SESSION_KEY = "public_placement_direct_attempts"
+# A whole class may scan the code from one school network, so the per-IP limit
+# is generous; it only stops scripted floods.
+DIRECT_STARTS_PER_IP_PER_HOUR = 120
+
+
+def _direct_rate_allowed(request) -> tuple[bool, int]:
+    raw_ip = get_client_ip(request) or "unknown"
+    now = int(time.time())
+    window = 3600
+    retry_after = max(1, window - (now % window))
+    key = f"placement:direct:ip:{now // window}:{_public_placement_digest(raw_ip)}"
+    try:
+        cache.add(key, 0, timeout=window + 5)
+        if cache.incr(key) > DIRECT_STARTS_PER_IP_PER_HOUR:
+            return False, retry_after
+    except Exception:
+        return True, 0
+    return True, 0
+
+
+def _direct_event(section: str):
+    """The live public placement event whose test has this section."""
+    now = timezone.now()
+    GlobalEvent.close_expired(now)
+    run_mode = DIRECT_SECTIONS[section]["run_mode"]
+    for event in _public_placement_queryset():
+        if not event.is_live_now:
+            continue
+        sequence = get_test_sequence(event.test, run_mode)
+        if sequence and any(_questions_for_step(event.test, s, m) for s, m in sequence):
+            return event, sequence
+    return None, []
+
+
+def _direct_unfinished_attempt(request, event, section):
+    """The attempt this browser started from the same link and hasn't finished."""
+    token = (request.session.get(DIRECT_SESSION_KEY) or {}).get(section)
+    guest_id = request.session.get("guest_id")
+    if not token or not guest_id:
+        return None
+    return (
+        GlobalEventAttempt.objects.filter(
+            guest_token=token,
+            event=event,
+            guest__guest_id=guest_id,
+            status="in_progress",
+            expires_at__gt=timezone.now(),
+        )
+        .select_related("guest")
+        .first()
+    )
+
+
+def public_placement_direct(request, section):
+    info = DIRECT_SECTIONS.get(section)
+    if info is None:
+        return redirect("public_placement_list")
+    event, sequence = _direct_event(section)
+    total_questions = 0
+    minutes = 0
+    if event:
+        total_questions = sum(len(_questions_for_step(event.test, s, m)) for s, m in sequence)
+        minutes = sum(int(event.get_module_duration(s) or 0) for s, _m in sequence)
+    context = {
+        "section": section,
+        "section_label": info["label"],
+        "section_short": info["short"],
+        "other_section": "math" if section == "english" else "english",
+        "other_label": DIRECT_SECTIONS["math" if section == "english" else "english"]["label"],
+        "event": event,
+        "module_count": len(sequence),
+        "total_questions": total_questions,
+        "estimated_minutes": minutes,
+        "can_start": bool(event and total_questions),
+        "unfinished": _direct_unfinished_attempt(request, event, section) if event else None,
+        "error": "",
+    }
+    if request.method != "POST":
+        return render(request, "sat/public_placement/direct.html", context)
+
+    if (request.POST.get("website") or "").strip():  # honeypot
+        return redirect(f"public_placement_direct_{section}")
+    if context["unfinished"]:
+        return redirect("global_event_attempt_root", guest_token=context["unfinished"].guest_token)
+    if not context["can_start"]:
+        context["error"] = "This level check is not open right now. Please try again later."
+        return render(request, "sat/public_placement/direct.html", context, status=400)
+    allowed, retry_after = _direct_rate_allowed(request)
+    if not allowed:
+        context["error"] = f"Too many level checks from this network. Try again in about {max(1, retry_after // 60)} minutes."
+        return render(request, "sat/public_placement/direct.html", context, status=429)
+
+    if not request.session.session_key:
+        request.session.create()
+    name = f"Guest · {info['short']}"
+    with transaction.atomic():
+        guest = GuestParticipant.objects.create(
+            full_name=name,
+            display_name=name,
+            session_key=request.session.session_key or "",
+            first_ip=get_client_ip(request),
+            user_agent=(request.META.get("HTTP_USER_AGENT") or "")[:2000],
+        )
+        attempt = GlobalEventAttempt.objects.create(
+            event=event,
+            guest=guest,
+            run_mode=info["run_mode"],
+            expires_at=_guest_attempt_expiry(event, sequence),
+            total_questions=total_questions,
+        )
+
+    request.session["guest_mode"] = True
+    request.session["guest_id"] = str(guest.guest_id)
+    request.session["guest_name"] = ""
+    request.session["public_placement_guest"] = True
+    request.session.pop("public_placement_lead_id", None)
+    direct = dict(request.session.get(DIRECT_SESSION_KEY) or {})
+    direct[section] = str(attempt.guest_token)
+    request.session[DIRECT_SESSION_KEY] = direct
+    request.session.modified = True
+    return redirect("global_event_attempt_root", guest_token=attempt.guest_token)

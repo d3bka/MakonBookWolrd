@@ -16,6 +16,11 @@
   <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5610.css' %}?v=5610">
   <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5612.css' %}?v=5612">
   <link rel="stylesheet" href="{% static 'assets/css/public-placement-header-sync-v5612-3.css' %}?v=56123">
+  <style>
+    /* The section score under the level (direct English / Math level checks). */
+    .pp-section-score { margin-top: 10px; }
+    .pp-section-score strong small { font-size: .45em; font-weight: 700; opacity: .65; }
+  </style>
 </head>
 <body class="mb56-page pp-page pp-v5612 pp12-result-page">
   <div class="mb56-noise" aria-hidden="true"></div>
@@ -26,7 +31,7 @@
     <section class="pp12-result-card" data-pp-reveal>
       <div class="pp12-result-topline">
         <span><i></i> LEVEL CHECK COMPLETE</span>
-        <span>{{ event.title }}</span>
+        <span>{% if section_result %}SAT {{ section_result.label }}{% else %}{{ event.title }}{% endif %}</span>
       </div>
 
       <div class="pp12-result-grid">
@@ -34,7 +39,11 @@
           <span class="pp-kicker">YOUR RESULT</span>
           <h1>{% if lead %}{{ lead.first_name }}, your{% else %}Your{% endif %} current level is ready.</h1>
 
-          {% if show_score and placement %}
+          {% if section_result and placement %}
+            <div class="pp12-level-title"><span>Your level · Level {{ placement.level_number }}</span><strong>{{ placement.level_name }}</strong></div>
+            <div class="pp12-level-title pp-section-score"><span>{{ section_result.label }} score</span><strong>{% if section_result.score is not None %}{{ section_result.score }}{% else %}—{% endif %} <small>/ 800</small></strong></div>
+            <p>{{ level_message }}</p>
+          {% elif show_score and placement %}
             <div class="pp12-level-title"><span>Level {{ placement.level_number }}</span><strong>{{ placement.level_name }}</strong></div>
             <p>{{ level_message }}</p>
           {% elif show_score %}
@@ -47,12 +56,16 @@
 
           <div class="pp12-result-actions">
             <a class="pp-btn" href="/">Explore MakonBook <b>↗</b></a>
-            <a class="pp12-secondary-btn" href="{% url 'public_placement_list' %}">Take another level check</a>
+            {% if section_result %}<a class="pp12-secondary-btn" href="{{ section_result.other_url }}">Take the {{ section_result.other_label }} level check</a>{% else %}<a class="pp12-secondary-btn" href="{% url 'public_placement_list' %}">Take another level check</a>{% endif %}
           </div>
         </div>
 
         <div class="pp12-score-panel">
-          {% if show_score %}
+          {% if section_result %}
+            <div class="pp12-score-ring pp12-score-ring-number" style="--score: {{ placement_percentage|default:0 }}">
+              <div><strong>{% if section_result.score is not None %}{{ section_result.score }}{% else %}—{% endif %}</strong><span>out of 800</span></div>
+            </div>
+          {% elif show_score %}
             {% if placement %}
             <div class="pp12-score-ring" style="--score: {{ placement_percentage|default:0 }}">
               <div><strong>{{ placement_percentage|floatformat:0 }}%</strong><span>correct</span></div>
@@ -67,7 +80,7 @@
           {% endif %}
 
           <div class="pp12-result-stats">
-            <div><span>Correct</span><strong>{% if show_score %}{{ total_raw }} / {{ placement_total_questions|default:attempt.total_questions }}{% else %}Hidden{% endif %}</strong></div>
+            <div><span>Correct</span><strong>{% if show_score or section_result %}{{ total_raw }} / {{ placement_total_questions|default:attempt.total_questions }}{% else %}Hidden{% endif %}</strong></div>
             <div><span>Answered</span><strong>{% if show_score %}{{ attempt.answered_questions }} / {{ attempt.total_questions }}{% else %}{{ attempt.answered_questions }} answered{% endif %}</strong></div>
             <div><span>Time</span><strong>{% if elapsed_minutes %}{{ elapsed_minutes }} min{% else %}—{% endif %}</strong></div>
           </div>
@@ -79,12 +92,12 @@
       <div><span class="pp-kicker">WHAT HAPPENS NEXT</span><h2>Your result is already recorded.</h2></div>
       <div class="pp12-after-steps">
         <article><span>01</span><div><strong>Result saved</strong><p>Your placement attempt and score are stored securely in MakonBook.</p></div></article>
-        <article><span>02</span><div><strong>Team follow-up</strong><p>If needed, our team can contact you using the phone number you provided.</p></div></article>
+        {% if lead %}<article><span>02</span><div><strong>Team follow-up</strong><p>If needed, our team can contact you using the phone number you provided.</p></div></article>{% else %}<article><span>02</span><div><strong>Start at your level</strong><p>MakonBook groups and practice are organised by level. Tell us your level when you join, or show this page.</p></div></article>{% endif %}
         <article><span>03</span><div><strong>Keep improving</strong><p>Use this level as your starting point and focus practice on the skills that matter next.</p></div></article>
       </div>
       <div class="pp12-result-tools">
         {% if can_review %}<a href="{% url 'global_event_review_root' attempt.guest_token %}">Review answers <span>↗</span></a>{% endif %}
-        <button type="button" data-pp-share data-share-text="I completed {{ event.title }} on MakonBook{% if placement %} — {{ placement.label }} ({{ placement_percentage }}%){% endif %}.">Share result <span>↗</span></button>
+        <button type="button" data-pp-share data-share-text="{% if section_result %}My SAT {{ section_result.label }} level on MakonBook: {{ placement.label }}, {{ section_result.score }}/800.{% else %}I completed {{ event.title }} on MakonBook{% if placement %} — {{ placement.label }} ({{ placement_percentage }}%){% endif %}.{% endif %}">Share result <span>↗</span></button>
       </div>
     </section>
   </main>

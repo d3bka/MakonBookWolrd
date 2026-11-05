@@ -2972,6 +2972,17 @@ class GlobalEventAttempt(models.Model):
     total_questions = models.PositiveIntegerField(default=0)
     answered_questions = models.PositiveIntegerField(default=0)
     completed_modules = models.JSONField(default=list, blank=True)
+    # Which part of the event's test this attempt takes: the whole test, or one
+    # section (the direct English / Math placement links, /check-level/english/).
+    RUN_FULL = "full_test"
+    RUN_ENGLISH = "rw_only"
+    RUN_MATH = "math_only"
+    RUN_MODE_CHOICES = [
+        (RUN_FULL, "Full test"),
+        (RUN_ENGLISH, "Reading and Writing only"),
+        (RUN_MATH, "Math only"),
+    ]
+    run_mode = models.CharField(max_length=20, choices=RUN_MODE_CHOICES, default=RUN_FULL, db_default=RUN_FULL)
 
     class Meta:
         constraints = [

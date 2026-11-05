@@ -186,6 +186,18 @@ them in the classroom's settings.
 
 ---
 
+## Direct placement links (QR codes)
+
+`https://makonbook.uz/check-level/english/` and `https://makonbook.uz/check-level/math/`
+run one section of the placement test without the name and phone form, and the
+result shows the level and that section's score out of 800. Each link uses
+whichever **public placement event is live** (Placement type, public, no access
+code, no registration) and has that section, so printed codes keep working when
+events change; while none is live the page says the level check isn't open. The
+attempts are listed with the event's attempts (as "Guest · English" / "Guest ·
+Math"); they create no placement lead and no Telegram notice. Print-ready QR
+codes are in `docs/qr/`.
+
 ## HolliHop
 
 HolliHop sync only reads HolliHop, and only in one direction, HolliHop →

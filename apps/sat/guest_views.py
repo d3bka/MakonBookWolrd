@@ -200,9 +200,48 @@ def _questions_for_step(test, section, module, *, formatted=False):
     return questions
 
 
+RUN_MODE_TEST_MODE = {
+    GlobalEventAttempt.RUN_ENGLISH: "ebrw_only",
+    GlobalEventAttempt.RUN_MATH: "math_only",
+}
+RUN_MODE_SECTIONS = {
+    GlobalEventAttempt.RUN_FULL: ("english", "math"),
+    GlobalEventAttempt.RUN_ENGLISH: ("english",),
+    GlobalEventAttempt.RUN_MATH: ("math",),
+}
+
+
+def attempt_run_mode(attempt):
+    """The part of the event's test this attempt takes (the whole test by default)."""
+    mode = getattr(attempt, "run_mode", "") or GlobalEventAttempt.RUN_FULL
+    return mode if mode in RUN_MODE_SECTIONS else GlobalEventAttempt.RUN_FULL
+
+
+def attempt_sections(attempt):
+    return RUN_MODE_SECTIONS[attempt_run_mode(attempt)]
+
+
+def attempt_sequence(attempt):
+    """The modules this attempt runs through, in order."""
+    return get_test_sequence(attempt.event.test, attempt_run_mode(attempt))
+
+
+def attempt_test_mode(attempt):
+    return RUN_MODE_TEST_MODE.get(attempt_run_mode(attempt)) or get_test_mode(attempt.event.test)
+
+
+def attempt_question_totals(attempt):
+    """Question counts per section and module, for the sections this attempt takes."""
+    totals = get_event_question_totals(attempt.event.test)
+    for section in ("english", "math"):
+        if section not in attempt_sections(attempt):
+            totals[section] = {"m1": 0, "m2": 0}
+    return totals
+
+
 def next_module_redirect_url(attempt, section, module):
     module = normalize_module_name(module)
-    sequence = get_test_sequence(attempt.event.test)
+    sequence = attempt_sequence(attempt)
     try:
         index = sequence.index((section, module))
     except ValueError:
@@ -233,17 +272,17 @@ def _completed_guest_module_pairs(attempt):
 
 
 def _ordered_completed_modules(attempt, completed):
-    sequence = get_test_sequence(attempt.event.test)
+    sequence = attempt_sequence(attempt)
     return [f"{section}:{module}" for section, module in sequence if (section, module) in completed]
 
 
 def has_all_required_modules(attempt):
-    required = set(get_test_sequence(attempt.event.test))
+    required = set(attempt_sequence(attempt))
     return bool(required) and required.issubset(_completed_guest_module_pairs(attempt))
 
 
 def get_guest_current_step(attempt):
-    sequence = get_test_sequence(attempt.event.test)
+    sequence = attempt_sequence(attempt)
     if not sequence:
         return None
     completed = _completed_guest_module_pairs(attempt)
@@ -321,7 +360,7 @@ def _repair_guest_attempt_expiry(attempt):
         if attempt.event.allow_resume and attempt.expires_at <= now:
             attempt.expires_at = _guest_attempt_expiry(
                 attempt.event,
-                get_test_sequence(attempt.event.test),
+                attempt_sequence(attempt),
                 now,
             )
             attempt.save(update_fields=["expires_at"])
@@ -753,7 +792,7 @@ def section_has_two_modules(totals, section):
     return totals[section]["m1"] > 0 and totals[section]["m2"] > 0
 
 
-def get_event_scoring_type(test):
+def get_event_scoring_type(test, *, test_mode=None, totals=None):
     """Return the Guest Mode SAT scoring strategy for *test*.
 
     A complete two-module section can use the same adaptive SAT-style calculator
@@ -766,8 +805,8 @@ def get_event_scoring_type(test):
     This distinction is important: ``sat_estimated`` is an SAT-style normalized
     estimate, not an official College Board equated score.
     """
-    totals = get_event_question_totals(test)
-    test_mode = get_test_mode(test)
+    totals = totals or get_event_question_totals(test)
+    test_mode = test_mode or get_test_mode(test)
 
     if test_mode == "full":
         if not (totals["english"]["m1"] or totals["english"]["m2"]):
@@ -792,9 +831,9 @@ def get_event_scoring_type(test):
     return "empty"
 
 
-def is_standard_sat_question_count(test):
-    totals = get_event_question_totals(test)
-    test_mode = get_test_mode(test)
+def is_standard_sat_question_count(test, *, test_mode=None, totals=None):
+    totals = totals or get_event_question_totals(test)
+    test_mode = test_mode or get_test_mode(test)
 
     english_standard = totals["english"] == {"m1": 27, "m2": 27}
     math_standard = totals["math"] == {"m1": 22, "m2": 22}
@@ -808,12 +847,12 @@ def is_standard_sat_question_count(test):
     return False
 
 
-def get_event_scoring_label(test):
-    scoring_type = get_event_scoring_type(test)
-    test_mode = get_test_mode(test)
+def get_event_scoring_label(test, *, test_mode=None, totals=None):
+    scoring_type = get_event_scoring_type(test, test_mode=test_mode, totals=totals)
+    test_mode = test_mode or get_test_mode(test)
 
     if scoring_type == "sat_standard":
-        normalized = "" if is_standard_sat_question_count(test) else " normalized"
+        normalized = "" if is_standard_sat_question_count(test, test_mode=test_mode, totals=totals) else " normalized"
         if test_mode == "full":
             return f"SAT-style{normalized} 400–1600"
         return f"SAT-style{normalized} 200–800"
@@ -987,7 +1026,8 @@ def mark_answers_and_count_correct(attempt):
     ebrw_raw = 0
     math_raw = 0
     correct_counts = empty_correct_counts()
-    answers = list(attempt.answers.all())
+    sections = set(attempt_sections(attempt))
+    answers = [answer for answer in attempt.answers.all() if answer.section in sections]
 
     english_ids = {answer.question_id for answer in answers if answer.section == "english"}
     math_ids = {answer.question_id for answer in answers if answer.section == "math"}
@@ -1034,9 +1074,9 @@ def calculate_attempt_breakdown(attempt):
     ebrw_raw, math_raw, correct_counts = mark_answers_and_count_correct(attempt)
 
     test = attempt.event.test
-    test_mode = get_test_mode(test)
-    scoring_type = get_event_scoring_type(test)
-    totals = get_event_question_totals(test)
+    test_mode = attempt_test_mode(attempt)
+    totals = attempt_question_totals(attempt)
+    scoring_type = get_event_scoring_type(test, test_mode=test_mode, totals=totals)
     english_total = totals["english"]["m1"] + totals["english"]["m2"]
     math_total = totals["math"]["m1"] + totals["math"]["m2"]
     placement_total_questions = english_total + math_total
@@ -1061,9 +1101,12 @@ def calculate_attempt_breakdown(attempt):
     total_raw = ebrw_raw + math_raw
     # Preserve the existing Level 1-5 placement insight for short Guest tests,
     # but do not use its old 200-600 score scale for the SAT score itself.
+    # One-section placement attempts (the direct English / Math links) always
+    # get a level, beside their section score.
+    one_section = attempt_run_mode(attempt) != GlobalEventAttempt.RUN_FULL
     placement = (
         get_level_check_placement(total_raw, placement_total_questions)
-        if scoring_type == "sat_estimated"
+        if scoring_type == "sat_estimated" or (one_section and scoring_type != "empty")
         else None
     )
 
@@ -1077,7 +1120,7 @@ def calculate_attempt_breakdown(attempt):
         "total_score": total_score,
         "range_total": range_total,
         "scoring_type": scoring_type,
-        "scoring_label": get_event_scoring_label(test),
+        "scoring_label": get_event_scoring_label(test, test_mode=test_mode, totals=totals),
         "placement": placement,
         "placement_total_questions": placement_total_questions,
     }
@@ -1712,7 +1755,7 @@ def global_event_result_view(request, guest_token):
             apply_attempt_score(attempt, submit=False)
 
     breakdown = calculate_attempt_breakdown(attempt)
-    test_mode = get_test_mode(attempt.event.test)
+    test_mode = attempt_test_mode(attempt)
     lead = None
     if attempt.event.event_type == GlobalEvent.TYPE_PLACEMENT:
         lead = PublicPlacementLead.objects.filter(attempt=attempt).first()
@@ -1742,10 +1785,24 @@ def global_event_result_view(request, guest_token):
         5: "Your current performance is advanced. Focus on consistency, speed, and the hardest question types.",
     }
 
+    # One-section attempts (the direct English / Math links): that section's
+    # score out of 800, beside the level.
+    section_result = None
+    if attempt_run_mode(attempt) != GlobalEventAttempt.RUN_FULL:
+        section = attempt_sections(attempt)[0]
+        section_result = {
+            "section": section,
+            "label": "Reading and Writing" if section == "english" else "Math",
+            "score": breakdown["ebrw_score"] if section == "english" else breakdown["math_score"],
+            "other_url": reverse("public_placement_direct_math" if section == "english" else "public_placement_direct_english"),
+            "other_label": "Math" if section == "english" else "Reading and Writing",
+        }
+
     context = {
         "attempt": attempt,
         "event": attempt.event,
         "lead": lead,
+        "section_result": section_result,
         "test_mode": test_mode,
         "show_score": attempt.event.show_score_immediately,
         "can_review": attempt.event.show_score_immediately,
@@ -1797,7 +1854,7 @@ def _guest_review_rows(attempt):
     }
     rows = []
     position = 0
-    for section, module in get_test_sequence(attempt.event.test):
+    for section, module in attempt_sequence(attempt):
         questions = _questions_for_step(
             attempt.event.test,
             section,
