@@ -8573,19 +8573,28 @@ def teacher_practice_tests(request):
     if not is_teacher(request.user):
         return HttpResponseForbidden('Teacher access required.')
     tests = _sorted_tests(Test.objects.filter(is_available=True, test_type=Test.TYPE_REGULAR).distinct(), only_available=True)
-    active_tests, past_tests = _split_tests_by_user_progress(request.user, tests)
+    # The page template lists available_tests / in_progress_tests /
+    # history_attempts (V55); build them the same way /tests/ does.
+    workspace = _build_unified_tests_stage2(request.user, tests)
+    _decorate_pretest_config_metadata_batch(workspace['available_tests'], request.user, classroom=None)
+    history = workspace['history_attempts']
+    scores = [item['score'] for item in history if item['score'] is not None]
     return render(request, 'sat/practice_tests.html', {
+        **workspace,
         'student_workspace_base_template': 'sat/staff_workspace.html',
         'is_teacher_view': True,
-        'active_tests': active_tests,
-        'past_tests': past_tests,
         'practice_summary': {
-            'available': len(tests),
-            'active': len(active_tests),
-            'past': len(past_tests),
-            'resumable': sum(1 for test in active_tests if getattr(test, 'has_active_attempt', False)),
+            'available': len(workspace['available_tests']),
+            'in_progress': len(workspace['in_progress_tests']),
+            'history': len(history),
+            'best_score': max(scores) if scores else None,
+            'active': len(workspace['available_tests']),
+            'past': len(history),
+            'resumable': len(workspace['in_progress_tests']),
         },
         'show_lessons': False,
+        'unified_tests': True,
+        'attempt_history_v55': True,
     })
 
 
@@ -10336,7 +10345,18 @@ def _classroom_practice_tests_management_view(request, classroom_id):
             classroom=classroom,
         )
 
+    # The page template lists available_tests / in_progress_tests (V55).
+    # _split_tests_by_user_progress has decorated every test in place.
+    available_tests = list(tests)
+    in_progress_tests = [
+        test for test in available_tests
+        if getattr(test, 'has_active_attempt', False) or getattr(test, 'stage_complete_without_review', False)
+    ]
+
     context = {
+        'available_tests': available_tests,
+        'in_progress_tests': in_progress_tests,
+        'history_attempts': [],
         'active_tests': active_tests,
         'past_tests': past_tests,
         'classroom': classroom,
@@ -10349,7 +10369,9 @@ def _classroom_practice_tests_management_view(request, classroom_id):
         'user': request.user,
         'show_lessons': False,
         'practice_summary': {
-            'available': sum(1 for test in tests if _test_attempts_open(test, request.user)),
+            'available': len(available_tests),
+            'in_progress': len(in_progress_tests),
+            'history': 0,
             'active': len(active_tests),
             'past': len(past_tests),
             'resumable': sum(1 for test in active_tests if test.has_active_attempt),

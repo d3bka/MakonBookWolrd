@@ -427,3 +427,35 @@ class RemoveLegacyTestsTests(TestCase):
         self.assertEqual(Test.objects.count(), 5)
         call_command("remove_legacy_tests", "--confirm", stdout=out)
         self.assertEqual(Test.objects.count(), 4)
+
+
+class TeacherTestLibraryTests(TestCase):
+    """Teachers' test pages list the tests, not only count them."""
+
+    def setUp(self):
+        from django.contrib.auth.models import Group
+
+        self.teacher = User.objects.create_user("teacher_lib", password="x")
+        self.teacher.groups.add(Group.objects.get_or_create(name="Teacher")[0])
+        self.classroom = Classroom.objects.create(
+            teacher=self.teacher, name="SAT lib", classroom_type=Classroom.CLASSROOM_TYPE_SAT, is_active=True
+        )
+        sync_practice([package()], fake_mirror())
+        self.client.force_login(self.teacher)
+
+    def test_teacher_practice_tests_lists_the_cards(self):
+        from django.urls import reverse
+
+        response = self.client.get(reverse("teacher_practice_tests_root"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "data-practice-card")
+        self.assertContains(response, "<h3>DAY12</h3>", html=False)
+        self.assertNotContains(response, "No available tests")
+
+    def test_classroom_tests_page_lists_the_cards_for_its_teacher(self):
+        from django.urls import reverse
+
+        response = self.client.get(reverse("classroom_practice_tests_root", args=[self.classroom.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "data-practice-card")
+        self.assertNotContains(response, "No available tests")
