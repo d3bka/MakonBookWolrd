@@ -2,6 +2,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+  {% include 'landing/_public_transition_head_v645.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   {% include 'base/theme_init.html' %}
@@ -15,10 +16,11 @@
   <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5599">
   <link rel="stylesheet" href="{% static 'assets/css/mock-registration-inline-v5597.css' %}?v=5599">
   <link rel="stylesheet" href="{% static 'assets/css/mock-public-header-v5612-1.css' %}?v=5612.1">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-header-v642.css' %}?v=6421">
 </head>
-<body class="mkp-page public-page">
+<body class="mb642-public-chrome mkp-page public-page">
 <div class="mkp-shell">
-  {% include 'landing/_public_header.html' %}
+  {% include 'landing/_public_header.html' with public_nav=True %}
 
   <main>
     <section class="mkp-page-hero">
@@ -71,9 +73,11 @@
 
   <footer class="mkp-footer"><div class="mkp-container mkp-footer-inner"><span>© {% now "Y" %} SAT Makon · MakonBook</span><div class="mkp-footer-links"><a href="/">Home</a><a href="{% url 'rating_parent_lookup' %}">Parent portal</a><a href="{% url 'login' %}">Login</a></div></div></footer>
 </div>
-<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=5612.1"></script>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
 <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5597"></script>
 <script src="{% static 'assets/js/mock-registration-inline-v5597.js' %}?v=5599"></script>
 {% include 'base/issue_report_widget.html' %}
+<script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=6451" defer></script>
+<script src="{% static 'assets/js/makon-public-header-locale-v645.js' %}?v=6451" defer></script>
 </body>
 </html>

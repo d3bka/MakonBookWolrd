@@ -1,1 +1,57 @@
-{% extends 'sat/staff_workspace.html' %}{% block content %}<div class="sf29-page"><section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-kanban"></i> Manager home</span><h1>See the operation, then go straight to the problem.</h1><p>A high-level view of teaching capacity, student coverage and support demand. Directories and test operations stay one click away instead of being duplicated here.</p><div class="sf28-actions"><a class="sf28-btn primary" href="{% url 'manager_teacher_list_root' %}"><i class="bi bi-person-workspace"></i>Main teachers</a><a class="sf28-btn" href="{% url 'manager_support_teacher_list_root' %}"><i class="bi bi-person-video3"></i>Support teachers</a>{% if test_import_center_allowed %}<a class="sf28-btn" href="{% url 'manager_managed_test_list_root' %}"><i class="bi bi-journal-check"></i>Published tests</a>{% endif %}</div></section><section class="sf29-grid"><article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-person-workspace"></i></span><div><strong>{{ total_classroom_teachers }}</strong><small>main teachers</small></div></div></article><article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-people"></i></span><div><strong>{{ total_students }}</strong><small>active classroom students</small></div></div></article><article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-headset"></i></span><div><strong>{{ total_support_teachers }}</strong><small>support teachers</small></div></div></article><article class="sf29-card span-6"><div class="sf29-section-head"><div><small>Support demand</small><h2>{{ waiting_requests_total }} waiting request{{ waiting_requests_total|pluralize }}</h2></div></div><p>Open the support team directory to inspect availability and current load.</p><a class="sf28-btn" href="{% url 'manager_support_teacher_list_root' %}">Review support team</a></article><article class="sf29-card span-6"><div class="sf29-section-head"><div><small>Operations</small><h2>Management tools</h2></div></div><div class="sf29-mini-grid"><a class="sf29-action-card" href="{% url 'hollihop_dashboard' %}"><i class="bi bi-arrow-repeat"></i><div><strong>Hollihop</strong><small>Sync and integration status.</small></div></a>{% if test_import_center_allowed %}<a class="sf29-action-card" href="{% url 'manager_test_import_list_root' %}"><i class="bi bi-file-earmark-arrow-up"></i><div><strong>Import Center</strong><small>Build and review staging tests.</small></div></a><a class="sf29-action-card" href="{% url 'manager_managed_test_list_root' %}"><i class="bi bi-sliders"></i><div><strong>Published tests</strong><small>Search, filter and manage live tests.</small></div></a>{% endif %}</div></article></section></div>{% endblock %}
+{% extends 'sat/staff_workspace.html' %}
+{% block content %}
+<div class="mb62-manager">
+  <section class="sf29-hero mb62-manager-hero">
+    <div>
+      <span class="sf28-kicker"><i class="bi bi-grid-1x2"></i> MANAGEMENT CENTER</span>
+      <h1>Good decisions start with clear numbers.</h1>
+      <p>Monitor attendance, teacher assessments, team performance and user activity from one place.</p>
+      <div class="sf28-actions">
+        <a class="sf28-btn primary" href="{% url 'manager_attendance_insights' %}"><i class="bi bi-calendar-check"></i>Attendance overview</a>
+        <a class="sf28-btn" href="{% url 'manager_assessment_report' %}"><i class="bi bi-clipboard2-data"></i>Assessment compliance</a>
+      </div>
+    </div>
+    <i class="bi bi-speedometer2 mb62-manager-hero-icon" aria-hidden="true"></i>
+  </section>
+
+  <div class="mb62-section-heading"><div><h2>Center at a glance</h2><small>Current connected classrooms and staff</small></div></div>
+  <section class="mb62-kpi-grid" aria-label="Center totals">
+    <a class="mb62-kpi-card" href="{% url 'manager_teacher_list_root' %}"><div class="mb62-kpi-label"><span>Main teachers</span><span class="mb62-kpi-icon"><i class="bi bi-person-video3"></i></span></div><strong>{{ total_classroom_teachers }}</strong><span class="mb62-kpi-note">View teacher directory</span></a>
+    <a class="mb62-kpi-card" href="{% url 'manager_attendance_insights' %}"><div class="mb62-kpi-label"><span>Active classroom students</span><span class="mb62-kpi-icon"><i class="bi bi-people"></i></span></div><strong>{{ total_students }}</strong><span class="mb62-kpi-note">View attendance trends</span></a>
+    <a class="mb62-kpi-card" href="{% url 'manager_support_teacher_list_root' %}"><div class="mb62-kpi-label"><span>Support teachers</span><span class="mb62-kpi-icon"><i class="bi bi-person-check"></i></span></div><strong>{{ total_support_teachers }}</strong><span class="mb62-kpi-note">View support team</span></a>
+    <a class="mb62-kpi-card" href="{% url 'manager_support_teacher_list_root' %}"><div class="mb62-kpi-label"><span>Waiting support requests</span><span class="mb62-kpi-icon"><i class="bi bi-hourglass-split"></i></span></div><strong>{{ waiting_requests_total }}</strong><span class="mb62-kpi-note">Requests awaiting attention</span></a>
+  </section>
+
+  <div class="mb62-section-heading"><div><h2>Platform activity</h2><small>Unique authenticated accounts, not page views</small></div><a class="sf28-btn" href="{% url 'manager_activity_report' %}">Full report <i class="bi bi-arrow-right"></i></a></div>
+  <section class="mb62-kpi-grid" aria-label="Active account statistics">
+    <a class="mb62-kpi-card" href="{% url 'manager_activity_report' %}"><div class="mb62-kpi-label"><span>Today</span><span class="mb62-kpi-icon"><i class="bi bi-lightning-charge"></i></span></div><strong>{{ active_users_today }}</strong><span class="mb62-kpi-note">Unique active users</span></a>
+    <a class="mb62-kpi-card" href="{% url 'manager_activity_report' %}"><div class="mb62-kpi-label"><span>Last 15 days</span><span class="mb62-kpi-icon"><i class="bi bi-calendar2-week"></i></span></div><strong>{{ active_users_15days }}</strong><span class="mb62-kpi-note">Rolling 15-day window</span></a>
+    <a class="mb62-kpi-card" href="{% url 'manager_activity_report' %}"><div class="mb62-kpi-label"><span>Last 30 days</span><span class="mb62-kpi-icon"><i class="bi bi-calendar3"></i></span></div><strong>{{ active_users_30days }}</strong><span class="mb62-kpi-note">Rolling 30-day window</span></a>
+    <a class="mb62-kpi-card" href="{% url 'manager_activity_report' %}"><div class="mb62-kpi-label"><span>Previous calendar month</span><span class="mb62-kpi-icon"><i class="bi bi-bar-chart-line"></i></span></div><strong>{{ active_users_previous_month }}</strong><span class="mb62-kpi-note">Unique users last month</span></a>
+  </section>
+
+  <section class="mb62-manager-grid">
+    <div class="mb62-manager-panel">
+      <h3>Operations</h3><p>Direct access to the tools your team uses every day.</p>
+      <div class="mb62-operation-list">
+        <a class="mb62-operation" href="{% url 'manager_attendance_insights' %}"><i class="bi bi-calendar2-check"></i><span><b>Attendance insights</b><small>Absences, weak attendance, declining trends</small></span></a>
+        <a class="mb62-operation" href="{% url 'manager_assessment_report' %}"><i class="bi bi-clipboard2-data"></i><span><b>Assessment compliance</b><small>Teacher obligations and monthly fines</small></span></a>
+        <a class="mb62-operation" href="{% url 'manager_assessment_schedules' %}"><i class="bi bi-calendar-week"></i><span><b>Lesson schedules</b><small>Approve class days and exceptions</small></span></a>
+        <a class="mb62-operation" href="{% url 'manager_activity_report' %}"><i class="bi bi-activity"></i><span><b>Activity analytics</b><small>Daily and rolling active-user reports</small></span></a>
+        <a class="mb62-operation" href="{% url 'hollihop_dashboard' %}"><i class="bi bi-arrow-repeat"></i><span><b>Hollihop sync</b><small>Manage connected data synchronization</small></span></a>
+        <a class="mb62-operation" href="{% url 'manager_teacher_list_root' %}"><i class="bi bi-person-workspace"></i><span><b>Main teachers</b><small>Classrooms, student load and performance</small></span></a>
+        {% if test_import_center_allowed %}
+        <a class="mb62-operation" href="{% url 'manager_test_import_list_root' %}"><i class="bi bi-file-earmark-arrow-up"></i><span><b>Test Import Center</b><small>Staging, quality review and publication</small></span></a>
+        <a class="mb62-operation" href="{% url 'manager_managed_test_list_root' %}"><i class="bi bi-sliders"></i><span><b>Published tests</b><small>Manage live tests and access</small></span></a>
+        {% endif %}
+      </div>
+    </div>
+    <aside class="mb62-manager-panel">
+      <h3>Daily management checklist</h3><p>Keep records accurate before assessing performance.</p>
+      <div class="mb62-manager-callout"><i class="bi bi-calendar-check"></i><div><b>Verify the timetable</b><p>Reminders and penalties only use manager-confirmed lesson days.</p><a href="{% url 'manager_assessment_schedules' %}">Review schedules</a></div></div>
+      <div class="mb62-manager-callout"><i class="bi bi-clock-history"></i><div><b>Assessments close at 23:59:59</b><p>Teachers receive an in-app reminder at 21:00 on mandatory assessment days with unfinished students.</p><a href="{% url 'manager_assessment_report' %}">Open compliance</a></div></div>
+      <div class="mb62-manager-callout"><i class="bi bi-shield-check"></i><div><b>Review, don't auto-deduct</b><p>Missed assessments enter a manager-review register. No automatic salary deductions.</p></div></div>
+    </aside>
+  </section>
+</div>
+{% endblock %}

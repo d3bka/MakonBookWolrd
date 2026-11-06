@@ -75,9 +75,11 @@ class PlayMobileSmsAdapterTests(SimpleTestCase):
     @override_settings(**{**PLAYMOBILE_SETTINGS, "PLAYMOBILE_TEMPLATE_ID": "tpl-7"})
     @patch("apps.integrations.hollihop.sms._post_json_text", return_value="Request is received")
     def test_optional_template_id_is_sent(self, post_json_text):
-        send_sms("998901234567", "MakonBook test")
+        send_sms("998901234567", "MakonBook test", template_variables={"name":"Ali"})
         item = post_json_text.call_args.args[1]["messages"][0]
         self.assertEqual(item["template-id"], "tpl-7")
+        self.assertEqual(item["variables"], {"name":"Ali"})
+        self.assertNotIn("sms", item)
 
     @override_settings(**PLAYMOBILE_SETTINGS)
     @patch("apps.integrations.hollihop.sms._post_json_text", side_effect=_SmsHttpError(401))

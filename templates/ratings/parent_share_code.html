@@ -1,0 +1,3 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}Family access · MakonBook{% endblock %}
+{% block content %}<section class="mb60-page mb60-share"><span class="mb60-eyebrow">SECURE FAMILY SHARING</span><h1>Parent access code</h1><p>Share this code only with a trusted parent or guardian. Together with the student's registered phone number, it unlocks personal SAT practice results, term grades and attendance.</p><div class="mb60-family-secret"><strong>{{ family_code }}</strong></div><p class="mb60-note">Anyone who knows the phone number and this code can open the private family report. Do not post it in a group.</p><a class="mb60-button primary" href="{% url 'rating_parent_lookup' %}">Open Parent Portal →</a></section>{% endblock %}

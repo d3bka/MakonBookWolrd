@@ -345,6 +345,32 @@ def _finalize_guest_attempt_safely(attempt_id):
         return locked
 
 
+def _effective_live_guest_deadline(draft):
+    """Use the latest GlobalEvent timing for an unfinished module.
+
+    Draft deadlines used to be snapshots. After the event is edited in Django
+    admin, the new duration must be measured from the *original module start*;
+    otherwise re-entering a test would reset a student's clock.
+
+    Historical drafts that have not seen an event edit keep their existing
+    deadline (including administrator-provided overrides).
+    """
+    event = draft.attempt.event
+    if not event.updated_at or event.updated_at <= draft.created_at:
+        return draft.deadline_at
+    seconds = max(int(event.get_module_duration(draft.section) or 0), 1) * 60
+    return min(draft.created_at + timedelta(seconds=seconds), draft.attempt.expires_at)
+
+
+def _sync_live_guest_deadline(draft):
+    """Synchronize the stored authoritative deadline before writing answers."""
+    effective = _effective_live_guest_deadline(draft)
+    if effective != draft.deadline_at:
+        draft.deadline_at = effective
+        draft.save(update_fields=["deadline_at"])
+    return draft
+
+
 def _draft_remaining_seconds(draft):
     return max(ceil((draft.deadline_at - timezone.now()).total_seconds()), 0)
 
@@ -407,6 +433,8 @@ def _ensure_guest_module_draft(attempt, section, module, questions=None):
             "deadline_at": deadline,
         },
     )
+    if not created:
+        _sync_live_guest_deadline(draft)
     if created or attempt.current_module_started_at is None:
         attempt.current_module_started_at = draft.created_at or now
         attempt.save(update_fields=["current_module_started_at"])
@@ -1541,8 +1569,13 @@ def save_global_event_answer_view(request, guest_token):
                 "error": "Open the active module before saving it.",
                 "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token}),
             }, status=409)
+        _sync_live_guest_deadline(draft)
         if _draft_remaining_seconds(draft) <= 0:
-            return JsonResponse({"ok": False, "error": "Time is over", "time_over": True}, status=409)
+            return JsonResponse({
+                "ok": False, "error": "Time is over", "time_over": True,
+                "deadline_at": int(draft.deadline_at.timestamp() * 1000),
+                "server_now": int(timezone.now().timestamp() * 1000),
+            }, status=409)
 
         ok, error = _persist_guest_draft_payload(attempt, draft, payload, require_complete=False)
         if not ok:
@@ -1598,6 +1631,7 @@ def submit_global_event_view(request, guest_token):
         draft = GlobalEventModuleDraft.objects.filter(attempt=attempt, section=section, module=module).first()
         if not draft:
             return JsonResponse({"ok": False, "error": "Open the active module before submitting it.", "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})}, status=409)
+        _sync_live_guest_deadline(draft)
 
         server_remaining = _draft_remaining_seconds(draft)
         if bool(payload.get("deadline_reached")) and server_remaining > 0:
@@ -1655,8 +1689,14 @@ def global_event_submit_status_view(request, guest_token):
         return JsonResponse({"ok": False, "error": "Invalid module."}, status=400)
 
     result_url = reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token})
-    if attempt.status == "submitted":
+    if attempt.status in ("submitted", "expired"):
         return JsonResponse({"ok": True, "state": "completed", "redirect_url": result_url})
+    _repair_guest_attempt_expiry(attempt)
+    if _event_hard_ended(attempt.event) or timezone.now() >= attempt.expires_at:
+        return JsonResponse({
+            "ok": True, "state": "moved",
+            "redirect_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token}),
+        })
 
     completed = _completed_guest_module_pairs(attempt)
     if (section, module) in completed:
@@ -1674,13 +1714,18 @@ def global_event_submit_status_view(request, guest_token):
             attempt=attempt,
             section=section,
             module=module,
-        ).only("deadline_at", "updated_at").first()
-        return JsonResponse({
+        ).first()
+        deadline = _effective_live_guest_deadline(draft) if draft else timezone.now()
+        now = timezone.now()
+        response = JsonResponse({
             "ok": True,
             "state": "pending",
-            "remaining_seconds": _draft_remaining_seconds(draft) if draft else 0,
-            "server_time": int(timezone.now().timestamp() * 1000),
+            "remaining_seconds": max(0, ceil((deadline - now).total_seconds())),
+            "deadline_at": int(deadline.timestamp() * 1000),
+            "server_time": int(now.timestamp() * 1000),
         })
+        response["Cache-Control"] = "no-store"
+        return response
 
     return JsonResponse({
         "ok": True,

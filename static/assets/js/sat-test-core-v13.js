@@ -56,6 +56,8 @@
       this.autosaveQueued = false;
       this.autosaveTimer = null;
       this.timerHandle = null;
+      this.liveEventPollHandle = null;
+      this.liveEventPollInFlight = false;
       this.lastTickAt = this.monotonicNow();
       this.activeMs = 0;
       this.pageWasVisible = document.visibilityState !== 'hidden';
@@ -367,9 +369,10 @@
         }));
       }
       if (remaining <= 0 && !this.submitInProgress && this.monotonicNow() >= this.nextForcedSubmitAt) {
+        // Event admins can extend a running module. Confirm with the live server
+        // before locking the student's answers at an obsolete local deadline.
         this.nextForcedSubmitAt = this.monotonicNow() + 15000;
-        this.lockForDeadline();
-        this.submitModule(true, { deadlineReached: true });
+        void this.confirmAndSubmitDeadline();
       }
     }
 
@@ -699,6 +702,75 @@
       return data;
     }
 
+    async confirmAndSubmitDeadline() {
+      if (this.isGuest && this.config.submitStatusUrl && !this.tabBlocked && navigator.onLine) {
+        if (this.liveEventPollInFlight) {
+          // Let the in-flight status request finish; the next timer tick will
+          // recheck the authoritative deadline instead of racing that request.
+          this.nextForcedSubmitAt = this.monotonicNow() + 1000;
+          return;
+        }
+        try {
+          const data = await this.readGuestSubmitStatus();
+          if (data?.redirect_url && ['completed', 'moved'].includes(data.state)) {
+            this.navigatingAway = true;
+            window.location.assign(data.redirect_url);
+            return;
+          }
+          if (data?.state === 'pending' && Number(data.deadline_at) > 0) {
+            this.deadlineAt = Number(data.deadline_at);
+            if (this.remainingSeconds() > 0) {
+              this.timeExpired = false;
+              this.updateTimer();
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('[MakonBook] Final deadline verification failed:', error);
+          // The submission API remains server-authoritative and rejects an
+          // early expiry, so do not invent extra time on network failures.
+        }
+      }
+      if (!this.submitInProgress && !this.navigatingAway && this.remainingSeconds() <= 0) {
+        this.lockForDeadline();
+        await this.submitModule(true, { deadlineReached: true });
+      }
+    }
+
+    async pollLiveEventDeadline() {
+      // A separate lightweight GET detects Django Admin duration edits without
+      // waiting for the 20-second autosave. Only guest/global-event runners poll.
+      if (!this.isGuest || !this.config.submitStatusUrl || this.liveEventPollInFlight ||
+          this.navigatingAway || this.submitInProgress || this.tabBlocked || this.timeExpired) return;
+      this.liveEventPollInFlight = true;
+      const oldDeadline = this.deadlineAt;
+      try {
+        const data = await this.readGuestSubmitStatus();
+        if (!data || this.navigatingAway || this.submitInProgress) return;
+        if (data.redirect_url && ['completed', 'moved'].includes(data.state)) {
+          this.navigatingAway = true;
+          window.location.assign(data.redirect_url);
+          return;
+        }
+        if (data.state !== 'pending') return;
+        const nextDeadline = Number(data.deadline_at || 0);
+        if (nextDeadline <= 0) return;
+        this.deadlineAt = nextDeadline;
+        if (Math.abs(nextDeadline - oldDeadline) > 1000) {
+          this.saveLocal();
+          window.dispatchEvent(new CustomEvent('sat:deadline-updated', {
+            detail: { deadlineAt: nextDeadline, previousDeadlineAt: oldDeadline },
+          }));
+        }
+        this.updateTimer();
+      } catch (error) {
+        // Network interruptions do not reset the clock or create a new deadline.
+        console.warn('[MakonBook] Event deadline polling delayed:', error);
+      } finally {
+        this.liveEventPollInFlight = false;
+      }
+    }
+
     async readGuestSubmitStatus() {
       if (!this.config.submitStatusUrl) return null;
       const url = new URL(this.config.submitStatusUrl, window.location.origin);
@@ -946,6 +1018,7 @@
       window.clearTimeout(this.autosaveTimer);
       window.clearInterval(this.autosaveInterval);
       window.clearInterval(this.timerHandle);
+      window.clearInterval(this.liveEventPollHandle);
       window.clearInterval(this.tabLeaseInterval);
       document.body.classList.add('test-tab-conflict');
 
@@ -1125,6 +1198,14 @@
       this.updateTimer();
       this.timerHandle = window.setInterval(() => this.updateTimer(), 500);
       this.autosaveInterval = window.setInterval(() => this.autosave(), 20000);
+      if (this.isGuest && this.config.submitStatusUrl) {
+        this.liveEventPollHandle = window.setInterval(() => this.pollLiveEventDeadline(), 4000);
+        window.addEventListener('pageshow', () => this.pollLiveEventDeadline());
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') this.pollLiveEventDeadline();
+        });
+        window.setTimeout(() => this.pollLiveEventDeadline(), 600);
+      }
       this.setSaveState(navigator.onLine ? 'saved' : 'offline', navigator.onLine ? (this.lastSavedAt ? 'Saved' : 'Ready') : 'Offline · saved on device');
       document.body.classList.add('test-flow-ready');
       this.options.afterBoot?.(this);

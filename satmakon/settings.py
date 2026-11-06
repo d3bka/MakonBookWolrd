@@ -112,6 +112,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.base.middleware.TemporaryPasswordChangeMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "apps.ratings.activity_middleware.UserActivityMiddleware",
     "apps.sat.middleware.ClientSoftwareMiddleware",
     "apps.sat.middleware.RequestTimeoutMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -683,6 +684,21 @@ CELERY_BEAT_SCHEDULE["hollihop-smart-reconciliation"] = {
     "schedule": HOLLIHOP_SYNC_INTERVAL_MINUTES * 60.0,
 }
 # END MAKONBOOK HOLLIHOP SMART BEAT
+
+# V61: every 10 minutes (day rollover + first activity of the day).
+CELERY_BEAT_SCHEDULE["makon-assessment-compliance"] = {
+    "task": "apps.ratings.tasks.settle_assessments",
+    "schedule": 600.0,
+}
+
+
+# V62: precise local-time reminder at 21:00 Asia/Tashkent, not a drifting interval.
+# Requires Celery Beat + Worker; job is idempotent at the database level.
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE["makon-teacher-assessment-reminders-2100"] = {
+    "task": "apps.ratings.tasks.remind_teachers_evening",
+    "schedule": crontab(hour=21, minute=0),
+}
 
 # AI is used for administrator/manager-run question-bank audits.
 # Structured-PDF imports themselves are deterministic and do not require an AI provider.

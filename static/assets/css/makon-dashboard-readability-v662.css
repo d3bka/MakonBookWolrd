@@ -1,0 +1,151 @@
+/* MakonBook V66.2 — readability and honest Practice CTA.
+   Loaded AFTER v66 and v661. Scope: student dashboard only. */
+
+/* The old 168px tracks could clip real data. Allow readable natural content. */
+.mb66-dashboard .mb66-wgrid {
+  grid-auto-rows: minmax(194px, auto) !important;
+  align-items: stretch;
+}
+.mb66-dashboard .mb66-wgrid > .mb66-w {
+  min-width: 0;
+  min-height: 0;
+  padding: 20px !important;
+  line-height: 1.45;
+}
+.mb66-dashboard .mb66-wgrid .mb66-w > * {
+  min-width: 0;
+}
+.mb66-dashboard .mb66-wgrid .mb66-widget-label,
+.mb66-dashboard .mb66-wgrid .mb66-widget-top {
+  line-height: 1.45;
+}
+.mb66-dashboard .mb66-wgrid .mb66-widget-top {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  row-gap: 5px;
+  margin-bottom: 12px;
+}
+.mb66-dashboard .mb66-wgrid .mb66-widget-top > .mb66-widget-label {
+  flex: 1 1 auto;
+}
+.mb66-dashboard .mb66-wgrid .mb66-widget-top > a,
+.mb66-dashboard .mb66-wgrid .mb66-widget-top > button {
+  flex: 0 0 auto;
+}
+
+/* University names are real data and must NEVER be cut after one line. */
+.mb66-dashboard .mb66-target h2 {
+  display: block !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  max-width: 100%;
+  font-size: clamp(16px, 1.22vw, 19px) !important;
+  font-weight: 820;
+  line-height: 1.36 !important;
+  letter-spacing: -.02em;
+  margin: 0 0 10px !important;
+}
+.mb66-dashboard .mb66-target {
+  min-height: 206px !important;
+}
+.mb66-dashboard .mb66-target p,
+.mb66-dashboard .mb66-target small {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.5 !important;
+}
+.mb66-dashboard .mb66-target > small {
+  margin-top: 8px;
+  display: block;
+}
+.mb66-dashboard .mb66-target .mb66-progress {margin: auto 0 2px !important;}
+
+/* Other data-dependent widgets should not collide with links and progress bars. */
+.mb66-dashboard .mb66-roadmap h2,
+.mb66-dashboard .mb66-optional h2,
+.mb66-dashboard .mb66-weak-row b,
+.mb66-dashboard .mb66-course b,
+.mb66-dashboard .mb66-deadline b {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere;
+  line-height: 1.45 !important;
+}
+.mb66-dashboard .mb66-roadmap h2,
+.mb66-dashboard .mb66-optional h2 {
+  font-size: 17px !important;
+  margin: 5px 0 8px !important;
+}
+.mb66-dashboard .mb66-roadmap p,
+.mb66-dashboard .mb66-optional p,
+.mb66-dashboard .mb66-weak-row small,
+.mb66-dashboard .mb66-course small,
+.mb66-dashboard .mb66-deadline small {
+  line-height: 1.55 !important;
+  overflow-wrap: anywhere;
+}
+.mb66-dashboard .mb66-optional,
+.mb66-dashboard .mb66-roadmap,
+.mb66-dashboard .mb66-weak {
+  min-height: 196px !important;
+}
+.mb66-dashboard .mb66-roadmap .mb66-link,
+.mb66-dashboard .mb66-optional .mb66-link {
+  display: inline-flex;
+  margin-top: auto;
+  padding-top: 8px;
+  align-self: flex-start;
+}
+.mb66-dashboard .mb66-courses-grid {gap: 10px;}
+.mb66-dashboard .mb66-course {min-height: 58px;align-items: flex-start;}
+.mb66-dashboard .mb66-course span,
+.mb66-dashboard .mb66-deadline > span {flex: 1 1 auto;min-width: 0;}
+.mb66-dashboard .mb66-weak-row {align-items: flex-start;}
+.mb66-dashboard .mb66-weak-row > strong {flex: 0 0 auto;}
+.mb66-dashboard .mb66-event-copy b,
+.mb66-dashboard .mb66-event-copy small {line-height: 1.48;overflow-wrap: anywhere;}
+.mb66-dashboard .mb66-event-row {align-items: flex-start;}
+.mb66-dashboard .mb66-event-action {flex: 0 0 auto;}
+
+/* Hero/counter layout remains close to original design but breathes on short screens. */
+.mb66-dashboard .mb66-d-greet p {max-width: 84ch;overflow-wrap: anywhere;}
+.mb66-dashboard .mb66-d-greet h1 {line-height: 1.18 !important;}
+.mb66-dashboard .mb66-continue h2 {line-height: 1.28;}
+.mb66-dashboard .mb66-streak-stat {gap: 8px;flex-wrap: wrap;}
+.mb66-dashboard .mb66-streak-link {line-height: 1.4;}
+
+/* Sidebar CTA opens the practice LIBRARY; don't imply a new attempt is created. */
+.mb50-shell .mb661-primary-action {
+  white-space: normal;
+  text-align: left;
+  gap: 11px;
+}
+.mb50-shell .mb661-primary-action span {line-height: 1.3;}
+.mb50-shell .mb661-primary-action:focus-visible {
+  outline: 3px solid #c4b5fd;
+  outline-offset: 3px;
+}
+
+@media (max-width: 1080px) {
+  .mb66-dashboard .mb66-wgrid {grid-auto-rows: minmax(184px,auto) !important;}
+  .mb66-dashboard .mb66-target h2 {font-size: 16px !important;}
+}
+@media (max-width: 767px) {
+  .mb66-dashboard .mb66-wgrid {grid-auto-rows: auto !important;}
+  .mb66-dashboard .mb66-wgrid > .mb66-w {min-height: 184px !important;padding: 16px !important;}
+  .mb66-dashboard .mb66-target {min-height: 210px !important;}
+  .mb66-dashboard .mb66-d-greet h1 {font-size: clamp(25px,7vw,32px) !important;}
+  .mb66-dashboard .mb66-widget-top {margin-bottom: 10px;}
+  .mb66-dashboard .mb66-event-action {padding: 9px;}
+}
+@media (max-width: 430px) {
+  .mb66-dashboard .mb66-target h2 {font-size: 16px !important;}
+  .mb66-dashboard .mb66-wgrid > .mb66-w {min-height: 190px !important;}
+  .mb66-dashboard .mb66-wgrid .mb66-widget-top {gap: 8px;}
+  .mb66-dashboard .mb66-event-row {gap: 7px;}
+  .mb66-dashboard .mb66-event-action {font-size: 11px;}
+}

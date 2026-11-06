@@ -33,7 +33,16 @@
     var armed=false,terminated=false,breakOpen=false,warningOpen=false,hadFullscreen=false;
     var suppressUntil=monoNow()+1800,lastEnvironmentAt=0,lastActivity=monoNow(),inactivityStrikeAt=0;
     var awayStartedAt=0,awayViolationRecorded=false;
+    var awayCheckTimer=0, awayEpisode=0, awayEventType='window_blur';
+    var awayGraceMs=strict?850:1200;
     var inactivityLimit=strict?120000:180000;
+    function isSubmittingOrNavigating(){
+      var running=window.SATTest||core;
+      return Boolean(
+        (running&&(running.submitInProgress||running.navigatingAway))||
+        document.body.classList.contains('is-submitting-test')
+      );
+    }
 
     // Hide/show time.
     var timer=document.getElementById('timer');
@@ -138,8 +147,7 @@
     }
 
     async function record(eventType,message,detail){
-      if(!monitoring||!armed||terminated||breakOpen||warningOpen||monoNow()<suppressUntil)return false;
-      if(window.SATTest&&window.SATTest.navigatingAway)return false;
+      if(!monitoring||!armed||terminated||breakOpen||warningOpen||monoNow()<suppressUntil||isSubmittingOrNavigating())return false;
       var environment=['tab_hidden','window_blur','fullscreen_exit'];
       if(environment.indexOf(eventType)>=0){
         if(monoNow()-lastEnvironmentAt<1400)return false;
@@ -149,6 +157,9 @@
       // SATTest. The old code skipped this autosave on every integrity event.
       var activeCore=window.SATTest||core;
       try{if(activeCore&&typeof activeCore.autosave==='function')await activeCore.autosave(true)}catch(_e){}
+      // Autosave and a submit/navigation may overlap. Do not send a late strike
+      // once this module has started committing its final answers.
+      if(isSubmittingOrNavigating()||terminated)return false;
       var payload={event_id:uuid(),attempt_id:config.attemptId,event_type:eventType,client_occurred_at:new Date().toISOString(),detail:detail||{}};
       try{
         var r=await fetch(violationUrl,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrf(),'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify(payload),credentials:'same-origin',keepalive:true});
@@ -206,54 +217,85 @@
       ensureFullscreenGate();
     }else{hadFullscreen=Boolean(fullscreenElement());arm()}
 
-    document.addEventListener('fullscreenchange',function(){if(fullscreenElement()){hadFullscreen=true;suppressUntil=monoNow()+800;if(secureGate){secureGate.remove();secureGate=null;}arm()}else if(fullscreenRequired&&monitors('fullscreen_exit')&&(hadFullscreen||armed)){ensureFullscreenGate();record('fullscreen_exit','Fullscreen mode was exited.')}});
-    document.addEventListener('webkitfullscreenchange',function(){if(fullscreenElement()){hadFullscreen=true;suppressUntil=monoNow()+800;if(secureGate){secureGate.remove();secureGate=null;}arm()}else if(fullscreenRequired&&monitors('fullscreen_exit')&&(hadFullscreen||armed)){ensureFullscreenGate();record('fullscreen_exit','Fullscreen mode was exited.')}});
-
-    function markAway(){
-      if(!awayStartedAt){awayStartedAt=monoNow();awayViolationRecorded=false;}
+    function handleFullscreenChange(){
+      if(fullscreenElement()){
+        hadFullscreen=true;suppressUntil=monoNow()+800;
+        if(secureGate){secureGate.remove();secureGate=null;}
+        arm();return;
+      }
+      // Browsers exit fullscreen automatically when a completed module navigates.
+      if(isSubmittingOrNavigating())return;
+      if(fullscreenRequired&&monitors('fullscreen_exit')&&(hadFullscreen||armed)){
+        ensureFullscreenGate();record('fullscreen_exit','Fullscreen mode was exited.');
+      }
     }
-    function markAwayViolation(promise){
-      Promise.resolve(promise).then(function(recorded){if(recorded)awayViolationRecorded=true}).catch(function(){});
+    document.addEventListener('fullscreenchange',handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange',handleFullscreenChange);
+
+    // One genuine absence = at most one strike. Short browser focus glitches,
+    // loading transitions and legitimate submit/navigation are not violations.
+    function clearAwayTimer(){
+      if(awayCheckTimer){clearTimeout(awayCheckTimer);awayCheckTimer=0;}
+    }
+    function beginAway(type){
+      if(!monitoring||!armed||terminated||isSubmittingOrNavigating())return;
+      if(!awayStartedAt){
+        awayStartedAt=monoNow();awayViolationRecorded=false;awayEpisode+=1;
+      }
+      if(type==='tab_hidden'||awayEventType!=='tab_hidden')awayEventType=type;
+      var episode=awayEpisode;
+      clearAwayTimer();
+      awayCheckTimer=setTimeout(function(){
+        awayCheckTimer=0;
+        if(episode!==awayEpisode||!awayStartedAt||isSubmittingOrNavigating())return;
+        if(document.hidden||!document.hasFocus()){
+          if(!awayViolationRecorded&&monitors(awayEventType)){
+            awayViolationRecorded=true; // reserve this episode before asynchronous autosave
+            record(awayEventType,awayEventType==='tab_hidden'
+              ? 'You left the active test tab.'
+              : 'The exam window lost focus.',{source:'sustained_away'});
+          }
+        }
+      },awayGraceMs);
     }
     function handleReturnFromAway(source){
       if(!awayStartedAt)return;
       var awayMs=monoNow()-awayStartedAt;
-      awayStartedAt=0;
-      lastActivity=monoNow();
-      // One continuous leave should be one strike. Previously a long tab/app
-      // switch caused an immediate tab/blur strike and then a second inactivity
-      // strike on return for the same incident.
-      if(!awayViolationRecorded&&monitors('inactivity')&&awayMs>=inactivityLimit){
+      var wasRecorded=awayViolationRecorded;
+      var eventType=awayEventType;
+      awayStartedAt=0;awayViolationRecorded=false;awayEventType='window_blur';
+      awayEpisode+=1;clearAwayTimer();lastActivity=monoNow();
+      if(isSubmittingOrNavigating()||terminated)return;
+      // A throttled hidden-page timer may not run until focus returns; handle
+      // such absences here, with the same grace period and one-strike rule.
+      if(!wasRecorded&&awayMs>=awayGraceMs&&monitors(eventType)){
+        record(eventType,eventType==='tab_hidden'
+          ? 'You left the active test tab.'
+          : 'The exam window lost focus.',{source:source||'return',away_ms:awayMs});
+      }else if(!wasRecorded&&awayMs>=inactivityLimit&&monitors('inactivity')){
         inactivityStrikeAt=monoNow();
-        var mins=Math.max(1,Math.round(awayMs/60000));
-        record('inactivity','You were away from the active test for about '+mins+' minute'+(mins===1?'':'s')+'.',{source:source||'background',away_ms:awayMs});
+        record('inactivity','Extended inactivity was detected.',{source:source||'return',away_ms:awayMs});
       }
-      awayViolationRecorded=false;
     }
 
     document.addEventListener('visibilitychange',function(){
-      if(document.hidden){
-        markAway();
-        if(monitors('tab_hidden')){if(fullscreenRequired&&!fullscreenElement())ensureFullscreenGate();markAwayViolation(record('tab_hidden','You left the active test tab.'));}
-      }else{
-        handleReturnFromAway('visibility');
-      }
+      if(isSubmittingOrNavigating())return;
+      if(document.hidden)beginAway('tab_hidden');
+      else if(document.hasFocus())handleReturnFromAway('visibility');
     });
     window.addEventListener('blur',function(){
-      markAway();
-      setTimeout(function(){if(monitors('window_blur')&&!document.hasFocus()&&!document.hidden){if(fullscreenRequired&&!fullscreenElement())ensureFullscreenGate();markAwayViolation(record('window_blur','The exam window lost focus.'));}},260)
+      if(!isSubmittingOrNavigating())beginAway(document.hidden?'tab_hidden':'window_blur');
     });
-    window.addEventListener('focus',function(){window.setTimeout(function(){handleReturnFromAway('focus')},80)});
-    window.addEventListener('pagehide',function(){
-      markAway();
-      // Strict mode already records leave_attempt in beforeunload. Do not create
-      // a second tab_hidden strike for the same refresh/navigation.
-      if(monitors('tab_hidden')&&!monitors('leave_attempt'))markAwayViolation(record('tab_hidden','The exam page was hidden or unloaded.'));
+    window.addEventListener('focus',function(){
+      window.setTimeout(function(){if(!document.hidden)handleReturnFromAway('focus');},100);
     });
+    // pagehide is fired on ordinary module transitions, browser back-forward
+    // cache and refresh. It cannot prove cheating, and must never add a strike.
+    window.addEventListener('pagehide',clearAwayTimer);
 
     ['pointerdown','pointermove','keydown','input','scroll','touchstart'].forEach(function(name){document.addEventListener(name,function(){lastActivity=monoNow()},{passive:true,capture:true})});
     setInterval(function(){
-      if(!armed||terminated||breakOpen)return;
+      if(!armed||terminated||breakOpen||isSubmittingOrNavigating()||document.hidden||!document.hasFocus()||awayStartedAt)return;
       if(monitors('inactivity')&&monoNow()-lastActivity>=inactivityLimit&&monoNow()-inactivityStrikeAt>=inactivityLimit){
         inactivityStrikeAt=monoNow();lastActivity=monoNow();record('inactivity','Extended inactivity was detected.');
       }
@@ -270,7 +312,7 @@
       },true);
       window.addEventListener('beforeunload',function(){
         if(!monitors('leave_attempt'))return;
-        if(window.SATTest&&window.SATTest.navigatingAway)return;
+        if(isSubmittingOrNavigating())return;
         // If visibility/fullscreen already produced an environment strike for
         // this same navigation, do not count the unload as a second violation.
         if(monoNow()-lastEnvironmentAt<1400)return;

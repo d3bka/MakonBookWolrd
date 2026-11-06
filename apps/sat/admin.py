@@ -1020,6 +1020,13 @@ class GlobalEventAdmin(admin.ModelAdmin):
         }),
         ("Timing", {
             "fields": ("duration_minutes", "english_duration_minutes", "math_duration_minutes"),
+            "description": (
+                "Changing English / Math duration updates active Global Event modules "
+                "from their original start time (normally visible within 4 seconds). "
+                "Section-specific duration takes priority; the general Duration is only "
+                "a fallback when the section duration is zero. A newly shortened limit "
+                "that has already elapsed will end the current module."
+            ),
         }),
         ("Results", {
             "fields": ("show_score_immediately", "show_leaderboard", "allow_resume"),

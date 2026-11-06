@@ -43,6 +43,7 @@
     <article class="v523-settings-card v523-reveal" style="--reveal-index:4">
       <header><span class="v523-settings-icon"><i class="bi bi-person-gear"></i></span><div><h2>Account</h2><p>Identity and security actions.</p></div></header>
       <a class="v523-setting-link" href="{% url 'edit_profile' %}{% if settings_base_template == 'sat/staff_workspace.html' %}?workspace={{ staff_workspace_mode }}{% endif %}"><span><strong>Profile</strong><small>Name, email and account identity</small></span><i class="bi bi-arrow-right"></i></a>
+      {% if settings_base_template != 'sat/staff_workspace.html' %}<a class="v523-setting-link" href="{% url 'rating_parent_share_code' %}"><span><strong>Family access code</strong><small>Share private practice, term grades and attendance with a parent</small></span><i class="bi bi-shield-lock"></i></a>{% endif %}
       <a class="v523-setting-link" href="{% url 'forgot_password' %}"><span><strong>Password &amp; recovery</strong><small>Reset your password using the verified recovery flow</small></span><i class="bi bi-arrow-right"></i></a>
       <a class="v523-setting-link is-danger" href="{% url 'logout' %}"><span><strong>Log out</strong><small>Sign out of this device</small></span><i class="bi bi-box-arrow-right"></i></a>
     </article>

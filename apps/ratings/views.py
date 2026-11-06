@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import secrets
 import re
 
 from django.contrib import messages
@@ -9,16 +10,22 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db import transaction
+from django.db.models import Count, Q
+from django.core.paginator import Paginator
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.sat.roles import is_teacher as has_teacher_access
+from apps.sat.roles import is_teacher as has_teacher_access, can_manage_classroom, is_platform_admin
 from apps.sat.models import Classroom, ClassroomMembership, MakonNotification
 
 from .engine import build_board, student_rating
 from .forms import RatingAssessmentForm
-from .models import RatingAssessment, RatingConfig, RatingProfile
+from .models import RatingAssessment, RatingConfig, RatingProfile, TermGrade
+from .assessment_policy import today_assessment_state, prepare_today_obligations, required_lesson_dates, week_start
+from apps.integrations.models import HollihopAttendance
+from apps.sat.models import TestReview, VocabularyQuizAttempt
+from apps.apclasses.models import APExamAttempt
 
 
 PARENT_LANGUAGE_CHOICES = ("en", "ru", "uz")
@@ -264,7 +271,7 @@ def _is_teacher_for(user, classroom):
         return False
     if user.is_staff or user.is_superuser:
         return True
-    return bool(has_teacher_access(user) and user.pk == classroom.teacher_id)
+    return can_manage_classroom(user, classroom)
 
 
 def rating_home(request):
@@ -411,12 +418,60 @@ def _remembered_parent_profile(request):
     return profile
 
 
+def _clear_parent_private(request):
+    request.session.pop('rating_parent_private_student_id', None)
+    request.session.pop('rating_parent_private_timestamp', None)
+
+
+def _parent_has_private_access(request, profile):
+    if not profile:
+        return False
+    if request.user.is_authenticated and request.user.pk == profile.user_id:
+        return True
+    timestamp = request.session.get('rating_parent_private_timestamp', 0)
+    try:
+        valid_age = 0 <= timezone.now().timestamp() - float(timestamp) < 3600
+    except (TypeError, ValueError):
+        valid_age = False
+    return bool(valid_age and request.session.get('rating_parent_private_student_id') == profile.user_id)
+
+
+@login_required(login_url='/login/')
+def parent_share_code(request):
+    """Only the signed-in student can disclose their own private family passcode."""
+    profile, _ = RatingProfile.objects.get_or_create(user=request.user)
+    return render(request, 'ratings/parent_share_code.html', {'family_code': profile.parent_access_code})
+
+
+def _parent_private_context(request, profile):
+    if not _parent_has_private_access(request, profile):
+        return {'parent_private_verified': False}
+    user = profile.user
+    reviews = (TestReview.objects.filter(user=user).select_related('test', 'makeup_test')
+               .order_by('-created_at', '-pk'))
+    results_page = Paginator(reviews, 25).get_page(request.GET.get('page'))
+    attend_qs = HollihopAttendance.objects.filter(student=user)
+    aggregate = attend_qs.aggregate(total=Count('pk'), present=Count('pk', filter=Q(status='present')), absent=Count('pk', filter=Q(status='absent')))
+    aggregate['percentage'] = round(100 * aggregate['present'] / aggregate['total'], 1) if aggregate['total'] else None
+    return {
+        'parent_private_verified': True,
+        'term_grades': TermGrade.objects.filter(student=user).select_related('classroom').order_by('-awarded_at', 'classroom__name'),
+        'practice_results': results_page,
+        'practice_count': reviews.count(),
+        'vocabulary_results': VocabularyQuizAttempt.objects.filter(user=user).select_related('classroom').order_by('-completed_at'),
+        'ap_results': APExamAttempt.objects.filter(student=user, status='submitted').select_related('event').order_by('-submitted_at'),
+        'parent_attendance': attend_qs.select_related('classroom').order_by('-date', '-pk')[:60],
+        'parent_attendance_stats': aggregate,
+    }
+
+
 def parent_lookup(request):
     language = _parent_language(request)
     translations = PARENT_TRANSLATIONS[language]
     action = (request.POST.get("action") or "lookup") if request.method == "POST" else ""
 
     if request.method == "POST" and action == "reset":
+        _clear_parent_private(request)
         request.session.pop("rating_parent_student_user_id", None)
         request.session.pop("rating_parent_candidate_user_ids", None)
         request.session.pop("rating_parent_candidate_phone", None)
@@ -424,6 +479,7 @@ def parent_lookup(request):
         return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
 
     if request.method == "POST" and action == "switch":
+        _clear_parent_private(request)
         request.session.pop("rating_parent_student_user_id", None)
         # If the same family phone belongs to siblings, return to the chooser
         # instead of making the parent type the same phone number again.
@@ -435,6 +491,7 @@ def parent_lookup(request):
         return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
 
     if request.method == "POST" and action == "select":
+        _clear_parent_private(request)
         candidates = _parent_candidates_from_session(request)
         allowed_ids = {user.pk for user in candidates}
         try:
@@ -447,9 +504,25 @@ def parent_lookup(request):
         return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
 
     profile = _remembered_parent_profile(request)
+    if request.method == 'POST' and action == 'verify_private' and profile:
+        attempts = [int(ts) for ts in request.session.get('rating_parent_private_attempts', [])
+                    if timezone.now().timestamp() - int(ts) < 3600]
+        if len(attempts) >= 8:
+            messages.error(request, 'Too many private access attempts. Try again later.')
+        else:
+            supplied = (request.POST.get('family_code') or '').strip().upper()[:32]
+            attempts.append(int(timezone.now().timestamp()))
+            request.session['rating_parent_private_attempts'] = attempts
+            if secrets.compare_digest(supplied, profile.parent_access_code):
+                request.session['rating_parent_private_student_id'] = profile.user_id
+                request.session['rating_parent_private_timestamp'] = timezone.now().timestamp()
+                request.session.modified = True
+                return redirect(f"{reverse('rating_parent_lookup')}?lang={language}")
+            messages.error(request, 'Invalid family access code.')
     phone_number_value = request.session.get("rating_parent_candidate_phone", "") if not profile else ""
 
     if request.method == "POST" and action == "lookup":
+        _clear_parent_private(request)
         now_ts = int(timezone.now().timestamp())
         attempts = [
             int(ts)
@@ -523,6 +596,7 @@ def parent_lookup(request):
             registered_phone=registered_phone,
             phone_number_value=phone_number_value,
             parent_candidates=parent_candidates,
+            **_parent_private_context(request, profile),
         ),
     )
 
@@ -535,6 +609,15 @@ def teacher_classroom_ratings(request, classroom_id):
     for index, membership in enumerate(memberships):
         membership.previous_student_id = memberships[index - 1].user_id if index > 0 else None
         membership.next_student_id = memberships[index + 1].user_id if index + 1 < len(memberships) else None
+    schedule, allowed, required = today_assessment_state(classroom, request.user)
+    if allowed:
+        prepare_today_obligations(schedule=schedule)
+    today = timezone.localdate()
+    graded_today = set(RatingAssessment.objects.filter(
+        classroom=classroom, teacher=request.user, lesson_date=today,
+    ).values_list('student_id', flat=True))
+    for membership in memberships:
+        membership.graded_today = membership.user_id in graded_today
     recent = RatingAssessment.objects.filter(classroom=classroom, teacher=request.user).select_related("student")[:30]
     return render(request, "ratings/teacher_classroom.html", {
         "classroom": classroom,
@@ -542,6 +625,11 @@ def teacher_classroom_ratings(request, classroom_id):
         "recent": recent,
         "config": RatingConfig.get_solo(),
         "assessment_form": RatingAssessmentForm(),
+        "assessment_allowed_today": allowed,
+        "assessment_required_today": required,
+        "lesson_schedule": schedule,
+        "week_required_dates": required_lesson_dates(schedule, today) if schedule else [],
+        "graded_today_count": len(graded_today),
     })
 
 
@@ -551,6 +639,10 @@ def save_assessment_deck(request, classroom_id):
     classroom = get_object_or_404(Classroom, pk=classroom_id)
     if not _is_teacher_for(request.user, classroom):
         raise PermissionDenied
+    schedule, allowed, required = today_assessment_state(classroom, request.user)
+    if not allowed:
+        raise PermissionDenied('Assessment is closed: no confirmed lesson today. Deadline 23:59:59 (Asia/Tashkent).')
+    prepare_today_obligations(schedule=schedule)
     memberships = {
         row.user_id: row
         for row in ClassroomMembership.objects.filter(
@@ -579,7 +671,11 @@ def save_assessment_deck(request, classroom_id):
             "behavior": request.POST.get(f"behavior_{student_id}"),
             "comment": request.POST.get(f"comment_{student_id}", ""),
         }
-        form = RatingAssessmentForm(payload)
+        existing = RatingAssessment.objects.filter(
+            classroom=classroom, teacher=request.user, student_id=student_id,
+            lesson_date=timezone.localdate(),
+        ).first()
+        form = RatingAssessmentForm(payload, instance=existing)
         if not form.is_valid():
             messages.error(request, f"Check the scores for {memberships[student_id].user.get_full_name() or memberships[student_id].user.username}.")
             return redirect("teacher_classroom_assessments_root", classroom_id=classroom.id)
@@ -592,7 +688,13 @@ def save_assessment_deck(request, classroom_id):
             assessment.classroom = classroom
             assessment.student_id = student_id
             assessment.teacher = request.user
-            assessment.full_clean()
+            assessment.lesson_date = timezone.localdate()
+            assessment.assessed_at = timezone.now()
+            from django.core.exceptions import ValidationError
+            try:
+                assessment.full_clean()
+            except ValidationError as exc:
+                raise PermissionDenied(f'Assessment not accepted: {exc}')
             assessment.save()
             created.append(assessment)
         MakonNotification.objects.bulk_create([
@@ -617,14 +719,28 @@ def assess_student(request, classroom_id, student_id):
     student = get_object_or_404(User, pk=student_id)
     if not ClassroomMembership.objects.filter(classroom=classroom, user=student, role="student", status="approved").exists():
         raise PermissionDenied("Student is not an approved classroom member.")
+    schedule, allowed, required = today_assessment_state(classroom, request.user)
     if request.method == "POST":
-        form = RatingAssessmentForm(request.POST)
+        if not allowed:
+            raise PermissionDenied('Assessment is closed: scheduled lesson days only, until 23:59:59 Tashkent time.')
+        prepare_today_obligations(schedule=schedule)
+        existing = RatingAssessment.objects.filter(
+            classroom=classroom, teacher=request.user, student=student,
+            lesson_date=timezone.localdate(),
+        ).first()
+        form = RatingAssessmentForm(request.POST, instance=existing)
         if form.is_valid():
             assessment = form.save(commit=False)
             assessment.classroom = classroom
             assessment.student = student
             assessment.teacher = request.user
-            assessment.full_clean()
+            assessment.lesson_date = timezone.localdate()
+            assessment.assessed_at = timezone.now()
+            from django.core.exceptions import ValidationError
+            try:
+                assessment.full_clean()
+            except ValidationError as exc:
+                raise PermissionDenied(f'Assessment not accepted: {exc}')
             assessment.save()
             messages.success(request, f"Rating saved for {student.get_full_name() or student.username}.")
             next_id = request.POST.get("next_student_id")
@@ -642,7 +758,7 @@ def assess_student(request, classroom_id, student_id):
             previous_student_id = student_ids[index - 1]
         if index + 1 < len(student_ids):
             next_student_id = student_ids[index + 1]
-    return render(request, "ratings/assess_student.html", {"classroom": classroom, "student_obj": student, "form": form, "next_student_id": next_student_id, "previous_student_id": previous_student_id})
+    return render(request, "ratings/assess_student.html", {"classroom": classroom, "student_obj": student, "form": form, "next_student_id": next_student_id, "previous_student_id": previous_student_id, "assessment_allowed_today": allowed})
 
 
 @login_required
@@ -653,9 +769,10 @@ def edit_assessment(request, assessment_id):
         raise PermissionDenied
     if assessment.teacher_id != request.user.pk and not (request.user.is_staff or request.user.is_superuser):
         raise PermissionDenied
-    config = RatingConfig.get_solo()
-    if timezone.now() - assessment.created_at > timedelta(days=config.teacher_edit_window_days) and not request.user.is_staff:
-        raise PermissionDenied("Teacher edit window has expired.")
+    if not (request.user.is_staff or request.user.is_superuser):
+        _, allowed, _ = today_assessment_state(assessment.classroom, request.user)
+        if not allowed or assessment.lesson_date != timezone.localdate():
+            raise PermissionDenied('Assessment edits close at 23:59:59 of the lesson day.')
     form = RatingAssessmentForm(request.POST, instance=assessment)
     if form.is_valid():
         form.save()

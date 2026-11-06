@@ -9,11 +9,25 @@
     <div class="mb56-nav-links" data-nav-menu>
       <a href="{% if local_nav %}#platform{% else %}/#platform{% endif %}">Platform</a>
       <a href="{% if local_nav %}#results{% else %}/#results{% endif %}">Results</a>
-      <a href="{% url 'rating_parent_lookup' %}">Parents</a>
+      <a href="{% url 'rating_parent_lookup' %}" data-mb642-parent-link>Parents</a>
       <a href="{% if local_nav %}#faq{% else %}/#faq{% endif %}">FAQ</a>
     </div>
 
     <div class="mb56-nav-actions">
+      {% if local_nav or parent_nav or public_nav %}
+      <div class="mb63-locale" {% if parent_nav %}data-mb642-parent-locale{% elif public_nav %}data-mb645-public-locale{% else %}data-mb63-locale{% endif %}>
+        <button class="mb63-locale-trigger" type="button" data-mb63-lang-trigger aria-expanded="false" aria-haspopup="listbox" aria-controls="mb63-locale-list" aria-label="Choose site language">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-5 5-5 13 0 18M12 3c5 5 5 13 0 18"/></svg>
+          <span data-mb63-lang-current>{% if parent_nav %}{{ parent_lang|upper }}{% else %}EN{% endif %}</span>
+          <svg class="mb63-locale-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div id="mb63-locale-list" class="mb63-locale-menu" role="listbox" aria-label="Site language">
+          <button type="button" role="option" data-mb63-lang-option="en" aria-selected="{% if parent_nav %}{% if parent_lang == 'en' %}true{% else %}false{% endif %}{% else %}true{% endif %}"><span>English</span><b>EN</b></button>
+          <button type="button" role="option" data-mb63-lang-option="ru" aria-selected="{% if parent_nav and parent_lang == 'ru' %}true{% else %}false{% endif %}"><span>Русский</span><b>RU</b></button>
+          <button type="button" role="option" data-mb63-lang-option="uz" aria-selected="{% if parent_nav and parent_lang == 'uz' %}true{% else %}false{% endif %}"><span>O‘zbekcha</span><b>UZ</b></button>
+        </div>
+      </div>
+      {% endif %}
       {% include 'base/theme_toggle.html' %}
       <a class="mb56-btn mb56-btn-quiet mb56-desktop-only" href="{% if local_nav %}#mock-exams{% else %}{% url 'global_event_list' %}{% endif %}">Mock exams</a>
       <a class="mb56-btn mb56-btn-login" href="{% url 'login' %}">Log in <span>↗</span></a>
