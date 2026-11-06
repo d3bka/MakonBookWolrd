@@ -109,6 +109,7 @@
   <link href="{% static 'assets/css/makon-responsive.css' %}" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
   {% include 'base/responsive_css.html' %}
+  {% block workspace_final_styles %}{% endblock workspace_final_styles %}
 </head>
 
 <body>

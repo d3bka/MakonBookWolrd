@@ -2389,6 +2389,29 @@ def exam_integrity_violation(request):
                 'results_url': _results_url_for_test(stage.test, classroom=stage.classroom),
             })
 
+        # Submissions can finish while keepalive violation requests are still in
+        # flight. A saved module or fully completed attempt is not an active exam:
+        # do not punish the student for the browser's automatic navigation.
+        current_step = get_current_test_step(stage)
+        already_submitted = current_step is not None and TestModule.objects.filter(
+            user=stage.user,
+            test=stage.test,
+            classroom_id=stage.classroom_id,
+            attempt_id=stage.attempt_id,
+            test_type='regular',
+            section=current_step[0],
+            module=current_step[1],
+        ).exists()
+        if current_step is None or already_submitted or _stage_attempt_is_complete(stage):
+            return JsonResponse({
+                'ok': True,
+                'ignored': True,
+                'reason': 'module_already_finished',
+                'strike': stage.integrity_violation_count,
+                'max_violations': stage.integrity_max_violations,
+                'terminated': False,
+            })
+
         existing = ExamIntegrityViolation.objects.filter(event_id=event_id).first()
         if existing:
             return JsonResponse({
@@ -2400,6 +2423,25 @@ def exam_integrity_violation(request):
                 'results_url': _results_url_for_test(stage.test, classroom=stage.classroom),
             })
 
+
+        # A single app switch may generate hidden + blur + fullscreen callbacks.
+        # Treat the cluster as one event rather than three strikes within seconds.
+        environment_events = {'tab_hidden', 'window_blur', 'fullscreen_exit', 'leave_attempt'}
+        if event_type in environment_events:
+            recent_episode = ExamIntegrityViolation.objects.filter(
+                stage=stage,
+                event_type__in=environment_events,
+                created_at__gte=timezone.now() - timedelta(seconds=3),
+            ).order_by('-created_at', '-pk').first()
+            if recent_episode and recent_episode.event_type != event_type:
+                return JsonResponse({
+                    'ok': True,
+                    'ignored': True,
+                    'reason': 'same_environment_episode',
+                    'strike': stage.integrity_violation_count,
+                    'max_violations': stage.integrity_max_violations,
+                    'terminated': False,
+                })
         next_strike = min(stage.integrity_violation_count + 1, stage.integrity_max_violations)
         client_ts = parse_datetime(str(payload.get('client_occurred_at') or ''))
         ExamIntegrityViolation.objects.create(
@@ -7688,7 +7730,23 @@ def manager_dashboard(request):
         status=SupportLessonBooking.STATUS_CANCELLED
     ).values('student_id').distinct().count()
 
+    # V61 real unique authenticated visitors, rather than login counts.
+    from apps.ratings.models import UserActivityDay
+    usage_today = timezone.localdate()
+    def active_unique(days):
+        return UserActivityDay.objects.filter(
+            date__gte=usage_today - timedelta(days=days - 1), date__lte=usage_today,
+        ).values('user_id').distinct().count()
+
+    previous_month_end = usage_today.replace(day=1) - timedelta(days=1)
+    active_prev_month = UserActivityDay.objects.filter(
+        date__gte=previous_month_end.replace(day=1), date__lte=previous_month_end,
+    ).values('user_id').distinct().count()
     return render(request, 'sat/manager_dashboard.html', {
+        'active_users_previous_month': active_prev_month,
+        'active_users_today': active_unique(1),
+        'active_users_15days': active_unique(15),
+        'active_users_30days': active_unique(30),
         'classroom_teachers': classroom_teachers,
         'support_teachers': support_teachers,
         'recent_reviews': recent_reviews,
@@ -8686,6 +8744,9 @@ def teacher_progress_hub(request):
 def teacher_assessments_hub(request):
     if not is_teacher(request.user): return HttpResponseForbidden('Teacher access required.')
     classrooms = list(_teacher_managed_classrooms(request.user).annotate(student_count=Count('memberships', filter=Q(memberships__role='student', memberships__status='approved'), distinct=True)).order_by('-is_active','name'))
+    from apps.ratings.assessment_policy import today_assessment_state
+    for classroom in classrooms:
+        _, classroom.assessment_open_today, classroom.assessment_due_today = today_assessment_state(classroom, request.user)
     return render(request, 'sat/teacher_assessments_hub_v528.html', {'classrooms': classrooms})
 
 
@@ -9776,7 +9837,14 @@ def student_classroom_home(request, classroom_id):
     ))
     # Never hard-lock the dashboard behind this modal. Students can open it
     # explicitly, and ?goal=1 is used by edit/setup buttons.
-    context['open_goal_modal'] = request.GET.get('goal') == '1'
+    # Only auto-launch once per login session; unfinished goals remain
+    # accessible from the Goal button and can be resumed on next login.
+    first_goal_setup = not context['goal'].is_configured
+    auto_goal = first_goal_setup and not request.session.get('mb_goal_prompted')
+    context['open_goal_modal'] = request.GET.get('goal') == '1' or auto_goal
+    context['first_goal_setup'] = first_goal_setup
+    if auto_goal:
+        request.session['mb_goal_prompted'] = True
 
     context['student_workspace_active'] = 'classrooms'
     return render(request, 'sat/student_classroom_home.html', context)
@@ -14580,7 +14648,14 @@ def classroom_entry(request):
     context.update(_student_global_goal_context(request.user))
     context.update(gamification_context(request.user))
     context.update(_student_goal_form_context(request.user, next_url=request.get_full_path()))
-    context['open_goal_modal'] = request.GET.get('goal') == '1'
+    # Only auto-launch once per login session; unfinished goals remain
+    # accessible from the Goal button and can be resumed on next login.
+    first_goal_setup = not context['goal'].is_configured
+    auto_goal = first_goal_setup and not request.session.get('mb_goal_prompted')
+    context['open_goal_modal'] = request.GET.get('goal') == '1' or auto_goal
+    context['first_goal_setup'] = first_goal_setup
+    if auto_goal:
+        request.session['mb_goal_prompted'] = True
     return render(request, 'sat/classroom_join.html', context)
 
 

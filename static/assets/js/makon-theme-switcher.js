@@ -31,10 +31,38 @@
     return mode === "light" ? "☀" : "☾";
   }
 
+  function currentLocale() {
+    var code = (document.documentElement.getAttribute('lang') || 'en').toLowerCase().split('-')[0];
+    return code === 'ru' || code === 'uz' ? code : 'en';
+  }
+
+  var localized = {
+    en: {system:'System', light:'Light', dark:'Dark', device:'Device', subtitleSystem:'Follow device',
+      subtitleLight:'Bright interface', subtitleDark:'Low-light interface', change:'Change color theme', options:'Theme options'},
+    ru: {system:'Системная', light:'Светлая', dark:'Тёмная', device:'Устройство', subtitleSystem:'Как на устройстве',
+      subtitleLight:'Светлый интерфейс', subtitleDark:'Тёмный интерфейс', change:'Изменить тему', options:'Выбор темы'},
+    uz: {system:'Tizim', light:'Yorug‘', dark:'Qorong‘i', device:'Qurilma', subtitleSystem:'Qurilma sozlamasiga mos',
+      subtitleLight:'Yorug‘ interfeys', subtitleDark:'Qorong‘i interfeys', change:'Ko‘rinishni tanlash', options:'Ko‘rinish rejimi'}
+  };
+
   function labelFor(mode, resolved) {
-    if (mode === "light") return "Light";
-    if (mode === "dark") return "Dark";
-    return "System · " + (resolved === "light" ? "Light" : "Dark");
+    var t = localized[currentLocale()];
+    return mode === 'system' ? t.system + ' · ' + t[resolved] : t[mode];
+  }
+
+  function localizeMenu(switcher) {
+    var t = localized[currentLocale()];
+    var menu = switcher.querySelector('[data-theme-menu]');
+    if (menu) menu.setAttribute('aria-label', t.options);
+    switcher.querySelectorAll('[data-theme-choice]').forEach(function (choice) {
+      var key = choice.dataset.themeChoice;
+      if (!allowed[key]) return;
+      var strong = choice.querySelector('strong');
+      var small = choice.querySelector('small');
+      if (strong) strong.textContent = t[key];
+      if (small && key !== 'system') small.textContent = t['subtitle' + key[0].toUpperCase() + key.slice(1)];
+      if (small && key === 'system') small.textContent = t.subtitleSystem;
+    });
   }
 
   function applyTheme(mode) {
@@ -51,8 +79,9 @@
       var toggle = switcher.querySelector("[data-theme-toggle]");
       if (label) label.textContent = labelFor(mode, resolved);
       if (icon) icon.textContent = iconFor(mode, resolved);
-      if (status) status.textContent = "Device · " + (resolved === "light" ? "Light" : "Dark");
-      if (toggle) toggle.setAttribute("aria-label", "Theme: " + labelFor(mode, resolved) + ". Change color theme");
+      localizeMenu(switcher);
+      if (status) status.textContent = localized[currentLocale()].device + ' · ' + localized[currentLocale()][resolved];
+      if (toggle) toggle.setAttribute('aria-label', labelFor(mode, resolved) + '. ' + localized[currentLocale()].change);
 
       switcher.querySelectorAll("[data-theme-choice]").forEach(function (choice) {
         choice.setAttribute("aria-checked", String(choice.dataset.themeChoice === mode));
@@ -116,9 +145,17 @@
         event.stopPropagation();
         var mode = choice.dataset.themeChoice;
         if (!allowed[mode]) return;
-        saveMode(mode);
-        applyTheme(mode);
         closeSwitcher(switcher, true);
+        var commit = function () { saveMode(mode); applyTheme(mode); };
+        var animator = document.querySelector('.mb56-nav-wrap') && window.MakonBookLandingTransition;
+        if (animator && mode !== getSavedMode()) {
+          animator.run(commit).catch(function (error) {
+            console.error('[MakonBook] Theme transition failed:', error);
+            if (getSavedMode() !== mode) commit();
+          });
+        } else {
+          commit();
+        }
       });
       choice.addEventListener("keydown", function (event) {
         if (event.key === "ArrowDown") { event.preventDefault(); focusChoice(switcher, index + 1); }
@@ -133,6 +170,13 @@
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-theme-switcher]").forEach(setupSwitcher);
     applyTheme(getSavedMode());
+    // Landing language changes html.lang dynamically; reflect that immediately,
+    // while keeping the selected light/dark/system mode unchanged.
+    new MutationObserver(function (mutations) {
+      if (mutations.some(function (mutation) {return mutation.attributeName === 'lang';})) {
+        applyTheme(getSavedMode());
+      }
+    }).observe(document.documentElement, {attributes:true, attributeFilter:['lang']});
   });
 
   document.addEventListener("click", function () { closeAll(); });

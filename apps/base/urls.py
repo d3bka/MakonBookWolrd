@@ -7,6 +7,8 @@ from apps.sat import guest_views as sat_guest_views
 from apps.sat import event_registration_views as event_registration_views
 from apps.sat import public_placement_views as public_placement_views
 from apps.ratings import views as rating_views
+from apps.ratings import assessment_management as rating_manager_views
+from apps.integrations.hollihop.attendance_insights import manager_attendance_insights
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -71,6 +73,15 @@ urlpatterns = [
     path('teacher/vocabulary/create-unit/', sat_views.create_vocabulary_unit, name='teacher_vocabulary_create_unit_root'),
     path('teacher/vocabulary/unit/<int:unit_id>/', sat_views.teacher_vocabulary_unit_detail, name='teacher_vocabulary_unit_detail_root'),
     path('manager/dashboard/', sat_views.manager_dashboard, name='manager_dashboard_root'),
+    path('manager/attendance/', manager_attendance_insights, name='manager_attendance_insights'),
+    path('manager/assessment-schedules/', rating_manager_views.manager_assessment_schedules, name='manager_assessment_schedules'),
+    path('manager/assessment-schedules/save/', rating_manager_views.manager_save_schedule, name='manager_save_assessment_schedule'),
+    path('manager/assessment-schedules/<int:schedule_id>/exception/', rating_manager_views.manager_schedule_exception, name='manager_schedule_exception'),
+    path('manager/assessment-compliance/', rating_manager_views.manager_assessment_report, name='manager_assessment_report'),
+    path('manager/assessment-compliance/settle/', rating_manager_views.manager_run_assessment_settlement, name='manager_run_assessment_settlement'),
+    path('manager/assessment-compliance/export.xlsx', rating_manager_views.manager_penalties_xlsx, name='manager_penalties_xlsx'),
+    path('manager/assessment-compliance/<int:penalty_id>/review/', rating_manager_views.manager_review_penalty, name='manager_review_penalty'),
+    path('manager/activity/', rating_manager_views.manager_activity_report, name='manager_activity_report'),
     path('manager/teachers/', sat_views.manager_teacher_list, name='manager_teacher_list_root'),
     path('manager/teachers/<int:teacher_id>/', sat_views.manager_teacher_detail, name='manager_teacher_detail_root'),
     path('manager/classrooms/<int:classroom_id>/', sat_views.manager_classroom_detail, name='manager_classroom_detail_root'),

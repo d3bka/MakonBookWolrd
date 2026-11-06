@@ -18,10 +18,13 @@
   <link rel="stylesheet" href="{% static 'assets/css/student-workspace-spacing-v5266.css' %}?v=5266">
   <link rel="stylesheet" href="{% static 'assets/css/student-speed-v554.css' %}?v=5544">
   <link rel="stylesheet" href="{% static 'assets/css/student-world-upcoming-v5571.css' %}?v=5571">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-prototype-merge-v60.css' %}?v=6001">
+
 {% endblock style %}
+{% block workspace_final_styles %}<link rel="stylesheet" href="{% static 'assets/css/makon-ui-v62.css' %}?v=6202"><link rel="stylesheet" href="{% static 'assets/css/makon-dashboard-prototype-v66.css' %}?v=6601"><link rel="stylesheet" href="{% static 'assets/css/makon-unified-workspace-v661.css' %}?v=6611"><link rel="stylesheet" href="{% static 'assets/css/makon-workspace-search-v67.css' %}?v=6701"><link rel="stylesheet" href="{% static 'assets/css/makon-dashboard-readability-v662.css' %}?v=6622">{% endblock workspace_final_styles %}
 
 {% block body %}
-<div class="mb50-shell" data-student-workspace data-workspace-storage-scope="student" data-workspace-search-url="{% url 'workspace_search_root' %}">
+<div class="mb50-shell{% if student_workspace_active == 'home' %} mb66-shell{% endif %}" data-student-workspace data-workspace-storage-scope="student" data-workspace-search-url="{% url 'workspace_search_root' %}">
   {% if not makonbook_world_enabled %}
   <div class="mb557-world-upcoming-alert" data-world-upcoming-alert role="status" aria-live="polite" aria-hidden="true">
     <span class="mb557-world-upcoming-icon"><i class="bi bi-stars"></i></span>
@@ -39,14 +42,15 @@
     <div class="mb50-sidebar-head">
       <a class="mb50-brand" href="{% url 'student_dashboard_root' %}" aria-label="MakonBook home">
         <span class="mb50-brand-mark">
-          <img class="mb50-logo-dark" src="{% static 'assets/img/icons/white-icon-nobg.png' %}" alt="">
-          <img class="mb50-logo-light" src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="">
+          <img class="mb50-logo-dark" src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt="">
+          <img class="mb50-logo-light" src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt="">
         </span>
         <span class="mb50-brand-copy"><strong>MakonBook</strong><small>Student workspace</small></span>
       </a>
       <button class="mb50-collapse" type="button" aria-label="Collapse navigation" aria-expanded="true" data-workspace-collapse><i class="bi bi-chevron-left"></i></button>
     </div>
 
+    <a class="mb661-primary-action" href="{% url 'student_practice_root' %}" title="Open the practice library and choose a practice test" aria-label="Browse available practice tests"><i class="bi bi-arrow-right-circle" aria-hidden="true"></i><span>Browse practice</span></a>
     <nav class="mb50-nav" aria-label="Primary">
       <div class="mb50-nav-group mb50-utility-nav">
         <button class="mb50-nav-item" type="button" data-workspace-command="search"><i class="bi bi-search"></i><span>Search</span><kbd>Ctrl K</kbd></button>
@@ -112,7 +116,7 @@
   <div class="mb50-workspace">
     <header class="mb50-mobile-head">
       <button class="mb50-mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false" data-workspace-mobile-open><i class="bi bi-list"></i></button>
-      <a class="mb50-mobile-brand" href="{% url 'student_dashboard_root' %}"><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""><strong>MakonBook</strong></a>
+      <a class="mb50-mobile-brand" href="{% url 'student_dashboard_root' %}"><img src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt=""><strong>MakonBook</strong></a>
       <button class="mb50-mobile-account" type="button" data-workspace-profile-toggle aria-label="Account"><span>{{ request.user.first_name|default:request.user.username|slice:":1"|upper }}</span></button>
     </header>
     <main class="mb50-main" id="main">{% include 'base/profile_name_prompt.html' %}{% block content %}{% endblock content %}</main>

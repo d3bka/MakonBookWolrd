@@ -70,23 +70,33 @@ def _sms_role(profile, explicit_label: str = "") -> tuple[str, str]:
     return role_key, friendly
 
 
-def _build_sms_text(user, *, login_value: str, temporary_password: str, sms_role_label: str = "") -> str:
+def _sms_template_values(user, *, login_value: str, temporary_password: str, sms_role_label: str = "") -> dict[str, str]:
     profile = user.profile
-    _role_key, friendly_role = _sms_role(profile, sms_role_label)
-    first_name = str(getattr(user, "first_name", "") or "").strip()
-    greeting = f"Hi, {first_name}!" if first_name else "Hi!"
-    account_line = (
-        f"Your MakonBook {friendly_role} account is ready."
-        if friendly_role
-        else "Your MakonBook account is ready."
+    role_key, _ = _sms_role(profile, sms_role_label)
+    # These keys match the placeholders submitted for approval to PlayMobile.
+    return {
+        "name": str(getattr(user, "first_name", "") or "").strip() or user.get_username(),
+        "staff_type": role_key or "user",
+        "Login": login_value,
+        "password": temporary_password,
+        "website": f"{settings.SITE_URL.rstrip('/')}/login/",
+    }
+
+
+def _build_sms_text(user, *, login_value: str, temporary_password: str, sms_role_label: str = "") -> str:
+    values = _sms_template_values(
+        user,
+        login_value=login_value,
+        temporary_password=temporary_password,
+        sms_role_label=sms_role_label,
     )
-    login_url = f"{settings.SITE_URL.rstrip('/')}/login/"
+    # Keep line-breaks and fixed text identical to the approved-template request.
     return (
-        f"{greeting} {account_line}\n"
-        f"Login: {login_value}\n"
-        f"Temporary password: {temporary_password}\n"
-        f"Sign in: {login_url}\n"
-        "Please change your password after your first sign-in."
+        f"Salom, {values['name']}! MakonBook {values['staff_type']} akkauntingiz tayyor.\n"
+        f"Login: {values['Login']}\n"
+        f"Vaqtinchalik parol: {values['password']}\n"
+        f"Kirish: {values['website']}\n"
+        "Birinchi kirishda parolni yangilang."
     )
 
 
@@ -190,7 +200,15 @@ def deliver_new_temporary_access(
             sms_role_label=sms_role_label,
         )
         try:
-            sms_result = send_sms(phone, sms_text)
+            sms_result = send_sms(
+                phone, sms_text,
+                template_variables=_sms_template_values(
+                    user,
+                    login_value=login_value,
+                    temporary_password=temporary_password,
+                    sms_role_label=sms_role_label,
+                ),
+            )
             delivery.sms_status = "sent"
             sent_count += 1
             HollihopSyncLog.objects.create(

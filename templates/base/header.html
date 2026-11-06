@@ -87,7 +87,7 @@
     </nav>
 
     <div class="header-tools">
-      {% if request.user.is_authenticated and test_import_center_allowed %}
+      {% if request.user.is_authenticated %}
         <button class="makon-notice-bell" type="button" aria-label="Notifications" aria-expanded="false" data-notice-toggle>
           <i class="bi bi-bell"></i>
           {% if test_import_unread_notifications %}<span data-notice-badge>{{ test_import_unread_notifications }}</span>{% endif %}
@@ -100,7 +100,7 @@
     <i class="mobile-nav-toggle mobile-nav-hide d-none bi bi-x"></i>
   </div>
 </header>
-{% if request.user.is_authenticated and test_import_center_allowed %}
+{% if request.user.is_authenticated %}
 <div class="makon-notice-layer" data-notice-layer aria-hidden="true" data-read-url="{% url 'notifications_read_root' %}">
   <form hidden data-notice-csrf-form>{% csrf_token %}</form>
   <button class="makon-notice-scrim" type="button" aria-label="Close notifications" data-notice-close></button>
@@ -126,7 +126,7 @@
         <div class="makon-notice-empty"><i class="bi bi-bell-slash"></i><strong>No notifications yet</strong><small>New test-review requests will appear here.</small></div>
       {% endfor %}
     </div>
-    <a class="makon-notice-footer" href="{% url 'test_import_list_root' %}">Open Test Import Center <i class="bi bi-arrow-right"></i></a>
+    {% if test_import_center_allowed %}<a class="makon-notice-footer" href="{% url 'test_import_list_root' %}">Open Test Import Center <i class="bi bi-arrow-right"></i></a>{% endif %}
   </section>
 </div>
 {% endif %}

@@ -281,7 +281,7 @@ def _playmobile_basic_auth(login: str, password: str) -> str:
     return f"Basic {token}"
 
 
-def _send_playmobile(phone: str, message: str) -> SmsSendResult:
+def _send_playmobile(phone: str, message: str, *, template_variables: dict[str, str] | None = None) -> SmsSendResult:
     api_url = str(getattr(settings, "PLAYMOBILE_API_URL", "") or "").strip()
     login = str(getattr(settings, "PLAYMOBILE_LOGIN", "") or "").strip()
     password = str(getattr(settings, "PLAYMOBILE_PASSWORD", "") or "")
@@ -307,13 +307,22 @@ def _send_playmobile(phone: str, message: str) -> SmsSendResult:
     item: dict[str, Any] = {
         "recipient": recipient,
         "message-id": message_id,
-        "sms": {
+    }
+    if template_id and template_variables:
+        # Provider-approved template mode: the gateway substitutes variables
+        # and uses the registered text. Avoid sending a conflicting custom body.
+        item["template-id"] = template_id
+        item["variables"] = {str(key): str(value) for key, value in template_variables.items()}
+    else:
+        # Approved text mode: keep the literal message and configured originator.
+        item["sms"] = {
             "originator": originator,
             "content": {"text": text},
-        },
-    }
-    if template_id:
-        item["template-id"] = template_id
+        }
+        if template_id:
+            # check_sms_provider sends generic test text without template
+            # values; do not falsely label it as an approved template.
+            raise SmsDeliveryError("PLAYMOBILE_TEMPLATE_ID is configured: use a credential template with variables, or clear the template ID for text mode.")
 
     try:
         response_text = _post_json_text(
@@ -397,7 +406,7 @@ def validate_sms_configuration() -> tuple[bool, str]:
     return False, f"Unsupported SMS provider: {provider}."
 
 
-def send_sms(phone: str, message: str) -> SmsSendResult:
+def send_sms(phone: str, message: str, *, template_variables: dict[str, str] | None = None) -> SmsSendResult:
     """Send SMS through the configured provider.
 
     Supported providers:
@@ -414,5 +423,5 @@ def send_sms(phone: str, message: str) -> SmsSendResult:
     if provider == "eskiz":
         return _send_eskiz(phone, message)
     if provider == "playmobile":
-        return _send_playmobile(phone, message)
+        return _send_playmobile(phone, message, template_variables=template_variables)
     raise SmsDeliveryError(f"Unsupported SMS provider: {provider}")

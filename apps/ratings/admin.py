@@ -31,3 +31,17 @@ class RatingAssessmentAdmin(admin.ModelAdmin):
     @admin.display(description="Mean")
     def mean_display(self, obj):
         return f"{obj.mean_score:.2f}"
+
+from .models import TermGrade
+
+
+@admin.register(TermGrade)
+class TermGradeAdmin(admin.ModelAdmin):
+    list_display = ('student', 'classroom', 'academic_year', 'term', 'score', 'maximum_score', 'awarded_at')
+    list_filter = ('term', 'academic_year', 'classroom')
+    search_fields = ('student__username', 'student__first_name', 'student__last_name', 'classroom__name')
+    autocomplete_fields = ('student', 'classroom')
+
+    def save_model(self, request, obj, form, change):
+        obj.full_clean()
+        super().save_model(request, obj, form, change)

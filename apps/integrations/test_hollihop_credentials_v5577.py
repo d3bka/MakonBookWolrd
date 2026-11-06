@@ -44,13 +44,13 @@ class HollihopCredentialV5577Tests(TestCase):
         self.assertEqual(delivery.sms_status, "sent")
         phone, text = send_sms.call_args.args
         self.assertEqual(phone, "+998901234567")
-        self.assertIn("Hi, Islom!", text)
-        self.assertIn("Your MakonBook Student account is ready.", text)
+        self.assertIn("Salom, Islom!", text)
+        self.assertIn("MakonBook student akkauntingiz tayyor.", text)
         self.assertIn("Login: +998901234567", text)
-        self.assertIn("Temporary password: KRMH-5837", text)
-        self.assertIn("Sign in: https://makonbook.uz/login/", text)
-        self.assertIn("Please change your password after your first sign-in.", text)
-        self.assertNotIn("Vaqtinchalik", text)
+        self.assertIn("Vaqtinchalik parol: KRMH-5837", text)
+        self.assertIn("Kirish: https://makonbook.uz/login/", text)
+        self.assertIn("Birinchi kirishda parolni yangilang.", text)
+        self.assertEqual(send_sms.call_args.kwargs["template_variables"]["staff_type"], "student")
 
         user.refresh_from_db()
         self.assertTrue(user.check_password("KRMH-5837"))
@@ -74,7 +74,7 @@ class HollihopCredentialV5577Tests(TestCase):
 
         deliver_new_temporary_access(user, channels={"sms"})
         text = send_sms.call_args.args[1]
-        self.assertIn("Your MakonBook Teacher account is ready.", text)
+        self.assertIn("MakonBook teacher akkauntingiz tayyor.", text)
 
     @override_settings(
         MAKONBOOK_SMS_PROVIDER="playmobile",
@@ -94,4 +94,4 @@ class HollihopCredentialV5577Tests(TestCase):
 
         deliver_new_temporary_access(user, channels={"sms"})
         text = send_sms.call_args.args[1]
-        self.assertIn("Your MakonBook Manager account is ready.", text)
+        self.assertIn("MakonBook manager akkauntingiz tayyor.", text)

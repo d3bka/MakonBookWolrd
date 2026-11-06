@@ -1,0 +1,24 @@
+/* V67: Shared workspace Search dialog: closer to the top, without breaking
+   internal result scrolling. Applies to Student/Teacher/Manager/Admin/Support. */
+.mb50-shell .mb50-command-layer {
+  box-sizing: border-box;
+  padding: clamp(12px, 3vh, 30px) 14px 14px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+}
+.mb50-shell .mb50-command-layer .mb50-command-panel {
+  box-sizing: border-box;
+  margin: 0 auto !important;
+  width: min(960px, 100%) !important;
+  height: min(780px, calc(100dvh - clamp(36px, 6vh, 64px))) !important;
+  max-height: calc(100dvh - 36px) !important;
+}
+@media (max-width: 620px) {
+  .mb50-shell .mb50-command-layer { padding: 10px 8px !important; }
+  .mb50-shell .mb50-command-layer .mb50-command-panel {
+    height: calc(100dvh - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 18px !important;
+  }
+}

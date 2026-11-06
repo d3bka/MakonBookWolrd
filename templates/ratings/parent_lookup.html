@@ -1,7 +1,8 @@
 {% load static %}
 <!doctype html>
-<html lang="{{ parent_lang }}">
+<html lang="{{ parent_lang }}" data-mb644-parent-locale>
 <head>
+  {% include 'landing/_public_transition_head_v645.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   {% include 'base/theme_init.html' %}
@@ -13,24 +14,24 @@
   <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
   <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
   <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-prototype-merge-v60.css' %}?v=6001">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-header-v642.css' %}?v=6421">
 </head>
-<body class="mkp-page rating523-parent-body mkp-parent-v5597 mb56-shared-header-page">
+<body class="mkp-page rating523-parent-body mkp-parent-v5597 mb56-shared-header-page mb642-public-chrome mb642-parent-page">
 <div class="mkp-shell">
-  {% include 'landing/_public_header.html' %}
+  {% include 'landing/_public_header.html' with parent_nav=True %}
 
   <main class="mkp-parent-main">
     <div class="mkp-container">
       <header class="mkp-parent-head mkp-parent-head-v5597">
         <div class="mkp-parent-head-copy">
-          <span class="mkp-kicker">SAT Makon · Family view</span>
-          <h1>{{ parent_t.parent_title }}</h1>
-          <p>{{ parent_t.parent_intro }}</p>
+          <span class="mkp-kicker" data-mb644-key="family_view">SAT Makon · Family view</span>
+          <h1><span data-mb644-key="parent_title">{{ parent_t.parent_title }}</span></h1>
+          <p><span data-mb644-key="parent_intro">{{ parent_t.parent_intro }}</span></p>
         </div>
         <div class="mkp-parent-head-tools">
-          <span class="mkp-parent-private" aria-hidden="true"><i>●</i> {{ parent_t.parent_access }}</span>
-          <div class="mkp-lang" aria-label="{{ parent_t.language }}">
-            {% for code, label in parent_languages %}<a href="{% url 'rating_parent_lookup' %}?lang={{ code }}" class="{% if parent_lang == code %}is-active{% endif %}">{{ code|upper }}</a>{% endfor %}
-          </div>
+          <span class="mkp-parent-private" aria-hidden="true"><i>●</i> <span data-mb644-key="parent_access">{{ parent_t.parent_access }}</span></span>
+
         </div>
       </header>
 
@@ -40,43 +41,57 @@
             <div class="mkp-avatar">{{ profile.user.first_name|default:profile.user.username|first|upper }}</div>
             <div>
               <h2>{{ profile.user.get_full_name|default:profile.user.username }}</h2>
-              <p>{{ parent_t.student_access_code }}: <strong>{{ registered_phone|default:"—" }}</strong></p>
+              <p><span data-mb644-key="student_access_code">{{ parent_t.student_access_code }}</span>: <strong>{{ registered_phone|default:"—" }}</strong></p>
             </div>
           </div>
           <div>
-            <span class="mkp-remembered">✓ {{ parent_t.remembered_on_device }}</span>
+            <span class="mkp-remembered">✓ <span data-mb644-key="remembered_on_device">{{ parent_t.remembered_on_device }}</span></span>
             <form method="post" style="margin-top:9px;text-align:right">
               {% csrf_token %}<input type="hidden" name="lang" value="{{ parent_lang }}"><input type="hidden" name="action" value="switch">
-              <button class="mkp-btn danger-ghost small" type="submit">{{ parent_t.switch_student }}</button>
+              <button class="mkp-btn danger-ghost small" type="submit"><span data-mb644-key="switch_student">{{ parent_t.switch_student }}</span></button>
             </form>
           </div>
         </section>
 
         <section class="mkp-stats">
-          <article class="mkp-stat"><span>{{ parent_t.rank }}</span><strong>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</strong></article>
-          <article class="mkp-stat"><span>{{ parent_t.rating }}</span><strong>{% if entry %}{{ entry.rating }}{% else %}—{% endif %}</strong></article>
-          <article class="mkp-stat"><span>{{ parent_t.assessments }}</span><strong>{% if entry %}{{ entry.assessment_count }}{% else %}0{% endif %}</strong></article>
-          <article class="mkp-stat"><span>{{ parent_t.classrooms }}</span><strong>{% if entry %}{{ entry.streams|length }}{% else %}0{% endif %}</strong></article>
+          <article class="mkp-stat"><span><span data-mb644-key="rank">{{ parent_t.rank }}</span></span><strong>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</strong></article>
+          <article class="mkp-stat"><span><span data-mb644-key="rating">{{ parent_t.rating }}</span></span><strong>{% if entry %}{{ entry.rating }}{% else %}—{% endif %}</strong></article>
+          <article class="mkp-stat"><span><span data-mb644-key="assessments">{{ parent_t.assessments }}</span></span><strong>{% if entry %}{{ entry.assessment_count }}{% else %}0{% endif %}</strong></article>
+          <article class="mkp-stat"><span><span data-mb644-key="classrooms">{{ parent_t.classrooms }}</span></span><strong>{% if entry %}{{ entry.streams|length }}{% else %}0{% endif %}</strong></article>
+        </section>
+
+        <section class="mb60-parent-private" aria-label="Family progress report">
+          {% if parent_private_verified %}
+          <header class="mb60-parent-head"><div><span class="mb60-eyebrow" data-mb644-key="verified_family">VERIFIED FAMILY ACCESS</span><h2 data-mb644-key="academic_progress">Academic progress</h2><p data-mb644-key="academic_intro">Official term grades, every SAT practice attempt and synced attendance.</p></div><span class="mb60-pill good">✓ <span data-mb644-key="verified">Verified</span></span></header>
+          <div class="mb60-parent-block"><h3 data-mb644-key="grades">Mid-term / Final-term grades</h3><div class="mb60-term-grid">{% for grade in term_grades %}<article class="mb60-term-card"><span class="mb60-circle-grade">{{ grade.percentage }}<small>%</small></span><div><strong><span data-mb644-term="{{ grade.term }}">{{ grade.get_term_display }}</span></strong><small>{{ grade.classroom.name }} · {{ grade.academic_year }}</small><small>{{ grade.score }}/{{ grade.maximum_score }} · {{ grade.awarded_at|date:'d.m.Y' }}</small></div></article>{% empty %}<p class="mb60-empty" data-mb644-key="no_grades">No term grades entered yet. These grades are supplied by staff, never estimated from SAT scores.</p>{% endfor %}</div></div>
+          <div class="mb60-parent-block"><h3><span data-mb644-key="practice">All practice results</span> <small>({{ practice_count }})</small></h3><div class="mb60-table-scroll"><table class="mb60-table"><thead><tr><th data-mb644-key="col_test">Test</th><th data-mb644-key="col_attempt">Attempt</th><th data-mb644-key="col_score">Score</th></tr></thead><tbody>{% for r in practice_results %}<tr><td><strong>{% if r.test %}{{ r.test.name }}{% elif r.makeup_test %}{{ r.makeup_test }}{% else %}<span data-mb644-key="archived_test">Archived test</span>{% endif %}</strong><small>{{ r.get_run_mode_display|default:r.run_mode }}</small></td><td>{{ r.created_at|date:'d.m.Y H:i' }}</td><td><strong>{{ r.score|default_if_none:'—' }}</strong></td></tr>{% empty %}<tr><td colspan="3" data-mb644-key="no_practice">No finished practice attempts yet.</td></tr>{% endfor %}</tbody></table></div>{% if practice_results.has_other_pages %}<nav class="mb60-pagination">{% if practice_results.has_previous %}<a href="?lang={{ parent_lang }}&page={{ practice_results.previous_page_number }}">← <span data-mb644-key="previous">Previous</span></a>{% endif %}<span><span data-mb644-key="page">Page</span> {{ practice_results.number }} / {{ practice_results.paginator.num_pages }}</span>{% if practice_results.has_next %}<a href="?lang={{ parent_lang }}&page={{ practice_results.next_page_number }}"><span data-mb644-key="next">Next</span> →</a>{% endif %}</nav>{% endif %}</div>
+          <div class="mb60-parent-block"><h3 data-mb644-key="vocabulary">Vocabulary practice</h3><div class="mb60-table-scroll"><table class="mb60-table"><thead><tr><th data-mb644-key="col_activity">Activity</th><th data-mb644-key="col_date">Date</th><th data-mb644-key="col_score">Score</th></tr></thead><tbody>{% for a in vocabulary_results %}<tr><td><strong>{{ a.get_mode_display }}</strong><small>{% if a.classroom %}{{ a.classroom.name }}{% else %}<span data-mb644-key="independent">Independent practice</span>{% endif %}</small></td><td>{{ a.completed_at|date:'d.m.Y H:i' }}</td><td>{{ a.score }}/{{ a.total_questions }} ({{ a.percentage }}%)</td></tr>{% empty %}<tr><td colspan="3" data-mb644-key="no_vocabulary">No vocabulary practice results yet.</td></tr>{% endfor %}</tbody></table></div></div>
+          <div class="mb60-parent-block"><h3 data-mb644-key="ap_exams">AP practice exams</h3><div class="mb60-table-scroll"><table class="mb60-table"><thead><tr><th data-mb644-key="col_exam">Exam</th><th data-mb644-key="col_submitted">Submitted</th><th data-mb644-key="col_score">Score</th></tr></thead><tbody>{% for a in ap_results %}<tr><td><strong>{{ a.event }}</strong><small><span data-mb644-key="attempt_prefix">Attempt #</span>{{ a.attempt_number }}</small></td><td>{{ a.submitted_at|date:'d.m.Y H:i' }}</td><td>{{ a.score|default_if_none:'—' }}</td></tr>{% empty %}<tr><td colspan="3" data-mb644-key="no_ap">No submitted AP exam attempts yet.</td></tr>{% endfor %}</tbody></table></div></div>
+          <div class="mb60-parent-block"><h3 data-mb644-key="hollihop">Hollihop attendance</h3><div class="mb60-attendance-stats"><div><span data-mb644-key="present">Present</span><strong>{{ parent_attendance_stats.present }}</strong></div><div><span data-mb644-key="absent">Absent</span><strong>{{ parent_attendance_stats.absent }}</strong></div><div><span data-mb644-key="attendance_rate">Attendance rate</span><strong>{{ parent_attendance_stats.percentage|default_if_none:'—' }}{% if parent_attendance_stats.percentage is not None %}%{% endif %}</strong></div></div><div class="mb60-table-scroll"><table class="mb60-table"><thead><tr><th data-mb644-key="col_date">Date</th><th data-mb644-key="col_classroom">Classroom</th><th data-mb644-key="col_status">Status</th></tr></thead><tbody>{% for a in parent_attendance %}<tr><td>{{ a.date|date:'d.m.Y' }}</td><td>{{ a.classroom.name }}</td><td><span class="mb60-pill {% if a.status == 'absent' %}danger{% else %}good{% endif %}"><span data-mb644-attendance-status="{{ a.status }}">{{ a.get_status_display }}</span></span></td></tr>{% empty %}<tr><td colspan="3" data-mb644-key="no_attendance">No synced Hollihop attendance yet.</td></tr>{% endfor %}</tbody></table></div><p class="mb60-note" data-mb644-key="attendance_note">Latest 60 attendance records. Totals cover all synchronized records.</p></div>
+          {% else %}
+          {% for message in messages %}<p class="mb60-parent-message" role="alert">{{ message }}</p>{% endfor %}
+          <div class="mb60-private-gate"><div><span class="mb60-eyebrow" data-mb644-key="private_report">PRIVATE FAMILY REPORT</span><h2 data-mb644-key="unlock_progress">Unlock detailed progress</h2><p data-mb644-key="private_intro">Mid-term and final-term grades, practice attempts and Hollihop attendance require the family code shared by the student. A phone number alone is not enough to reveal academic records.</p></div><form method="post">{% csrf_token %}<input type="hidden" name="lang" value="{{ parent_lang }}"><input type="hidden" name="action" value="verify_private"><label><span data-mb644-key="family_code">Family access code</span><input name="family_code" required maxlength="32" autocomplete="off" placeholder="Enter your family code" data-mb644-placeholder="family_placeholder"></label><button class="mb60-button primary" type="submit"><span data-mb644-key="unlock_report">Unlock report</span></button></form></div>
+          {% endif %}
         </section>
 
         <section class="mkp-history">
-          <div class="mkp-history-head"><h3>{{ parent_t.assessments }}</h3><span>{{ history|length }} {{ parent_t.records }}</span></div>
+          <div class="mkp-history-head"><h3><span data-mb644-key="assessments">{{ parent_t.assessments }}</span></h3><span>{{ history|length }} <span data-mb644-key="records">{{ parent_t.records }}</span></span></div>
           <div class="mkp-history-list">
             {% for item in history %}
               <article class="mkp-history-row">
                 <time>{{ item.assessed_at|date:"d.m.Y" }}</time>
-                <div><strong>{{ item.classroom.name }}</strong><small>{{ parent_t.homework }} {{ item.homework }} · {{ parent_t.progress }} {{ item.progress }} · {{ parent_t.activity }} {{ item.activity }} · {{ parent_t.attendance }} {{ item.attendance }} · {{ parent_t.behavior }} {{ item.behavior }}</small></div>
+                <div><strong>{{ item.classroom.name }}</strong><small><span data-mb644-key="homework">{{ parent_t.homework }}</span> {{ item.homework }} · <span data-mb644-key="progress">{{ parent_t.progress }}</span> {{ item.progress }} · <span data-mb644-key="activity">{{ parent_t.activity }}</span> {{ item.activity }} · <span data-mb644-key="attendance">{{ parent_t.attendance }}</span> {{ item.attendance }} · <span data-mb644-key="behavior">{{ parent_t.behavior }}</span> {{ item.behavior }}</small></div>
                 <div class="mkp-history-score">{{ item.mean_score|floatformat:1 }}</div>
               </article>
-            {% empty %}<div class="mkp-history-empty">{{ parent_t.no_history }}</div>{% endfor %}
+            {% empty %}<div class="mkp-history-empty"><span data-mb644-key="no_history">{{ parent_t.no_history }}</span></div>{% endfor %}
           </div>
         </section>
       {% elif parent_candidates %}
         <section class="mkp-parent-choice-card">
           <div class="mkp-parent-choice-head">
-            <span class="mkp-kicker">{{ parent_t.parent_access }}</span>
-            <h2>{{ parent_t.multiple_students_title }}</h2>
-            <p>{{ parent_t.multiple_students_intro }}</p>
+            <span class="mkp-kicker"><span data-mb644-key="parent_access">{{ parent_t.parent_access }}</span></span>
+            <h2><span data-mb644-key="multiple_students_title">{{ parent_t.multiple_students_title }}</span></h2>
+            <p><span data-mb644-key="multiple_students_intro">{{ parent_t.multiple_students_intro }}</span></p>
           </div>
           <div class="mkp-parent-candidates">
             {% for student in parent_candidates %}
@@ -90,7 +105,7 @@
                   <strong>{{ student.get_full_name|default:student.username }}</strong>
                   <span>@{{ student.username }}</span>
                 </div>
-                <button class="mkp-parent-candidate-open" type="submit">{{ parent_t.select_student }} <span>→</span></button>
+                <button class="mkp-parent-candidate-open" type="submit"><span data-mb644-key="select_student">{{ parent_t.select_student }}</span> <span>→</span></button>
               </form>
             {% endfor %}
           </div>
@@ -98,33 +113,33 @@
             {% csrf_token %}
             <input type="hidden" name="lang" value="{{ parent_lang }}">
             <input type="hidden" name="action" value="reset">
-            <button class="mkp-btn secondary" type="submit">{{ parent_t.use_another_phone }}</button>
+            <button class="mkp-btn secondary" type="submit"><span data-mb644-key="use_another_phone">{{ parent_t.use_another_phone }}</span></button>
           </form>
         </section>
       {% else %}
         <section class="mkp-parent-access mkp-parent-access-v5597">
           <div class="mkp-parent-access-copy">
-            <span class="mkp-kicker">{{ parent_t.parent_access }}</span>
-            <h2>{{ parent_t.student_access_code }}</h2>
-            <p>{{ parent_t.registration_help }}</p>
+            <span class="mkp-kicker"><span data-mb644-key="parent_access">{{ parent_t.parent_access }}</span></span>
+            <h2><span data-mb644-key="student_access_code">{{ parent_t.student_access_code }}</span></h2>
+            <p><span data-mb644-key="registration_help">{{ parent_t.registration_help }}</span></p>
             <div class="mkp-parent-code-preview" aria-hidden="true">
-              <div><span>{{ parent_t.student_access_code }}</span><strong>+998 90 123 45 67</strong></div>
+              <div><span><span data-mb644-key="student_access_code">{{ parent_t.student_access_code }}</span></span><strong>+998 90 123 45 67</strong></div>
               <i>→</i>
               <div class="mkp-parent-code-destination"><span>MakonBook</span><strong>Progress</strong></div>
             </div>
-            <div class="mkp-parent-note"><span>✓</span><div>{{ parent_t.device_note }}</div></div>
-            <div class="mkp-parent-help-line"><span>{{ parent_t.use_registered_phone }}</span><span class="mkp-parent-support">{{ parent_t.support }}: <strong>+998951211600</strong></span></div>
+            <div class="mkp-parent-note"><span>✓</span><div><span data-mb644-key="device_note">{{ parent_t.device_note }}</span></div></div>
+            <div class="mkp-parent-help-line"><span><span data-mb644-key="use_registered_phone">{{ parent_t.use_registered_phone }}</span></span><span class="mkp-parent-support"><span data-mb644-key="support">{{ parent_t.support }}</span>: <strong>+998951211600</strong></span></div>
           </div>
           <form method="post" class="mkp-parent-form mkp-parent-form-v5597">
             {% csrf_token %}
             <input type="hidden" name="lang" value="{{ parent_lang }}">
             <input type="hidden" name="action" value="lookup">
-            <div class="mkp-parent-form-head"><span class="mkp-parent-form-icon">#</span><div><span>{{ parent_t.parent_access }}</span><strong>{{ parent_t.open_rating }}</strong></div></div>
+            <div class="mkp-parent-form-head"><span class="mkp-parent-form-icon">#</span><div><span><span data-mb644-key="parent_access">{{ parent_t.parent_access }}</span></span><strong><span data-mb644-key="open_rating">{{ parent_t.open_rating }}</span></strong></div></div>
             <div class="mkp-field">
-              <label for="student-phone">{{ parent_t.student_access_code }}</label>
-              <input id="student-phone" name="phone_number" inputmode="tel" autocomplete="tel" placeholder="{{ parent_t.code_placeholder }}" value="{{ phone_number_value|default:'' }}" required autofocus>
+              <label for="student-phone"><span data-mb644-key="student_access_code">{{ parent_t.student_access_code }}</span></label>
+              <input id="student-phone" name="phone_number" inputmode="tel" autocomplete="tel" placeholder="{{ parent_t.code_placeholder }}" data-mb644-placeholder="code_placeholder" value="{{ phone_number_value|default:'' }}" required autofocus>
             </div>
-            <button class="mkp-btn wide mkp-parent-submit" type="submit">{{ parent_t.open_rating }} <span>→</span></button>
+            <button class="mkp-btn wide mkp-parent-submit" type="submit"><span data-mb644-key="open_rating">{{ parent_t.open_rating }}</span> <span>→</span></button>
             {% for message in messages %}<p class="mkp-parent-message">{{ message }}</p>{% endfor %}
           </form>
         </section>
@@ -132,9 +147,11 @@
     </div>
   </main>
 
-  <footer class="mkp-footer"><div class="mkp-container mkp-footer-inner"><span>© {% now "Y" %} SAT Makon · MakonBook</span><div class="mkp-footer-links"><a href="/">{{ parent_t.home }}</a><a href="{% url 'global_event_list' %}">Mock exams</a><a href="{% url 'login' %}">Login</a></div></div></footer>
+  <footer class="mkp-footer"><div class="mkp-container mkp-footer-inner"><span>© {% now "Y" %} SAT Makon · MakonBook</span><div class="mkp-footer-links"><a href="/"><span data-mb644-key="home">{{ parent_t.home }}</span></a><a href="{% url 'global_event_list' %}" data-mb644-key="mock_exams">Mock exams</a><a href="{% url 'login' %}" data-mb644-key="login">Login</a></div></div></footer>
 </div>
-<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6431"></script>
 <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=6451" defer></script>
+<script src="{% static 'assets/js/makon-parent-locale-v644.js' %}?v=6441" defer></script>
 </body>
 </html>

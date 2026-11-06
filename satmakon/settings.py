@@ -113,6 +113,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.base.middleware.TemporaryPasswordChangeMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "apps.ratings.activity_middleware.UserActivityMiddleware",
     "apps.sat.middleware.ClientSoftwareMiddleware",
     "apps.sat.middleware.RequestTimeoutMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -745,6 +746,21 @@ CELERY_BEAT_SCHEDULE["makonbook-api-content-sync"] = {
 # desmos.com/api, allowed for this site's domain. Without one the calculator
 # still works on Desmos's demo key, with a "Desmos Trial Key" notice.
 DESMOS_API_KEY = env_str("DESMOS_API_KEY", "")
+
+# V61: every 10 minutes (day rollover + first activity of the day).
+CELERY_BEAT_SCHEDULE["makon-assessment-compliance"] = {
+    "task": "apps.ratings.tasks.settle_assessments",
+    "schedule": 600.0,
+}
+
+
+# V62: precise local-time reminder at 21:00 Asia/Tashkent, not a drifting interval.
+# Requires Celery Beat + Worker; job is idempotent at the database level.
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE["makon-teacher-assessment-reminders-2100"] = {
+    "task": "apps.ratings.tasks.remind_teachers_evening",
+    "schedule": crontab(hour=21, minute=0),
+}
 
 # AI is used for administrator/manager-run question-bank audits.
 # Structured-PDF imports themselves are deterministic and do not require an AI provider.

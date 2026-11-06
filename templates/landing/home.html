@@ -1,7 +1,10 @@
 {% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-localize="landing">
 <head>
+  {% include 'landing/_public_transition_head_v645.html' %}
+  <!-- No fullscreen loading screen: the landing must remain visible if a script or font stalls. -->
+  <script>document.documentElement.classList.add('mb63-js');</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>MakonBook — SAT learning, testing & progress</title>
@@ -9,17 +12,17 @@
   <link rel="canonical" href="{{ SITE_URL }}/">
   <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
   {% include 'base/theme_init.html' %}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
   <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
   <link rel="stylesheet" href="{% static 'assets/css/mock-registration-inline-v5597.css' %}?v=5601">
-  <link rel="stylesheet" href="{% static 'assets/css/satmakon-testimonials-v5611.css' %}?v=5611">
+  <link rel="stylesheet" href="{% static 'assets/css/satmakon-testimonials-v5611.css' %}?v=6421">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-prototype-merge-v60.css' %}?v=6330">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-ui-v62.css' %}?v=6201">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v63.css' %}?v=6340">
+
 </head>
 <body class="mb56-page">
 <div class="mb56-noise" aria-hidden="true"></div>
-
 {% include 'landing/_public_header.html' with local_nav=True %}
 
 <main>
@@ -27,14 +30,14 @@
     <div class="mb56-container mb56-hero-grid">
       <div class="mb56-hero-copy">
         <div class="mb56-eyebrow"><span class="mb56-dot"></span> SAT learning platform · built for progress</div>
-        <h1>One workspace.<br><span>Every SAT move.</span></h1>
+        <h1><span class="mb63-hero-title-line">One workspace.</span><span class="mb63-hero-title-accent">Every SAT move.</span></h1>
         <p class="mb56-hero-lead">Practice, review, vocabulary, classrooms and verified mock exams — connected in one focused MakonBook experience.</p>
 
         <div class="mb56-hero-actions">
           <a class="mb56-btn mb56-btn-primary mb56-btn-lg" href="{% url 'login' %}">Open MakonBook <span>↗</span></a>
           <a class="mb56-btn mb56-btn-outline mb56-btn-lg" href="{% url 'public_placement_list' %}">Check your level</a>
-          <a class="mb56-btn mb56-btn-outline mb56-btn-lg" href="{% url 'global_event_list' %}">Mock exams</a>
         </div>
+        <a class="mb63-hero-mock-link" href="{% url 'global_event_list' %}">Mock exams <span aria-hidden="true">↗</span></a>
 
         <div class="mb56-proof">
           <div class="mb56-proof-item"><span class="mb56-proof-icon">✓</span><div><strong>Real exam flow</strong><small>Timed, reviewed, protected</small></div></div>
@@ -55,8 +58,14 @@
           </div>
 
           <div class="mb56-app-body">
-            <aside class="mb56-app-side" aria-hidden="true">
-              <span class="is-active"></span><span></span><span></span><span></span><span></span>
+            <aside class="mb56-app-side mb60-demo-side" aria-hidden="true">
+              <span class="mb60-demo-mini-brand"><img src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt=""> <b>MakonBook</b></span>
+              <span class="mb60-demo-nav is-active"><i class="bi bi-house"></i><b>Dashboard</b></span>
+              <span class="mb60-demo-nav"><i class="bi bi-journal-text"></i><b>Practice</b></span>
+              <span class="mb60-demo-nav"><i class="bi bi-graph-up"></i><b>Progress</b></span>
+              <span class="mb60-demo-nav"><i class="bi bi-collection"></i><b>Classrooms</b></span>
+              <span class="mb60-demo-nav"><i class="bi bi-stars"></i><b>Vocabulary</b></span>
+              <span class="mb60-demo-nav"><i class="bi bi-trophy"></i><b>Ranking</b></span>
             </aside>
             <div class="mb56-app-main">
               <div class="mb56-app-heading">
@@ -193,7 +202,7 @@
           <div class="mb56-role-top"><span class="mb56-role-icon">T</span><span>TEACHER & STAFF</span></div>
           <h3>Teach with the full picture.</h3><p>Classrooms, assignments, materials and student performance in one operational workspace.</p><b>Sign in to staff workspace ↗</b>
         </a>
-        <a data-interactive-card class="mb56-role-card mb56-role-parent" href="{% url 'rating_parent_lookup' %}">
+        <a data-interactive-card class="mb56-role-card mb56-role-parent" data-mb642-parent-link href="{% url 'rating_parent_lookup' %}">
           <div class="mb56-role-top"><span class="mb56-role-icon">P</span><span>PARENTS</span></div>
           <h3>See progress without entering the classroom.</h3><p>Use the student's registration number to open a clear statistics view that stays remembered on the device.</p><b>Open parent portal ↗</b>
         </a>
@@ -247,14 +256,17 @@
   </div>
   <div class="mb56-container mb56-footer-bottom">
     <span>© {% now "Y" %} SATMakon · MakonBook</span>
-    <div><a href="#mock-exams">Mock exams</a><a href="{% url 'rating_parent_lookup' %}">Parents</a><a href="#faq">FAQ</a><a href="{% url 'login' %}">Login</a></div>
+    <div><a href="#mock-exams">Mock exams</a><a href="{% url 'rating_parent_lookup' %}" data-mb642-parent-link>Parents</a><a href="#faq">FAQ</a><a href="{% url 'login' %}">Login</a></div>
   </div>
 </footer>
 
 <button class="mb597-go-up" type="button" data-go-up aria-label="Go to top"><span>↑</span><small>Top</small></button>
-<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6431"></script>
 <script src="{% static 'assets/js/mock-registration-inline-v5597.js' %}?v=5601"></script>
 <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>
 <script src="{% static 'assets/js/satmakon-testimonials-v5611.js' %}?v=5611"></script>
+<script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=6451" defer></script>
+<script src="{% static 'assets/js/landing-locale-v63.js' %}?v=6421" defer></script>
+<script src="{% static 'assets/js/makon-landing-motion-v63.js' %}?v=6340" defer></script>
 </body>
 </html>

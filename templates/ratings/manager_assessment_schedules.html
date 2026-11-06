@@ -1,0 +1,33 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Lesson Schedule • MakonBook{% endblock %}
+{% block content %}
+<div class="sf29-page">
+<section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-calendar-check"></i> Teacher assessment policy</span><h1>Confirmed lesson calendar</h1><p>Teachers can assess only on their own scheduled lesson days, until 23:59:59 Asia/Tashkent. The first three scheduled lessons each Monday–Sunday are mandatory. Missing one student's required score = 5,000 UZS pending manager review.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'manager_assessment_report' %}">Penalty report</a><a class="sf28-btn" href="{% url 'manager_dashboard_root' %}">Manager dashboard</a></div></section>
+<section class="sf29-card"><h2>Confirm weekly class days</h2><p>Lesson dates MUST be verified with Hollihop before enabling fines. MakonBook cannot infer teacher-specific schedules from delayed attendance rows. Start dates cannot be backdated.</p>
+{% for classroom in classrooms %}
+<form method="post" action="{% url 'manager_save_assessment_schedule' %}" style="padding:16px 0;border-bottom:1px solid var(--border-color,#dddded)">{% csrf_token %}
+<input type="hidden" name="classroom_id" value="{{ classroom.id }}"><strong>{{ classroom.name }}</strong>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:12px 0">
+<label>Teacher<br><select name="teacher_id" required style="padding:10px;border-radius:9px">{% for teacher in classroom.teacher_options %}<option value="{{ teacher.pk }}">{{ teacher.get_full_name|default:teacher.username }}</option>{% endfor %}</select></label>
+<label>Effective from<br><input required type="date" name="starts_on" min="{{ today|date:'Y-m-d' }}" value="{{ today|date:'Y-m-d' }}" style="padding:10px"></label>
+<label>Ends on (optional)<br><input type="date" name="ends_on" style="padding:10px"></label>
+<label><input type="checkbox" name="enabled" value="1" checked> Enabled</label>
+</div><div style="display:flex;flex-wrap:wrap;gap:15px;margin:12px 0">{% for number,label in weekdays %}<label><input type="checkbox" name="weekdays" value="{{ number }}"> {{ label }}</label>{% endfor %}</div><button class="sf28-btn primary" type="submit">Confirm schedule</button>
+</form>
+{% empty %}<p>No active classrooms yet.</p>{% endfor %}
+</section>
+<section class="sf29-card"><h2>Existing schedules & exceptions</h2><p>To edit a schedule, select its classroom and teacher above. Once obligations exist, the original start date is locked; use an effective change carefully.</p>
+{% for schedule in schedules %}
+<div style="padding:15px 0;border-bottom:1px solid var(--border-color,#d8d8ee)"><strong>{{ schedule.classroom.name }} · {{ schedule.teacher.get_full_name|default:schedule.teacher.username }}</strong> <span class="sf28-chip">{{ schedule.weekdays|join:', ' }} (Mon=1)</span> <span class="sf28-chip">{% if schedule.enabled %}Active{% else %}Disabled{% endif %}</span><p>From {{ schedule.starts_on }}{% if schedule.ends_on %} to {{ schedule.ends_on }}{% endif %}; approved by {{ schedule.approved_by|default:'—' }}</p>
+<form method="post" action="{% url 'manager_schedule_exception' schedule.pk %}" style="display:flex;flex-wrap:wrap;align-items:end;gap:12px">{% csrf_token %}
+<label>Day<br><input type="date" name="date" min="{{ today|date:'Y-m-d' }}" required></label>
+<label>Exception<br><select name="action"><option value="cancelled">Cancelled / holiday</option><option value="added">Extra class</option><option value="delete">Remove exception</option></select></label>
+<label>Reason<br><input name="reason" maxlength="220" placeholder="Why was the class changed?"></label>
+<button type="submit" class="sf28-btn">Apply</button>
+</form>
+{% for e in schedule.exceptions.all %}<small style="display:inline-block;margin:7px">{{ e.date }}: {{ e.get_action_display }} — {{ e.reason }}</small>{% endfor %}
+</div>
+{% empty %}<p>Schedules must be confirmed before assessments can be submitted.</p>{% endfor %}
+</section>
+</div>
+{% endblock %}

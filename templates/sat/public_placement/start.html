@@ -2,6 +2,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+  {% include 'landing/_public_transition_head_v645.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>{{ event.title }} · Check your level</title>
@@ -16,11 +17,12 @@
   <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5610.css' %}?v=5610">
   <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5612.css' %}?v=5612">
   <link rel="stylesheet" href="{% static 'assets/css/public-placement-header-sync-v5612-3.css' %}?v=56123">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-header-v642.css' %}?v=6421">
 </head>
-<body class="mb56-page pp-page pp-v5612">
+<body class="mb642-public-chrome mb56-page pp-page pp-v5612">
   <div class="mb56-noise" aria-hidden="true"></div>
 
-  {% include 'landing/_public_header.html' with local_nav=False %}
+  {% include 'landing/_public_header.html' with public_nav=True %}
 
   <main class="pp-shell pp-start-shell">
     <a class="pp-back" href="{% url 'public_placement_list' %}"><span>←</span> All placement tests</a>
@@ -98,8 +100,10 @@
     </div>
   </main>
 
-  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
   <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5597"></script>
   <script src="{% static 'assets/js/public-placement-v5612.js' %}?v=5612"></script>
+<script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=6451" defer></script>
+<script src="{% static 'assets/js/makon-public-header-locale-v645.js' %}?v=6451" defer></script>
 </body>
 </html>

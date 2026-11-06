@@ -137,3 +137,6 @@ html[data-theme="dark"] .mb56-page .mbst-university-set img { background: rgba(2
   .mb56-page .mbst-carousel,
   .mb56-page .mbst-university-viewport { scroll-behavior: auto; }
 }
+
+/* v64.2: only the second part of a localized heading is violet. */
+.mb56-page .mbst-heading h2 [data-mbst-locale="heading-lead"] { color:inherit; }

@@ -1,142 +1,120 @@
-<div
-  class="student-goal-dashboard sg-goal-modal{% if open_goal_modal %} is-open{% endif %}"
-  data-goal-modal
-  data-auto-open="{% if open_goal_modal %}1{% else %}0{% endif %}"
-  aria-hidden="{% if open_goal_modal %}false{% else %}true{% endif %}"
->
-  <button class="sg-goal-modal-backdrop" type="button" data-goal-modal-close aria-label="Close goal settings"></button>
-  <section class="sg-goal-modal-panel" role="dialog" aria-modal="true" aria-labelledby="studentGoalModalTitle">
-    <div class="sg-goal-modal-head">
-      <div>
-        <span class="sg-eyebrow">Personal SAT plan</span>
-        <h2 id="studentGoalModalTitle">Set your dream university</h2>
-        <p>Choose a university from the catalogue. MakonBook fills the verified location and ranking automatically. Choose Others only when it is not listed.</p>
+{% load static %}
+{# Authenticated user onboarding. The prototype signup/login steps are intentionally NOT copied. #}
+<div class="student-goal-dashboard sg-goal-modal mb65-onboard{% if open_goal_modal %} is-open{% endif %}"
+     data-goal-modal data-mb65-onboard
+     data-mb653-landmask="{% static 'assets/img/world/gshhg_land_mask_2048.png' %}"
+     data-auto-open="{% if open_goal_modal %}1{% else %}0{% endif %}"
+     data-first-goal="{% if first_goal_setup %}1{% else %}0{% endif %}"
+     data-name-required="{% if not request.user.first_name or not request.user.last_name %}1{% else %}0{% endif %}"
+     data-profile-endpoint="{% url 'complete_profile_name' %}"
+     data-practice-url="{% url 'student_practice' %}"
+     aria-hidden="{% if open_goal_modal %}false{% else %}true{% endif %}">
+  <button class="sg-goal-modal-backdrop" type="button" data-goal-modal-close aria-label="Close"></button>
+  <section class="sg-goal-modal-panel mb65-shell" role="dialog" aria-modal="true" aria-labelledby="mb65Title">
+    <aside class="mb65-left" aria-label="Your SAT plan preview">
+      <div class="mb65-brand"><img src="{% static 'assets/img/icons/white-icon-nobg.png' %}" alt=""><strong>MakonBook</strong><small>BY SATMAKON</small></div>
+      <div class="mb65-preview" data-mb65-preview>
+        <div class="mb65-plan"><div class="mb65-plan-cover"><span class="mb65-avatar" data-mb65-avatar>{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}</span></div>
+          <div class="mb65-plan-content"><small>Your SAT plan</small>
+            <h2 data-mb65-preview-name>{{ request.user.get_full_name|default:request.user.username }}</h2>
+            <div class="mb65-plan-rows">
+              <div><span>Target score</span><strong data-mb65-preview-score>Step 1</strong></div>
+              <div><span>Dream university</span><strong data-mb65-preview-university>Step 2</strong></div>
+              <div><span>Exam date</span><strong data-mb65-preview-date>Step 3</strong></div>
+              <div><span>Days to prepare</span><strong data-mb65-preview-days>—</strong></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <button class="sg-goal-modal-close" type="button" data-goal-modal-close aria-label="Close">
-        <i class="bi bi-x-lg"></i>
-      </button>
-    </div>
+      <p class="mb65-quote">Students with a written target, a dream university and a fixed exam date practice more often. Your card fills in as you go.</p>
+      <span class="mb65-watermark" aria-hidden="true" data-mb65-watermark>1450</span>
+    </aside>
+    <div class="mb65-right"><div class="mb65-inner">
+      <div class="mb65-top"><div class="mb65-top-info"><span class="mb65-top-kicker">MAKONBOOK · YOUR SAT PLAN</span><div class="mb65-progress" data-mb65-progress></div><div class="mb65-step-label" data-mb65-step-label></div></div>
+        <button type="button" class="mb65-close" data-goal-modal-close aria-label="Close goal setup">×</button></div>
+      <form method="post" action="{% url 'student_goal_settings_root' %}" class="sg-goal-modal-form mb65-form" data-goal-form novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ goal_form_next }}">
+        <div class="sg-goal-modal-body mb65-body">
+          <div class="sg-goal-form-alert mb65-alert" data-goal-form-alert hidden role="alert"></div>
+          <div class="sg-error" data-field-error="__all__">{% for error in goal_form.non_field_errors %}{{ error }}{% endfor %}</div>
 
-    <form method="post" action="{% url 'student_goal_settings_root' %}" class="sg-goal-modal-form" data-goal-form novalidate>
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ goal_form_next }}">
+          <section class="mb65-step" data-mb65-step="name" hidden>
+            <h1 id="mb65Title">What should we call you?</h1>
+            <p class="mb65-lead">Your teachers and classmates will see your real name. Your login and password stay unchanged.</p>
+            <div class="mb65-fields"><label>First name<input type="text" data-mb65-first-name maxlength="50" autocomplete="given-name" value="{{ request.user.first_name }}"></label>
+            <label>Last name<input type="text" data-mb65-last-name maxlength="50" autocomplete="family-name" value="{{ request.user.last_name }}"></label></div>
+            <p class="mb65-name-error" data-mb65-name-error role="alert" aria-live="polite"></p>
+          </section>
 
-      <div class="sg-goal-modal-body">
-      <div class="sg-goal-form-alert" data-goal-form-alert hidden></div>
-      <div class="sg-error" data-field-error="__all__">{% for error in goal_form.non_field_errors %}{{ error }}{% endfor %}</div>
+          <section class="mb65-step" data-mb65-step="target" hidden>
+            <h1 id="mb65TargetTitle">Pick your target score.</h1>
+            <p class="mb65-lead">You can change it any time from your dashboard.</p>
+            <div class="mb65-target-big" data-mb65-big-score>1450</div>
+            <input class="mb65-score-range" data-mb65-score-range type="range" min="400" max="1600" step="10" aria-label="Your target SAT score">
+            <div class="mb65-presets" data-mb65-presets>
+              <button type="button" data-mb65-preset="1200"><strong>1200: Solid foundation</strong><small>Opens many universities</small></button>
+              <button type="button" data-mb65-preset="1350"><strong>1350: Competitive</strong><small>Strong scholarship chances</small></button>
+              <button type="button" data-mb65-preset="1450"><strong>1450: Highly competitive</strong><small>Top 100 universities</small></button>
+              <button type="button" data-mb65-preset="1520"><strong>1520: Ambitious target</strong><small>For highly selective institutions</small></button>
+            </div>
+            <div class="mb65-score-manual sg-field"><label for="{{ goal_form.target_sat_score.id_for_label }}">Your personal SAT target</label>{{ goal_form.target_sat_score }}
+              <div class="sg-error" data-field-error="target_sat_score">{% for error in goal_form.target_sat_score.errors %}{{ error }}{% endfor %}</div></div>
+          </section>
 
-      <section class="sg-form-section">
-        <div class="sg-form-section-title">
-          <span>1</span>
-          <div>
-            <h3>University</h3>
-            <p>Search the QS 2027 top-200 catalogue, then select one university.</p>
-          </div>
+          <section class="mb65-step mb65-step-uni" data-mb65-step="uni" hidden>
+            <h1>Find your dream university.</h1>
+            <p class="mb65-lead">Spin the globe or search the list. Choose from the actual MakonBook university catalogue.</p>
+            <div class="mb65-picker">
+              <div class="mb65-globe-panel"><div class="mb65-globe" data-mb65-globe role="img" aria-label="Interactive globe with university locations"></div>
+                <div class="mb65-globe-zoom"><button type="button" data-mb65-zoom="in" aria-label="Zoom in">+</button><button type="button" data-mb65-zoom="out" aria-label="Zoom out">−</button></div>
+                <div class="mb65-regions" data-mb65-regions></div>
+                <p>Drag to spin, scroll to zoom, tap a university marker.</p>
+              </div>
+              <div class="mb65-picker-side">
+                <div class="mb65-selected-university" data-mb65-selected-university><strong>Choose your university</strong></div>
+                <div class="mb65-picker-search"><input type="search" data-university-search placeholder="Search universities or countries" autocomplete="off" aria-label="Search universities"><button type="button" data-mb65-wall>★ Makon</button></div>
+                <div class="mb65-count" data-university-search-result></div>
+                <div class="mb65-university-list" data-mb65-university-list role="listbox" aria-label="Universities"></div>
+              </div>
+            </div>
+            <div class="mb65-native-select sg-field"><label for="{{ goal_form.university_choice.id_for_label }}">University (accessible list)</label>{{ goal_form.university_choice }}
+              <div class="sg-error" data-field-error="university_choice">{% for error in goal_form.university_choice.errors %}{{ error }}{% endfor %}</div></div>
+            <article data-university-preview class="sg-university-preview is-hidden" aria-live="polite" hidden><strong data-university-name></strong><span data-university-location></span><span data-university-rank></span><span data-university-score></span><span data-university-score-label></span><span data-university-note></span></article>
+            <div data-custom-university-fields class="mb65-other is-hidden" aria-hidden="true"><h3>University not listed</h3>
+              <label>University name {{ goal_form.custom_university_name }}</label><div class="sg-error" data-field-error="custom_university_name">{% for error in goal_form.custom_university_name.errors %}{{ error }}{% endfor %}</div>
+              <label>Country {{ goal_form.custom_university_country }}</label><div class="sg-error" data-field-error="custom_university_country">{% for error in goal_form.custom_university_country.errors %}{{ error }}{% endfor %}</div>
+              <label>Reference SAT score {{ goal_form.custom_average_sat_score }}</label><div class="sg-error" data-field-error="custom_average_sat_score">{% for error in goal_form.custom_average_sat_score.errors %}{{ error }}{% endfor %}</div>
+            </div>
+          </section>
+
+          <section class="mb65-step" data-mb65-step="date" hidden>
+            <h1>When is your SAT?</h1>
+            <p class="mb65-lead">Pick an official SAT administration. Your dashboard will count down to the exam.</p>
+            <div class="mb65-dates" data-mb65-dates></div>
+            <div class="mb65-native-date sg-field"><label for="{{ goal_form.exam_date.id_for_label }}">Official SAT date</label>{{ goal_form.exam_date }}
+              <div class="sg-error" data-field-error="exam_date">{% for error in goal_form.exam_date.errors %}{{ error }}{% endfor %}</div></div>
+            <details class="mb65-pace"><summary>Personalize your weekly study pace</summary>
+              <div class="mb65-pace-fields"><label>Daily study minutes {{ goal_form.daily_study_minutes_goal }}</label>
+                <label>Days per week {{ goal_form.weekly_study_days_goal }}</label></div>
+              <div class="sg-error" data-field-error="daily_study_minutes_goal">{% for error in goal_form.daily_study_minutes_goal.errors %}{{ error }}{% endfor %}</div>
+              <div class="sg-error" data-field-error="weekly_study_days_goal">{% for error in goal_form.weekly_study_days_goal.errors %}{{ error }}{% endfor %}</div>
+            </details>
+          </section>
+
+          <section class="mb65-step mb65-ready" data-mb65-step="ready" hidden>
+            <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="" width="68" height="68">
+            <h1>You’re all set,<br><span data-mb65-ready-name>student.</span></h1>
+            <p class="mb65-lead" data-mb65-ready-description>Your personal SAT plan is ready.</p>
+            <button class="mb65-start-practice" data-mb65-practice type="button">Open Practice after saving →</button>
+          </section>
         </div>
-
-        <div class="sg-field sg-field-full">
-          <label for="studentUniversitySearch">Search university</label>
-          <input id="studentUniversitySearch" class="sg-input" type="search" placeholder="Type MIT, Oxford, KAIST, Purdue..." data-university-search autocomplete="off">
-          <div class="sg-help" data-university-search-result>200 universities available.</div>
+        <div class="sg-goal-modal-actions mb65-actions"><button class="mb65-back" type="button" data-mb65-back>← Back</button>
+          <span class="mb65-footer-note">You can update your plan later.</span><span class="mb65-actions-spacer"></span><button class="mb65-next" type="button" data-mb65-next>Continue →</button>
+          <button class="sg-btn mb65-submit" type="submit" data-goal-submit hidden>Open my dashboard →</button>
         </div>
-
-        <div class="sg-field sg-field-full">
-          <label for="{{ goal_form.university_choice.id_for_label }}">{{ goal_form.university_choice.label }}</label>
-          {{ goal_form.university_choice }}
-          <div class="sg-error" data-field-error="university_choice">{% for error in goal_form.university_choice.errors %}{{ error }}{% endfor %}</div>
-        </div>
-
-        <article class="sg-university-preview is-hidden" data-university-preview aria-live="polite">
-          <div class="sg-university-preview-icon"><svg class="sg-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V8.5L12 4v17H4Zm8 0V7l8 3.5V21h-8Z" fill="currentColor"/><path d="M7 11h2v2H7v-2Zm0 4h2v2H7v-2Zm7-4h2v2h-2v-2Zm3 0h1v2h-1v-2Zm-3 4h2v2h-2v-2Zm3 0h1v2h-1v-2Z" fill="white" opacity=".85"/></svg></div>
-          <div class="sg-university-preview-main">
-            <small>Selected university</small>
-            <strong data-university-name>—</strong>
-            <span data-university-location>—</span>
-          </div>
-          <div class="sg-university-preview-score">
-            <small data-university-score-label>QS rank</small>
-            <strong data-university-rank>—</strong>
-            <span data-university-score></span>
-            <span data-university-note></span>
-          </div>
-        </article>
-
-        <div class="sg-custom-university is-hidden" data-custom-university-fields aria-hidden="true">
-          <div class="sg-field">
-            <label for="{{ goal_form.custom_university_name.id_for_label }}">{{ goal_form.custom_university_name.label }}</label>
-            {{ goal_form.custom_university_name }}
-            <div class="sg-error" data-field-error="custom_university_name">{% for error in goal_form.custom_university_name.errors %}{{ error }}{% endfor %}</div>
-          </div>
-          <div class="sg-field">
-            <label for="{{ goal_form.custom_university_country.id_for_label }}">{{ goal_form.custom_university_country.label }}</label>
-            {{ goal_form.custom_university_country }}
-            <div class="sg-error" data-field-error="custom_university_country">{% for error in goal_form.custom_university_country.errors %}{{ error }}{% endfor %}</div>
-          </div>
-          <div class="sg-field sg-field-full">
-            <label for="{{ goal_form.custom_average_sat_score.id_for_label }}">{{ goal_form.custom_average_sat_score.label }}</label>
-            {{ goal_form.custom_average_sat_score }}
-            {% if goal_form.custom_average_sat_score.help_text %}<div class="sg-help">{{ goal_form.custom_average_sat_score.help_text }}</div>{% endif %}
-            <div class="sg-error" data-field-error="custom_average_sat_score">{% for error in goal_form.custom_average_sat_score.errors %}{{ error }}{% endfor %}</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="sg-form-section">
-        <div class="sg-form-section-title">
-          <span>2</span>
-          <div>
-            <h3>Score and exam date</h3>
-            <p>Enter your own target score and choose a nearby official SAT date from the list.</p>
-          </div>
-        </div>
-        <div class="sg-form-grid">
-          <div class="sg-field">
-            <label for="{{ goal_form.target_sat_score.id_for_label }}">{{ goal_form.target_sat_score.label }}</label>
-            {{ goal_form.target_sat_score }}
-            {% if goal_form.target_sat_score.help_text %}<div class="sg-help">{{ goal_form.target_sat_score.help_text }}</div>{% endif %}
-            <div class="sg-error" data-field-error="target_sat_score">{% for error in goal_form.target_sat_score.errors %}{{ error }}{% endfor %}</div>
-          </div>
-          <div class="sg-field">
-            <label for="{{ goal_form.exam_date.id_for_label }}">{{ goal_form.exam_date.label }}</label>
-            {{ goal_form.exam_date }}
-            {% if goal_form.exam_date.help_text %}<div class="sg-help">{{ goal_form.exam_date.help_text }}</div>{% endif %}
-            <div class="sg-error" data-field-error="exam_date">{% for error in goal_form.exam_date.errors %}{{ error }}{% endfor %}</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="sg-form-section">
-        <div class="sg-form-section-title">
-          <span>3</span>
-          <div>
-            <h3>Study pace</h3>
-            <p>Keep the pace realistic enough to repeat every week.</p>
-          </div>
-        </div>
-        <div class="sg-form-grid">
-          <div class="sg-field">
-            <label for="{{ goal_form.daily_study_minutes_goal.id_for_label }}">{{ goal_form.daily_study_minutes_goal.label }}</label>
-            {{ goal_form.daily_study_minutes_goal }}
-            <div class="sg-error" data-field-error="daily_study_minutes_goal">{% for error in goal_form.daily_study_minutes_goal.errors %}{{ error }}{% endfor %}</div>
-          </div>
-          <div class="sg-field">
-            <label for="{{ goal_form.weekly_study_days_goal.id_for_label }}">{{ goal_form.weekly_study_days_goal.label }}</label>
-            {{ goal_form.weekly_study_days_goal }}
-            <div class="sg-error" data-field-error="weekly_study_days_goal">{% for error in goal_form.weekly_study_days_goal.errors %}{{ error }}{% endfor %}</div>
-          </div>
-        </div>
-      </section>
-
-      </div>
-
-      <div class="sg-goal-modal-actions">
-        <button type="button" class="sg-btn sg-btn-secondary" data-goal-modal-close>Cancel</button>
-        <button type="submit" class="sg-btn" data-goal-submit>
-          <i class="bi bi-check2-circle"></i>
-          Save my SAT goal
-        </button>
-      </div>
-    </form>
+      </form>
+    </div></div>
   </section>
 </div>
 {{ goal_universities|json_script:"student-goal-universities" }}
