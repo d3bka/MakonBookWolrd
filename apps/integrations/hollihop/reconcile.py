@@ -456,7 +456,8 @@ class HollihopSmartReconciler:
             return self.report, self.engine.summary
         except Exception as exc:
             self.engine.summary.errors += 1
-            self.engine.release_lock(success=False, error=f"{type(exc).__name__}: {safe_text(exc, 400)}")
+            self.engine._log("sync_error", entity_type="smart_sync", details={"error": type(exc).__name__})
+            self.engine.release_lock(success=False, error=type(exc).__name__)
             raise
 
 

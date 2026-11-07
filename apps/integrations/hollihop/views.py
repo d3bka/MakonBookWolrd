@@ -24,6 +24,7 @@ from apps.integrations.models import (
 from apps.sat.models import Classroom
 from apps.sat.roles import can_manage_classroom, is_manager, is_platform_admin
 
+from .error_reporting import safe_sync_error_details
 from .credentials import deliver_new_temporary_access
 from .tasks import (
     manual_full_hollihop_reconciliation,
@@ -66,6 +67,29 @@ def integration_dashboard(request):
         overall_status__in=["failed", "partial", "no_contact"]
     ).select_related("user", "user__profile")[:30]
     recent_logs = HollihopSyncLog.objects.select_related("user", "classroom")[:50]
+    # Credential delivery failures and synchronization failures are distinct.
+    # Link error rows to the latest attempted sync, not to last successful sync.
+    sync_errors = HollihopSyncLog.objects.filter(event_type="sync_error").order_by("-created_at")
+    last_run_error_qs = sync_errors.filter(created_at__gte=state.last_attempt) if state and state.last_attempt else sync_errors.none()
+    last_run_error_count = last_run_error_qs.count()
+
+    def display_error(log):
+        safe = safe_sync_error_details(log.details)
+        # A validated status is safe; raw legacy `details` are never rendered.
+        code = (log.details or {}).get("http_status") if isinstance(log.details, dict) else None
+        return {
+            "created_at": log.created_at,
+            "entity_type": log.entity_type or "sync",
+            "external_id": log.external_id,
+            "error_type": safe["error"],
+            "reason": safe["reason"],
+            "http_status": code if type(code) is int and 400 <= code <= 599 else None,
+        }
+
+    last_run_errors = [display_error(log) for log in last_run_error_qs[:30]]
+    # Historical errors are useful even if the latest run succeeded. Keep them
+    # in a separate expandable table to avoid implying they are still active.
+    previous_errors = [display_error(log) for log in sync_errors[:30]]
     delivery_qs = HollihopCredentialDelivery.objects.all()
     delivery_counts = Counter(delivery_qs.values_list("overall_status", flat=True))
     delivery_channel_counts = {
@@ -104,6 +128,9 @@ def integration_dashboard(request):
         "conflicts": conflicts,
         "failed_deliveries": failed_deliveries,
         "recent_logs": recent_logs,
+        "last_run_errors": last_run_errors,
+        "last_run_error_count": last_run_error_count,
+        "previous_sync_errors": previous_errors,
         "delivery_counts": delivery_counts,
         "delivery_channel_counts": delivery_channel_counts,
         "credentials_auto_send": settings.HOLLIHOP_AUTO_SEND_CREDENTIALS,

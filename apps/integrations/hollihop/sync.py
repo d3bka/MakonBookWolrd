@@ -20,6 +20,7 @@ from apps.sat.models import Classroom, ClassroomMembership
 
 from .client import HollihopClient, HollihopError
 from .credentials import can_deliver_temporary_access, deliver_new_temporary_access
+from .error_reporting import safe_sync_error_details, safe_sync_error_from_exception
 from .normalization import normalize_email, normalize_phone, safe_text
 
 User = get_user_model()
@@ -173,6 +174,12 @@ class HollihopSyncEngine:
     def _log(self, event_type, *, entity_type="", external_id="", user=None, classroom=None, details=None):
         if self.dry_run:
             return
+        if event_type == "sync_error":
+            raw = details if isinstance(details, dict) else {}
+            details = safe_sync_error_details(raw)
+            code = raw.get("http_status")
+            if type(code) is int and 400 <= code <= 599:
+                details["http_status"] = code
         HollihopSyncLog.objects.create(
             event_type=event_type,
             entity_type=entity_type,
@@ -284,7 +291,12 @@ class HollihopSyncEngine:
             state.last_status = (
                 HollihopSyncState.STATUS_PARTIAL if partial else HollihopSyncState.STATUS_SUCCESS if success else HollihopSyncState.STATUS_ERROR
             )
-            state.last_error_safe = safe_text(error, 500)
+            if error:
+                state.last_error_safe = safe_sync_error_details({"error": error})["reason"][:500]
+            elif partial:
+                state.last_error_safe = f"{self.summary.errors} synchronization error(s). See Synchronization errors."
+            else:
+                state.last_error_safe = ""
             if success:
                 state.last_successful_sync = timezone.now()
             state.students_synced = self.summary.students_found
@@ -764,7 +776,7 @@ class HollihopSyncEngine:
                     self._sync_manager(data)
             except Exception as exc:
                 self.summary.errors += 1
-                self._log("sync_error", entity_type="manager", external_id=data.get("Id"), details={"error": type(exc).__name__})
+                self._log("sync_error", entity_type="manager", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
 
         if not self.dry_run:
             for data in non_manager_linked_rows:
@@ -773,7 +785,7 @@ class HollihopSyncEngine:
                         self._revoke_manager_role(data, reason="Hollihop employee no longer has an admin type/role.")
                 except Exception as exc:
                     self.summary.errors += 1
-                    self._log("sync_error", entity_type="manager", external_id=data.get("Id"), details={"error": type(exc).__name__})
+                    self._log("sync_error", entity_type="manager", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
         else:
             self.summary.managers_updated += len(non_manager_linked_rows)
         return self.summary
@@ -1083,7 +1095,7 @@ class HollihopSyncEngine:
                     self._sync_student(data)
             except Exception as exc:
                 self.summary.errors += 1
-                self._log("sync_error", entity_type="student", external_id=data.get("ClientId"), details={"error": type(exc).__name__})
+                self._log("sync_error", entity_type="student", external_id=data.get("ClientId"), details=safe_sync_error_from_exception(exc))
         return self.summary
 
     def _sync_student(self, data):
@@ -1206,7 +1218,7 @@ class HollihopSyncEngine:
                     self._sync_teacher(data)
             except Exception as exc:
                 self.summary.errors += 1
-                self._log("sync_error", entity_type="teacher", external_id=data.get("Id"), details={"error": type(exc).__name__})
+                self._log("sync_error", entity_type="teacher", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
         return self.summary
 
     def _sync_teacher(self, data):
@@ -1346,7 +1358,7 @@ class HollihopSyncEngine:
                 self._sync_teacher(data)
         except Exception as exc:
             self.summary.errors += 1
-            self._log("sync_error", entity_type="teacher", external_id=teacher_id, details={"error": type(exc).__name__})
+            self._log("sync_error", entity_type="teacher", external_id=teacher_id, details=safe_sync_error_from_exception(exc))
             return None
         return User.objects.filter(profile__hollihop_teacher_id=teacher_id).first()
 
@@ -1407,7 +1419,7 @@ class HollihopSyncEngine:
                     )
             except Exception as exc:
                 self.summary.errors += 1
-                self._log("sync_error", entity_type="classroom", external_id=edunit_id, details={"error": type(exc).__name__})
+                self._log("sync_error", entity_type="classroom", external_id=edunit_id, details=safe_sync_error_from_exception(exc))
         return self.summary
 
     def sync_classrooms(self, *, only_edunit_id=None):
@@ -1453,7 +1465,7 @@ class HollihopSyncEngine:
                     self._sync_classroom(data, active_ids=active_ids)
             except Exception as exc:
                 self.summary.errors += 1
-                self._log("sync_error", entity_type="classroom", external_id=data.get("Id"), details={"error": type(exc).__name__})
+                self._log("sync_error", entity_type="classroom", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
 
         # Full reconciliation deactivates old Hollihop-managed classrooms but
         # never deletes their MakonBook history. Only the current relevant graph

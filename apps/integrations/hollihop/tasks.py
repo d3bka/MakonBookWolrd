@@ -147,6 +147,7 @@ def manual_membership_hollihop_sync():
         engine.release_lock(success=engine.summary.errors == 0, partial=engine.summary.errors > 0)
         return {"status": "ok", **engine.summary.as_dict()}
     except Exception as exc:
+        engine._log("sync_error", entity_type="sync_task", details={"error": type(exc).__name__})
         engine.release_lock(success=False, error=type(exc).__name__)
         raise
 
@@ -173,6 +174,7 @@ def sync_resolved_classroom_mapping(edunit_id):
         engine.release_lock(success=engine.summary.errors == 0, partial=engine.summary.errors > 0)
         return {"status": "ok", **engine.summary.as_dict()}
     except Exception as exc:
+        engine._log("sync_error", entity_type="sync_task", details={"error": type(exc).__name__})
         engine.release_lock(success=False, error=type(exc).__name__)
         raise
 
@@ -238,5 +240,6 @@ def process_student_webhook(trigger_type, client_id, attempt=0):
         engine.release_lock(success=engine.summary.errors == 0, partial=engine.summary.errors > 0)
         return {"status": "ok", **engine.summary.as_dict()}
     except Exception as exc:
+        engine._log("sync_error", entity_type="sync_task", details={"error": type(exc).__name__})
         engine.release_lock(success=False, error=type(exc).__name__)
         raise
