@@ -1,0 +1,73 @@
+/* MakonBook V50.2.6.6 — student workspace vertical rhythm fix.
+ *
+ * Legacy static/assets/css/main.css applies:
+ *     section { padding: 60px 0; overflow: clip; }
+ *
+ * The V50 workspace uses semantic <section> elements as grid/layout wrappers.
+ * Those wrappers already control their own spacing with margin/gap, so the
+ * legacy 60px section padding creates 60–120px empty bands between blocks.
+ *
+ * Keep this reset deliberately scoped to layout-only sections. Components
+ * that intentionally own padding (hero cards, normal cards, dialogs, etc.)
+ * are not touched.
+ */
+
+.mb50-shell .mb50-main :is(
+  .mb52-progression-v2,
+  .v523-home-grid,
+  .v523-grid,
+  .v523-progress-stats,
+  .v525-practice-controls,
+  .v523-topic-grid,
+  .v50210-homework-grid,
+  .vh506-feature-row,
+  .vh511-deck-slide
+) {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: visible;
+}
+
+/* Preserve a compact, consistent vertical rhythm after removing legacy
+   section padding. Existing page-specific margins still do most of the work. */
+.mb50-shell .mb50-main .v523-home-grid {
+  margin-top: 0;
+}
+
+.mb50-shell .mb50-main .v525-practice-controls {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.mb50-shell .mb50-main .v523-topic-grid {
+  margin-top: 12px;
+}
+
+.mb50-shell .mb50-main .v50210-filterbar {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.mb50-shell .mb50-main .v523-progress-stats,
+.mb50-shell .mb50-main .v523-grid {
+  margin-top: 14px;
+}
+
+.mb50-shell .mb50-main .vh506-feature-row {
+  margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .mb50-shell .mb50-main .v525-practice-controls,
+  .mb50-shell .mb50-main .v50210-filterbar,
+  .mb50-shell .mb50-main .v523-progress-stats,
+  .mb50-shell .mb50-main .v523-grid {
+    margin-top: 12px;
+    margin-bottom: 12px;
+  }
+
+  .mb50-shell .mb50-main .v523-topic-grid,
+  .mb50-shell .mb50-main .vh506-feature-row {
+    margin-top: 10px;
+  }
+}

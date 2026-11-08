@@ -1,0 +1,54 @@
+{% extends 'sat/staff_workspace.html' %}
+{% load static %}
+{% block page_title %}{{ event.title }} | MakonBook{% endblock %}
+{% block content %}
+<div class="sf27-page sf27-ap-detail-page">
+  <div class="sf27-page-head">
+    <div>
+      <small><i class="bi bi-layers"></i> AP Classes</small>
+      <h1>{{ event.title }}</h1>
+      <p>{% if event.description %}{{ event.description }}{% else %}AP event details, availability and attempt controls.{% endif %}</p>
+    </div>
+    <div class="sf27-actions">
+      <a class="sf27-btn secondary" href="{% url 'apclasses:event_list' %}"><i class="bi bi-arrow-left"></i> AP events</a>
+      {% if event.is_live_now %}<span class="sf27-status is-live"><i class="bi bi-broadcast"></i> Live now</span>{% else %}<span class="sf27-status"><i class="bi bi-clock"></i> {{ event.status|title }}</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="sf27-ap-detail-grid">
+    <section class="sf27-card sf27-ap-detail-main">
+      <div class="sf27-section-head">
+        <div><small>Event configuration</small><h2>Schedule &amp; rules</h2><p>Review the event exactly as participants will receive it.</p></div>
+      </div>
+      <div class="sf27-detail-list">
+        <div><span>Availability</span><strong>{% if event.always_live %}Always Live · 24/7{% else %}{{ event.start_at|date:'M j, Y · H:i' }} → {{ event.end_at|date:'M j, Y · H:i' }}{% endif %}</strong></div>
+        <div><span>Part A</span><strong>{{ event.part_a_duration_minutes|default:event.exam.part_a_duration_minutes }} min</strong></div>
+        <div><span>Part B</span><strong>{{ event.part_b_duration_minutes|default:event.exam.part_b_duration_minutes }} min</strong></div>
+        <div><span>FRQ</span><strong>{{ event.frq_duration_minutes|default:event.exam.frq_duration_minutes }} min</strong></div>
+        <div><span>Attempt policy</span><strong>{{ attempts_used }} used{% if event.max_attempts %} / {{ event.max_attempts }} allowed{% endif %}</strong></div>
+        <div><span>Access</span><strong>{% if event.requires_secret_code %}Secret code required{% else %}No secret code{% endif %}</strong></div>
+      </div>
+      {% if event.rules %}<div class="sf27-rules"><small>Rules</small>{{ event.rules|linebreaks }}</div>{% endif %}
+    </section>
+
+    <aside class="sf27-card sf27-ap-attempt-card">
+      <div class="sf27-section-head"><div><small>Preview attempt</small><h2>Open event</h2><p>Staff can verify the participant flow without leaving the staff workspace until the exam runner opens.</p></div></div>
+      {% if event.requires_secret_code and not secret_unlocked %}
+        <form method="post" class="sf27-form-grid sf27-single-form">{% csrf_token %}<label class="sf27-field sf27-field-wide"><span>Access code</span><input type="text" name="access_code" autocomplete="off" required></label><div class="sf27-form-footer"><button class="sf27-btn" type="submit"><i class="bi bi-unlock"></i> Unlock event</button></div></form>
+      {% else %}
+        {% if existing_attempt and existing_attempt.status == 'in_progress' %}<a class="sf27-btn sf27-full-btn" href="{% url 'apclasses:attempt' existing_attempt.token %}"><i class="bi bi-play-circle"></i> Resume attempt #{{ existing_attempt.attempt_number }}</a>{% elif existing_attempt and existing_attempt.status == 'submitted' %}<a class="sf27-btn secondary sf27-full-btn" href="{% url 'apclasses:event_result' existing_attempt.token %}"><i class="bi bi-bar-chart"></i> View latest result</a>{% endif %}
+        {% if event.is_live_now and can_start_new_attempt %}<form method="post" action="{% url 'apclasses:start_event' event.slug %}">{% csrf_token %}<button class="sf27-btn sf27-full-btn" type="submit"><i class="bi bi-play-fill"></i> {% if existing_attempt %}Start new attempt{% else %}Start event{% endif %}</button></form>{% elif not event.is_live_now %}<div class="sf27-inline-note"><i class="bi bi-clock-history"></i><span>This event is not live now.</span></div>{% endif %}
+      {% endif %}
+    </aside>
+  </div>
+
+  {% if attempts %}
+  <section class="sf27-card">
+    <div class="sf27-section-head"><div><small>History</small><h2>Attempts</h2></div></div>
+    <div class="sf27-history-list">
+      {% for item in attempts %}<div><span><strong>Attempt #{{ item.attempt_number }}</strong><small>{{ item.get_status_display }}{% if item.submitted_at %} · {{ item.submitted_at|date:'M j, Y · H:i' }}{% endif %}</small></span>{% if item.status == 'submitted' %}<a class="sf27-btn secondary" href="{% url 'apclasses:event_result' item.token %}">Result</a>{% endif %}</div>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

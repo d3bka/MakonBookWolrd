@@ -1,0 +1,132 @@
+{% load auth_extras %}
+{% load static %}
+
+<header id="header" class="header d-flex align-items-center">
+  <div class="container-fluid container-xl d-flex align-items-center justify-content-between">
+
+    <a href="{% url 'home' %}" class="logo d-flex align-items-center">
+      <!-- <img src="{% static 'assets/img/icons/white-icon-nobg.png' %}" alt="Makon Book Logo" style="height: 42px; margin-right: 10px;">
+      <h1 style="margin: 0;">MAKON BOOK</h1> -->
+      <img src="{% static 'assets/img/icons/SAT MAKON logo 3.png' %}" alt="SatMakonLogo" style="margin: 0;">
+    </a>
+
+    <nav id="navbar" class="navbar">
+      <ul>
+        <li><a href="{% url 'home' %}">Home</a></li>
+
+        {% if request.user.is_authenticated %}
+          <li class="dropdown">
+            <a href="#">
+              <span>
+                <span data-header-user-name>{{ user.get_full_name|default:user.username }}</span>
+                <i class="fa fa-user-circle-o" style="margin-left: 18px;"></i>
+              </span>
+              <i class="bi bi-chevron-down dropdown-indicator" style="margin-right: 44px;"></i>
+            </a>
+
+            <ul>
+              <li>
+                <a href="{% url 'edit_profile' %}">
+                  <i class="fa fa-user"></i>My Profile
+                </a>
+              </li>
+
+              <li>
+                <a href="{% url 'rating_home' %}">
+                  <i class="fa fa-star"></i> My Rating
+                </a>
+              </li>
+
+              <li>
+                <a href="{% url 'enter_secret_code' %}">
+                  <i class="fa fa-key"></i> Enter Code
+                </a>
+              </li>
+
+              {% if request.user|has_group:"Manager" %}
+              <li>
+                <a href="{% url 'manager_dashboard_root' %}">
+                  <i class="fa fa-briefcase"></i> Manager Panel
+                </a>
+              </li>
+              {% elif request.user.is_staff or request.user.is_superuser %}
+              <li>
+                <a href="{% url 'admin_dashboard' %}">
+                  <i class="fa fa-shield"></i> Admin Panel
+                </a>
+              </li>
+              {% endif %}
+
+              {% if test_import_center_allowed %}
+              <li>
+                <a href="{% url 'test_import_list_root' %}">
+                  <i class="fa fa-file-pdf-o"></i> Test Import Center{% if test_import_pending_reviews %} <strong style="margin-left:6px">{{ test_import_pending_reviews }}</strong>{% endif %}
+                </a>
+              </li>
+              {% endif %}
+
+              {% if request.user|has_group:"dev" %}
+              <li>
+                <a href="{% url 'dev_dashboard' %}">
+                  <i class="fa fa-cogs"></i> Dev Mode
+                </a>
+              </li>
+              {% endif %}
+
+              <li>
+                <a href="{% url 'logout' %}">
+                  <i class="fa fa-sign-out"></i> Logout
+                </a>
+              </li>
+            </ul>
+          </li>
+        {% else %}
+          <li><a href="{% url 'login' %}">Login</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+
+    <div class="header-tools">
+      {% if request.user.is_authenticated %}
+        <button class="makon-notice-bell" type="button" aria-label="Notifications" aria-expanded="false" data-notice-toggle>
+          <i class="bi bi-bell"></i>
+          {% if test_import_unread_notifications %}<span data-notice-badge>{{ test_import_unread_notifications }}</span>{% endif %}
+        </button>
+      {% endif %}
+      {% include 'base/theme_toggle.html' %}
+    </div>
+
+    <i class="mobile-nav-toggle mobile-nav-show bi bi-list"></i>
+    <i class="mobile-nav-toggle mobile-nav-hide d-none bi bi-x"></i>
+  </div>
+</header>
+{% if request.user.is_authenticated %}
+<div class="makon-notice-layer" data-notice-layer aria-hidden="true" data-read-url="{% url 'notifications_read_root' %}">
+  <form hidden data-notice-csrf-form>{% csrf_token %}</form>
+  <button class="makon-notice-scrim" type="button" aria-label="Close notifications" data-notice-close></button>
+  <section class="makon-notice-panel" role="dialog" aria-modal="true" aria-label="Notifications">
+    <div class="makon-notice-head">
+      <div>
+        <span>Notifications</span>
+        <strong>{% if test_import_pending_reviews %}{{ test_import_pending_reviews }} test review{{ test_import_pending_reviews|pluralize }} pending{% else %}You're up to date{% endif %}</strong>
+      </div>
+      <button type="button" class="makon-notice-close" aria-label="Close notifications" data-notice-close><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="makon-notice-list">
+      {% for notice in test_import_notifications %}
+        <a class="makon-notice-item{% if not notice.is_read %} is-unread{% endif %}" href="{{ notice.url|default:'#' }}" data-notice-id="{{ notice.id }}">
+          <span class="makon-notice-icon"><i class="bi {% if notice.type == 'test_published' %}bi-check2-circle{% else %}bi-file-earmark-check{% endif %}"></i></span>
+          <span class="makon-notice-copy">
+            <strong>{{ notice.title }}</strong>
+            {% if notice.message %}<small>{{ notice.message }}</small>{% endif %}
+            <em>{{ notice.created_at|timesince }} ago</em>
+          </span>
+        </a>
+      {% empty %}
+        <div class="makon-notice-empty"><i class="bi bi-bell-slash"></i><strong>No notifications yet</strong><small>New test-review requests will appear here.</small></div>
+      {% endfor %}
+    </div>
+    {% if test_import_center_allowed %}<a class="makon-notice-footer" href="{% url 'test_import_list_root' %}">Open Test Import Center <i class="bi bi-arrow-right"></i></a>{% endif %}
+  </section>
+</div>
+{% endif %}

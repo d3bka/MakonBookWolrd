@@ -1,0 +1,187 @@
+
+/* MakonBook V54.1.7 — larger classic test cover + visible Anti-Cheat status */
+
+@media (min-width: 900px) {
+  .sat531-main {
+    width: min(1160px, calc(100% - 56px)) !important;
+    padding-top: 42px !important;
+  }
+
+  .sat531-overview {
+    grid-template-columns: minmax(0, 1.72fr) minmax(330px, .88fr) !important;
+    min-height: 510px !important;
+    border-radius: 18px !important;
+  }
+
+  .sat531-intro {
+    padding: 62px 58px 48px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+
+  .sat531-intro h1 {
+    margin-top: 12px !important;
+    margin-bottom: 18px !important;
+    font-size: clamp(52px, 5.4vw, 72px) !important;
+    font-weight: 700 !important;
+    letter-spacing: -.05em !important;
+  }
+
+  .sat531-intro > p {
+    max-width: 660px !important;
+    font-size: 15px !important;
+    line-height: 1.68 !important;
+  }
+
+  .sat531-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-width: 590px !important;
+    margin-top: 34px !important;
+  }
+
+  .sat531-summary > div {
+    padding-top: 20px !important;
+  }
+
+  .sat531-summary span {
+    font-size: 11px !important;
+  }
+
+  .sat531-summary strong {
+    margin-top: 5px !important;
+    font-size: 23px !important;
+  }
+
+  .sat531-exam-note {
+    padding: 52px 38px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+
+  .sat531-exam-note > span {
+    font-size: 11px !important;
+  }
+
+  .sat531-exam-note ul {
+    margin-top: 18px !important;
+  }
+
+  .sat531-exam-note li {
+    padding: 17px 0 17px 24px !important;
+    font-size: 13px !important;
+    line-height: 1.58 !important;
+  }
+
+  .sat531-exam-note li::before {
+    top: 23px !important;
+  }
+}
+
+.sat5417-integrity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  max-width: 620px;
+  margin-top: 26px;
+  padding: 14px 15px;
+  border: 1px solid rgba(109, 40, 217, .13);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(109, 40, 217, .055), rgba(236, 72, 153, .035)),
+    rgba(255,255,255,.74);
+}
+
+.sat5417-integrity-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: #6d28d9;
+  background: rgba(109, 40, 217, .10);
+}
+
+.sat5417-integrity-copy {
+  min-width: 0;
+}
+
+.sat5417-integrity-copy > span {
+  display: block;
+  color: #6d28d9;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sat5417-integrity-copy strong {
+  display: block;
+  margin-top: 2px;
+  color: #241832;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.sat5417-integrity-copy small {
+  display: block;
+  margin-top: 3px;
+  color: #74687f;
+  font-size: 10px;
+  line-height: 1.42;
+}
+
+.sat5417-integrity-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  color: #6d28d9;
+  background: rgba(109, 40, 217, .08);
+  font-size: 8px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .sat5417-integrity {
+  border-color: rgba(167,139,250,.16);
+  background: rgba(124,58,237,.08);
+}
+
+html[data-theme="dark"] .sat5417-integrity-copy strong {
+  color: #f6f0fb;
+}
+
+html[data-theme="dark"] .sat5417-integrity-copy small {
+  color: #c1b7ca;
+}
+
+html[data-theme="dark"] .sat5417-integrity-lock {
+  color: #d6c5ff;
+  background: rgba(167,139,250,.12);
+}
+
+@media (max-width: 899px) {
+  .sat5417-integrity {
+    grid-template-columns: auto minmax(0, 1fr);
+    margin-top: 20px;
+  }
+
+  .sat5417-integrity-lock {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .sat5417-integrity {
+    padding: 12px;
+  }
+
+  .sat5417-integrity-copy small {
+    font-size: 9.5px;
+  }
+}

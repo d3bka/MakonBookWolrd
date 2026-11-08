@@ -1,0 +1,130 @@
+# =========================
+# Python / Django
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+# Django local files
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Keep source static files tracked:
+# static/ and static/assets/ are intentionally NOT ignored.
+
+# =========================
+# Virtual environments
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Environment / secrets
+# =========================
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.credentials
+credentials.json
+client_secret*.json
+service-account*.json
+
+# =========================
+# IDE / OS
+# =========================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Test / coverage / cache
+# =========================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# =========================
+# Frontend / Node, if used
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Collected / generated artifacts
+# =========================
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+*.bak
+*.bak_*
+*.backup
+*.orig
+*.rej
+*_patch.diff
+
+# =========================
+# Upload/temp folders
+# =========================
+tmp/
+temp/
+uploads/
+
+# =========================
+# Database dumps / backups
+# =========================
+*.dump
+*.sql
+*.sqlite3
+*.psql
+backups/
+
+# =========================
+# Deployment runtime files
+# =========================
+gunicorn.pid
+celerybeat-schedule
+# Runtime-generated Telegram credential export files
+apps/telegram_bot/requests/
+
+# Local tool/runtime metadata
+.sixth/
+MAKONBOOK_MOBILE_ANALYSIS.md
+
+# Local hotfix/assistant rollback folders
+_backups/
+.hotfix_backups/
+MakonBook_*_patch*/
+MakonBook_*_hotfix*/

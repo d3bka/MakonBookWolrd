@@ -1,0 +1,105 @@
+{% load static %}
+<article
+  class="practice-test-card state-{{ test.card_state }}"
+  data-practice-card
+  data-search="{{ test.name|lower }} {{ test.mode_label|lower }} {{ test.status_label|lower }}"
+  style="--card-index:{{ forloop.counter0|default:0 }}"
+>
+  <div class="practice-card-media">
+    <img src="{{ test.card_image }}" alt="{{ test.name }}" loading="lazy" onerror="this.onerror=null;this.src='{% static 'assets/img/tests/default.png' %}'">
+    <span class="practice-state-pill">{{ test.status_label }}</span>
+    <div class="practice-card-media-shade"></div>
+  </div>
+
+  <div class="practice-card-body">
+    <div class="practice-card-heading">
+      <div>
+        <span class="practice-test-type">{{ test.mode_label }}</span>
+        <h3>{{ test.name }}</h3>
+      </div>
+      {% if test.has_active_attempt %}
+        <span class="practice-pulse" title="Attempt in progress" aria-label="Attempt in progress"></span>
+      {% endif %}
+    </div>
+
+    <div class="practice-card-facts">
+      <span><i class="bi bi-list-check" aria-hidden="true"></i>{{ test.question_count }} questions</span>
+      <span><i class="bi bi-grid-1x2" aria-hidden="true"></i>{{ test.module_count }} module{{ test.module_count|pluralize }}</span>
+      {% if test.completed_attempt_count %}
+        <span><i class="bi bi-clock-history" aria-hidden="true"></i>{{ test.completed_attempt_count }} attempt{{ test.completed_attempt_count|pluralize }}</span>
+      {% endif %}
+    </div>
+
+    {% if test.card_state == 'closed' %}
+      <div class="practice-progress-note is-closed">
+        <i class="bi bi-lock-fill" aria-hidden="true"></i>
+        <span>Closed for new attempts. Your previous results remain in History.</span>
+      </div>
+    {% elif test.has_active_attempt %}
+      <div class="practice-progress-block">
+        <div>
+          <span>Current attempt</span>
+          <strong>{{ test.progress_percent }}%</strong>
+        </div>
+        <div class="practice-progress-track" aria-label="{{ test.progress_percent }} percent complete">
+          <span style="width:{{ test.progress_percent }}%"></span>
+        </div>
+        <small>Module {{ test.current_module_number }} of {{ test.module_count }} · {{ test.current_attempt_mode_label|default:'Full Test' }}</small>
+      </div>
+    {% elif test.stage_complete_without_review %}
+      <div class="practice-progress-note">
+        <i class="bi bi-check2-circle" aria-hidden="true"></i>
+        <span>All selected modules are submitted. Open the result to finish scoring.</span>
+      </div>
+    {% elif test.completed_attempt_count %}
+      <div class="practice-progress-note is-ready">
+        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+        <span>Your previous attempts stay in History. You can start another attempt anytime.</span>
+      </div>
+    {% else %}
+      <div class="practice-progress-note is-ready">
+        <i class="bi bi-lightning-charge" aria-hidden="true"></i>
+        <span>Ready for your first attempt.</span>
+      </div>
+    {% endif %}
+
+    <div class="practice-card-actions">
+      {% if test.card_state == 'closed' %}
+        <button type="button" class="practice-action is-disabled" disabled><i class="bi bi-lock-fill" aria-hidden="true"></i> Closed</button>
+      {% elif test.card_state == 'unavailable' %}
+        <button type="button" class="practice-action is-disabled" disabled>Unavailable</button>
+      {% elif test.stage_complete_without_review and test.current_result_url %}
+        <a href="{{ test.current_result_url }}" class="practice-action" data-practice-navigate>
+          <span>Open result</span><i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </a>
+      {% else %}
+        <a
+          href="{% if is_teacher_view %}{% url 'teacher_practice_test_start_root' test.name %}{% else %}{% url 'practice_test_start_root' test.name %}{% endif %}"
+          class="practice-action"
+          data-practice-navigate
+          data-preconfig-full-q="{{ test.preconfig_full_questions|default:0 }}"
+          data-preconfig-full-min="{{ test.preconfig_full_minutes|default:0 }}"
+          data-preconfig-rw-q="{{ test.preconfig_rw_questions|default:0 }}"
+          data-preconfig-rw-min="{{ test.preconfig_rw_minutes|default:0 }}"
+          data-preconfig-math-q="{{ test.preconfig_math_questions|default:0 }}"
+          data-preconfig-math-min="{{ test.preconfig_math_minutes|default:0 }}"
+          data-preconfig-english-m1-q="{{ test.preconfig_english_m1_questions|default:0 }}"
+          data-preconfig-english-m1-min="{{ test.preconfig_english_m1_minutes|default:0 }}"
+          data-preconfig-english-m2-q="{{ test.preconfig_english_m2_questions|default:0 }}"
+          data-preconfig-english-m2-min="{{ test.preconfig_english_m2_minutes|default:0 }}"
+          data-preconfig-math-m1-q="{{ test.preconfig_math_m1_questions|default:0 }}"
+          data-preconfig-math-m1-min="{{ test.preconfig_math_m1_minutes|default:0 }}"
+          data-preconfig-math-m2-q="{{ test.preconfig_math_m2_questions|default:0 }}"
+          data-preconfig-math-m2-min="{{ test.preconfig_math_m2_minutes|default:0 }}"
+          data-preconfig-integrity-locked="{% if test.preconfig_integrity_locked %}1{% else %}0{% endif %}"
+          data-preconfig-integrity-mode="{{ test.preconfig_integrity_mode|default:'' }}"
+          data-preconfig-integrity-max="{{ test.preconfig_integrity_max|default:3 }}"
+          data-preconfig-integrity-fullscreen="{% if test.preconfig_integrity_fullscreen %}1{% else %}0{% endif %}"
+        >
+          <span>{{ test.action_label }}</span>
+          <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</article>

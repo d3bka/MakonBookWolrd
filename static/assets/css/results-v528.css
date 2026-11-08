@@ -1,0 +1,398 @@
+/* MakonBook Results V52.8 — layout + frontend refinement
+   Loaded after results-v527.css. Keeps all result/review actions intact. */
+
+/* Remove leftover base-layout space from the legacy site header/breadcrumb shell. */
+body:has(.mr527-page) {
+  padding-top: 0 !important;
+  background: #f8f6fb !important;
+}
+body:has(.mr527-page) #main {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  min-height: 100vh !important;
+  background:
+    radial-gradient(circle at 12% -8%, rgba(124,58,237,.075), transparent 26%),
+    radial-gradient(circle at 94% 0%, rgba(202,63,232,.055), transparent 22%),
+    linear-gradient(180deg, #faf9fc 0%, #f7f5fa 100%) !important;
+}
+body:has(.mr527-page) #blog {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Wider, desktop-first report. The previous pass was visually too narrow. */
+.mr527-page {
+  width: min(1480px, calc(100vw - 64px)) !important;
+  max-width: 1480px !important;
+  margin: 0 auto !important;
+  padding: 18px 0 44px !important;
+}
+
+/* Critical: main.css has section { padding:60px 0 }.
+   Reset it for Results layout sections to remove the artificial vertical gaps. */
+.mr527-page > section,
+.mr527-page .mr527-hero,
+.mr527-page .mr527-metrics {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.mr527-page .mr527-hero {
+  padding: 28px 32px !important;
+}
+
+/* Header */
+.mr527-topbar {
+  min-height: 64px !important;
+  margin: 0 0 14px !important;
+  padding: 9px 10px 9px 13px !important;
+  border-radius: 18px !important;
+  border-color: rgba(66,47,77,.09) !important;
+  background: rgba(255,255,255,.94) !important;
+  box-shadow: 0 10px 30px rgba(42,27,53,.05) !important;
+}
+.mr527-brand {
+  gap: 10px !important;
+}
+.mr527-brand img {
+  width: 39px !important;
+  height: 39px !important;
+}
+.mr527-brand strong {
+  font-size: 14px !important;
+  font-weight: 760 !important;
+}
+.mr527-brand small {
+  margin-top: 3px !important;
+  font-size: 8px !important;
+}
+.mr527-top-actions {
+  gap: 7px !important;
+}
+.mr527-top-action {
+  min-height: 39px !important;
+  padding: 0 13px !important;
+  border-radius: 11px !important;
+  font-size: 10px !important;
+}
+
+/* Hero: clearer hierarchy and less dead space. */
+.mr527-hero {
+  grid-template-columns: minmax(0,1fr) 208px !important;
+  align-items: center !important;
+  gap: 26px !important;
+  min-height: 190px !important;
+  margin: 0 !important;
+  border-radius: 24px !important;
+  border-color: rgba(124,58,237,.11) !important;
+  background:
+    radial-gradient(circle at 88% 4%, rgba(210,76,236,.15), transparent 29%),
+    radial-gradient(circle at 65% 110%, rgba(124,58,237,.06), transparent 32%),
+    linear-gradient(135deg, #fff 0%, #fcf9ff 60%, #f6effd 100%) !important;
+  box-shadow: 0 18px 48px rgba(53,34,67,.07) !important;
+}
+.mr527-hero::before {
+  width: 260px !important;
+  height: 260px !important;
+  right: -105px !important;
+  top: -165px !important;
+}
+.mr527-hero::after {
+  width: 145px !important;
+  height: 145px !important;
+  right: 94px !important;
+  top: -102px !important;
+}
+.mr527-eyebrow {
+  margin-bottom: 10px !important;
+  font-size: 8.5px !important;
+  letter-spacing: .13em !important;
+}
+.mr527-hero h1 {
+  font-size: clamp(43px, 4.1vw, 62px) !important;
+  font-weight: 680 !important;
+  letter-spacing: -.052em !important;
+}
+.mr527-hero p {
+  max-width: 690px !important;
+  margin-top: 10px !important;
+  font-size: 11.5px !important;
+  line-height: 1.55 !important;
+}
+.mr527-chips {
+  gap: 7px !important;
+  margin-top: 13px !important;
+}
+.mr527-chip {
+  min-height: 28px !important;
+  padding: 0 9px !important;
+  font-size: 8.5px !important;
+}
+
+.mr527-score-orb {
+  min-width: 0 !important;
+  width: 208px !important;
+  padding: 16px 18px !important;
+  border-radius: 19px !important;
+  box-shadow: 0 12px 27px rgba(76,42,103,.07) !important;
+}
+.mr527-score-orb small {
+  font-size: 8px !important;
+}
+.mr527-score-orb strong {
+  margin-top: 2px !important;
+  font-size: clamp(53px, 5.4vw, 72px) !important;
+}
+.mr527-score-orb span {
+  margin-top: 5px !important;
+  font-size: 8.5px !important;
+}
+
+/* Attempt history */
+.mr527-attempts {
+  margin-top: 12px !important;
+  padding: 10px 13px !important;
+  border-radius: 14px !important;
+}
+.mr527-attempts label {
+  font-size: 10px !important;
+}
+.mr527-attempts select {
+  min-height: 37px !important;
+  font-size: 10px !important;
+}
+
+/* Stats: no legacy section padding, tighter grouping with hero. */
+.mr527-metrics {
+  grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+  gap: 11px !important;
+  margin: 14px 0 0 !important;
+}
+.mr527-metric {
+  min-height: 100px !important;
+  padding: 16px 18px !important;
+  border-radius: 18px !important;
+  border-color: rgba(66,47,77,.09) !important;
+  box-shadow: 0 10px 27px rgba(52,31,70,.038) !important;
+}
+.mr527-metric small {
+  font-size: 8px !important;
+}
+.mr527-metric strong {
+  margin-top: 6px !important;
+  font-size: 27px !important;
+}
+.mr527-metric span {
+  margin-top: 3px !important;
+  font-size: 8.5px !important;
+}
+.mr527-metric.is-action {
+  padding-right: 13px !important;
+  background:
+    radial-gradient(circle at 95% 0, rgba(206,65,235,.14), transparent 28%),
+    linear-gradient(135deg, #25182e, #18121d) !important;
+}
+.mr527-metric.is-action strong {
+  font-size: 15px !important;
+}
+.mr527-metric.is-action .retake-form button {
+  min-height: 38px !important;
+  padding-inline: 12px !important;
+  border-radius: 11px !important;
+}
+
+/* Section hierarchy. */
+.mr527-section-title {
+  align-items: end !important;
+  margin: 22px 2px 9px !important;
+}
+.mr527-section-title small {
+  margin-bottom: 3px !important;
+  font-size: 8px !important;
+}
+.mr527-section-title h2 {
+  font-size: 23px !important;
+  font-weight: 650 !important;
+}
+.mr527-section-title p {
+  max-width: 430px;
+  font-size: 8.5px !important;
+  line-height: 1.45;
+  text-align: right;
+}
+
+/* Score breakdown cards */
+.mr527-page .module-row {
+  margin-left: -5px !important;
+  margin-right: -5px !important;
+}
+.mr527-page .module-row > div {
+  padding-left: 5px !important;
+  padding-right: 5px !important;
+  margin-bottom: 10px !important;
+}
+.mr527-page .total_score.print_div {
+  min-height: 166px !important;
+  padding: 17px 18px !important;
+  border-radius: 18px !important;
+  border-color: rgba(66,47,77,.09) !important;
+  box-shadow: 0 10px 28px rgba(52,31,70,.04) !important;
+}
+.mr527-page .total_score.print_div .title {
+  margin-bottom: 8px !important;
+  color: #312637 !important;
+  font-size: 12px !important;
+}
+.mr527-page .total_above {
+  display: grid !important;
+  grid-template-columns: auto 1fr !important;
+  align-items: end !important;
+  gap: 12px !important;
+}
+.mr527-page .total_above .score {
+  width: auto !important;
+  padding: 0 !important;
+  color: #211829 !important;
+  font-size: 43px !important;
+  line-height: .96 !important;
+}
+.mr527-page .total_above .t_score {
+  width: auto !important;
+  padding: 0 0 3px !important;
+  color: #998da0 !important;
+  font-size: 9px !important;
+  text-align: left !important;
+}
+.mr527-page .total .score + p,
+.mr527-page .total_score .score + p {
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  border-left: 0 !important;
+  line-height: 1.35 !important;
+}
+.mr527-page .restart-btn-container {
+  margin-top: 14px !important;
+}
+.mr527-page .restart-btn-container .btn {
+  min-height: 36px !important;
+  padding: 0 12px !important;
+  border-radius: 11px !important;
+  font-size: 8.5px !important;
+}
+
+/* Question map */
+.mr527-page .module-card {
+  min-height: 132px !important;
+  padding: 15px !important;
+  border-radius: 18px !important;
+  border-color: rgba(66,47,77,.09) !important;
+  box-shadow: 0 9px 25px rgba(52,31,70,.035) !important;
+}
+.mr527-page .module-card h5 {
+  margin-bottom: 10px !important;
+  font-size: 10.5px !important;
+}
+.mr527-page .navigation {
+  gap: 6px !important;
+}
+.mr527-page .rect-question {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 9px !important;
+  line-height: 32px !important;
+  font-size: 9px !important;
+}
+
+/* Timing */
+.mr527-page .chart-container {
+  margin-top: 0 !important;
+  padding: 18px 20px !important;
+  border-radius: 19px !important;
+  border-color: rgba(66,47,77,.09) !important;
+}
+.mr527-page .chart-container > h4 {
+  margin-bottom: 14px !important;
+  font-size: 14px !important;
+}
+.mr527-page canvas {
+  max-height: 260px !important;
+}
+
+/* Floating report button: less visually dominant than primary test actions. */
+body:has(.mr527-page) .report-issue,
+body:has(.mr527-page) [class*="report-issue"] {
+  transform: scale(.92);
+  transform-origin: bottom right;
+}
+
+/* Dark */
+html[data-theme="dark"] body:has(.mr527-page),
+html[data-theme="dark"] body:has(.mr527-page) #main {
+  background:
+    radial-gradient(circle at 12% -8%, rgba(124,58,237,.10), transparent 26%),
+    radial-gradient(circle at 94% 0%, rgba(202,63,232,.075), transparent 22%),
+    #0f0b13 !important;
+}
+html[data-theme="dark"] .mr527-hero {
+  border-color: rgba(255,255,255,.07) !important;
+  background:
+    radial-gradient(circle at 88% 4%, rgba(210,76,236,.14), transparent 29%),
+    linear-gradient(135deg, #211629, #151019) !important;
+}
+
+/* Tablet */
+@media (max-width: 980px) {
+  .mr527-page {
+    width: calc(100vw - 28px) !important;
+  }
+  .mr527-hero {
+    grid-template-columns: 1fr 180px !important;
+    min-height: 178px !important;
+    padding: 23px 24px !important;
+  }
+  .mr527-score-orb {
+    width: 180px !important;
+  }
+}
+
+/* Mobile */
+@media (max-width: 720px) {
+  .mr527-page {
+    width: calc(100vw - 14px) !important;
+    padding-top: 7px !important;
+  }
+  .mr527-topbar {
+    min-height: 56px !important;
+    margin-bottom: 8px !important;
+    border-radius: 15px !important;
+  }
+  .mr527-brand img {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .mr527-hero {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    min-height: 0 !important;
+    padding: 20px 17px !important;
+    border-radius: 19px !important;
+  }
+  .mr527-hero h1 {
+    font-size: 38px !important;
+  }
+  .mr527-score-orb {
+    width: 100% !important;
+  }
+  .mr527-metrics {
+    grid-template-columns: 1fr !important;
+  }
+  .mr527-section-title {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    margin-top: 18px !important;
+  }
+  .mr527-section-title p {
+    text-align: left;
+  }
+}

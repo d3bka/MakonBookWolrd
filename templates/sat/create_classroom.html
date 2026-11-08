@@ -1,0 +1,16 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Create Classroom | MakonBook{% endblock %}
+{% block content %}
+<div class="sf27-form-page">
+  <section class="sf27-page-head"><div><small>Teacher · Classrooms</small><h1>Create a classroom</h1><p>Choose SAT or AP once, add a clear name, then manage students, lessons, assignments and access from the classroom workspace.</p></div><div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'teacher_classrooms_root' %}"><i class="bi bi-arrow-left"></i> All classrooms</a></div></section>
+  <section class="sf27-card sf27-form-card">
+    <form method="post" id="create-classroom-form" class="sf27-form-grid">{% csrf_token %}<input type="hidden" name="submission_token" value="{{ submission_token }}">
+      <label class="sf27-field sf27-field-wide"><span>Classroom name</span><input type="text" name="name" maxlength="255" autocomplete="off" required placeholder="Example: SAT Advanced · September"></label>
+      <label class="sf27-field"><span>Classroom type</span><select name="classroom_type" required>{% for value,label in classroom_type_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label class="sf27-field sf27-field-wide"><span>Description</span><textarea name="description" rows="5" maxlength="10000" placeholder="What is this classroom for? What should students expect?"></textarea></label>
+      <div class="sf27-form-footer"><span class="sf27-form-hint"><i class="bi bi-shield-check"></i> Double-submit protection is enabled.</span><button class="sf27-btn" type="submit" id="create-classroom-submit"><i class="bi bi-plus-circle"></i> Create classroom</button></div>
+    </form>
+  </section>
+</div>
+<script>(function(){var f=document.getElementById('create-classroom-form'),b=document.getElementById('create-classroom-submit');if(!f||!b)return;f.addEventListener('submit',function(){if(f.dataset.submitted==='1')return;f.dataset.submitted='1';b.disabled=true;b.innerHTML='<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Creating…';});})();</script>
+{% endblock %}

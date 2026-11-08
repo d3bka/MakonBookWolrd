@@ -1,0 +1,28 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Vocabulary Progress · {{ student_obj.get_full_name|default:student_obj.username }}{% endblock %}
+{% block content %}
+<div class="sf210-progress-shell">
+  <section class="sf210-progress-hero"><div class="sf210-progress-head"><div><span class="sf28-kicker"><i class="bi bi-journal-bookmark"></i> Student vocabulary progress</span><h1>{{ student_obj.get_full_name|default:student_obj.username }}</h1><p>@{{ student_obj.username }} · {{ classroom.name }} · Vocabulary is no longer tied to one classroom · real standalone Vocabulary activity</p></div><a class="sf28-btn" href="{% url 'teacher_classroom_progress_root' classroom.id %}"><i class="bi bi-arrow-left"></i>Progress dashboard</a></div></section>
+
+  <section class="sf210-progress-stats">
+    <article class="sf210-progress-stat"><small>Mastery</small><strong>{{ summary.completion_percent }}%</strong><span>{{ summary.mastered_words }}/{{ summary.total_words }} words</span></article>
+    <article class="sf210-progress-stat"><small>Studied</small><strong>{{ summary.studied_words }}</strong><span>{{ summary.unseen_words }} unseen</span></article>
+    <article class="sf210-progress-stat"><small>Accuracy</small><strong>{{ summary.accuracy_percent }}%</strong><span>{{ summary.correct_count }} correct · {{ summary.incorrect_count }} wrong</span></article>
+    <article class="sf210-progress-stat"><small>Personal decks</small><strong>{{ personal_deck_summary.completion_percent }}%</strong><span>{{ personal_deck_summary.mastered_words }}/{{ personal_deck_summary.total_words }} mastered</span></article>
+  </section>
+
+  <section class="sf29-card span-12 sf210-progress-list-card">
+    <div class="sf29-section-head"><div><small>Standalone Vocabulary</small><h2>Unit mastery</h2></div><span class="sf28-chip">{{ unit_page.paginator.count }} units</span></div>
+    <form class="sf210-toolbar" method="get" action="{% url 'teacher_student_vocab_progress_root' classroom.id student_obj.id %}" data-v50211-live-form data-v50211-region="vocab-progress"><label class="sf210-search grow"><i class="bi bi-search"></i><input type="search" name="q" value="{{ vocab_query }}" placeholder="Search vocabulary units…" autocomplete="off"></label><select name="per_page"><option value="12" {% if vocab_per_page == 12 %}selected{% endif %}>12 / page</option><option value="24" {% if vocab_per_page == 24 %}selected{% endif %}>24 / page</option><option value="48" {% if vocab_per_page == 48 %}selected{% endif %}>48 / page</option><option value="60" {% if vocab_per_page == 60 %}selected{% endif %}>60 / page</option></select></form>
+    <div data-v50211-live-region="vocab-progress">
+    <div class="sf210-table-box"><table class="sf210-table"><thead><tr><th>Unit</th><th>Studied</th><th>Mastered</th><th>Accuracy</th><th>Mastery</th></tr></thead><tbody>{% for row in unit_rows %}<tr><td><strong>{{ row.unit.title }}</strong><small class="sf210-block-muted">{{ row.word_count }} words</small></td><td>{{ row.studied_words }}/{{ row.word_count }}</td><td>{{ row.mastered_words }}/{{ row.word_count }}</td><td>{{ row.accuracy_percent }}%</td><td><div class="sf210-meter"><span style="width:{{ row.mastery_percent }}%"></span></div><small>{{ row.mastery_percent }}%</small></td></tr>{% empty %}<tr><td colspan="5">No vocabulary units match this search.</td></tr>{% endfor %}</tbody></table></div>
+    {% if unit_page.paginator.num_pages > 1 %}<nav class="sf210-pagination">{% if unit_page.has_previous %}<a href="?q={{ vocab_query|urlencode }}&per_page={{ vocab_per_page }}&page={{ unit_page.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span>{{ unit_page.number }} / {{ unit_page.paginator.num_pages }}</span>{% if unit_page.has_next %}<a href="?q={{ vocab_query|urlencode }}&per_page={{ vocab_per_page }}&page={{ unit_page.next_page_number }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
+    </div>
+  </section>
+
+  <section class="sf210-progress-bottom">
+    <article class="sf29-card"><div class="sf29-section-head"><div><small>Needs work</small><h2>Weak words</h2></div></div><div class="sf29-list">{% for item in weak_words %}<div class="sf29-row"><div class="grow"><strong>{{ item.word.word }}</strong><small>{{ item.unit.title }} · {{ item.progress.incorrect_count }} misses</small></div><span class="sf28-chip">{{ item.accuracy_percent }}%</span></div>{% empty %}<div class="sf29-empty">No weak words recorded yet.</div>{% endfor %}</div></article>
+    <article class="sf29-card"><div class="sf29-section-head"><div><small>Recent activity</small><h2>Quiz attempts</h2></div><span class="sf28-chip">{{ summary.quiz_count }}</span></div><div class="sf29-list">{% for attempt in recent_attempts %}<div class="sf29-row"><div class="grow"><strong>{{ attempt.score }}/{{ attempt.total_questions }} · {{ attempt.percentage }}%</strong><small>{{ attempt.get_mode_display }} · {{ attempt.completed_at|date:'d M Y, H:i' }}</small></div><span>{{ attempt.duration_seconds }}s</span></div>{% empty %}<div class="sf29-empty">No standalone vocabulary quizzes yet.</div>{% endfor %}</div></article>
+  </section>
+</div>
+{% endblock %}

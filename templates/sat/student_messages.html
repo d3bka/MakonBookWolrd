@@ -1,0 +1,114 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Messages · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-chat v525-chat{% if selected_classroom %} v5265-chat-has-room{% endif %}"
+     data-student-chat
+     data-chat-user-id="{{ request.user.id }}"
+     data-sticker-upload-url="{% url 'student_chat_sticker_upload_root' %}"
+     data-sticker-delete-template="/messages/stickers/__id__/delete/"
+     data-pack-create-url="{% url 'student_chat_sticker_pack_create_root' %}"
+     data-pack-delete-template="/messages/sticker-packs/__id__/delete/"
+     {% if selected_classroom %}data-classroom-id="{{ selected_classroom.id }}" data-send-url="{% url 'send_classroom_message_root' selected_classroom.id %}" data-fetch-url="{% url 'fetch_classroom_messages_root' selected_classroom.id %}" data-last-id="{{ last_message_id }}"{% endif %}>
+  <aside class="v523-chat-inbox">
+    <header><div><span class="v523-kicker"><i class="bi bi-chat-left-text"></i> Messages</span><h1>Classroom chats</h1></div></header>
+    <div class="v523-chat-search"><i class="bi bi-search"></i><input type="search" placeholder="Search classrooms" data-chat-filter></div>
+    <nav>{% for membership in message_memberships %}<a href="{% url 'student_messages_root' %}?classroom={{ membership.classroom.id }}" data-chat-room data-search="{{ membership.classroom.name|lower }} {{ membership.classroom.teacher.get_full_name|default:membership.classroom.teacher.username|lower }}" class="{% if selected_classroom and selected_classroom.id == membership.classroom.id %}is-active{% endif %}"><span>{{ membership.classroom.name|slice:":1"|upper }}</span><div><strong>{{ membership.classroom.name }}</strong><small>{{ membership.classroom.teacher.get_full_name|default:membership.classroom.teacher.username }}</small></div><i class="bi bi-chevron-right"></i></a>{% empty %}<div class="v523-empty">Join a classroom to start messaging.</div>{% endfor %}</nav>
+  </aside>
+
+  {% if selected_classroom %}
+    <header class="v5264-chat-room-head"><div><span class="v523-chat-room-avatar">{{ selected_classroom.name|slice:":1"|upper }}</span><div><h2>{{ selected_classroom.name }}</h2><p>{{ selected_classroom.teacher.get_full_name|default:selected_classroom.teacher.username }} · classroom chat</p></div></div><div class="v524-chat-head-actions"><button type="button" data-chat-theme-toggle title="Chat appearance"><i class="bi bi-palette"></i></button><a href="{% url 'student_classroom_home_root' selected_classroom.id %}" title="Open classroom"><i class="bi bi-box-arrow-up-right"></i></a></div></header>
+
+    <section class="v523-chat-thread v5265-chat-thread-has-room">
+      <div class="v5264-chat-canvas">
+      <div class="v524-chat-theme-panel v525-chat-theme-panel" data-chat-theme-panel hidden>
+        <div class="v524-chat-theme-head"><div><strong>Chat appearance</strong><small>Saved only for you in this classroom</small></div><button type="button" data-chat-theme-close><i class="bi bi-x-lg"></i></button></div>
+        <div class="v524-chat-theme-grid">
+          <button type="button" data-chat-theme="makon"><i class="theme-makon"><b>✦</b><b>⌁</b></i><span><strong>Makon</strong><small>Books · stars · violet</small></span></button>
+          <button type="button" data-chat-theme="paper"><i class="theme-paper"><b>≡</b></i><span><strong>Notebook</strong><small>Paper lines · clean</small></span></button>
+          <button type="button" data-chat-theme="midnight"><i class="theme-midnight"><b>✧</b><b>·</b></i><span><strong>Midnight</strong><small>Constellations · dark</small></span></button>
+          <button type="button" data-chat-theme="blue"><i class="theme-blue"><b>◌</b><b>⌁</b></i><span><strong>Focus Blue</strong><small>Waves · geometry</small></span></button>
+        </div>
+        <div class="v524-chat-custom-theme">
+          <strong>Build your own</strong>
+          <label>Base <input type="color" value="#f5f1ff" data-chat-custom-base></label>
+          <label>Accent <input type="color" value="#7c3aed" data-chat-custom-accent></label>
+          <label>Pattern <select data-chat-custom-pattern><option value="dots">Dots</option><option value="grid">Grid</option><option value="waves">Waves</option><option value="none">None</option></select></label>
+          <button type="button" class="mb50-secondary-btn" data-chat-theme-custom>Apply</button>
+          <div class="v526-custom-background">
+            <label><i class="bi bi-image"></i><span><strong>My chat background</strong><small>Upload a JPG, PNG or WEBP. It stays only in your browser for this classroom.</small></span><input type="file" accept="image/jpeg,image/png,image/webp" data-chat-custom-background></label>
+            <button type="button" data-chat-custom-background-clear>Remove</button>
+            <span class="v526-chat-background-status" data-chat-custom-background-status aria-live="polite"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="v523-chat-messages" data-chat-messages>
+        {% for item in chat_messages %}<article class="v523-chat-message{% if item.sender_id == request.user.id %} is-mine{% endif %}" data-message-id="{{ item.id }}"><span class="v523-chat-bubble-avatar">{{ item.sender.first_name|default:item.sender.username|slice:":1"|upper }}</span><div><small>{{ item.sender.get_full_name|default:item.sender.username }} · {{ item.created_at|date:"H:i" }}</small>{% if item.message %}<p>{{ item.message|linebreaksbr }}</p>{% endif %}{% if item.sticker %}<img class="v523-chat-sticker-message" src="{{ item.sticker.image.url }}" alt="{{ item.sticker.title|default:'Sticker' }}">{% endif %}{% if item.file %}<a class="v523-chat-file" href="{{ item.file.url }}" target="_blank" rel="noopener"><i class="bi bi-paperclip"></i>{{ item.file.name|cut:"classroom_chat_files/" }}</a>{% endif %}</div></article>{% endfor %}
+      </div>
+
+      <form class="v523-chat-compose" method="post" enctype="multipart/form-data" data-chat-form>{% csrf_token %}
+        <input type="hidden" name="sticker_id" value="" data-chat-sticker-id>
+        <div class="v523-chat-tools"><button type="button" data-chat-emoji-toggle title="Emoji, stickers and GIF"><i class="bi bi-emoji-smile"></i></button><label title="Attach file"><i class="bi bi-paperclip"></i><input type="file" name="file" hidden data-chat-file></label><span data-chat-file-name></span><span class="v523-selected-sticker" data-chat-selected-sticker hidden></span></div>
+        <div class="v523-chat-input"><textarea name="message" rows="1" maxlength="4000" placeholder="Message {{ selected_classroom.name }}…" data-chat-text></textarea><button type="submit" aria-label="Send"><i class="bi bi-send-fill"></i></button></div>
+      </form>
+      </div>
+    </section>
+  {% else %}
+    <section class="v523-chat-thread"><div class="v523-chat-empty"><i class="bi bi-chat-square-dots"></i><h2>No classroom selected.</h2><p>Join an active classroom to use Messages.</p><a class="mb50-primary-btn" href="{% url 'student_classrooms_root' %}">Open Classrooms</a></div></section>
+  {% endif %}
+
+  {% if selected_classroom %}
+  <aside class="v525-chat-media" data-chat-emoji-panel hidden aria-label="Emoji and stickers">
+    <header class="v525-chat-media-head"><div class="v525-chat-media-title"><strong data-chat-media-title>Emoji</strong><small>Quickly add something to your message</small></div><div><button type="button" data-chat-media-undock title="Return to popover"><i class="bi bi-layout-sidebar-reverse"></i></button><button type="button" data-chat-sticker-panel-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div></header>
+    <nav class="v525-chat-media-tabs" aria-label="Message media"><button class="is-active" type="button" data-chat-media-tab="emoji">Emoji</button><button type="button" data-chat-media-tab="stickers">Stickers</button><button type="button" data-chat-media-tab="gif">GIF</button></nav>
+
+    <section class="v525-chat-media-pane is-active" data-chat-media-pane="emoji">
+      <label class="v526-emoji-search"><i class="bi bi-search"></i><input type="search" placeholder="Search emoji categories" autocomplete="off" data-chat-emoji-search></label>
+      <div data-chat-emoji-library>
+        {% for group_name, emojis in emoji_groups %}
+          <section class="v526-emoji-group" data-emoji-group="{{ group_name|lower }}"><h4>{{ group_name }}</h4><div class="v526-emoji-grid">{% for emoji in emojis %}<button type="button" data-chat-sticker="{{ emoji }}" data-emoji-key="{{ group_name|lower }} {{ emoji }}">{{ emoji }}</button>{% endfor %}</div></section>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="v525-chat-media-pane" data-chat-media-pane="stickers" hidden>
+      <div class="v525-sticker-toolbar"><button class="v525-sticker-pack-button" type="button" data-chat-pack-manager-open><i class="bi bi-collection"></i><span><strong>My sticker packs</strong><small>{{ custom_sticker_count }} stickers · {{ sticker_packs|length }} packs</small></span><i class="bi bi-chevron-right"></i></button><label class="v525-add-sticker"><i class="bi bi-plus-lg"></i><span>Add sticker</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden data-chat-sticker-upload></label></div>
+      <div class="v525-pack-strip" data-chat-pack-strip><button class="is-active" type="button" data-chat-pack-filter="all">All</button><button type="button" data-chat-pack-filter="loose">Loose</button>{% for pack in sticker_packs %}<button type="button" data-chat-pack-filter="{{ pack.id }}">{{ pack.title }}</button>{% endfor %}</div>
+      <div class="v523-custom-sticker-grid" data-chat-custom-stickers>
+        {% for sticker in loose_stickers %}<div class="v523-custom-sticker" data-custom-sticker-wrap="{{ sticker.id }}" data-pack-id="loose" data-is-gif="{% if '.gif' in sticker.image.name|lower %}1{% else %}0{% endif %}"><button type="button" data-chat-custom-sticker="{{ sticker.id }}" data-sticker-url="{{ sticker.image.url }}" data-sticker-title="{{ sticker.title }}"><img src="{{ sticker.image.url }}" alt="{{ sticker.title|default:'Custom sticker' }}"></button><button type="button" class="v523-sticker-delete" data-chat-sticker-delete="{{ sticker.id }}" aria-label="Delete sticker"><i class="bi bi-x"></i></button></div>{% endfor %}
+        {% for pack in sticker_packs %}{% for sticker in pack.stickers.all %}<div class="v523-custom-sticker" data-custom-sticker-wrap="{{ sticker.id }}" data-pack-id="{{ pack.id }}" data-is-gif="{% if '.gif' in sticker.image.name|lower %}1{% else %}0{% endif %}"><button type="button" data-chat-custom-sticker="{{ sticker.id }}" data-sticker-url="{{ sticker.image.url }}" data-sticker-title="{{ sticker.title }}"><img src="{{ sticker.image.url }}" alt="{{ sticker.title|default:'Custom sticker' }}"></button><button type="button" class="v523-sticker-delete" data-chat-sticker-delete="{{ sticker.id }}" aria-label="Delete sticker"><i class="bi bi-x"></i></button></div>{% endfor %}{% endfor %}
+        {% if not custom_sticker_count %}<p data-chat-sticker-empty>Create a sticker pack or upload an image once, then reuse it in every classroom chat.</p>{% endif %}
+      </div>
+      <div class="v523-sticker-status" data-chat-sticker-status aria-live="polite"></div>
+    </section>
+
+    <section class="v525-chat-media-pane" data-chat-media-pane="gif" hidden><div class="v525-gif-grid" data-chat-gif-grid></div><div class="v525-media-empty" data-chat-gif-empty><i class="bi bi-filetype-gif"></i><strong>Your GIF stickers appear here.</strong><span>Upload a GIF from Stickers; MakonBook keeps it reusable.</span></div></section>
+
+    <section class="v525-pack-manager" data-chat-pack-manager hidden>
+      <header><button type="button" data-chat-pack-manager-close><i class="bi bi-arrow-left"></i></button><div><strong>My sticker packs</strong><small>Create packs from your own images and reuse them in every classroom.</small></div></header>
+      <button class="v526-pack-manager-cta" type="button" data-chat-pack-create-open><i class="bi bi-plus-lg"></i> Create a sticker pack</button>
+      <div class="v525-pack-manager-list" data-chat-pack-list>
+        {% for pack in sticker_packs %}<article data-chat-pack-row="{{ pack.id }}"><span><i class="bi bi-collection-fill"></i></span><div><strong>{{ pack.title }}</strong><small>{{ pack.stickers.count }} sticker{{ pack.stickers.count|pluralize }}</small></div><label title="Add images"><i class="bi bi-plus-lg"></i><input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" hidden data-chat-pack-upload="{{ pack.id }}"></label><button type="button" data-chat-pack-delete="{{ pack.id }}" title="Remove pack"><i class="bi bi-trash3"></i></button></article>{% empty %}<p data-chat-pack-empty>No packs yet. Create your first pack.</p>{% endfor %}
+      </div>
+    </section>
+
+    <div class="v526-pack-create-modal" data-chat-pack-create-modal hidden>
+      <form class="v526-pack-create-card" data-chat-pack-create>
+        <div class="v526-pack-create-head"><h3>New sticker pack</h3><button type="button" data-chat-pack-create-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div>
+        <label>Pack name<input type="text" maxlength="80" placeholder="Example: SAT reactions" required data-chat-pack-create-name></label>
+        <label class="v526-pack-file-picker"><input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" data-chat-pack-create-files><span><i class="bi bi-images"></i> Add images</span></label>
+        <div class="v526-pack-file-count" data-chat-pack-create-count>No images selected. You can also add them later.</div>
+        <div class="v526-pack-create-actions"><button class="mb50-secondary-btn" type="button" data-chat-pack-create-close>Cancel</button><button class="mb50-primary-btn" type="submit"><i class="bi bi-plus-lg"></i> Create</button></div>
+      </form>
+    </div>
+  </aside>
+
+  <div class="v524-sticker-confirm" data-sticker-confirm hidden>
+    <button class="v524-sticker-confirm-scrim" type="button" data-sticker-confirm-cancel aria-label="Cancel"></button>
+    <section role="dialog" aria-modal="true" aria-labelledby="stickerConfirmTitle"><div class="v524-sticker-preview"><img data-sticker-confirm-preview alt="Sticker preview"></div><div><span class="v523-kicker">My stickers</span><h3 id="stickerConfirmTitle">Add this sticker?</h3><p>It is stored in your personal MakonBook sticker library and can be reused in every classroom chat.</p><label>Name<input type="text" maxlength="80" data-sticker-confirm-title placeholder="Sticker name"></label><label>Sticker pack<select data-sticker-confirm-pack><option value="">Loose stickers</option>{% for pack in sticker_packs %}<option value="{{ pack.id }}">{{ pack.title }}</option>{% endfor %}</select></label><div class="v524-sticker-confirm-actions"><button class="mb50-secondary-btn" type="button" data-sticker-confirm-cancel>Cancel</button><button class="mb50-primary-btn" type="button" data-sticker-confirm-save><i class="bi bi-plus-lg"></i> Add sticker</button></div></div></section>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}<script src="{% static 'assets/js/student-messages-v525.js' %}?v=5265"></script>{% endblock %}

@@ -1,0 +1,197 @@
+{% extends 'world/base.html' %}
+
+{% block world_content %}
+<section class="mw504-mode-shell" data-world-home data-world-mode-switch data-initial-mode="{{ world_initial_mode|default:'duel' }}">
+  <div class="mw504-swipe-toggle mw504-game-type-switch" role="tablist" aria-label="Game mode">
+    <span class="mw504-swipe-thumb" aria-hidden="true"></span>
+    <button type="button" class="mw504-swipe-option is-active" data-world-mode="duel" role="tab" aria-selected="true">
+      <i class="bi bi-lightning-charge-fill"></i><span>1v1</span>
+    </button>
+    <button type="button" class="mw504-swipe-option" data-world-mode="multiplayer" role="tab" aria-selected="false">
+      <i class="bi bi-people-fill"></i><span>Multiplayer</span>
+    </button>
+  </div>
+  <a class="mw504-hidden-route" href="{% url 'world_multiplayer_home' %}" hidden aria-hidden="true" tabindex="-1">Multiplayer</a>
+
+  <div class="mw504-mode-stage">
+    <section class="mw504-mode-panel is-active" data-world-mode-panel="duel">
+      <div class="mw503-home-grid mw504-home-grid-clean">
+        {% include 'world/_player_card.html' %}
+        <main class="mw503-play-panel">
+          <header class="mw503-page-head mw503-lobby-hero mw504-clean-hero">
+            <div><span class="mw503-eyebrow">1v1</span><h1>Duel</h1></div>
+            <div class="mw503-page-head-meta"><span><i class="bi bi-ui-checks-grid"></i>5</span><span><i class="bi bi-clock-history"></i>≤ {{ world_queue_limit_seconds }}s</span></div>
+          </header>
+
+          <form class="mw503-matchmaker mw504-rounded-card" data-world-matchmaker data-join-url="{% url 'world_queue_join' %}" data-queue-limit="{{ world_queue_limit_seconds }}">
+            {% csrf_token %}
+            <section class="mw503-config-section">
+              <div class="mw503-config-label"><span>01</span><div><strong>Subject</strong></div></div>
+              <div class="mw503-segment mw503-subjects">
+                <label class="{% if world_subject == 'math' %}is-active{% endif %}"><input type="radio" name="subject" value="math" {% if world_subject == 'math' %}checked{% endif %}><i class="bi bi-calculator"></i><span>Math</span><small>{{ world_math_rating.rating }}</small></label>
+                <label class="{% if world_subject == 'rw' %}is-active{% endif %}"><input type="radio" name="subject" value="rw" {% if world_subject == 'rw' %}checked{% endif %}><i class="bi bi-book"></i><span>Reading & Writing</span><small>{{ world_rw_rating.rating }}</small></label>
+              </div>
+            </section>
+
+            <section class="mw503-config-section">
+              <div class="mw503-config-label"><span>02</span><div><strong>Mode</strong></div></div>
+              <div class="mw503-mode-row">
+                <label class="mw503-mode is-active"><input type="radio" name="mode" value="quick" checked><i class="bi bi-lightning-charge-fill"></i><span><strong>Quick</strong></span></label>
+                <label class="mw503-mode"><input type="radio" name="mode" value="ranked"><i class="bi bi-trophy"></i><span><strong>Ranked</strong></span></label>
+              </div>
+            </section>
+
+            {% if world_active_match %}
+              <a class="mw503-primary" href="{% url 'world_match' world_active_match.id %}"><i class="bi bi-arrow-repeat"></i><span>Resume</span><i class="bi bi-arrow-right"></i></a>
+            {% else %}
+              <button class="mw503-primary" type="submit" data-world-find><i class="bi bi-lightning-charge-fill"></i><span>Find match</span><i class="bi bi-arrow-right"></i></button>
+            {% endif %}
+            <p class="mw503-form-status" data-world-status aria-live="polite"></p>
+          </form>
+        </main>
+      </div>
+    </section>
+
+    <section class="mw504-mode-panel" data-world-mode-panel="multiplayer" hidden>
+      <div class="mw504-mp-home mw504-mp-inline">
+        {% if world_multiplayer_room %}
+        <section class="mw504-mp-resume mw504-rounded-card">
+          <div>
+            <small>ACTIVE {{ world_multiplayer_room.get_access_type_display|upper }} ROOM</small>
+            <strong>{{ world_multiplayer_room.join_code }}</strong>
+            <span>{{ world_multiplayer_room.get_subject_display }} · {{ world_multiplayer_room.capacity }} players · {{ world_multiplayer_room.get_access_type_display }}</span>
+          </div>
+          <a class="mw503-primary mw504-action-btn" href="{% if world_multiplayer_room.status == 'active' %}{% url 'world_multiplayer_play' world_multiplayer_room.id %}{% else %}{% url 'world_multiplayer_room' world_multiplayer_room.id %}{% endif %}">Open room <i class="bi bi-arrow-right"></i></a>
+        </section>
+        {% else %}
+        <div class="mw504-mp-grid mw504-mp-grid-clean">
+          <form class="mw504-mp-card mw504-create-card mw504-rounded-card" data-mp-create action="{% url 'world_multiplayer_create' %}" method="post">{% csrf_token %}
+            <div class="mw504-card-head"><span class="mw504-mp-icon"><i class="bi bi-people-fill"></i></span><div><small>CREATE</small><h2>New room</h2></div></div>
+
+            <section class="mw503-config-section mw504-compact-section">
+              <div class="mw503-config-label"><span>01</span><div><strong>Subject</strong></div></div>
+              <div class="mw503-segment mw503-subjects">
+                <label class="is-active"><input type="radio" name="subject" value="math" checked><i class="bi bi-calculator"></i><span>Math</span></label>
+                <label><input type="radio" name="subject" value="rw"><i class="bi bi-book"></i><span>Reading & Writing</span></label>
+              </div>
+            </section>
+
+            <section class="mw503-config-section mw504-compact-section">
+              <div class="mw503-config-label"><span>02</span><div><strong>Battle</strong></div></div>
+              <div class="mw503-mode-row mw504-option-row mw504-ruleset-row" data-mp-ruleset>
+                <label class="mw503-mode is-active"><input type="radio" name="game_mode" value="ffa" checked><i class="bi bi-grid-3x3-gap-fill"></i><span><strong>FFA</strong></span></label>
+                <label class="mw503-mode"><input type="radio" name="game_mode" value="team_2v2"><i class="bi bi-people-fill"></i><span><strong>2v2</strong></span></label>
+              </div>
+            </section>
+
+            <section class="mw503-config-section mw504-compact-section">
+              <div class="mw503-config-label"><span>03</span><div><strong>Players</strong></div></div>
+              <div class="mw503-mode-row mw504-option-row">
+                <label class="mw503-mode"><input type="radio" name="capacity" value="3"><i class="bi bi-3-circle-fill"></i><span><strong>3 players</strong></span></label>
+                <label class="mw503-mode is-active"><input type="radio" name="capacity" value="4" checked><i class="bi bi-4-circle-fill"></i><span><strong>4 players</strong></span></label>
+              </div>
+            </section>
+
+            <section class="mw503-config-section mw504-compact-section">
+              <div class="mw503-config-label"><span>04</span><div><strong>Questions</strong></div></div>
+              <div class="mw504-question-count" data-mp-question-count>
+                <label><input type="radio" name="question_count" value="5" checked><span>5</span></label>
+                <label><input type="radio" name="question_count" value="10"><span>10</span></label>
+                <label><input type="radio" name="question_count" value="15"><span>15</span></label>
+                <label><input type="radio" name="question_count" value="20"><span>20</span></label>
+              </div>
+            </section>
+
+            <section class="mw503-config-section mw504-compact-section">
+              <div class="mw503-config-label"><span>05</span><div><strong>Room type</strong></div></div>
+              <div class="mw503-mode-row mw504-option-row">
+                <label class="mw503-mode is-active"><input type="radio" name="access_type" value="private" checked><i class="bi bi-lock-fill"></i><span><strong>Private</strong></span></label>
+                <label class="mw503-mode"><input type="radio" name="access_type" value="public"><i class="bi bi-globe"></i><span><strong>Public</strong></span></label>
+              </div>
+            </section>
+
+            <button class="mw503-primary mw504-action-btn" type="submit">Create room <i class="bi bi-arrow-right"></i></button>
+            <p class="mw503-form-status" data-mp-status></p>
+          </form>
+
+          <div class="mw504-mp-stack">
+            <form class="mw504-mp-card mw504-public-card mw504-rounded-card" data-mp-public action="{% url 'world_multiplayer_public_join' %}" method="post">{% csrf_token %}
+              <div class="mw504-card-head"><span class="mw504-mp-icon"><i class="bi bi-globe2"></i></span><div><small>PUBLIC</small><h2>Join public game</h2></div></div>
+
+              <section class="mw503-config-section mw504-compact-section">
+                <div class="mw503-config-label"><span>01</span><div><strong>Subject</strong></div></div>
+                <div class="mw503-segment mw503-subjects">
+                  <label class="is-active"><input type="radio" name="subject" value="math" checked><i class="bi bi-calculator"></i><span>Math</span></label>
+                  <label><input type="radio" name="subject" value="rw"><i class="bi bi-book"></i><span>Reading & Writing</span></label>
+                </div>
+              </section>
+
+              <section class="mw503-config-section mw504-compact-section">
+                <div class="mw503-config-label"><span>02</span><div><strong>Battle</strong></div></div>
+                <div class="mw503-mode-row mw504-option-row mw504-ruleset-row" data-mp-ruleset>
+                  <label class="mw503-mode is-active"><input type="radio" name="game_mode" value="ffa" checked><i class="bi bi-grid-3x3-gap-fill"></i><span><strong>FFA</strong></span></label>
+                  <label class="mw503-mode"><input type="radio" name="game_mode" value="team_2v2"><i class="bi bi-people-fill"></i><span><strong>2v2</strong></span></label>
+                </div>
+              </section>
+
+              <section class="mw503-config-section mw504-compact-section">
+                <div class="mw503-config-label"><span>03</span><div><strong>Players</strong></div></div>
+                <div class="mw503-mode-row mw504-option-row">
+                  <label class="mw503-mode"><input type="radio" name="capacity" value="3"><i class="bi bi-3-circle-fill"></i><span><strong>3 players</strong></span></label>
+                  <label class="mw503-mode is-active"><input type="radio" name="capacity" value="4" checked><i class="bi bi-4-circle-fill"></i><span><strong>4 players</strong></span></label>
+                </div>
+              </section>
+
+              <section class="mw503-config-section mw504-compact-section">
+                <div class="mw503-config-label"><span>04</span><div><strong>Questions</strong></div></div>
+                <div class="mw504-question-count" data-mp-question-count>
+                  <label><input type="radio" name="question_count" value="5" checked><span>5</span></label>
+                  <label><input type="radio" name="question_count" value="10"><span>10</span></label>
+                  <label><input type="radio" name="question_count" value="15"><span>15</span></label>
+                  <label><input type="radio" name="question_count" value="20"><span>20</span></label>
+                </div>
+              </section>
+
+              <button class="mw503-primary mw504-action-btn" type="submit">Join public room <i class="bi bi-arrow-right"></i></button>
+              <p class="mw503-form-status" data-mp-status></p>
+            </form>
+
+            <form class="mw504-mp-card mw504-join-card mw504-rounded-card" data-mp-join action="{% url 'world_multiplayer_join' %}" method="post">{% csrf_token %}
+              <div class="mw504-card-head"><span class="mw504-mp-icon"><i class="bi bi-key-fill"></i></span><div><small>PRIVATE</small><h2>Room code</h2></div></div>
+              <label class="mw504-code-input-label">Code<input name="join_code" maxlength="6" autocomplete="off" placeholder="ABC123" required></label>
+              <button class="mw503-primary mw504-action-btn" type="submit">Join private room <i class="bi bi-box-arrow-in-right"></i></button>
+              <p class="mw503-form-status" data-mp-status></p>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</section>
+
+{% if request.GET.notice == 'kicked' %}
+<div class="mw504-kicked-notice" data-mp-kicked-notice role="dialog" aria-modal="true" aria-labelledby="mp-kicked-title">
+  <div class="mw504-kicked-card">
+    <span class="mw504-kicked-icon"><i class="bi bi-person-x-fill"></i></span>
+    <div class="mw504-kicked-copy">
+      <small>ROOM UPDATE</small>
+      <h2 id="mp-kicked-title">Removed from room</h2>
+      <p>The host removed you from the multiplayer lobby.</p>
+    </div>
+    <button type="button" class="mw503-primary mw504-kicked-ok" data-mp-kicked-close>OK</button>
+  </div>
+</div>
+{% endif %}
+
+<div class="mw503-queue-layer" data-world-queue hidden>
+  <div class="mw503-queue-modal mw504-rounded-card">
+    <button type="button" data-world-queue-close aria-label="Cancel"><i class="bi bi-x-lg"></i></button>
+    <span class="mw503-radar"><i></i><b></b></span>
+    <h2>Finding opponent</h2>
+    <div class="mw503-queue-progress"><span data-world-queue-progress></span></div>
+    <div class="mw503-queue-facts"><span><i class="bi bi-circle-fill"></i>Searching</span><strong data-world-queue-time>00:00</strong></div>
+    <p class="mw503-queue-message" data-world-queue-message></p>
+  </div>
+</div>
+{% endblock world_content %}

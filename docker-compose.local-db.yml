@@ -1,0 +1,23 @@
+name: makonbook-local
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: makonbook-postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: makonbook
+      POSTGRES_USER: makonbook
+      POSTGRES_PASSWORD: makonbook_local_dev_2026
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - makonbook_local_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U makonbook -d makonbook"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  makonbook_local_postgres:

@@ -1,0 +1,56 @@
+{% extends student_workspace_base_template|default:'template.html' %}
+{% load static %}
+
+{% block title-main %}{% if classroom %}{{ classroom.name }}{% else %}MakonBook{% endif %}{% endblock title-main %}
+{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
+{% block title %}Practice Quiz{% endblock title %}
+
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=505">{% endblock style %}
+
+{% block content %}
+<div class="vocab-shell">
+  <section class="vocab-hero">
+    <div class="vocab-hero-grid">
+      <div><span class="vocab-eyebrow">Quiz builder</span><h2 class="vocab-title">Build a quiz around what you actually need.</h2><p class="vocab-copy">Choose units, question count, and recall direction. Every submitted answer updates word mastery and the classroom progress dashboard.</p></div>
+      <div class="vocab-summary-grid">
+        <div class="vocab-stat"><small>Quiz attempts</small><strong>{{ summary.quiz_count }}</strong><span>Saved results</span></div>
+        <div class="vocab-stat"><small>Best score</small><strong>{% if summary.best_quiz_percent != None %}{{ summary.best_quiz_percent }}%{% else %}—{% endif %}</strong><span>Personal best</span></div>
+        <div class="vocab-stat"><small>Mastered</small><strong>{{ summary.mastered_words }}</strong><span>Of {{ summary.total_words }}</span></div>
+        <div class="vocab-stat"><small>Accuracy</small><strong>{{ summary.accuracy_percent }}%</strong><span>All recall attempts</span></div>
+      </div>
+    </div>
+  </section>
+
+  {% if messages %}<section class="vocab-section">{% for message in messages %}<div class="vocab-panel" style="margin-bottom:10px">{{ message }}</div>{% endfor %}</section>{% endif %}
+
+  <section class="vocab-section vocab-quiz-layout">
+    <form class="vocab-panel" method="post" action="{% if classroom %}{% url 'classroom_vocabulary_practice_quiz_start' classroom.id %}{% else %}{% url 'vocabulary_practice_quiz_start_root' %}{% endif %}" data-vocab-quiz-builder>
+      {% csrf_token %}
+      <div class="vocab-section-head"><div><h2>Select units</h2><p><span data-selected-units>0</span> selected · <span data-available-words>0</span> available words</p></div><div class="vocab-actions" style="margin:0"><button class="vocab-btn" type="button" data-select-all>Select all</button><button class="vocab-btn" type="button" data-clear-all>Clear</button></div></div>
+      <div class="vocab-quiz-unit-list">
+        {% for row in unit_rows %}
+          <label class="vocab-check-card">
+            <input type="checkbox" name="units" value="{{ row.unit.id }}" data-word-count="{{ row.word_count }}">
+            <strong>{{ row.unit.title }}</strong><span>{{ row.word_count }} words · {{ row.mastered_words }} mastered · {{ row.accuracy_percent }}% accuracy</span>
+          </label>
+        {% empty %}<div class="vocab-empty">No active units.</div>{% endfor %}
+      </div>
+      <div class="vocab-form-grid">
+        <div class="vocab-form-field"><label for="question_count">Questions</label><input class="vocab-input" id="question_count" type="number" name="question_count" min="1" value="10" required></div>
+        <div class="vocab-form-field"><label for="quiz_mode">Recall direction</label><select class="vocab-select" id="quiz_mode" name="quiz_mode"><option value="mixed">Mixed</option><option value="word_to_meaning">Word → meaning</option><option value="meaning_to_word">Meaning → word</option></select></div>
+      </div>
+      <button class="vocab-btn vocab-btn-primary" type="submit" style="width:100%;margin-top:16px" disabled>Start quiz</button>
+    </form>
+
+    <aside class="vocab-panel">
+      <div class="vocab-section-head"><div><h2>Recent attempts</h2><p>Latest saved results.</p></div></div>
+      <div class="vocab-recent-list">
+        {% for attempt in recent_attempts %}
+          <div class="vocab-attempt-row"><div><strong>{{ attempt.score }}/{{ attempt.total_questions }}</strong><small>{{ attempt.get_mode_display }} · {{ attempt.completed_at|date:"M d, H:i" }}</small></div><strong>{{ attempt.percentage }}%</strong></div>
+        {% empty %}<div class="vocab-empty">No quiz attempts yet.</div>{% endfor %}
+      </div>
+    </aside>
+  </section>
+</div>
+<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}?v=505"></script>
+{% endblock content %}

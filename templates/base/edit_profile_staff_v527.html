@@ -1,0 +1,30 @@
+{% extends 'sat/staff_workspace.html' %}
+{% load static %}
+{% block page_title %}Profile | MakonBook{% endblock %}
+{% block content %}
+<div class="sf27-page sf27-account-page">
+  <div class="sf27-page-head">
+    <div><small><i class="bi bi-person-circle"></i> Staff account</small><h1>{{ request.user.get_full_name|default:request.user.username }}</h1><p>Keep your staff identity and password current without leaving the operational workspace.</p></div>
+    <div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'student_dashboard_root' %}"><i class="bi bi-grid"></i> Workspace home</a></div>
+  </div>
+
+  <div class="sf27-account-grid">
+    <section class="sf27-card">
+      <div class="sf27-account-identity"><span class="sf27-account-avatar">{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}</span><div><small>Signed in as</small><h2>{{ request.user.get_full_name|default:request.user.username }}</h2><p>@{{ request.user.username }}{% if request.user.email %} · {{ request.user.email }}{% endif %}</p></div></div>
+      <div class="sf27-section-head"><div><small>Identity</small><h2>Edit profile</h2><p>This name is used in classrooms, manager views and mentor surfaces.</p></div></div>
+      <form method="post" class="sf27-form-grid">{% csrf_token %}<input type="hidden" name="profile_action" value="profile">
+        {% for field in form %}<label class="sf27-field{% if forloop.last %} sf27-field-wide{% endif %}"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text|safe }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}
+        <div class="sf27-form-footer"><button class="sf27-btn" type="submit"><i class="bi bi-check2-circle"></i> Save profile</button></div>
+      </form>
+    </section>
+
+    <aside class="sf27-card">
+      <div class="sf27-section-head"><div><small>Security</small><h2>Change password</h2><p>Use your current password, then choose a new one that passes MakonBook's password checks.</p></div></div>
+      <form method="post" class="sf27-form-grid sf27-single-form">{% csrf_token %}<input type="hidden" name="profile_action" value="password">
+        {% for field in password_form %}<label class="sf27-field sf27-field-wide"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text|safe }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}
+        <div class="sf27-form-footer"><span class="sf27-form-hint"><i class="bi bi-shield-check"></i> Your current session stays signed in after a successful change.</span><button class="sf27-btn" type="submit"><i class="bi bi-key"></i> Update password</button></div>
+      </form>
+    </aside>
+  </div>
+</div>
+{% endblock %}

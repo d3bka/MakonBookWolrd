@@ -1,0 +1,285 @@
+/* MakonBook Exam Timer V54.0.7
+   Professional compact timer group for both SAT sections. */
+
+/* Center cluster reads as a single deliberate control group. */
+body.github-test-template-v20 .github-test-timer-wrap {
+  min-height: 36px !important;
+  padding: 3px !important;
+  gap: 5px !important;
+  border: 1px solid rgba(109,40,217,.10) !important;
+  border-radius: 14px !important;
+  background: rgba(255,255,255,.72) !important;
+  box-shadow:
+    0 8px 22px rgba(76,29,149,.045),
+    inset 0 1px 0 rgba(255,255,255,.88) !important;
+}
+
+/* Timer value/status. */
+body.github-test-template-v20 .github-test-timer-wrap .timer {
+  min-width: 82px !important;
+  width: auto !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 11px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #26183b !important;
+  font-size: 13px !important;
+  line-height: 30px !important;
+  font-weight: 850 !important;
+  letter-spacing: -.015em !important;
+  text-align: center !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* Hidden state: keep the label visually dead-center. */
+body.github-test-template-v20.exam54-time-hidden .github-test-timer-wrap .timer,
+body.github-test-template-v20.exam54-time-hidden #timer {
+  position: relative !important;
+  min-width: 76px !important;
+  width: 76px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  font-size: 0 !important;
+  color: transparent !important;
+  text-indent: -9999px !important;
+  overflow: hidden !important;
+}
+
+body.github-test-template-v20.exam54-time-hidden #timer::after {
+  content: "Hidden" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #5d5268 !important;
+  font-size: 9px !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  letter-spacing: .01em !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  text-indent: 0 !important;
+}
+
+/* Saved status becomes a clean confirmation chip. */
+body.github-test-template-v20 .test-save-status {
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 9px !important;
+  gap: 5px !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: rgba(34,197,94,.075) !important;
+  color: #4f4659 !important;
+  box-shadow: inset 0 0 0 1px rgba(34,197,94,.11) !important;
+  font-size: 8.5px !important;
+  font-weight: 800 !important;
+}
+
+body.github-test-template-v20 .save-status-dot {
+  width: 7px !important;
+  height: 7px !important;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.10) !important;
+}
+
+/* Hide / Show is now an actual professional action button. */
+body.github-test-template-v20 .exam54-time-toggle {
+  height: 28px !important;
+  min-height: 28px !important;
+  min-width: 86px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  color: #5b21b6 !important;
+  background: rgba(109,40,217,.075) !important;
+  box-shadow: inset 0 0 0 1px rgba(109,40,217,.105) !important;
+  font-size: 8.5px !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+  transition:
+    background .16s ease,
+    box-shadow .16s ease,
+    transform .16s ease !important;
+}
+
+body.github-test-template-v20 .exam54-time-toggle i {
+  width: 11px !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+body.github-test-template-v20 .exam54-time-toggle span {
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+body.github-test-template-v20 .exam54-time-toggle:hover {
+  transform: translateY(-1px) !important;
+  color: #4c1d95 !important;
+  background: rgba(109,40,217,.115) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(109,40,217,.18),
+    0 6px 14px rgba(76,29,149,.06) !important;
+}
+
+body.github-test-template-v20 .exam54-time-toggle:active {
+  transform: translateY(0) !important;
+}
+
+/* When the time is hidden, Show time gets a slightly stronger visual cue. */
+body.github-test-template-v20 .exam54-time-toggle.is-time-hidden {
+  color: #fff !important;
+  background: linear-gradient(105deg,#6d28d9,#8b5cf6) !important;
+  box-shadow: 0 7px 16px rgba(109,40,217,.14) !important;
+}
+
+/* Light mode */
+html[data-theme="light"] body.github-test-template-v20 .github-test-timer-wrap {
+  background: rgba(255,255,255,.90) !important;
+}
+
+/* Dark mode */
+html[data-theme="dark"] body.github-test-template-v20 .github-test-timer-wrap {
+  border-color: rgba(196,181,253,.10) !important;
+  background: rgba(24,18,30,.78) !important;
+  box-shadow:
+    0 10px 24px rgba(0,0,0,.16),
+    inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+html[data-theme="dark"] body.github-test-template-v20 .github-test-timer-wrap .timer {
+  color: #f6f1fa !important;
+}
+
+html[data-theme="dark"] body.github-test-template-v20.exam54-time-hidden #timer::after {
+  color: #cfc4d6 !important;
+}
+
+html[data-theme="dark"] body.github-test-template-v20 .test-save-status {
+  color: #dfd7e5 !important;
+  background: rgba(34,197,94,.08) !important;
+}
+
+html[data-theme="dark"] body.github-test-template-v20 .exam54-time-toggle {
+  color: #d8c7ff !important;
+  background: rgba(139,92,246,.11) !important;
+  box-shadow: inset 0 0 0 1px rgba(196,181,253,.11) !important;
+}
+
+/* Tablet */
+@media (max-width: 980px) {
+  body.github-test-template-v20 .exam54-time-toggle {
+    min-width: 74px !important;
+    padding-inline: 8px !important;
+  }
+
+  body.github-test-template-v20 .exam54-time-toggle span {
+    font-size: 8px !important;
+  }
+}
+
+/* Small screens: keep only the timer itself; existing v5406 hides secondary controls. */
+@media (max-width: 720px) {
+  body.github-test-template-v20 .github-test-timer-wrap {
+    padding: 2px !important;
+  }
+
+  body.github-test-template-v20 .github-test-timer-wrap .timer {
+    min-width: 68px !important;
+  }
+}
+
+
+/* V54.1.0 — Bluebook-like final five minutes behavior.
+   Official behavior: timer becomes visible at 5:00 and can no longer be hidden. */
+body.github-test-template-v20 .github-test-timer-wrap .timer.is-five-minute-lock{
+  color:#26183b!important;
+  background:transparent!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+  animation:none!important;
+}
+body.github-test-template-v20 .exam54-time-toggle.is-five-minute-locked,
+body.github-test-template-v20 .exam54-time-toggle:disabled{
+  min-width:72px!important;
+  cursor:default!important;
+  opacity:.68!important;
+  color:#6f6479!important;
+  background:rgba(109,40,217,.045)!important;
+  box-shadow:inset 0 0 0 1px rgba(109,40,217,.08)!important;
+  transform:none!important;
+}
+.exam54-five-minute-alert{
+  position:fixed;
+  inset:0;
+  z-index:10150;
+  display:grid;
+  place-items:center;
+  padding:22px;
+  background:rgba(30,20,40,.28);
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+.exam54-five-minute-alert-card{
+  width:min(430px,100%);
+  padding:24px;
+  border:1px solid rgba(109,40,217,.17);
+  border-radius:20px;
+  background:#fff;
+  color:#27183a;
+  box-shadow:0 28px 80px rgba(38,24,56,.22);
+}
+.exam54-five-minute-kicker{
+  display:block;
+  color:#6d28d9;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.exam54-five-minute-alert-card strong{
+  display:block;
+  margin-top:8px;
+  font-size:22px;
+  line-height:1.15;
+  letter-spacing:-.025em;
+}
+.exam54-five-minute-alert-card p{
+  margin:9px 0 0;
+  color:#756a80;
+  font-size:12px;
+  line-height:1.55;
+}
+.exam54-five-minute-alert-card button{
+  min-height:40px;
+  margin-top:18px;
+  padding:0 15px;
+  border:0;
+  border-radius:11px;
+  color:#fff;
+  background:linear-gradient(105deg,#6d28d9,#8b5cf6,#c026d3);
+  font:850 10px/1 inherit;
+  cursor:pointer;
+}
+html[data-theme="dark"] .exam54-five-minute-alert-card{
+  border-color:rgba(196,181,253,.12);
+  background:#17121c;
+  color:#f7f2fb;
+}
+html[data-theme="dark"] .exam54-five-minute-alert-card p{color:#bcb1c5}
+html[data-theme="dark"] body.github-test-template-v20 .github-test-timer-wrap .timer.is-five-minute-lock{color:#f6f1fa!important}

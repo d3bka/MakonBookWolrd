@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  {% load static %}
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+  <title>{% block page_title %}MakonBook{% endblock page_title %}</title>
+  <meta content="" name="description">
+  <meta content="" name="keywords">
+  {% include 'base/theme_init.html' %}
+
+  <!-- Favicons -->
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  <link href="{% static 'assets/img/apple-touch-icon.png' %}" rel="apple-touch-icon">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600;1,700&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
+
+  <!-- Vendor CSS Files -->
+  <link href="{% static 'assets/vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
+  {% block optional_vendor_styles %}
+  <link href="{% static 'assets/vendor/aos/aos.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/vendor/glightbox/css/glightbox.min.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/vendor/swiper/swiper-bundle.min.css' %}" rel="stylesheet">
+  {% endblock optional_vendor_styles %}
+
+  <!-- Template Main CSS File -->
+  <link href="{% static 'assets/css/main.css' %}" rel="stylesheet">
+  {% block style %}  {% endblock style %}
+  <link href="{% static 'assets/css/makon-theme.css' %}?v=5262" rel="stylesheet">
+
+  <link href="{% static 'assets/css/makon-pages.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/css/makon-theme-switcher.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/css/makon-learning.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/css/makon-final-pages.css' %}" rel="stylesheet">
+  <link href="{% static 'assets/css/profile-name-gate-v338.css' %}?v=339" rel="stylesheet">
+  <link href="{% static 'assets/css/makon-notification-badge.css' %}?v=2" rel="stylesheet">
+
+  <style>
+    .breadcrumbs .page-header {
+      background: linear-gradient(180deg, #f6f1ff 0%, #efe7ff 100%) !important;
+      border-bottom: 1px solid rgba(124, 58, 237, 0.12);
+    }
+
+    .page-title-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      color: #4c1d95;
+      font-family: var(--font-secondary);
+      line-height: 1.15;
+      text-shadow: none;
+    }
+
+    .page-title-wrap > :first-child,
+    .page-title-wrap {
+      font-size: 56px;
+      font-weight: 700;
+      color: #4c1d95;
+    }
+
+    .page-title-wrap > div,
+    .page-title-wrap > small,
+    .page-title-wrap > span {
+      font-size: 28px;
+      font-weight: 500;
+      color: #6d28d9;
+      margin-top: 0 !important;
+    }
+
+
+    html[data-theme="dark"] .breadcrumbs .page-header {
+      background: linear-gradient(180deg, #110626 0%, #1b0d35 100%) !important;
+      border-bottom-color: rgba(255, 255, 255, 0.12);
+    }
+
+    html[data-theme="dark"] .page-title-wrap,
+    html[data-theme="dark"] .page-title-wrap > :first-child {
+      color: #ffffff;
+    }
+
+    html[data-theme="dark"] .page-title-wrap > div,
+    html[data-theme="dark"] .page-title-wrap > small,
+    html[data-theme="dark"] .page-title-wrap > span {
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    @media (max-width: 768px) {
+      .page-title-wrap,
+      .page-title-wrap > :first-child {
+        font-size: 38px;
+      }
+
+      .page-title-wrap > div,
+      .page-title-wrap > small,
+      .page-title-wrap > span {
+        font-size: 22px;
+      }
+    }
+  </style>
+
+  <link href="{% static 'assets/css/makon-responsive.css' %}" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
+  {% include 'base/responsive_css.html' %}
+  {% block workspace_final_styles %}{% endblock workspace_final_styles %}
+</head>
+
+<body>
+
+  {% block body %}
+  {% include 'base/header.html' %}
+  {% include 'base/profile_name_prompt.html' %}
+
+  <main id="main">
+
+    <!-- ======= Breadcrumbs ======= -->
+    <div class="breadcrumbs">
+      <div class="page-header d-flex align-items-center">
+        <div class="container position-relative">
+          <div class="row d-flex justify-content-center">
+            <div class="col-lg-8 text-center">
+              <div class="page-title-wrap">
+                <div>{% block title-main %}{% endblock title-main %}</div>
+                {% block title-subtitle %}{% endblock title-subtitle %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <nav>
+        <div class="container">
+          <ol>
+            <li><a href="/">Home</a></li>
+            {% if classroom and request.resolver_match.url_name != 'student_classroom_home' %}
+              <li>
+                {% if role == 'teacher' or role == 'admin' or request.resolver_match.url_name == 'teacher_classroom_dashboard' or request.resolver_match.url_name == 'classroom_progress_dashboard' %}
+                  <a href="{% url 'teacher_classroom_dashboard' classroom.id %}">Classroom</a>
+                {% else %}
+                  <a href="{% url 'student_classroom_home' classroom.id %}">Classroom</a>
+                {% endif %}
+              </li>
+            {% endif %}
+            {% block breadcrumb_parent %}{% endblock breadcrumb_parent %}
+            <li>{% block title %}{% endblock title %}</li>
+          </ol>
+        </div>
+      </nav>
+    </div><!-- End Breadcrumbs -->
+
+    <!-- ======= Blog Section ======= -->
+
+    <section id="blog" class="blog">     
+
+        {% block content %}
+      
+        {% endblock content %}
+    </section><!-- End Blog Section -->
+
+  </main><!-- End #main -->
+
+  {% include 'base/footer.html' %}
+  {% endblock body %}
+
+  <a href="#" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+
+  <div id="preloader"></div>
+
+  {% block base_runtime_scripts %}
+  <!-- Vendor JS Files -->
+  <script src="{% static 'assets/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'assets/vendor/aos/aos.js' %}"></script>
+  <script src="{% static 'assets/vendor/glightbox/js/glightbox.min.js' %}"></script>
+  <script src="{% static 'assets/vendor/purecounter/purecounter_vanilla.js' %}"></script>
+  <script src="{% static 'assets/vendor/swiper/swiper-bundle.min.js' %}"></script>
+  <script src="{% static 'assets/vendor/isotope-layout/isotope.pkgd.min.js' %}"></script>
+  <script src="{% static 'assets/vendor/php-email-form/validate.js' %}"></script>
+
+  <!-- Template Main JS File -->
+  <script src="{% static 'assets/js/main.js' %}"></script>
+
+  <script src="{% static 'assets/js/makon-pages.js' %}"></script>
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  <script src="{% static 'assets/js/makon-learning.js' %}"></script>
+  <script src="{% static 'assets/js/makon-final-pages.js' %}"></script>
+  <script src="{% static 'assets/js/profile-name-gate-v338.js' %}"></script>
+  <script src="{% static 'assets/js/makon-notifications.js' %}?v=2"></script>
+  {% endblock base_runtime_scripts %}
+
+  {% block scripts %}{% endblock scripts %}
+  {% block issue_report_widget %}{% include 'base/issue_report_widget.html' %}{% endblock issue_report_widget %}
+</body>
+
+</html>

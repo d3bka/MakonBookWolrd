@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  {% include 'base/theme_init.html' %}
+  <title>{{ event.title }} - SAT Makon</title>
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-style.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-auth.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/mock-registration-v5581.css' %}">
+  {% include 'base/responsive_css.html' %}
+</head>
+<body class="public-page">
+  <div class="public-shell">
+    <nav class="public-nav" data-page-reveal>
+      <a href="/" class="public-brand">
+        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon logo">
+        <span>SAT Makon</span>
+      </a>
+      <div class="public-nav-actions">
+        {% include 'base/theme_toggle.html' %}
+        <a href="/" class="public-link-pill">Home</a>
+      </div>
+    </nav>
+
+    <section class="public-hero" data-page-reveal>
+      <span class="eyebrow">Event detail</span>
+      <h1>{{ event.title }}</h1>
+      {% if event.description %}
+        <p>{{ event.description }}</p>
+      {% else %}
+        <p>Review event timing, section duration, and access settings before starting.</p>
+      {% endif %}
+    </section>
+
+    <div class="detail-card" data-page-reveal>
+      {% if messages %}
+        <div class="alert-box">
+          <ul class="messages">
+            {% for message in messages %}
+              <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <span class="status-badge status-{{ availability.state }}">{{ availability.label }}</span>
+
+      {% if event.always_live %}
+        <div class="event-meta"><strong>Availability:</strong> Always live, 24/7</div>
+      {% else %}
+        <div class="event-meta"><strong>Start:</strong> {{ event.start_at }}</div>
+        <div class="event-meta"><strong>End:</strong> {{ event.end_at }}</div>
+      {% endif %}
+      <div class="event-meta"><strong>English duration:</strong> {{ event.english_duration_minutes }} minutes</div>
+      <div class="event-meta"><strong>Math duration:</strong> {{ event.math_duration_minutes }} minutes</div>
+
+      {% if event.rules %}
+        <div class="rules-box">
+          <h3>Rules</h3>
+          <p>{{ event.rules|linebreaks }}</p>
+        </div>
+      {% endif %}
+
+      {% if event.registration_enabled and not event_registration %}
+        <div class="mb5581-card" style="margin-top:18px">
+          <span class="mb5581-eyebrow">Verified registration required</span>
+          <h2>Reserve your seat before the exam.</h2>
+          <p>{% if event.branch %}{{ event.branch }} · {% endif %}{{ event.start_at|date:"d M Y · H:i" }}{% if event.capacity %} · {{ event_confirmed_count }} / {{ event.capacity }} confirmed{% endif %}</p>
+          <div class="mb5581-actions"><a class="mb5581-btn" href="{% url 'event_registration_choice' event.slug %}">Register for this mock</a></div>
+        </div>
+      {% elif event.registration_enabled and event_registration %}
+        <div class="mb5581-alert success" style="margin-top:18px">✓ Registration confirmed for {{ event_registration.full_name }}.</div>
+        {% if existing_attempt and existing_attempt.status == "in_progress" %}
+          <div class="actions"><a href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}" class="primary-btn">Resume attempt</a></div>
+        {% elif existing_attempt and existing_attempt.status == "submitted" %}
+          <div class="actions"><a href="{% url 'global_event_result_root' existing_attempt.guest_token %}" class="primary-btn">View result</a></div>
+        {% elif availability.can_start %}
+          <form action="{% url 'start_global_event_root' event.slug %}" method="POST" class="signin-form auth-form" data-guest-start-form>{% csrf_token %}
+            {% if event.access_code and not event_code_verified %}<div class="form-group"><label class="form-label" for="access-code-field">Access code</label><input id="access-code-field" type="password" name="access_code" placeholder="Enter access code" autocomplete="one-time-code" required></div>{% endif %}
+            <div class="actions"><button type="submit" class="primary-btn" data-start-event-button>Start event</button></div>
+          </form>
+        {% else %}
+          <div class="alert-box"><p>Your seat is confirmed. The exam is not open yet: <strong>{{ availability.label }}</strong>.</p></div>
+        {% endif %}
+      {% elif existing_attempt and existing_attempt.status == "in_progress" %}
+        <div class="actions">
+          <a href="{% url 'global_event_attempt_root' existing_attempt.guest_token %}" class="primary-btn">Resume attempt</a>
+        </div>
+      {% elif existing_attempt and existing_attempt.status == "submitted" %}
+        <div class="actions">
+          <a href="{% url 'global_event_result_root' existing_attempt.guest_token %}" class="primary-btn">View result</a>
+        </div>
+      {% elif availability.can_start %}
+        <form action="{% url 'start_global_event_root' event.slug %}" method="POST" class="signin-form auth-form" data-guest-start-form>
+          {% csrf_token %}
+          {% if event.access_code %}
+            <div class="form-group">
+              <label class="form-label" for="access-code-field">Access code</label>
+              <input id="access-code-field" type="password" name="access_code" placeholder="Enter access code" autocomplete="one-time-code" required>
+            </div>
+          {% endif %}
+          <div class="actions">
+            <button type="submit" class="primary-btn" data-start-event-button>Start event</button>
+            {% if event.show_leaderboard %}
+              <a href="{% url 'global_event_leaderboard_root' event.slug %}" class="secondary-link">View leaderboard</a>
+            {% endif %}
+          </div>
+        </form>
+      {% else %}
+        <div class="alert-box"><p>This event cannot be started yet. Current status: <strong>{{ availability.label }}</strong>.</p></div>
+        {% if event.show_leaderboard %}<div class="actions"><a href="{% url 'global_event_leaderboard_root' event.slug %}" class="secondary-link">View leaderboard</a></div>{% endif %}
+      {% endif %}
+    </div>
+
+    <div class="public-footer">&copy; {% now "Y" %} SAT Makon. Stay focused.</div>
+  </div>
+
+  <script src="{% static 'assets/js/login-main.js' %}"></script>
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  <script src="{% static 'assets/js/makon-guest-events-v18.js' %}"></script>
+  {% include 'base/issue_report_widget.html' %}
+</body>
+</html>

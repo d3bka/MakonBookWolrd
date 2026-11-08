@@ -1,0 +1,493 @@
+
+/* Math page uses the same visual language as EBRW and only adds math-specific tools. */
+
+main p,
+main h1,
+main h2,
+main h3,
+main h4,
+main h5,
+main h6,
+#passage,
+#question-text,
+.reference-card,
+.formula {
+    font-family: 'Times New Roman', Times, serif;
+}
+
+.header-tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.header-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: none;
+    background: #3d008e;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    box-sizing: border-box;
+    transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.header-tool:hover {
+    color: #fff;
+    opacity: 0.96;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(61, 0, 142, 0.18);
+}
+
+.header-tool i {
+    font-size: 16px;
+}
+
+.home-link {
+    padding-right: 14px;
+}
+
+#graph-container {
+    min-height: 16px;
+}
+
+#passage {
+    margin-bottom: 20px;
+    padding: 10px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    display: block;
+}
+
+#question-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.choice-image {
+    max-width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    display: block;
+    margin: 6px 0;
+}
+
+.written-answer-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 18px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #111827;
+}
+
+.written-answer-input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+}
+
+mjx-container {
+    margin: 5px 0;
+}
+
+.katex {
+    font-size: 1.5em;
+}
+
+#calculator-popup {
+    display: none;
+    position: fixed;
+    top: 50px;
+    right: 50px;
+    width: min(560px, calc(100vw - 48px));
+    height: min(640px, calc(100vh - 96px));
+    min-width: 360px;
+    min-height: 420px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    border: 1px solid rgba(109, 40, 217, 0.22);
+    background: #fff;
+    z-index: 1000;
+    box-shadow: 0 20px 60px rgba(17, 24, 39, 0.22);
+    border-radius: 12px;
+    overflow: hidden;
+    resize: both;
+}
+
+#calculator-header {
+    height: 56px;
+    padding: 10px 14px 10px 16px;
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+    color: white;
+    cursor: move;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 18px;
+    box-sizing: border-box;
+}
+
+.desmos-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.desmos-close-btn {
+    width: 38px;
+    height: 38px;
+    border: none;
+    background: rgba(255, 255, 255, 0.16);
+    color: white;
+    border-radius: 10px;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.desmos-close-btn:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.desmos-close-btn:active {
+    transform: scale(0.96);
+}
+
+#calculator-body {
+    width: 100%;
+    height: calc(100% - 56px);
+}
+
+#calculator-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 22px;
+    height: 22px;
+    cursor: nwse-resize;
+    z-index: 4;
+    background:
+        linear-gradient(135deg, transparent 50%, rgba(109, 40, 217, 0.18) 50%),
+        linear-gradient(135deg, transparent 62%, rgba(109, 40, 217, 0.32) 62%);
+}
+
+#calculator-resize-handle::after {
+    content: "";
+    position: absolute;
+    right: 5px;
+    bottom: 5px;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid rgba(91, 33, 182, 0.7);
+    border-bottom: 2px solid rgba(91, 33, 182, 0.7);
+}
+
+#calculator {
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: auto !important;
+}
+
+#calculator .dcg-container,
+#calculator .dcg-grapher {
+    pointer-events: auto !important;
+}
+
+.reference-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.28);
+    z-index: 2000;
+    align-items: stretch;
+    justify-content: flex-end;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.reference-overlay.active {
+    display: flex;
+}
+
+.reference-sheet {
+    width: min(460px, 100%);
+    height: 100vh;
+    background: var(--mk-surface, #fff);
+    color: var(--mk-text, #111827);
+    overflow: hidden;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18);
+    animation: referenceSlideIn 0.18s ease;
+}
+
+@keyframes referenceSlideIn {
+    from { opacity: 0; transform: translateX(24px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.reference-header {
+    background: var(--mk-surface, #fff);
+    color: var(--mk-text, #111827);
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 20px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--mk-card-border, #e5e7eb);
+}
+
+.reference-close-btn {
+    border: 1px solid var(--mk-card-border, #d1d5db);
+    background: var(--mk-surface-soft, #fff);
+    color: var(--mk-text, #111827);
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.reference-close-btn:hover {
+    background: var(--mk-primary-tint, #f3f4f6);
+}
+
+.reference-body {
+    padding: 18px;
+    overflow-y: auto;
+    height: calc(100vh - 69px);
+    background: var(--mk-bg-elevated, #fff);
+}
+
+.reference-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.reference-card {
+    background: var(--mk-surface, #fff);
+    border-radius: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--mk-card-border, #e5e7eb);
+    box-shadow: var(--mk-shadow-soft, none);
+}
+
+.reference-card h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--mk-primary-strong, #111827);
+    font-size: 17px;
+}
+
+.reference-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.reference-formulas {
+    flex: 1;
+}
+
+.reference-figure {
+    width: 130px;
+    min-width: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reference-figure svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.formula {
+    background: var(--mk-surface-soft, #f8fafc);
+    border: 1px solid var(--mk-card-border, #e5e7eb);
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    font-size: 18px;
+    color: var(--mk-text, #111827);
+}
+
+.reference-note {
+    font-size: 14px;
+    color: var(--mk-text-muted, #4b5563);
+    line-height: 1.5;
+}
+
+@media (max-width: 860px) {
+    .header-tools {
+        gap: 8px;
+    }
+
+    .header-tool span {
+        display: none;
+    }
+
+    .header-tool {
+        width: 44px;
+        padding: 0;
+    }
+}
+
+@media (max-width: 700px) {
+    .reference-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .reference-figure {
+        width: 100%;
+        min-width: 0;
+        justify-content: flex-start;
+    }
+
+    .reference-header {
+        font-size: 18px;
+    }
+
+    .formula {
+        font-size: 17px;
+    }
+}
+html[data-theme="dark"] .reference-overlay{background:rgba(2,6,23,.58)}
+html[data-theme="dark"] .reference-sheet,html[data-theme="dark"] .reference-header,html[data-theme="dark"] .reference-body,html[data-theme="dark"] .reference-card{background:#120f1a!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}
+html[data-theme="dark"] .reference-body{background:#0f0b16!important}
+html[data-theme="dark"] .reference-close-btn,html[data-theme="dark"] .formula{background:rgba(255,255,255,.05)!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}
+html[data-theme="dark"] .reference-note,html[data-theme="dark"] .ref-section-title{color:rgba(236,233,254,.72)!important}
+html[data-theme="dark"] .ref-svg,html[data-theme="dark"] .ref-formula,html[data-theme="dark"] .ref-footer,html[data-theme="dark"] .ref-footer p,html[data-theme="dark"] .ref-svg text{color:#f7f3ff!important;fill:#f7f3ff!important;stroke:currentColor}
+body[data-theme="dark"] .reference-overlay{background:rgba(2,6,23,.58)!important}body[data-theme="dark"] .reference-sheet,body[data-theme="dark"] .reference-header,body[data-theme="dark"] .reference-body,body[data-theme="dark"] .reference-card{background:#120f1a!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}body[data-theme="dark"] .reference-body{background:#0f0b16!important}body[data-theme="dark"] .reference-close-btn,body[data-theme="dark"] .formula{background:rgba(255,255,255,.05)!important;color:#f7f3ff!important;border-color:rgba(196,181,253,.16)!important}body[data-theme="dark"] .reference-note,body[data-theme="dark"] .ref-section-title{color:rgba(236,233,254,.72)!important}body[data-theme="dark"] .ref-svg,body[data-theme="dark"] .ref-formula,body[data-theme="dark"] .ref-footer,body[data-theme="dark"] .ref-footer p,body[data-theme="dark"] .ref-svg text{color:#f7f3ff!important;fill:#f7f3ff!important;stroke:currentColor}
+
+/* Make math header tool icons white */
+.math-header-tools .math-tool-btn,
+.header-tools .header-tool,
+.math-tool-btn,
+.header-tool {
+    color: #ffffff !important;
+}
+
+.math-header-tools .math-tool-btn i,
+.header-tools .header-tool i,
+.math-tool-btn i,
+.header-tool i,
+.math-tool-home i,
+.fa-home {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* Improved SAT Reference Sheet V54.1.1 */
+.sat-reference-wrapper {
+    padding: 10px;
+}
+.sat-ref-flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-end;
+    margin-bottom: 24px;
+}
+.ref-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    flex: 0 1 120px;
+}
+.ref-svg {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 4px;
+    color: var(--sat-text, var(--mk-text, #111827));
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.ref-svg-text {
+    font-family: 'Times New Roman', Times, serif;
+    font-style: italic;
+    font-size: 16px;
+    stroke: none;
+}
+.ref-formula {
+    font-family: 'Times New Roman', Times, serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--sat-text, var(--mk-text, #111827));
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.ref-section-title {
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--mk-text-muted, #4b5563);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.ref-footer {
+    width: 100%;
+    margin-top: 30px;
+    padding-top: 15px;
+    border-top: 1px solid var(--sat-border, var(--mk-card-border, #e5e7eb));
+    text-align: left;
+    font-size: 15px;
+    color: var(--sat-text, var(--mk-text, #111827));
+    font-family: 'Times New Roman', Times, serif;
+    line-height: 1.5;
+}
+.ref-footer p {
+    margin: 6px 0;
+}
+@media (max-width: 600px) {
+    .sat-ref-flex { gap: 10px; margin-bottom: 16px; }
+    .ref-item { flex: 0 1 100px; }
+    .ref-svg { width: 80px; height: 80px; }
+    .ref-formula { font-size: 14px; }
+}
+
+.math-frac {
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+    font-size: 0.8em;
+    margin: 0 1px;
+}
+.math-num {
+    display: block;
+    border-bottom: 1.5px solid currentColor;
+    line-height: 1.2;
+    padding: 0 1px;
+}
+.math-den {
+    display: block;
+    line-height: 1.2;
+    padding: 0 1px;
+}

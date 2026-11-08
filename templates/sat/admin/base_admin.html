@@ -1,0 +1,15 @@
+{% extends 'sat/staff_workspace.html' %}
+{% load static %}
+
+{% block page_title %}{{ page_title|default:'Admin' }} · MakonBook{% endblock page_title %}
+
+{% block staff_workspace_style %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'assets/css/admin-workspace-v5612-2.css' %}?v=5612.2">
+{% endblock staff_workspace_style %}
+
+{% block content %}
+<div class="sf212-admin-page" data-admin-workspace>
+  {% block admin_content %}{% endblock admin_content %}
+</div>
+{% endblock content %}

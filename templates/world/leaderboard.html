@@ -1,0 +1,46 @@
+{% extends 'world/base.html' %}
+
+{% block world_content %}
+<div class="mw503-ranks-grid">
+  {% include 'world/_player_card.html' %}
+
+  <main class="mw503-leaderboard">
+    <header class="mw503-page-head mw503-rank-head">
+      <div>
+        <span class="mw503-eyebrow">GLOBAL RANKINGS</span>
+        <h1>Leaderboard</h1>
+        <p>Separate ladders for Math and Reading & Writing.</p>
+      </div>
+      <a href="#me" class="mw503-my-rank"><span>Your position</span><strong>#{{ world_selected_rank }}</strong><small>{{ world_selected_rating.rating }} rating</small></a>
+    </header>
+
+    <div class="mw503-segment mw503-rank-tabs">
+      <a class="{% if world_subject == 'math' %}is-active{% endif %}" href="?subject=math"><i class="bi bi-calculator"></i>Math</a>
+      <a class="{% if world_subject == 'rw' %}is-active{% endif %}" href="?subject=rw"><i class="bi bi-book"></i>Reading & Writing</a>
+    </div>
+
+    <form class="mw503-rank-search" method="get" data-world-rank-search data-search-url="{% url 'world_leaderboard_search' %}" data-subject="{{ world_subject }}">
+      <input type="hidden" name="subject" value="{{ world_subject }}">
+      <i class="bi bi-search"></i>
+      <input type="search" name="q" value="{{ world_query }}" placeholder="Search player or username" autocomplete="off" data-world-rank-query>
+      <span data-world-rank-search-state>Type to search</span>
+      <a href="?subject={{ world_subject }}#me"><i class="bi bi-bullseye"></i>Show me</a>
+    </form>
+
+    <div class="mw503-table" data-world-rank-results>
+      <div class="mw503-table-head"><span>#</span><span>PLAYER</span><span>TIER</span><span>RATING</span><span>W / L</span></div>
+      {% for row in world_leaderboard_rows %}
+      <article {% if row.user_id == request.user.id %}id="me" class="is-me"{% endif %}>
+        <span class="mw503-place">{{ forloop.counter }}</span>
+        <span class="mw503-player-cell"><a class="mw503-player-link" href="{% url 'world_profile' row.user.username %}"><b class="mw503-row-avatar">{{ row.user.first_name|default:row.user.username|slice:':1'|upper }}</b><span><strong>{{ row.user.get_full_name|default:row.user.username }}</strong><small>@{{ row.user.username }}</small></span></a>{% if row.user_id == request.user.id %}<em>You</em>{% endif %}</span>
+        <span class="mw503-tier mw503-tier-{{ row.tier|lower }} small"><i class="bi bi-award"></i>{{ row.tier|upper }}</span>
+        <strong class="mw503-score" data-world-count-to="{{ row.rating }}">0</strong>
+        <span class="mw503-wl"><b>{{ row.wins }}</b> / <em>{{ row.losses }}</em></span>
+      </article>
+      {% empty %}
+      <div class="mw503-empty">No players matched your search.</div>
+      {% endfor %}
+    </div>
+  </main>
+</div>
+{% endblock world_content %}

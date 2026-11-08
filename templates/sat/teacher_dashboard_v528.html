@@ -1,0 +1,25 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block content %}
+<div class="sf29-page">
+  <section class="sf29-hero">
+    <span class="sf28-kicker"><i class="bi bi-mortarboard"></i> Teacher home</span>
+    <h1>Run your teaching day from one place.</h1>
+    <p>Jump into classrooms, publish lessons, assign homework, review progress and manage access without hunting through unrelated pages.</p>
+    <div class="sf28-actions"><a class="sf28-btn primary" href="{% url 'teacher_classrooms_root' %}"><i class="bi bi-people"></i>Open classrooms</a><a class="sf28-btn" href="{% url 'teacher_homework_root' %}?create=1"><i class="bi bi-plus-lg"></i>Create homework</a><a class="sf28-btn" href="{% url 'teacher_lessons_root' %}"><i class="bi bi-easel2"></i>Lessons</a></div>
+  </section>
+
+  <section class="sf29-grid">
+    <article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-people"></i></span><div><strong>{{ stats.classrooms }}</strong><small>active classrooms</small></div></div></article>
+    <article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-person-check"></i></span><div><strong>{{ stats.students }}</strong><small>approved students</small></div></div></article>
+    <article class="sf29-card"><div class="sf29-stat"><span class="sf29-stat-icon"><i class="bi bi-easel2"></i></span><div><strong>{{ stats.lessons }}</strong><small>published & draft lessons</small></div></div></article>
+    <article class="sf29-card span-8">
+      <div class="sf29-section-head"><div><small>Recent e-class spaces</small><h2>Your classrooms</h2></div><a class="sf28-btn" href="{% url 'teacher_classrooms_root' %}">View all</a></div>
+      <div class="sf29-list">{% for classroom in classrooms %}<a class="sf29-row" href="{% url 'teacher_classroom_root' classroom.id %}"><span class="mb50-avatar">{{ classroom.name|first|upper }}</span><div class="grow"><strong>{{ classroom.name }}</strong><small>{{ classroom.approved_students_count }} students · {{ classroom.lessons_count }} lessons · {{ classroom.homework_count }} active homework</small></div><i class="bi bi-chevron-right"></i></a>{% empty %}<div class="sf29-empty">No classrooms yet. Create one to start building your e-class.</div>{% endfor %}</div>
+    </article>
+    <article class="sf29-card span-4">
+      <div class="sf29-section-head"><div><small>Quick actions</small><h2>Today</h2></div></div>
+      <div class="sf29-mini-grid"><a class="sf29-action-card" href="{% url 'teacher_homework_root' %}"><i class="bi bi-list-check"></i><div><strong>Homework</strong><small>Create and review assignments.</small></div></a><a class="sf29-action-card" href="{% url 'teacher_progress_root' %}"><i class="bi bi-graph-up-arrow"></i><div><strong>Progress</strong><small>Inspect student activity.</small></div></a><a class="sf29-action-card" href="{% url 'teacher_assessments_root' %}"><i class="bi bi-star"></i><div><strong>Assess</strong><small>{{ stats.pending }} pending join request{{ stats.pending|pluralize }}.</small></div></a><a class="sf29-action-card" href="{% url 'teacher_access_root' %}"><i class="bi bi-shield-check"></i><div><strong>Access</strong><small>Sections, SAT and AP permissions.</small></div></a></div>
+    </article>
+  </section>
+</div>
+{% endblock %}

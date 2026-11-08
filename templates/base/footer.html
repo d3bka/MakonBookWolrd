@@ -1,0 +1,56 @@
+{% load static %}
+<footer id="footer" class="footer makon-footer">
+  <div class="container">
+    <div class="row gy-4 align-items-start">
+      <div class="col-lg-5 col-md-12 footer-info">
+        <a href="/" class="logo d-flex align-items-center">
+          <img src="{% static 'assets/img/icons/white-icon-nobg.png' %}" alt="SAT Makon" style="max-height: 42px; margin-right: 12px;">
+          <span>SAT Makon</span>
+        </a>
+        <p>
+          Digital SAT practice, vocabulary training, analytics, and classroom tracking in one platform.
+        </p>
+        <div class="social-links d-flex mt-4">
+          <a href="https://t.me/sat_makon" class="telegram" aria-label="SAT Makon Telegram"><i class="bi bi-telegram"></i></a>
+          <a href="mailto:support@makonbook.uz" class="email" aria-label="SAT Makon email"><i class="bi bi-envelope"></i></a>
+          <a href="https://www.instagram.com/sat_makon_uz/" class="instagram" aria-label="SAT Makon Instagram"><i class="bi bi-instagram"></i></a>
+        </div>
+      </div>
+
+      <div class="col-lg-2 col-6 footer-links">
+        <h4>Platform</h4>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="{% url 'software' %}">Software</a></li>
+          <li><a href="{% url 'login' %}">Login</a></li>
+        </ul>
+      </div>
+
+      <div class="col-lg-2 col-6 footer-links">
+        <h4>Learning</h4>
+        <ul>
+          <li><a href="{% url 'student_dashboard_root' %}">SAT dashboard</a></li>
+          <li><a href="{% url 'practice_tests' %}">Practice tests</a></li>
+          <li><a href="{% url 'vocabulary' %}">Vocabulary</a></li>
+          <li><a href="{% url 'admissions' %}">Admissions</a></li>
+        </ul>
+      </div>
+
+      <div class="col-lg-3 col-md-12 footer-contact text-center text-md-start">
+        <h4>Contact</h4>
+        <p>
+          SAT Makon<br>
+          Tashkent, Uzbekistan<br><br>
+          <strong>Telegram:</strong> <a href="https://t.me/sat_makon">t.me/sat_makon</a><br>
+          <strong>Email:</strong> <a href="mailto:support@makonbook.uz">support@makonbook.uz</a><br>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="container mt-4 footer-bottom">
+    <div class="copyright">
+      &copy; {% now "Y" %} <strong><span>SAT Makon</span></strong>. All rights reserved.
+    </div>
+  </div>
+</footer>

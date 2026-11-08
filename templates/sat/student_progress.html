@@ -1,0 +1,18 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}Progress · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page v523-progress-page">
+  <section class="v523-hero v523-reveal"><span class="v523-kicker"><i class="bi bi-graph-up-arrow"></i> Progress</span><h1>Your learning progress, not teacher rating.</h1><p>SAT scores, weak skills, classroom completion and global vocabulary mastery live here. Teacher rating remains a separate Ranking feature.</p></section>
+  <section class="v523-progress-stats v523-reveal" style="--reveal-index:1">
+    <article><span>Latest SAT</span><strong>{{ current_score|default:"—" }}</strong><small>Target {{ target_score }}</small></article>
+    <article><span>Best SAT</span><strong>{{ best_score|default:"—" }}</strong><small>{% if score_gap != None %}{{ score_gap }} point gap{% else %}Set a baseline{% endif %}</small></article>
+    <article><span>Vocabulary</span><strong>{{ vocabulary_summary.mastered_words }}</strong><small>of {{ vocabulary_summary.total_words }} mastered</small></article>
+    <article><span>Recall accuracy</span><strong>{{ vocabulary_summary.accuracy_percent }}%</strong><small>{{ vocabulary_summary.review_count }} reviews</small></article>
+  </section>
+  <section class="v523-grid">
+    <article class="v523-card v523-span-7 v523-reveal" style="--reveal-index:2"><span class="v523-card-label">Weak topics</span><h2>Where accuracy is leaking.</h2><div class="v523-progress-bars">{% for topic in weak_topics %}<div><header><strong>{{ topic.name }}</strong><span>{{ topic.accuracy }}% · {{ topic.wrong }} miss{{ topic.wrong|pluralize:"es" }}</span></header><i><b style="width:{{ topic.accuracy }}%"></b></i></div>{% empty %}<div class="v523-empty">Finish scored SAT work to generate weak-topic data.</div>{% endfor %}</div></article>
+    <article class="v523-card v523-span-5 v523-reveal" style="--reveal-index:3"><span class="v523-card-label">Classroom progress</span><h2>Teacher-led completion.</h2><div class="v523-list-stack">{% for row in classroom_progress_rows %}<div class="v523-progress-row"><span><strong>{{ row.classroom.name }}</strong><small>{{ row.get_section_display|default:row.section }}</small></span><b>{{ row.completion_percent|floatformat:0 }}%</b></div>{% empty %}<div class="v523-empty">No classroom progress rows yet.</div>{% endfor %}</div></article>
+    <article class="v523-card v523-span-12 v523-reveal" style="--reveal-index:4"><div class="v523-card-headline"><div><span class="v523-card-label">Recent scores</span><h2>Scored SAT history</h2></div><a class="mb50-secondary-btn" href="{% url 'practice_tests_root' %}">Open Tests</a></div><div class="v523-score-list">{% for review in recent_reviews %}<div><span><strong>{{ review.test.name }}</strong><small>{{ review.created_at|date:"d M Y" }}</small></span><b>{{ review.score }}</b></div>{% empty %}<div class="v523-empty">No scored SAT attempts yet.</div>{% endfor %}</div></article>
+  </section>
+</div>
+{% endblock %}

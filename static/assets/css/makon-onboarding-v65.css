@@ -1,0 +1,209 @@
+/* MakonBook V65 — onboarding faithfully adapted from makonbook(1).zip.
+   All visual rules stay inside .mb65-onboard; Django data/permissions unchanged. */
+.mb65-onboard.sg-goal-modal.student-goal-dashboard{position:fixed!important;inset:0!important;z-index:10080!important;display:block!important;padding:0!important;width:100%!important;max-width:none!important;color:#16121f!important;background:rgba(18,9,31,.15)!important;overflow:hidden!important;box-sizing:border-box!important}
+.mb65-onboard .sg-goal-modal-backdrop{background:rgba(18,9,31,.50)!important;backdrop-filter:blur(8px)!important}
+.mb65-onboard .mb65-shell.sg-goal-modal-panel{display:grid!important;grid-template-columns:minmax(330px,42%) minmax(0,58%);position:relative;max-width:none!important;width:100%!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important;overflow:hidden!important;background:#fff!important;color:#16121f!important;box-shadow:none!important;transform:none!important;font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif!important;--mb65-purple:#7c3aed;--mb65-line:#eae5f1}
+.mb65-onboard .mb65-shell.mb65-wide{grid-template-columns:1fr!important}
+.mb65-onboard .mb65-wide .mb65-left{display:none!important}
+.mb65-onboard .mb65-left{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:24px;overflow:hidden;padding:36px 40px;color:white;background:linear-gradient(155deg,#5121a3 0%,#7431d7 52%,#a45cff 100%)}
+.mb65-onboard .mb65-left>*:not(.mb65-watermark){position:relative;z-index:1}
+.mb65-onboard .mb65-watermark{position:absolute;z-index:0;right:-40px;bottom:-40px;opacity:.09;font-size:clamp(155px,20vw,310px);font-weight:850;line-height:1;color:white;pointer-events:none}
+.mb65-onboard .mb65-brand{display:flex;align-items:center;gap:11px;font-size:21px;letter-spacing:-.025em}.mb65-onboard .mb65-brand img{width:39px;height:42px;object-fit:contain;filter:brightness(0) invert(1)}.mb65-onboard .mb65-brand strong{font-weight:800}.mb65-onboard .mb65-brand small{margin-left:-6px;font-size:9px;opacity:.7;letter-spacing:.16em;align-self:flex-end;padding-bottom:3px}
+.mb65-onboard .mb65-preview{display:flex;justify-content:center}.mb65-onboard .mb65-plan{width:min(390px,100%);overflow:hidden;border-radius:24px;background:#fff;color:#16121f;box-shadow:0 30px 60px -24px rgba(40,10,90,.52);transform:rotate(-2deg);transition:transform .4s cubic-bezier(.2,1.3,.4,1)}.mb65-onboard .mb65-plan:hover{transform:rotate(0)}
+.mb65-onboard .mb65-plan-cover{height:100px;background:linear-gradient(135deg,#efe6ff,#d9c6ff);position:relative}.mb65-onboard .mb65-avatar{position:absolute;left:18px;bottom:-24px;display:grid;place-items:center;width:52px;height:52px;border:4px solid white;border-radius:50%;background:#9672ef;color:white;font-size:20px;font-weight:850}
+.mb65-onboard .mb65-plan-content{padding:30px 20px 18px}.mb65-onboard .mb65-plan-content>small{color:#80768d;font-weight:650;font-size:13px}.mb65-onboard .mb65-plan-content h2{font-size:clamp(20px,2vw,26px)!important;line-height:1.2!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800;margin:2px 0 12px!important;color:#16121f!important}.mb65-onboard .mb65-plan-rows{display:flex;flex-direction:column}.mb65-onboard .mb65-plan-rows>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #ece9f3;color:#80768d;font-weight:600;font-size:13px}.mb65-onboard .mb65-plan-rows strong{color:#17121f;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:54%;text-align:right}
+.mb65-onboard .mb65-quote{font-size:15px;line-height:1.55;color:#f7efff;max-width:38ch;margin:0}
+.mb65-onboard .mb65-right{min-width:0;display:flex;overflow-y:auto;overscroll-behavior:contain;justify-content:center;padding:35px 32px;background:#fff;color:#16121f;scrollbar-width:thin}.mb65-onboard .mb65-inner{width:min(560px,100%);margin:auto 0;min-height:0}.mb65-onboard .mb65-wide .mb65-inner{width:min(1180px,100%)}
+.mb65-onboard .mb65-top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}.mb65-onboard .mb65-progress{display:flex;gap:7px;margin-bottom:16px}.mb65-onboard .mb65-progress span{height:6px;width:clamp(32px,6vw,110px);max-width:110px;border-radius:99px;background:#ebe5f3;overflow:hidden}.mb65-onboard .mb65-progress span:before{content:'';display:block;width:100%;height:100%;background:#7c3aed;transform:scaleX(0);transform-origin:left;transition:transform .35s ease}.mb65-onboard .mb65-progress span.on:before{transform:scaleX(1)}.mb65-onboard .mb65-step-label{font-size:14px;color:#7c3aed;font-weight:750}
+.mb65-onboard .mb65-close{flex:none;display:grid;place-items:center;border:1px solid #e6def2;width:42px;height:42px;background:#faf8ff;color:#272035;border-radius:50%;font-size:29px;line-height:1;cursor:pointer}.mb65-onboard .mb65-form.sg-goal-modal-form{display:block!important}.mb65-onboard .mb65-body.sg-goal-modal-body{overflow:visible!important;display:block!important;padding:16px 0 0!important;max-height:none!important;background:transparent!important;min-height:0!important}
+.mb65-onboard .mb65-step[hidden]{display:none!important}.mb65-onboard .mb65-step h1{font-size:clamp(34px,4.2vw,52px)!important;line-height:1.08!important;font-weight:850!important;letter-spacing:-.046em!important;color:#16121f!important;margin:0!important;max-width:890px}.mb65-onboard .mb65-lead{font-size:16px;line-height:1.55;color:#736a82;max-width:62ch;margin:12px 0 24px;font-weight:500}
+.mb65-onboard .mb65-target-big{color:#7c3aed;font-weight:900;letter-spacing:-.07em;font-size:clamp(88px,10vw,125px);line-height:1.05;margin:12px 0 20px}.mb65-onboard .mb65-score-range{width:100%;accent-color:#7c3aed;cursor:pointer;height:8px;margin:0 0 24px}
+.mb65-onboard .mb65-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.mb65-onboard .mb65-presets button{padding:15px 14px;border:1.5px solid #e5dfea;border-radius:14px;background:#fff;color:#16121f;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}.mb65-onboard .mb65-presets button:hover{border-color:#7c3aed;transform:translateY(-1px)}.mb65-onboard .mb65-presets button.is-selected{border-color:#7c3aed;background:#f3ebff}.mb65-onboard .mb65-presets strong{display:block;font-size:14px}.mb65-onboard .mb65-presets small{display:block;color:#80768d;font-size:12px;margin-top:5px}.mb65-onboard .mb65-score-manual{margin-top:22px}.mb65-onboard .mb65-score-manual label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}
+.mb65-onboard input.sg-input,.mb65-onboard select.sg-input,.mb65-onboard .mb65-fields input,.mb65-onboard .mb65-picker-search input{width:100%;height:47px;box-sizing:border-box;border:1px solid #ded7e9;border-radius:12px;padding:10px 14px;background:#fff;color:#16121f;font-family:inherit;font-size:15px;outline:0}.mb65-onboard input:focus-visible,.mb65-onboard select:focus-visible,.mb65-onboard button:focus-visible{outline:3px solid #bea2fd;outline-offset:2px}
+.mb65-onboard .mb65-actions.sg-goal-modal-actions{position:static!important;display:flex!important;align-items:center;gap:10px;padding:24px 0 0!important;margin-top:12px!important;background:transparent!important;border:0!important}.mb65-onboard .mb65-actions-spacer{flex:1}.mb65-onboard .mb65-actions button{min-height:46px;border-radius:12px;padding:0 23px;font-weight:750;font-size:14px;cursor:pointer;transition:transform .18s}.mb65-onboard .mb65-back{border:1.5px solid #e7e1f0;background:white;color:#221a30}.mb65-onboard .mb65-next,.mb65-onboard .mb65-submit{border:0!important;background:#7c3aed!important;color:#fff!important;box-shadow:none!important}.mb65-onboard .mb65-actions button:hover{transform:translateY(-2px)}.mb65-onboard .mb65-actions button[hidden]{display:none!important}
+.mb65-onboard .mb65-fields{display:grid;gap:16px}.mb65-onboard .mb65-fields label,.mb65-onboard .mb65-other label,.mb65-onboard .mb65-pace-fields label{display:block;font-size:14px;font-weight:700}.mb65-onboard .mb65-fields input,.mb65-onboard .mb65-other input{margin-top:8px}.mb65-onboard .mb65-name-error,.mb65-onboard .mb65-alert{color:#b32235;font-size:13px;margin:10px 0}.mb65-onboard .mb65-alert[hidden]{display:none!important}
+.mb65-onboard .mb65-picker{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px;margin-top:16px}.mb65-onboard .mb65-globe-panel{position:relative;min-width:0;border:1px solid #ebe4f2;border-radius:20px;background:#faf8ff;padding:12px}.mb65-onboard .mb65-globe{display:grid;place-items:center;min-height:340px}.mb65-onboard .mb65-globe svg{display:block;width:min(100%,480px);aspect-ratio:1/1;touch-action:none;cursor:grab}.mb65-onboard .mb65-globe svg:active{cursor:grabbing}.mb65-onboard .mb65-globe-zoom{position:absolute;top:18px;right:18px;display:grid;gap:6px}.mb65-onboard .mb65-globe-zoom button{width:36px;height:36px;border-radius:10px;background:white;border:1px solid #e2dcec;color:#5b21b6;font-size:20px;cursor:pointer}.mb65-onboard .mb65-regions{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:6px}.mb65-onboard .mb65-regions button{border-radius:99px;padding:7px 11px;border:1px solid #dfd9e8;font-size:12px;font-weight:700;background:white;color:#514863;cursor:pointer}.mb65-onboard .mb65-regions button.on{color:white;border-color:#7c3aed;background:#7c3aed}.mb65-onboard .mb65-globe-panel>p{text-align:center;font-size:12px;color:#82778d;margin:12px 0 4px}
+.mb65-onboard .mb65-picker-side{display:flex;flex-direction:column;min-width:0;gap:10px}.mb65-onboard .mb65-selected-university{background:white;border:1px solid #e8e2f0;border-radius:18px;min-height:105px;padding:16px}.mb65-onboard .mb65-selected-university strong{display:block;font-size:19px;line-height:1.25}.mb65-onboard .mb65-selected-university small{display:block;color:#7c3aed;margin:8px 0 3px;font-weight:700}.mb65-onboard .mb65-selected-university span{font-size:13px;color:#766b85}.mb65-onboard .mb65-picker-search{display:flex;gap:8px}.mb65-onboard .mb65-picker-search input{flex:1;min-width:0}.mb65-onboard .mb65-picker-search button{border:1px solid #e1d6ec;border-radius:11px;background:#fff;color:#7c3aed;padding:0 12px;cursor:pointer;font-weight:700;white-space:nowrap}.mb65-onboard .mb65-count{font-size:12px;color:#7b7187}.mb65-onboard .mb65-university-list{max-height:286px;min-height:160px;overflow:auto;display:flex;flex-direction:column;gap:5px}.mb65-onboard .mb65-university-list button{display:flex;align-items:center;gap:10px;padding:10px 12px;width:100%;border:1px solid transparent;border-radius:12px;background:#fff;text-align:left;color:#16121f;cursor:pointer}.mb65-onboard .mb65-university-list button:hover{background:#faf6ff}.mb65-onboard .mb65-university-list button[aria-selected="true"]{border-color:#a47afb;background:#f4edff}.mb65-onboard .mb65-university-list button .rank{width:30px;flex:none;color:#7c3aed;font-size:12px;font-weight:850}.mb65-onboard .mb65-university-list button span{min-width:0;flex:1}.mb65-onboard .mb65-university-list button strong{font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mb65-onboard .mb65-university-list button small{font-size:11px;color:#8c8298}.mb65-onboard .mb65-university-list button em{font-size:11px;color:#786e83;font-style:normal;white-space:nowrap}.mb65-onboard .mb65-other{margin-top:16px;padding:15px;border-radius:14px;border:1px solid #e8e1f1;display:grid;gap:10px}.mb65-onboard .mb65-other.is-hidden{display:none!important}.mb65-onboard .mb65-native-select{position:absolute!important;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden}.mb65-onboard .sg-university-preview[hidden]{display:none!important}
+.mb65-onboard .mb65-dates{display:grid;gap:10px}.mb65-onboard .mb65-dates button{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border-radius:14px;border:1.5px solid #e6dfeb;text-align:left;background:#fff;color:#16121f;cursor:pointer}.mb65-onboard .mb65-dates button:hover{border-color:#7c3aed}.mb65-onboard .mb65-dates button.is-selected{background:#f5efff;border-color:#7c3aed}.mb65-onboard .mb65-dates button strong{display:block}.mb65-onboard .mb65-dates button small{display:block;margin-top:4px;color:#83798e}.mb65-onboard .mb65-dates button .radio{width:22px;height:22px;border:2px solid #ddd3e9;border-radius:50%;display:grid;place-items:center;flex:none}.mb65-onboard .mb65-dates button.is-selected .radio{border-color:#7c3aed}.mb65-onboard .mb65-dates button.is-selected .radio:after{content:'';width:10px;height:10px;background:#7c3aed;border-radius:50%}.mb65-onboard .mb65-native-date{display:none!important}.mb65-onboard .mb65-pace{margin-top:20px;border-top:1px solid #ece7f3;padding-top:15px;font-size:13px;color:#6c617b}.mb65-onboard .mb65-pace summary{cursor:pointer;font-weight:700}.mb65-onboard .mb65-pace-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}.mb65-onboard .mb65-pace-fields input{margin-top:7px}
+.mb65-onboard .mb65-ready{padding:20px 0}.mb65-onboard .mb65-ready>img{width:68px;height:68px;object-fit:contain;margin-bottom:26px}.mb65-onboard .mb65-ready h1 span{color:#7c3aed}.mb65-onboard .mb65-start-practice{border:0;background:transparent;color:#7c3aed;font-weight:750;padding:10px 0;cursor:pointer;text-align:left}
+@media(max-width:1000px){.mb65-onboard .mb65-picker{grid-template-columns:1fr}.mb65-onboard .mb65-globe{min-height:300px}.mb65-onboard .mb65-university-list{max-height:240px}}
+@media(max-width:900px){.mb65-onboard .mb65-shell.sg-goal-modal-panel{display:flex!important;flex-direction:column!important;overflow:auto!important}.mb65-onboard .mb65-left{padding:18px 22px;flex:none;gap:12px}.mb65-onboard .mb65-preview,.mb65-onboard .mb65-quote,.mb65-onboard .mb65-watermark{display:none!important}.mb65-onboard .mb65-right{overflow:visible;padding:26px 18px 70px;flex:1;display:block}.mb65-onboard .mb65-inner{margin:0 auto}.mb65-onboard .mb65-wide .mb65-right{width:100%;box-sizing:border-box}.mb65-onboard .mb65-step h1{font-size:clamp(31px,6vw,48px)!important}.mb65-onboard .mb65-target-big{font-size:clamp(76px,15vw,114px)}.mb65-onboard .mb65-presets{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.mb65-onboard .mb65-presets{grid-template-columns:1fr}.mb65-onboard .mb65-pace-fields{grid-template-columns:1fr}.mb65-onboard .mb65-picker-side{min-width:0}.mb65-onboard .mb65-globe{min-height:270px}.mb65-onboard .mb65-step h1{font-size:36px!important}}
+@media(prefers-reduced-motion:reduce){.mb65-onboard *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+/* Preserve the shared name gate in DOM for existing regression tests, but use the integrated onboarding name step while the wizard is open. */
+body:has(.mb65-onboard.is-open) .profile-name-gate{display:none!important}
+.mb65-onboard .mb65-wide .mb65-actions{position:sticky!important;bottom:0;z-index:5;background:#fff!important;padding:16px 0!important;border-top:1px solid #f0eaf6!important}
+
+
+/* V65.1 — Keep onboarding header and footer on screen. Only the central wizard body scrolls. */
+.mb65-onboard .mb65-shell.sg-goal-modal-panel{overflow:hidden!important;min-height:0!important;height:100dvh!important;max-height:100dvh!important}
+.mb65-onboard .mb65-right{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;min-height:0!important;overflow:hidden!important;padding:0 clamp(16px,3vw,42px)!important}
+.mb65-onboard .mb65-inner{width:min(690px,100%);height:100%;min-height:0;max-height:100%;margin:0 auto!important;display:flex!important;flex-direction:column!important}
+.mb65-onboard .mb65-wide .mb65-inner{width:min(1200px,100%)}
+.mb65-onboard .mb65-top{flex:0 0 auto;align-items:center;min-height:88px;box-sizing:border-box;padding:16px 0 13px;background:#fff;z-index:5;border-bottom:1px solid #ece5f3}
+.mb65-onboard .mb65-top-info{min-width:0;flex:1}
+.mb65-onboard .mb65-top-kicker{display:block;font-size:10px;font-weight:850;letter-spacing:.14em;color:#7c3aed;margin-bottom:10px}
+.mb65-onboard .mb65-progress{margin-bottom:8px}
+.mb65-onboard .mb65-form.sg-goal-modal-form{display:flex!important;flex:1 1 auto;flex-direction:column;min-height:0!important;overflow:hidden!important;margin:0!important}
+.mb65-onboard .mb65-body.sg-goal-modal-body{flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-gutter:stable;padding:26px 4px 24px 0!important}
+.mb65-onboard .mb65-actions.sg-goal-modal-actions,.mb65-onboard .mb65-wide .mb65-actions{flex:0 0 auto!important;position:relative!important;bottom:auto!important;left:auto!important;right:auto!important;z-index:6;min-height:80px;box-sizing:border-box;display:flex!important;align-items:center!important;padding:12px 0 calc(12px + env(safe-area-inset-bottom))!important;margin:0!important;border-top:1px solid #ece5f3!important;background:#fff!important}
+.mb65-onboard .mb65-footer-note{font-size:12px;font-weight:550;color:#8b8395;margin-left:8px}
+.mb65-onboard .mb65-actions button{flex:none}
+.mb65-onboard .mb65-target-big{font-variant-numeric:tabular-nums;transform-origin:50% 75%;will-change:transform}
+.mb65-onboard .mb65-target-big.is-counting{animation:mb651-score-pop .48s cubic-bezier(.24,.78,.35,1) both}
+@keyframes mb651-score-pop{0%{transform:translateY(7px) scale(.94);opacity:.83}55%{transform:translateY(-3px) scale(1.055);opacity:1}100%{transform:translateY(0) scale(1);opacity:1}}
+@media(max-width:900px){
+ .mb65-onboard .mb65-shell.sg-goal-modal-panel{display:flex!important;flex-direction:column!important;overflow:hidden!important}
+ .mb65-onboard .mb65-left{flex:0 0 auto!important;min-height:58px;box-sizing:border-box;padding:9px 16px!important}
+ .mb65-onboard .mb65-right{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important;padding:0 18px!important;display:flex!important}
+ .mb65-onboard .mb65-inner{width:100%!important;max-height:100%;height:100%;margin:0 auto!important}
+ .mb65-onboard .mb65-top{min-height:74px;padding:10px 0!important}
+ .mb65-onboard .mb65-body.sg-goal-modal-body{padding:14px 3px 18px 0!important}
+ .mb65-onboard .mb65-actions.sg-goal-modal-actions{min-height:74px!important;padding:10px 0 calc(10px + env(safe-area-inset-bottom))!important}
+}
+@media(max-width:520px){
+ .mb65-onboard .mb65-footer-note{display:none!important}
+ .mb65-onboard .mb65-top-kicker{font-size:9px;letter-spacing:.1em}
+ .mb65-onboard .mb65-left .mb65-brand{font-size:18px}
+ .mb65-onboard .mb65-actions button{min-height:44px;padding:0 17px}
+}
+@media(prefers-reduced-motion:reduce){.mb65-onboard .mb65-target-big.is-counting{animation:none!important;will-change:auto!important}}
+/* Keep the compact MakonBook identity visible even on the wide university step on phones. */
+@media(max-width:900px){.mb65-onboard .mb65-shell.mb65-wide .mb65-left{display:flex!important}}
+/* Older modal mobile rules put navigation buttons in a column. Override on every step. */
+.mb65-onboard .mb65-actions.sg-goal-modal-actions{flex-direction:row!important;flex-wrap:nowrap!important;justify-content:space-between!important;gap:12px!important}
+.mb65-onboard .mb65-actions .mb65-actions-spacer{flex:1 1 auto!important;min-width:0}
+
+/* V65.2 — university globe: smooth geographic flights and persistent selected marker. */
+.mb65-onboard .mb65-globe svg{will-change:contents;user-select:none;-webkit-user-select:none}
+.mb65-onboard .mb652-focus-ring{pointer-events:none}
+.mb65-onboard .mb652-focus-halo{fill:#9560ef;fill-opacity:.16;stroke:#7c3aed;stroke-opacity:.45;stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:mb652-halo-pulse 2s ease-out infinite}
+.mb65-onboard .mb652-focus-core{fill:#7c3aed;fill-opacity:.27;stroke:#7c3aed;stroke-width:1.5}
+@keyframes mb652-halo-pulse{0%{transform:scale(.7);opacity:.9}65%{transform:scale(1.5);opacity:.38}100%{transform:scale(1.8);opacity:0}}
+@media(prefers-reduced-motion:reduce){.mb65-onboard .mb652-focus-halo{animation:none!important;opacity:.6}}
+
+/* V65.3: step two is a contained one-screen workspace with an independent list scroller. */
+.mb65-onboard .mb65-wide .mb65-body.sg-goal-modal-body{overflow:hidden!important;display:flex!important;flex-direction:column!important;padding:10px 2px 8px!important}
+.mb65-onboard .mb65-wide .mb65-step-uni:not([hidden]){flex:1 1 auto;min-height:0!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.mb65-onboard .mb65-wide .mb65-step-uni h1{flex:none;font-size:clamp(25px,2.4vw,35px)!important;line-height:1.09!important}
+.mb65-onboard .mb65-wide .mb65-step-uni .mb65-lead{flex:none;margin:3px 0 7px!important;font-size:12px!important;line-height:1.32!important;max-width:none}
+.mb65-onboard .mb65-wide .mb65-picker{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;margin-top:4px!important;flex:1 1 auto;min-height:0!important;overflow:hidden!important}
+.mb65-onboard .mb65-wide .mb65-globe-panel{display:flex!important;flex-direction:column!important;min-height:0!important;max-height:100%!important;overflow:hidden!important;padding:9px!important}
+.mb65-onboard .mb65-wide .mb65-globe{display:flex!important;flex:1 1 auto!important;min-height:0!important;justify-content:center;align-items:center}
+.mb65-onboard .mb653-globe-stage{position:relative;display:block;aspect-ratio:1/1;width:auto;height:100%;max-width:100%;max-height:100%;margin:0 auto;touch-action:none}
+.mb65-onboard .mb653-earth-surface,.mb65-onboard .mb653-globe-overlay{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;max-width:100%!important;aspect-ratio:1/1;user-select:none!important}
+.mb65-onboard .mb653-earth-surface{pointer-events:none}
+.mb65-onboard .mb653-globe-overlay{touch-action:none;cursor:grab}
+.mb65-onboard .mb653-globe-overlay:active{cursor:grabbing}
+.mb65-onboard .mb65-wide .mb65-regions{flex:none!important;gap:4px!important;margin:2px 0!important}
+.mb65-onboard .mb65-wide .mb65-regions button{padding:5px 8px!important;font-size:11px!important}
+.mb65-onboard .mb65-wide .mb65-globe-panel>p{flex:none!important;font-size:11px!important;margin:4px 0 1px!important}
+.mb65-onboard .mb65-wide .mb65-picker-side{height:100%!important;min-height:0!important;overflow:hidden!important;gap:7px!important}
+.mb65-onboard .mb65-wide .mb65-selected-university{min-height:0!important;flex:none!important;padding:10px 13px!important;border-radius:12px!important}
+.mb65-onboard .mb65-wide .mb65-selected-university strong{font-size:16px!important}
+.mb65-onboard .mb65-wide .mb65-selected-university small{margin:3px 0!important}
+.mb65-onboard .mb65-wide .mb65-count{font-size:11px!important;flex:none}
+.mb65-onboard .mb65-wide .mb65-picker-search{flex:none}
+.mb65-onboard .mb65-wide .mb65-picker-search input{height:42px!important}
+.mb65-onboard .mb65-wide .mb65-university-list{flex:1 1 auto!important;min-height:60px!important;max-height:none!important;height:auto!important;overflow-y:auto!important;overscroll-behavior:contain}
+.mb65-onboard .mb65-wide .mb65-university-list button{padding:7px 10px!important}
+.mb65-onboard .mb65-wide .mb65-other:not(.is-hidden){overflow:auto!important;max-height:150px!important;flex:none}
+.mb65-onboard .mb653-pin-label{font-size:12px;font-weight:850;fill:#291440;stroke:white;stroke-width:3px;paint-order:stroke;stroke-linejoin:round}
+.mb65-onboard .mb653-cluster-count{font-size:11px;font-weight:850;fill:#672bbb;paint-order:stroke;stroke:#fff;stroke-width:2px}
+.mb65-onboard [data-uni-pin]{cursor:pointer;transition:stroke-width .12s}
+.mb65-onboard [data-uni-pin]:focus-visible{outline:none;stroke:#f8c94d;stroke-width:4px}
+.mb65-onboard .mb653-location-hint{display:block!important;margin-top:5px;font-size:11px!important;color:#887a99!important}
+@media(max-width:760px){
+  .mb65-onboard .mb65-wide .mb65-body.sg-goal-modal-body{overflow-y:auto!important;display:block!important;padding-top:12px!important}
+  .mb65-onboard .mb65-wide .mb65-step-uni:not([hidden]){display:block!important;overflow:visible!important;max-height:none!important;height:auto!important}
+  .mb65-onboard .mb65-wide .mb65-picker{display:flex!important;flex-direction:column!important;overflow:visible!important;min-height:0!important}
+  .mb65-onboard .mb65-wide .mb65-globe-panel{height:min(445px,57dvh)!important;min-height:285px!important;overflow:hidden!important}
+  .mb65-onboard .mb653-globe-stage{max-height:100%;height:100%;width:auto!important}
+  .mb65-onboard .mb65-wide .mb65-picker-side{height:320px!important;overflow:hidden!important;min-height:300px!important}
+  .mb65-onboard .mb65-wide .mb65-university-list{min-height:80px!important;flex:1 1 auto!important}
+}
+@media(max-height:670px) and (min-width:761px){
+  .mb65-onboard .mb65-wide .mb65-step-uni h1{font-size:26px!important}
+  .mb65-onboard .mb65-wide .mb65-globe-panel>p{display:none!important}
+  .mb65-onboard .mb65-wide .mb65-regions button{padding:4px 7px!important}
+}
+@media(prefers-reduced-motion:reduce){.mb65-onboard [data-uni-pin]{transition:none!important}}
+
+/* V65.4 — restore a genuinely usable globe viewport.
+   V65.3 let the entire flex chain shrink to content height, so the 3D sphere
+   could collapse to a tiny circle even in a wide desktop viewport.
+   Use a real bounded picker height; allow only the central body to scroll
+   when the available viewport is too short. Header/footer stay pinned. */
+@media (min-width:761px) {
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-body.sg-goal-modal-body {
+    display:block!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain;
+    padding-top:14px!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-step-uni:not([hidden]) {
+    display:flex!important;
+    flex-direction:column!important;
+    height:auto!important;
+    min-height:0!important;
+    overflow:visible!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-step-uni .mb65-picker {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    flex:0 0 auto!important;
+    height:clamp(440px,calc(100dvh - 265px),595px)!important;
+    min-height:440px!important;
+    max-height:none!important;
+    overflow:hidden!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-globe-panel {
+    display:flex!important;
+    flex-direction:column!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    padding:10px!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-globe {
+    display:flex!important;
+    flex:1 1 auto!important;
+    width:100%!important;
+    min-height:0!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb653-globe-stage {
+    width:min(100%,520px,clamp(310px,calc(100dvh - 340px),520px))!important;
+    height:auto!important;
+    max-width:100%!important;
+    max-height:100%!important;
+    aspect-ratio:1 / 1!important;
+    flex:0 0 auto!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-picker-side {
+    min-height:0!important;
+    height:100%!important;
+  }
+}
+@media (max-width:760px) {
+  /* Keep the mobile central scroller, with the globe occupying the panel. */
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-globe-panel {
+    height:clamp(345px,53dvh,490px)!important;
+    min-height:345px!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb65-globe {
+    min-height:0!important;
+    flex:1 1 auto!important;
+    width:100%!important;
+  }
+  .mb65-onboard .mb65-shell.mb65-wide .mb653-globe-stage {
+    aspect-ratio:1/1!important;
+    width:min(100%,400px)!important;
+    height:auto!important;
+    max-height:100%!important;
+    margin:auto!important;
+  }
+}

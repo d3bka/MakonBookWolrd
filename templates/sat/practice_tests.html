@@ -1,0 +1,137 @@
+{% extends student_workspace_base_template|default:'template.html' %}
+{% load static %}
+
+{% block page_title %}Practice Tests | MakonBook{% endblock page_title %}
+{% block title-main %}MakonBook{% endblock title-main %}
+{% block title-subtitle %}<p class="page-title-subtitle">Practice Tests</p>{% endblock title-subtitle %}
+{% block title %}Practice Tests{% endblock title %}
+
+{% block style %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'assets/css/makon-practice-tests.css' %}?v=15">
+<link rel="stylesheet" href="{% static 'assets/css/makon-practice-tests-v551.css' %}?v=551">
+<link rel="stylesheet" href="{% static 'assets/css/makon-test-config-v5418.css' %}?v=5418">
+{% endblock style %}
+
+{% block content %}
+<div class="practice-page practice-page-v551" data-practice-page data-page-key="global">
+  <section class="practice-hero" data-practice-reveal>
+    <div class="practice-hero-copy">
+      <span class="practice-eyebrow"><i aria-hidden="true"></i>Your SAT workspace</span>
+      <h2>Practice, continue, and review every attempt in one place</h2>
+      <p>Available tests come from all of your approved classes. Attempts and results belong to you, not to a classroom.</p>
+    </div>
+
+    <div class="practice-summary-grid" aria-label="Practice test summary">
+      <article><span>Available</span><strong>{{ practice_summary.available|default:0 }}</strong></article>
+      <article><span>In progress</span><strong>{{ practice_summary.in_progress|default:0 }}</strong></article>
+      <article><span>History</span><strong>{{ practice_summary.history|default:0 }}</strong></article>
+      <article><span>Best score</span><strong>{% if practice_summary.best_score is not None %}{{ practice_summary.best_score }}{% else %}—{% endif %}</strong></article>
+    </div>
+  </section>
+
+  {% if tests_locked %}
+    <section class="practice-info-banner v523-test-lock" data-practice-reveal>
+      <span class="practice-info-icon"><i class="bi bi-lock"></i></span>
+      <div><strong>Tests unlock after you join a classroom.</strong><p>Your History remains available even when there are no currently assigned tests.</p><a class="mb50-primary-btn" href="{% url 'events' %}">Enter classroom code <i class="bi bi-arrow-right"></i></a></div>
+    </section>
+  {% elif tests_unassigned %}
+    <section class="practice-info-banner v523-test-lock" data-practice-reveal>
+      <span class="practice-info-icon"><i class="bi bi-hourglass-split"></i></span>
+      <div><strong>No SAT tests assigned right now.</strong><p>Your completed attempts are still available in History.</p></div>
+    </section>
+  {% endif %}
+
+  {% if is_teacher_view %}
+    <div class="practice-info-banner" data-practice-reveal>
+      <span class="practice-info-icon" aria-hidden="true"><i class="bi bi-eye"></i></span>
+      <div><strong>Teacher preview mode</strong><p>Student test access is managed separately from classroom management.</p></div>
+    </div>
+  {% endif %}
+
+  <section class="practice-library" id="practiceTestsLibrary" data-practice-group="tests" data-practice-reveal>
+    <div class="practice-library-head">
+      <div>
+        <span class="practice-section-kicker">Unified tests</span>
+        <h2>Practice Tests</h2>
+        <p>Available is your test library. In Progress contains unfinished attempts. History contains every completed attempt.</p>
+      </div>
+
+      <label class="practice-search">
+        <span class="sr-only">Search practice tests and history</span>
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" placeholder="Search tests or attempts" autocomplete="off" data-practice-search>
+        <button type="button" aria-label="Clear search" data-practice-search-clear hidden>×</button>
+      </label>
+    </div>
+
+    <div class="practice-tabs practice-tabs-v551" role="tablist" aria-label="Practice test status">
+      <button type="button" class="practice-tab is-active" role="tab" aria-selected="true" data-practice-tab="available">
+        Available <span>{{ practice_summary.available|default:0 }}</span>
+      </button>
+      <button type="button" class="practice-tab" role="tab" aria-selected="false" data-practice-tab="in-progress">
+        In Progress <span>{{ practice_summary.in_progress|default:0 }}</span>
+      </button>
+      <button type="button" class="practice-tab" role="tab" aria-selected="false" data-practice-tab="history">
+        History <span>{{ practice_summary.history|default:0 }}</span>
+      </button>
+    </div>
+
+    <div class="practice-panels">
+      <div class="practice-panel is-active" data-practice-panel="available" role="tabpanel">
+        <div class="practice-grid" data-practice-grid>
+          {% for test in available_tests %}
+            {% include 'sat/_practice_test_card_v551.html' with test=test %}
+          {% empty %}
+            <div class="practice-empty-state" data-practice-native-empty>
+              <span><i class="bi bi-inbox" aria-hidden="true"></i></span>
+              <h3>No available tests</h3>
+              <p>Your teachers have not currently assigned any SAT tests.</p>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="practice-empty-state practice-search-empty" data-practice-search-empty hidden>
+          <span><i class="bi bi-search" aria-hidden="true"></i></span><h3>No matching tests</h3><p>Try another test name.</p>
+        </div>
+      </div>
+
+      <div class="practice-panel" data-practice-panel="in-progress" role="tabpanel" hidden>
+        <div class="practice-grid" data-practice-grid>
+          {% for test in in_progress_tests %}
+            {% include 'sat/_practice_test_card_v551.html' with test=test %}
+          {% empty %}
+            <div class="practice-empty-state" data-practice-native-empty>
+              <span><i class="bi bi-play-circle" aria-hidden="true"></i></span>
+              <h3>No unfinished attempts</h3>
+              <p>Start a test from Available and it will appear here until it is submitted.</p>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="practice-empty-state practice-search-empty" data-practice-search-empty hidden>
+          <span><i class="bi bi-search" aria-hidden="true"></i></span><h3>No matching attempts</h3><p>Try another test name.</p>
+        </div>
+      </div>
+
+      <div class="practice-panel" data-practice-panel="history" role="tabpanel" hidden>
+        <div class="practice-grid practice-history-grid" data-practice-grid>
+          {% for attempt in history_attempts %}
+            {% include 'sat/_practice_history_card_v551.html' with attempt=attempt %}
+          {% empty %}
+            <div class="practice-empty-state" data-practice-native-empty>
+              <span><i class="bi bi-clock-history" aria-hidden="true"></i></span>
+              <h3>No completed attempts yet</h3>
+              <p>Every scored attempt will remain here, even if a class later removes access to that test.</p>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="practice-empty-state practice-search-empty" data-practice-search-empty hidden>
+          <span><i class="bi bi-search" aria-hidden="true"></i></span><h3>No matching history</h3><p>Try a test name, mode, or score.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="{% static 'assets/js/makon-practice-tests.js' %}?v=551"></script>
+<script src="{% static 'assets/js/makon-test-config-v550.js' %}?v=550"></script>
+{% endblock content %}

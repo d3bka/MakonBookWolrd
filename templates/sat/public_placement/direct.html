@@ -1,0 +1,72 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>{{ section_label }} level check · MakonBook</title>
+  <meta name="description" content="Check your SAT {{ section_label }} level with MakonBook: no sign-up, your level and score out of 800 at the end.">
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  {% include 'base/theme_init.html' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5612">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5610.css' %}?v=5610">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-v5612.css' %}?v=5612">
+  <link rel="stylesheet" href="{% static 'assets/css/public-placement-header-sync-v5612-3.css' %}?v=56123">
+</head>
+<body class="mb56-page pp-page pp-v5612">
+  <div class="mb56-noise" aria-hidden="true"></div>
+
+  {% include 'landing/_public_header.html' with local_nav=False %}
+
+  <main class="pp-shell pp-start-shell">
+    <div class="pp-start-grid pp12-start-grid">
+      <section class="pp-start-copy" data-pp-reveal>
+        <div class="pp12-start-status"><i></i> {% if can_start %}Ready to start{% else %}Not open right now{% endif %}</div>
+        <span class="pp-kicker">SAT LEVEL CHECK</span>
+        <h1>{{ section_label }}</h1>
+        <p>Find your SAT {{ section_label }} level in one sitting. No sign-up and no personal details: at the end you see your level and your {{ section_label }} score out of 800.</p>
+
+        {% if can_start %}
+        <div class="pp12-overview-strip">
+          <div><span>Questions</span><strong>{{ total_questions }}</strong></div>
+          <div><span>Approx. time</span><strong>≈ {{ estimated_minutes }} min</strong></div>
+          <div><span>Modules</span><strong>{{ module_count }}</strong></div>
+        </div>
+        {% endif %}
+
+        <div class="pp12-safety-list">
+          <span><i>✓</i> No account or phone number needed</span>
+          <span><i>✓</i> Progress is saved during the test</span>
+          <span><i>✓</i> Level and score out of 800 at the end</span>
+        </div>
+      </section>
+
+      <section class="pp-form-card pp12-form-card" data-pp-reveal>
+        <div class="pp-form-head">
+          <span>{% if unfinished %}WELCOME BACK{% else %}BEFORE YOU START{% endif %}</span>
+          <h2>{% if unfinished %}Carry on where you stopped{% else %}Ready when you are{% endif %}</h2>
+          <p>{% if unfinished %}Your answers are saved. The timer has kept running since you left.{% else %}Use one browser tab, keep a stable connection and give yourself enough uninterrupted time. The timer starts when you press Start.{% endif %}</p>
+        </div>
+        {% if error %}<div class="pp-form-alert">{{ error }}</div>{% endif %}
+        {% if not can_start %}<div class="pp-form-alert">This level check is not open right now. Please try again later.</div>{% endif %}
+        <form method="post">
+          {% csrf_token %}
+          <input class="pp-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="pp-btn pp-btn-full pp12-start-button" type="submit" {% if not can_start %}disabled{% endif %}>
+            <span>{% if unfinished %}Continue the {{ section_short }} level check{% else %}Start the {{ section_short }} level check{% endif %}</span><b>↗</b>
+          </button>
+        </form>
+        <div class="pp12-secure-note"><span>↔</span><p>Want the other section? <a href="{% if other_section == 'math' %}{% url 'public_placement_direct_math' %}{% else %}{% url 'public_placement_direct_english' %}{% endif %}">Take the {{ other_label }} level check</a>.</p></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5597"></script>
+  <script src="{% static 'assets/js/public-placement-v5612.js' %}?v=5612"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+/* V64.5 - cross-document brand continuity: no overlay on first load. */
+.mb641-brand-veil.mb645-departing {
+  opacity: 0;
+  animation:mb645-depart 285ms ease-out both;
+}
+.mb641-brand-veil.mb645-departing .mb641-brand-lockup {
+  opacity:1;
+  transform:translateY(0) scale(1);
+  animation:mb645-brand-in 285ms ease-out both;
+}
+@keyframes mb645-depart {0%{opacity:0}80%,100%{opacity:1}}
+@keyframes mb645-brand-in {0%{opacity:0;transform:scale(.94)}90%,100%{opacity:1;transform:scale(1)}}
+/* HTML-level overlay appears before the next document's body has been parsed.
+   This makes the destination reveal happen UNDER the shared brand transition. */
+html.mb645-arriving::before,html.mb645-arriving::after {
+  content:"";position:fixed;inset:0;pointer-events:none;
+  z-index:2147483000;opacity:1;
+  transition:opacity 380ms cubic-bezier(.23,.65,.36,1);
+}
+html.mb645-arriving::before {background:radial-gradient(circle at 50% 44%,#5121a3 0%,#31165a 44%,#1a0e2d 100%)}
+html.mb645-arriving::after {
+  content:"MakonBook";
+  text-align:center;
+  box-sizing:border-box;
+  padding-top:calc(50vh + 7px);
+  color:#fff;font:850 clamp(35px,6vw,65px)/1.5 'Inter',system-ui,sans-serif;
+  letter-spacing:-.075em;
+  background: url('../img/icons/white-icon-nobg.png') center calc(50% - 91px)/58px auto no-repeat;
+  text-shadow:0 1px 1px rgba(22,7,40,.09);
+}
+html.mb645-arriving.mb645-arrival-reveal::before,
+html.mb645-arriving.mb645-arrival-reveal::after {opacity:0}
+@media(prefers-reduced-motion:reduce) {
+  .mb641-brand-veil.mb645-departing{animation:none!important;display:none!important}
+  html.mb645-arriving::before,html.mb645-arriving::after{display:none!important}
+}

@@ -1,0 +1,25 @@
+{% extends student_workspace_base_template %}{% load static %}
+{% block page_title %}Vocabulary Library | MakonBook{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/vocabulary-decks-v50.css' %}?v=505">{% endblock %}
+{% block content %}
+<div class="vd50-page" data-deck-search-scope>
+  <section class="vd50-hero">
+    <div><span class="vd50-kicker"><i class="bi bi-compass"></i> Vocabulary library</span><h1>Pick a deck. Add it once. Study it here.</h1><p>Official MakonBook sets become your private copy. Adding a deck no longer sends you to another page.</p></div>
+    <div class="vd50-actions"><a class="vd50-btn" href="{% url 'vocabulary_root' %}"><i class="bi bi-grid"></i> Vocabulary home</a><a class="vd50-btn primary" href="{% url 'vocabulary_decks_root' %}"><i class="bi bi-collection"></i> My decks</a></div>
+  </section>
+  <div class="vd50-toolbar"><div class="vd50-tabs"><a class="vd50-tab" href="{% url 'vocabulary_decks_root' %}">My decks</a><a class="vd50-tab active" href="{% url 'vocabulary_deck_library_root' %}">Library</a></div><label class="vd50-search"><i class="bi bi-search"></i><input type="search" placeholder="Search official decks" data-deck-search></label></div>
+  <section class="vd50-section"><div class="vd50-grid">
+    {% for unit in library_units %}
+      <article class="vd50-card{% if unit.id in cloned_unit_ids %} is-added{% endif %}" data-library-card data-deck-search-item data-search="{{ unit.title|lower }} {{ unit.description|default:''|lower }}">
+        <div class="vd50-card-top"><div><span class="vd50-badge">Official</span><h3>{{ unit.title }}</h3><p>{{ unit.description|default:"Curated MakonBook vocabulary set." }}</p></div><span data-clone-state class="{% if unit.id in cloned_unit_ids %}vd50-added-state{% else %}vd50-badge{% endif %}">{% if unit.id in cloned_unit_ids %}<i class="bi bi-check-circle-fill"></i> Added{% else %}{{ unit.active_word_count }} words{% endif %}</span></div>
+        <div class="vd50-card-meta"><span><i class="bi bi-card-text"></i> {{ unit.active_word_count }} words</span><span><i class="bi bi-shield-check"></i> MakonBook set</span></div>
+        <div class="vd50-card-actions">
+          {% if unit.id in cloned_unit_ids %}<a class="vd50-btn" href="{% url 'vocabulary_decks_root' %}">Open My decks</a>{% endif %}
+          <form method="post" action="{% url 'vocabulary_deck_clone_unit_root' unit.id %}" data-deck-clone-form>{% csrf_token %}<button class="vd50-btn {% if unit.id in cloned_unit_ids %}is-added{% else %}primary{% endif %}" type="submit" {% if unit.id in cloned_unit_ids %}disabled{% endif %}>{% if unit.id in cloned_unit_ids %}<i class="bi bi-check-lg"></i> Added{% else %}<i class="bi bi-plus-lg"></i> Add to My decks{% endif %}</button></form>
+        </div>
+      </article>
+    {% empty %}<div class="vd50-empty"><strong>No official vocabulary sets yet.</strong><br>Your active Vocabulary Units will appear here.</div>{% endfor %}
+  </div></section>
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}{{ block.super }}<script src="{% static 'assets/js/vocabulary-decks-v50.js' %}?v=505"></script>{% endblock %}

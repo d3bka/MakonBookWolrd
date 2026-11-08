@@ -1,0 +1,35 @@
+{% load static %}
+<script>
+(function(){
+  try {
+    var raw = sessionStorage.getItem('mb645-route-intent');
+    if (!raw) return;
+    sessionStorage.removeItem('mb645-route-intent');
+    var token = JSON.parse(raw);
+    var here = location.pathname + location.search + location.hash;
+    // Compare pathname+query; fragments can be removed by browser scroll.
+    var expected = new URL(token.to, location.href);
+    if (token.version !== 645 || Date.now() - token.time > 6500 ||
+        expected.pathname !== location.pathname || expected.search !== location.search) return;
+    document.documentElement.classList.add('mb645-arriving');
+    var release = function () {
+      if (!document.documentElement.classList.contains('mb645-arriving')) return;
+      document.documentElement.classList.add('mb645-arrival-reveal');
+      window.setTimeout(function(){
+        document.documentElement.classList.remove('mb645-arriving','mb645-arrival-reveal');
+      }, 440);
+    };
+    // Never wait for remote fonts, images or window.load.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',function(){
+      requestAnimationFrame(function(){requestAnimationFrame(release);});
+    },{once:true});
+    else requestAnimationFrame(release);
+    // Emergency release even when DOMContentLoaded never fires.
+    window.setTimeout(function(){
+      document.documentElement.classList.remove('mb645-arriving','mb645-arrival-reveal');
+    }, 2400);
+  } catch (_) { document.documentElement.classList.remove('mb645-arriving','mb645-arrival-reveal'); }
+})();
+</script>
+<link rel="stylesheet" href="{% static 'assets/css/makon-landing-transitions-v641-local.css' %}?v=6451">
+<link rel="stylesheet" href="{% static 'assets/css/makon-public-transitions-v645.css' %}?v=6451">

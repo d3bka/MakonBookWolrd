@@ -1,0 +1,3458 @@
+from django.db import models
+from django.contrib.auth.models import User, Group
+from datetime import timedelta
+import datetime
+import random
+import string
+import uuid
+import secrets
+import urllib.parse
+import json
+import time
+from django.utils.timezone import now
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+from .storages import PublicStorage, PrivateStorage
+from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
+
+# Abstract base model for common fields
+class BaseModel(models.Model):
+    """Abstract model to include created_at and updated_at for all models."""
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        abstract = True
+
+# Video model for lessons and test explanations
+class BaseVideo(models.Model):
+    """
+    A base video model for handling both lesson videos and test-solved videos.
+
+    Features:
+    - Supports external uploads (via pre-signed URLs) rather than admin-panel uploads.
+    - Can be attached to various content types (e.g., Lesson, TestSolved) via a generic relation.
+    - Stores the raw video file (e.g., MP4) and the processed HLS URL.
+    - Tracks conversion status and includes metadata like duration and resolution.
+    - Provides helper methods for generating secure access tokens and signed URLs.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    
+    VIDEO_TYPE_CHOICES = [
+        ('lesson', 'Lesson Video'),
+        ('test_solved', 'Test Solved Video'),
+    ]
+    video_type = models.CharField(max_length=20, choices=VIDEO_TYPE_CHOICES)
+    
+    # Generic relation to attach this video to any object (e.g., Lesson or TestSolved)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    attached_object = GenericForeignKey('content_type', 'object_id')
+    
+    video_file = models.FileField(
+        upload_to='videos/raw/',
+        storage=PrivateStorage(),
+        blank=True,
+        null=True,
+        help_text="Uploaded externally; not via the admin panel."
+    )
+    
+    hls_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL to the HLS manifest (e.g., output.m3u8) after processing."
+    )
+    
+    CONVERSION_STATUSES = [
+        ('pending', 'Pending'),
+        ('converting', 'Converting'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    conversion_status = models.CharField(
+        max_length=20,
+        choices=CONVERSION_STATUSES,
+        default='pending'
+    )
+    
+    description = models.TextField(blank=True)
+    duration = models.DurationField(blank=True, null=True)
+    resolution = models.CharField(max_length=50, blank=True, null=True)
+    access_token = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Token used for generating secure access to the video."
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Video"
+        verbose_name_plural = "Videos"
+    
+    def __str__(self):
+        return self.title
+
+    def generate_access_token(self):
+        """Generate a secure access token for signing URLs."""
+        self.access_token = secrets.token_urlsafe(32)
+        self.save(update_fields=['access_token'])
+        return self.access_token
+
+    def get_signed_hls_url(self, expiration_seconds=3600):
+        """
+        Generate a signed URL for secure access to the HLS manifest.
+        Valid for a limited period (default: 1 hour).
+        """
+        if not self.hls_url:
+            return None
+        
+        if not self.access_token:
+            self.generate_access_token()
+        
+        expires = int(time.time()) + expiration_seconds
+        query_params = {'token': self.access_token, 'expires': expires}
+        signed_url = f"{self.hls_url}?{urllib.parse.urlencode(query_params)}"
+        return signed_url
+
+# Question categorization
+class QuestionDomain(BaseModel):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+class QuestionType(BaseModel):
+    name = models.CharField(max_length=100)
+    domain = models.ForeignKey(QuestionDomain, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.name
+
+# User punishment tracking
+class Punishment(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.TextField('Name of the punishment', null=True)
+    created = models.DateTimeField('When happened', auto_now=True)
+
+# Test model
+class Test(BaseModel):
+    TYPE_REGULAR = 'regular'
+    TYPE_PLACEMENT = 'placement'
+    TYPE_EVENT = 'event'
+    TEST_TYPE_CHOICES = [
+        (TYPE_REGULAR, 'Regular / Practice Test'),
+        (TYPE_PLACEMENT, 'Placement Test'),
+        (TYPE_EVENT, 'Event Test'),
+    ]
+
+    name = models.CharField(max_length=400, unique=True, primary_key=True)
+    test_type = models.CharField(
+        max_length=20,
+        choices=TEST_TYPE_CHOICES,
+        default=TYPE_REGULAR,
+        db_default=TYPE_REGULAR,
+        db_index=True,
+        help_text=(
+            'Regular tests appear in Tests, Placement tests appear in Placement Tests, '
+            'and Event tests are used as event-only question banks. '
+            'Linking any test to GlobalEvent does not change this field.'
+        ),
+    )
+    created = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='When this test became visible to students. Used for the NEW badge.',
+    )
+    is_available = models.BooleanField(
+        'Open for MakonBook users',
+        default=True,
+        db_index=True,
+        help_text=(
+            'Controls all normal MakonBook test attempts for Students, Teachers and Support Teachers, '
+            'including every Classroom attempt. Guest Mode and Manager/Admin/Tester QA access remain available when disabled. '
+            'Existing attempts, progress and results are preserved.'
+        ),
+    )
+    groups = models.ManyToManyField(Group, related_name='tests')
+    # Practice tests synced from makonbook-api (apps.content_sync) say so here;
+    # tests made in this app leave it blank.
+    SOURCE_MAKONBOOK_API = 'makonbook_api'
+    source = models.CharField(max_length=20, blank=True, default='', db_default='', db_index=True)
+    source_version = models.PositiveIntegerField(null=True, blank=True)
+    source_synced_at = models.DateTimeField(null=True, blank=True)
+    icon = models.ImageField(
+        'Icon',
+        upload_to='sat/test_icons',
+        storage=PublicStorage(),
+        null=True,
+        blank=True,
+        help_text='Upload an icon or photo for this test.'
+    )
+
+    def get_number(self):
+        return int(self.name)
+
+    @property
+    def is_new(self):
+        if not self.published_at:
+            return False
+        return timezone.now() <= self.published_at + timedelta(days=7)
+
+    def __str__(self):
+        return self.name
+
+# Choices for modules
+modules = [('module_1', "Module 1"), ('module_2', "Module 2")]
+
+# English questions
+class English_Question(BaseModel):
+    RESPONSE_TYPE_CHOICES = [
+        ("multiple_choice", "Multiple choice"),
+        ("open_text", "Open text (deterministic matching)"),
+    ]
+
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True)
+    module = models.CharField(max_length=8, choices=modules, null=True)
+    domain = models.ForeignKey(QuestionDomain, on_delete=models.SET_NULL, null=True, blank=True)
+    type = models.ForeignKey(QuestionType, on_delete=models.SET_NULL, blank=True, null=True)
+    image = models.ImageField(
+        'Image',
+        upload_to='sat/question_images',
+        storage=PublicStorage(),
+        null=True,
+        blank=True
+    )
+    number = models.IntegerField('Question Number', null=True)
+    passage = models.TextField('Passage', blank=True, null=True)
+    question = models.TextField('Question', blank=True, null=True)
+    a = models.TextField('Choice A', blank=True, null=True)
+    b = models.TextField('Choice B', blank=True, null=True)
+    c = models.TextField('Choice C', blank=True, null=True)
+    d = models.TextField('Choice D', blank=True, null=True)
+    graph = models.BooleanField('Is there Graph or Table', default=False)
+    response_type = models.CharField(
+        max_length=24,
+        choices=RESPONSE_TYPE_CHOICES,
+        default="multiple_choice",
+    )
+    answer = models.CharField('Answer', null=True, blank=True, max_length=400)
+    accepted_answers = models.TextField(
+        blank=True,
+        help_text="One accepted full answer per line. Matching ignores case, repeated spaces, and final punctuation.",
+    )
+    answer_patterns = models.TextField(
+        blank=True,
+        help_text="Optional regular expressions, one per line. Each pattern must match the entire normalized response.",
+    )
+    explained = models.TextField('Explanation', blank=True, null=True)
+    # "makon": the text is in MakonBook's format (synced from makonbook-api)
+    # and apps.sat.rich_text renders it; "legacy": stored HTML/plain text.
+    content_format = models.CharField(
+        max_length=10,
+        choices=[('legacy', 'Legacy'), ('makon', 'MakonBook format')],
+        default='legacy',
+        db_default='legacy',
+    )
+    source_question_id = models.CharField(max_length=36, blank=True, default='', db_default='')
+    source_difficulty = models.CharField(max_length=10, blank=True, default='', db_default='')
+
+    @property
+    def is_open_text(self):
+        return self.response_type == "open_text"
+
+    def graph_url(self):
+        if self.graph and self.image:
+            return self.image.url
+        return ''
+
+    def __str__(self):
+        return f'{self.test}>module-{self.module}> #{self.number}'
+
+# Math questions
+class Math_Question(BaseModel):
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True)
+    module = models.CharField(max_length=8, choices=modules, null=True)
+    domain = models.ForeignKey(QuestionDomain, on_delete=models.SET_NULL, null=True, blank=True)
+    type = models.ForeignKey(QuestionType, on_delete=models.SET_NULL, blank=True, null=True)
+    image = models.ImageField('Image', upload_to='sat/question_images', storage=PublicStorage(), null=True, blank=True)
+    number = models.IntegerField('Question Number', null=True)
+    passage = models.TextField('Passage', blank=True, null=True)
+    question = models.TextField('Question', blank=True, null=True)
+    a = models.TextField('Choice A', blank=True, null=True)
+    b = models.TextField('Choice B', blank=True, null=True)
+    c = models.TextField('Choice C', blank=True, null=True)
+    d = models.TextField('Choice D', blank=True, null=True)
+    image_a = models.ImageField('Image A', upload_to='sat/choice_images', storage=PublicStorage(), null=True, blank=True)
+    image_b = models.ImageField('Image B', upload_to='sat/choice_images', storage=PublicStorage(), null=True, blank=True)
+    image_c = models.ImageField('Image C', upload_to='sat/choice_images', storage=PublicStorage(), null=True, blank=True)
+    image_d = models.ImageField('Image D', upload_to='sat/choice_images', storage=PublicStorage(), null=True, blank=True)
+    graph = models.BooleanField('Is there Graph or Table', default=False)
+    choice_graph = models.BooleanField('Is there Graph or Table in choices', default=False)
+    written = models.BooleanField("Is it write type question", default=False)
+    answer = models.CharField('Answer', null=True, blank=True, max_length=400)
+    explained = models.TextField('Explanation', blank=True, null=True)
+    img_explain = models.ImageField('Image Explanation', upload_to='sat/question_images', storage=PublicStorage(), null=True, blank=True)
+    # "makon": the text is in MakonBook's format (synced from makonbook-api)
+    # and apps.sat.rich_text renders it; "legacy": stored HTML/plain text.
+    content_format = models.CharField(
+        max_length=10,
+        choices=[('legacy', 'Legacy'), ('makon', 'MakonBook format')],
+        default='legacy',
+        db_default='legacy',
+    )
+    source_question_id = models.CharField(max_length=36, blank=True, default='', db_default='')
+    source_difficulty = models.CharField(max_length=10, blank=True, default='', db_default='')
+
+    def get_a(self):
+        if self.choice_graph and self.image_a:
+            return f"IMAGE:{self.image_a.url}"
+        return self.a
+    
+    def get_b(self):
+        if self.choice_graph and self.image_b:
+            return f"IMAGE:{self.image_b.url}"
+        return self.b
+    
+    def get_c(self):
+        if self.choice_graph and self.image_c:
+            return f"IMAGE:{self.image_c.url}"
+        return self.c
+    
+    def get_d(self):
+        if self.choice_graph and self.image_d:
+            return f"IMAGE:{self.image_d.url}"
+        return self.d
+
+    def get_graph(self):
+        if self.graph and self.image:
+            return self.image.url
+        return ''
+
+    def get_exp(self):
+        if self.img_explain:
+            return f'<img style="max-width: 400px" src="{self.img_explain.url}"></img>'
+        return self.explained
+
+    def __str__(self):
+        return f'{self.test}>module-{self.module}> #{self.number}'
+
+# models.py
+class MakeupTestEnglishQuestion(models.Model):
+    makeup_test = models.ForeignKey('MakeupTest', on_delete=models.CASCADE)
+    english_question = models.ForeignKey('English_Question', on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(default=0, help_text="Order within this makeup test")
+
+    class Meta:
+        unique_together = ('makeup_test', 'english_question')
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.makeup_test.name} - {self.english_question} (Order: {self.order})"
+
+class MakeupTestMathQuestion(models.Model):
+    makeup_test = models.ForeignKey('MakeupTest', on_delete=models.CASCADE)
+    math_question = models.ForeignKey('Math_Question', on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(default=0, help_text="Order within this makeup test")
+
+    class Meta:
+        unique_together = ('makeup_test', 'math_question')
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.makeup_test.name} - {self.math_question} (Order: {self.order})"
+
+class MakeupTest(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    groups = models.ManyToManyField('auth.Group', blank=True)
+    english_questions = models.ManyToManyField(
+        'English_Question',
+        blank=True,
+        related_name="makeup_tests_english",
+        through='MakeupTestEnglishQuestion'
+    )
+    math_questions = models.ManyToManyField(
+        'Math_Question',
+        blank=True,
+        related_name="makeup_tests_math",
+        through='MakeupTestMathQuestion'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def get_total_questions(self):
+        return self.english_questions.count() + self.math_questions.count()
+    
+    def get_module_questions(self, section, module=None):
+        """
+        Returns a queryset of questions for the given section ('english' or 'math') and optional module.
+        Orders questions based on the 'order' field in the through model.
+        """
+        if section == 'english':
+            queryset = English_Question.objects.filter(
+                makeup_tests_english=self
+            ).order_by('makeuptestenglishquestion__order')
+            if module:
+                queryset = queryset.filter(module=module)  # Filter by module if provided
+            return queryset
+        elif section == 'math':
+            queryset = Math_Question.objects.filter(
+                makeup_tests_math=self
+            ).order_by('makeuptestmathquestion__order')
+            if module:
+                queryset = queryset.filter(module=module)  # Filter by module if provided
+            return queryset
+        return None
+    def __str__(self):
+        return self.name
+
+# Test module for tracking user answers
+class TestModule(BaseModel):
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True, blank=True, related_name="modules")
+    makeup_test = models.ForeignKey(MakeupTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="test_modules")
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    classroom = models.ForeignKey('Classroom', on_delete=models.SET_NULL, null=True, blank=True, related_name='test_modules')
+
+    section = models.CharField(max_length=8)
+    module = models.CharField(
+        choices=[('m1', 'Module 1'), ('m2', 'Module 2')],
+        max_length=8,
+        blank=True,
+        null=True
+    )
+
+    answers = models.TextField(blank=True, null=True)
+
+    created = models.DateTimeField(auto_now_add=True, null=True)
+
+    TEST_TYPE_CHOICES = [
+        ('regular', 'Regular Test'),
+        ('makeup', 'Makeup Test'),
+    ]
+    test_type = models.CharField(
+        max_length=20,
+        choices=TEST_TYPE_CHOICES,
+        default='regular'
+    )
+
+    attempt_id = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    def find_answer(self, question_id):
+        previous, now, future = '', '', ''
+        target_id = str(question_id)
+
+        try:
+            payload = json.loads(self.answers or '{"answers": []}')
+            answers = payload.get('answers', [])
+        except Exception:
+            return previous, now, future
+
+        for item in answers:
+            item_id = str(item.get('questionID', ''))
+
+            if now:
+                future = item_id
+                break
+
+            if item_id == target_id:
+                raw_answer = item.get('answer')
+                now = '' if raw_answer is None else str(raw_answer)
+            else:
+                previous = item_id
+
+        return previous, now, future
+
+    def __str__(self):
+        return f'{self.user}>{self.test}_{self.section}_{self.module}_{self.attempt_id}'
+
+    class Meta:
+        ordering = ['created']
+        indexes = [
+            models.Index(fields=['user', 'test', 'attempt_id', 'created'], name='sat_tm_u_t_att_cr'),
+            models.Index(fields=['user', 'test', 'section', 'module', 'created'], name='sat_tm_u_t_sec_mod'),
+        ]
+
+class TestModuleDraft(BaseModel):
+    """Server-side resumable state for an in-progress SAT module.
+
+    ``TestModule`` remains the immutable submitted module. This model stores only
+    drafts so a refresh, browser crash, or device change does not erase answers.
+    The row is deleted as soon as the module is submitted successfully.
+    """
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name="module_drafts")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sat_module_drafts")
+    classroom = models.ForeignKey(
+        'Classroom',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='test_module_drafts',
+    )
+    attempt_id = models.UUIDField(editable=False)
+    section = models.CharField(max_length=8)
+    module = models.CharField(max_length=8)
+    answers = models.JSONField(default=list, blank=True)
+    time_spent = models.JSONField(default=list, blank=True)
+    eliminated_choices = models.JSONField(default=list, blank=True)
+    marked_for_review = models.JSONField(default=list, blank=True)
+    current_question_index = models.PositiveIntegerField(default=0)
+    deadline_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'test', 'attempt_id', 'section', 'module'],
+                name='sat_unique_module_draft',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'test', 'attempt_id'],
+                name='sat_tmd_u_t_att',
+            ),
+            models.Index(
+                fields=['deadline_at'],
+                name='sat_tmd_deadline',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.user}>{self.test}_{self.section}_{self.module}_{self.attempt_id}'
+
+
+class MakeupTestModuleDraft(BaseModel):
+    """Server-side resumable state for an in-progress Makeup module."""
+    makeup_test = models.ForeignKey(
+        MakeupTest,
+        on_delete=models.CASCADE,
+        related_name="module_drafts",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="makeup_module_drafts",
+    )
+    attempt_id = models.UUIDField(editable=False)
+    section = models.CharField(max_length=8)
+    module = models.CharField(max_length=8)
+    answers = models.JSONField(default=list, blank=True)
+    time_spent = models.JSONField(default=list, blank=True)
+    eliminated_choices = models.JSONField(default=list, blank=True)
+    marked_for_review = models.JSONField(default=list, blank=True)
+    current_question_index = models.PositiveIntegerField(default=0)
+    deadline_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'makeup_test', 'attempt_id', 'section', 'module'],
+                name='sat_unique_makeup_module_draft',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'makeup_test', 'attempt_id'],
+                name='sat_mtd_u_t_att',
+            ),
+            models.Index(fields=['deadline_at'], name='sat_mtd_deadline'),
+        ]
+
+    def __str__(self):
+        return f'{self.user}>{self.makeup_test}_{self.section}_{self.module}_{self.attempt_id}'
+
+
+# Test review and scoring
+class TestReview(BaseModel):
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True, blank=True, related_name="test_reviews")
+    makeup_test = models.ForeignKey(MakeupTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="makeup_test_reviews")
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    classroom = models.ForeignKey('Classroom', on_delete=models.SET_NULL, null=True, blank=True, related_name='test_reviews')
+    key = models.CharField(max_length=100, blank=True, unique=True)
+    attempt_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    duration = models.DurationField(default=timedelta(hours=24))
+    score = models.IntegerField(default=None, null=True, blank=True)
+
+    # V55.1 — immutable attempt metadata for History. TestStage is mutable across
+    # retakes, so the review must snapshot the run/protection settings that
+    # actually produced this score.
+    run_mode = models.CharField(max_length=50, default='full_test')
+    attempt_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    integrity_mode = models.CharField(max_length=16, default='unknown')
+    integrity_violation_count = models.PositiveSmallIntegerField(default=0)
+    integrity_fullscreen_required = models.BooleanField(default=False)
+    integrity_terminated = models.BooleanField(default=False)
+
+    certificate = models.TextField(blank=True)
+    domains = models.BooleanField(default=False)
+    
+    TEST_TYPE_CHOICES = [
+        ('regular', 'Regular Test'),
+        ('makeup', 'Makeup Test'),
+    ]
+    test_type = models.CharField(max_length=20, choices=TEST_TYPE_CHOICES, default='regular')
+
+    def check_and_update_domains(self):
+        if not self.domains:
+            english_questions = English_Question.objects.filter(test=self.test)
+            math_questions = Math_Question.objects.filter(test=self.test)
+            for question in english_questions:
+                if question.domain is None:
+                    return question.id
+            for question in math_questions:
+                if question.domain is None:
+                    return question.id
+            self.domains = True
+            self.save()
+        return True
+
+    def is_active(self):
+        """Review answers do not expire.
+
+        Keep the method for backwards compatibility with existing views/admin
+        that call review.is_active(), but do not enforce a time window anymore.
+        """
+        return True
+
+    def update_key(self):
+        self.key = ''.join(random.choices(string.ascii_letters, k=100))
+        self.save()
+
+    def __str__(self):
+        return f"{self.user.username} - {self.test} - {self.score}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'test', 'attempt_id', 'created_at'], name='sat_tr_u_t_att_cr'),
+            models.Index(fields=['user', 'test', 'created_at'], name='sat_tr_u_t_cr'),
+        ]
+
+# Test stages for user progress
+class TestStage(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True, blank=True, related_name="test_stages")
+    makeup_test = models.ForeignKey(MakeupTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="makeup_test_stages")
+    classroom = models.ForeignKey('Classroom', on_delete=models.SET_NULL, null=True, blank=True, related_name='test_stages')
+    stage = models.IntegerField()
+    again = models.BooleanField(default=True)
+    retake_count = models.IntegerField(default=0, help_text="Number of retakes used by this user")
+    attempt_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    # V55.3: immutable-ish start timestamp for the current attempt UUID.
+    # It is reset whenever resolve()/resolve_section() creates a new attempt.
+    attempt_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    INTEGRITY_MODE_CHOICES = [
+        ('off', 'Off'),
+        ('standard', 'Standard'),
+        ('strict', 'Strict'),
+    ]
+    integrity_mode = models.CharField(
+        max_length=16,
+        choices=INTEGRITY_MODE_CHOICES,
+        default='standard',
+    )
+    integrity_max_violations = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    integrity_violation_count = models.PositiveSmallIntegerField(default=0)
+    integrity_fullscreen_required = models.BooleanField(default=True)
+    integrity_monitored_events = models.JSONField(default=list, blank=True)
+    integrity_terminated_at = models.DateTimeField(null=True, blank=True)
+    integrity_retake_locked = models.BooleanField(default=False)
+    scheduled_break_started_at = models.DateTimeField(null=True, blank=True)
+    scheduled_break_until = models.DateTimeField(null=True, blank=True)
+
+    # V54.1.1: which SAT modules belong to this attempt.
+    mode = models.CharField(max_length=50, default='full_test')
+
+    TEST_TYPE_CHOICES = [
+        ('regular', 'Regular Test'),
+        ('makeup', 'Makeup Test'),
+    ]
+    test_type = models.CharField(max_length=20, choices=TEST_TYPE_CHOICES, default='regular')
+
+    def get_max_retakes(self):
+        # unlimited
+        return None
+
+    def _latest_completed_attempt_id(self):
+        latest_review = TestReview.objects.filter(
+            test=self.test,
+            user=self.user,
+            classroom_id=self.classroom_id,
+            score__isnull=False,
+            attempt_id__isnull=False,
+        ).order_by('-created_at').first()
+
+        return latest_review.attempt_id if latest_review else None
+
+    def _copy_modules_to_attempt(self, *, from_attempt_id, to_attempt_id, exclude_section=None):
+        if not from_attempt_id:
+            return
+
+        modules = TestModule.objects.filter(
+            test=self.test,
+            user=self.user,
+            classroom_id=self.classroom_id,
+            attempt_id=from_attempt_id,
+            test_type=self.test_type,
+        )
+
+        if exclude_section:
+            modules = modules.exclude(section=exclude_section)
+
+        for module in modules:
+            TestModule.objects.create(
+                test=module.test,
+                makeup_test=module.makeup_test,
+                user=module.user,
+                classroom=module.classroom,
+                section=module.section,
+                module=module.module,
+                answers=module.answers,
+                test_type=module.test_type,
+                attempt_id=to_attempt_id,
+            )
+
+    def invalidate_review(self):
+        """Deprecated: old reviews must stay immutable after retakes."""
+        return
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'test', 'created_at'], name='sat_ts_u_t_cr'),
+            models.Index(fields=['user', 'test', 'attempt_id'], name='sat_ts_u_t_att'),
+        ]
+
+    def delete_modules(self, section=None):
+        """Deprecated: retakes create new attempts instead of deleting history."""
+        return
+
+    def resolve(self):
+        """Start a new full-test attempt without deleting old modules/reviews."""
+        max_retakes = self.get_max_retakes()
+
+        if max_retakes is not None and self.retake_count >= max_retakes:
+            self.again = False
+            self.save(update_fields=['again'])
+            return False
+
+        previous_attempt_id = self.attempt_id
+        self.stage = 1
+        self.retake_count += 1
+        self.attempt_id = uuid.uuid4()
+        self.attempt_started_at = timezone.now()
+        self.integrity_violation_count = 0
+        self.integrity_terminated_at = None
+        self.integrity_retake_locked = False
+        self.scheduled_break_started_at = None
+        self.scheduled_break_until = None
+        self.save(update_fields=[
+            'stage', 'retake_count', 'attempt_id', 'attempt_started_at',
+            'integrity_violation_count', 'integrity_terminated_at', 'integrity_retake_locked',
+            'scheduled_break_started_at', 'scheduled_break_until',
+            'updated_at',
+        ])
+        TestModuleDraft.objects.filter(
+            user=self.user,
+            test=self.test,
+            classroom_id=self.classroom_id,
+            attempt_id=previous_attempt_id,
+        ).delete()
+        return True
+
+    def resolve_section(self, section):
+        """
+        Start a new attempt from the requested section.
+        Old attempts are preserved. Modules from other sections are copied into the
+        new attempt so results/certificates stay tied to one attempt_id.
+        """
+        max_retakes = self.get_max_retakes()
+
+        if max_retakes is not None and self.retake_count >= max_retakes:
+            self.again = False
+            self.save(update_fields=['again'])
+            return False
+
+        section = str(section or '').strip().lower()
+        module_order = {'module_1': 0, 'module_2': 1, 'm1': 0, 'm2': 1}
+        sequence = []
+        english_modules = English_Question.objects.filter(test=self.test).values_list('module', flat=True).distinct()
+        math_modules = Math_Question.objects.filter(test=self.test).values_list('module', flat=True).distinct()
+
+        for db_module in sorted(english_modules, key=lambda item: module_order.get(item, 99)):
+            module = 'm1' if db_module == 'module_1' else 'm2' if db_module == 'module_2' else db_module
+            sequence.append(('english', module))
+        for db_module in sorted(math_modules, key=lambda item: module_order.get(item, 99)):
+            module = 'm1' if db_module == 'module_1' else 'm2' if db_module == 'module_2' else db_module
+            sequence.append(('math', module))
+
+        start_stage = None
+        for index, (seq_section, _seq_module) in enumerate(sequence, start=1):
+            if seq_section == section:
+                start_stage = index
+                break
+
+        if start_stage is None:
+            return False
+
+        previous_attempt_id = self._latest_completed_attempt_id()
+        if not previous_attempt_id:
+            return False
+
+        new_attempt_id = uuid.uuid4()
+        self._copy_modules_to_attempt(
+            from_attempt_id=previous_attempt_id,
+            to_attempt_id=new_attempt_id,
+            exclude_section=section,
+        )
+
+        stale_attempt_id = self.attempt_id
+        self.stage = start_stage
+        self.retake_count += 1
+        self.attempt_id = new_attempt_id
+        self.attempt_started_at = timezone.now()
+        self.integrity_violation_count = 0
+        self.integrity_terminated_at = None
+        self.integrity_retake_locked = False
+        self.scheduled_break_started_at = None
+        self.scheduled_break_until = None
+        self.save(update_fields=[
+            'stage', 'retake_count', 'attempt_id', 'attempt_started_at',
+            'integrity_violation_count', 'integrity_terminated_at', 'integrity_retake_locked',
+            'scheduled_break_started_at', 'scheduled_break_until',
+            'updated_at',
+        ])
+        TestModuleDraft.objects.filter(
+            user=self.user,
+            test=self.test,
+            classroom_id=self.classroom_id,
+            attempt_id=stale_attempt_id,
+        ).delete()
+        return True
+
+    def get_retakes_remaining(self):
+        # unlimited
+        return None
+
+# Lesson packages and lessons
+class LessonPackage(BaseModel):
+    name = models.CharField(max_length=255, unique=True)
+    image = models.ImageField(upload_to='lesson_packages/', null=True, blank=True)
+    description = models.TextField()
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Lesson Package"
+        verbose_name_plural = "Lesson Packages"
+
+class Lesson(BaseModel):
+    ENGLISH = "English"
+    MATH = "Math"
+    BOTH = "Both"
+    SUBJECT_CHOICES = [
+        (ENGLISH, "English"),
+        (MATH, "Math"),
+        (BOTH, "Both"),
+    ]
+
+    package = models.ForeignKey(LessonPackage, on_delete=models.CASCADE, related_name="lessons")
+    order = models.PositiveIntegerField()
+    name = models.CharField(max_length=255)
+    subject = models.CharField(max_length=10, choices=SUBJECT_CHOICES, default=BOTH)
+    question_type = models.ForeignKey('QuestionType', on_delete=models.SET_NULL, null=True, blank=True)
+
+    def get_random_questions(self):
+        """Select 15 random questions from the given question type."""
+        if not self.question_type:
+            return []
+        if self.subject == self.ENGLISH:
+            questions = English_Question.objects.filter(type=self.question_type)
+        elif self.subject == self.MATH:
+            questions = Math_Question.objects.filter(type=self.question_type)
+        else:
+            return []
+        return random.sample(list(questions), min(15, questions.count()))
+
+    def __str__(self):
+        return f"{self.package.name} - {self.name} (Order {self.order}) - {self.subject}"
+
+    class Meta:
+        verbose_name = "Lesson"
+        verbose_name_plural = "Lessons"
+
+# Lesson progress tracking
+class LessonProgress(BaseModel):
+    """Tracks user progress for unlocking lessons."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
+    videos_watched = models.BooleanField(default=False)
+    score = models.PositiveIntegerField(default=0)
+    completed = models.BooleanField(default=False)
+
+    def check_completion(self):
+        """Unlock next lesson if criteria are met (12/15 & watched all videos)."""
+        videos_required = self.lesson.videos.exists()
+        if self.score >= 12 and (not videos_required or self.videos_watched):
+            self.completed = True
+            self.save()
+
+    def __str__(self):
+        return f"{self.user.username} - {self.lesson.name} - Score: {self.score} - {'Completed' if self.completed else 'Locked'}"
+
+    class Meta:
+        verbose_name = "Lesson Progress"
+        verbose_name_plural = "Lesson Progresses"
+
+# Purchased lesson packages
+class PurchasedLessonPackage(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="purchased_packages")
+    package = models.ForeignKey(LessonPackage, on_delete=models.CASCADE, related_name="purchases")
+    purchased_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'package')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.package.name}"
+
+# Secret code for group and test access
+class SecretCode(BaseModel):
+    """
+    A model to store secret codes that grant group access and optionally link to a makeup test.
+    """
+    code = models.CharField(
+        max_length=6,
+        unique=True,
+        help_text="6-digit secret code (e.g., '123456')"
+    )
+    group = models.ForeignKey(
+        'auth.Group',
+        on_delete=models.CASCADE,
+        related_name="secret_codes",
+        help_text="Group to add the user to when the code is entered"
+    )
+    makeup_test = models.ForeignKey(
+        'MakeupTest',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="secret_codes",
+        help_text="Optional: Makeup test to start after entering the code"
+    )
+    test = models.ForeignKey('Test', on_delete=models.SET_NULL, null=True, blank=True, related_name='secret_codes')  # Add test field
+    
+    def __str__(self):
+        return f"{self.code} - {self.group.name}"
+
+    def save(self, *args, **kwargs):
+        """Generate a random 6-digit code if not provided."""
+        if not self.code:
+            while True:
+                code = ''.join(random.choices(string.digits, k=6))
+                if not SecretCode.objects.filter(code=code).exists():
+                    self.code = code
+                    break
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "Secret Code"
+        verbose_name_plural = "Secret Codes"
+
+# Mock model for bundled test+group+user creation
+class Mock(BaseModel):
+    name = models.CharField(max_length=255, unique=True)
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True, related_name='mocks')
+    group = models.ForeignKey('auth.Group', on_delete=models.SET_NULL, null=True, related_name='mocks')
+    secret_code = models.ForeignKey(SecretCode, on_delete=models.SET_NULL, null=True, blank=True, related_name='mocks')
+    mode = models.CharField(max_length=20, choices=[('secret_code', 'Secret Code'), ('direct', 'Direct')])
+    user_count = models.PositiveIntegerField()
+    credentials = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_mocks')
+
+    def __str__(self):
+        return self.name
+
+# Signal to clean up related objects when TestStage is deleted
+@receiver(pre_delete, sender=TestStage)
+def delete_related_objects(sender, instance, **kwargs):
+    # Old versions tried to call instance.delete_related(), but TestStage has no
+    # such method in the current model. Keep this receiver safe so deleting a
+    # stage from admin/scripts does not crash.
+    cleanup = getattr(instance, "delete_related", None)
+    if callable(cleanup):
+        cleanup()
+
+class VocabularyUnit(models.Model):
+    title = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True, null=True)
+    order = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    # The makonbook-api list this unit mirrors (e.g. sat-unit-1); blank for
+    # units made in this app.
+    source_slug = models.CharField(max_length=100, null=True, blank=True, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def words_count(self):
+        return self.words.filter(is_active=True).count()
+
+
+class VocabularyWord(models.Model):
+    unit = models.ForeignKey(
+        VocabularyUnit,
+        on_delete=models.CASCADE,
+        related_name='words'
+    )
+    word = models.CharField(max_length=255)
+    meaning = models.TextField()
+    example = models.TextField(blank=True, null=True)
+    part_of_speech = models.CharField(max_length=40, blank=True, default='', db_default='')
+    image_url = models.URLField(max_length=500, blank=True, default='', db_default='')
+    source_id = models.CharField(max_length=36, blank=True, default='', db_default='', db_index=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        unique_together = ('unit', 'word')
+
+    def __str__(self):
+        return f"{self.unit.title} - {self.word}"
+
+
+class VocabularyDeck(models.Model):
+    """A student's personal vocabulary deck.
+
+    Official MakonBook units can be cloned into a deck; students can also create
+    private decks and add their own words. Public/community publishing is kept
+    out of V50.1 so the first version stays moderation-safe.
+    """
+
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='vocabulary_decks',
+    )
+    title = models.CharField(max_length=180)
+    description = models.CharField(max_length=500, blank=True)
+    source_unit = models.ForeignKey(
+        VocabularyUnit,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cloned_decks',
+    )
+    new_cards_per_day = models.PositiveSmallIntegerField(default=20)
+    max_reviews_per_day = models.PositiveSmallIntegerField(default=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-id']
+        indexes = [models.Index(fields=['owner', '-updated_at'], name='vocab_deck_owner_updated')]
+
+    def __str__(self):
+        return f"{self.owner.username} · {self.title}"
+
+
+class VocabularyDeckWord(models.Model):
+    deck = models.ForeignKey(
+        VocabularyDeck,
+        on_delete=models.CASCADE,
+        related_name='words',
+    )
+    word = models.CharField(max_length=255)
+    meaning = models.TextField()
+    example = models.TextField(blank=True)
+    part_of_speech = models.CharField(max_length=40, blank=True, default='', db_default='')
+    image_url = models.URLField(max_length=500, blank=True, default='', db_default='')
+    order = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['deck', 'word'], name='unique_vocab_deck_word'),
+        ]
+
+    def __str__(self):
+        return f"{self.deck.title} · {self.word}"
+
+
+class VocabularyDeckWordProgress(models.Model):
+    STATUS_NEW = 'new'
+    STATUS_LEARNING = 'learning'
+    STATUS_MASTERED = 'mastered'
+    STATUS_CHOICES = (
+        (STATUS_NEW, 'New'),
+        (STATUS_LEARNING, 'Learning'),
+        (STATUS_MASTERED, 'Mastered'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vocabulary_deck_progress')
+    word = models.ForeignKey(VocabularyDeckWord, on_delete=models.CASCADE, related_name='progress')
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW)
+    times_seen = models.PositiveIntegerField(default=0)
+    correct_count = models.PositiveIntegerField(default=0)
+    incorrect_count = models.PositiveIntegerField(default=0)
+    consecutive_correct = models.PositiveIntegerField(default=0)
+    last_reviewed_at = models.DateTimeField(blank=True, null=True)
+    mastered_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'word'], name='unique_vocab_deck_progress')]
+        indexes = [models.Index(fields=['user', 'status'], name='vocab_deck_prog_status')]
+
+    def __str__(self):
+        return f"{self.user.username} · {self.word.word} · {self.status}"
+
+
+class VocabularyQuestion(models.Model):
+    unit = models.ForeignKey(
+        VocabularyUnit,
+        on_delete=models.CASCADE,
+        related_name='questions'
+    )
+    question = models.TextField()
+    choice_a = models.CharField(max_length=255)
+    choice_b = models.CharField(max_length=255)
+    choice_c = models.CharField(max_length=255)
+    choice_d = models.CharField(max_length=255)
+    correct_answer = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.unit.title} - {self.question[:60]}"
+
+    def get_choices(self):
+        return [
+            self.choice_a,
+            self.choice_b,
+            self.choice_c,
+            self.choice_d,
+        ]
+
+
+class VocabularyWordProgress(models.Model):
+    STATUS_NEW = 'new'
+    STATUS_LEARNING = 'learning'
+    STATUS_MASTERED = 'mastered'
+    STATUS_CHOICES = (
+        (STATUS_NEW, 'New'),
+        (STATUS_LEARNING, 'Learning'),
+        (STATUS_MASTERED, 'Mastered'),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='vocabulary_word_progress',
+    )
+    classroom = models.ForeignKey(
+        'Classroom',
+        on_delete=models.CASCADE,
+        related_name='vocabulary_word_progress',
+        null=True,
+        blank=True,
+    )
+    word = models.ForeignKey(
+        VocabularyWord,
+        on_delete=models.CASCADE,
+        related_name='student_progress',
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW)
+    times_seen = models.PositiveIntegerField(default=0)
+    correct_count = models.PositiveIntegerField(default=0)
+    incorrect_count = models.PositiveIntegerField(default=0)
+    consecutive_correct = models.PositiveIntegerField(default=0)
+    last_reviewed_at = models.DateTimeField(blank=True, null=True)
+    mastered_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['word__unit__order', 'word__id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'classroom', 'word'],
+                name='unique_vocab_progress_scope',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'classroom', 'status'], name='vocab_prog_scope_status'),
+            models.Index(fields=['classroom', 'last_reviewed_at'], name='vocab_prog_class_last'),
+        ]
+
+    @property
+    def attempts_count(self):
+        return self.correct_count + self.incorrect_count
+
+    @property
+    def accuracy_percent(self):
+        total = self.attempts_count
+        return round((self.correct_count / total) * 100, 1) if total else 0
+
+    def __str__(self):
+        scope = self.classroom.name if self.classroom_id else 'Global'
+        return f"{self.user.username} · {scope} · {self.word.word} · {self.status}"
+
+
+class VocabularyQuizAttempt(models.Model):
+    MODE_WORD_TO_MEANING = 'word_to_meaning'
+    MODE_MEANING_TO_WORD = 'meaning_to_word'
+    MODE_MIXED = 'mixed'
+    MODE_CHOICES = (
+        (MODE_WORD_TO_MEANING, 'Word to meaning'),
+        (MODE_MEANING_TO_WORD, 'Meaning to word'),
+        (MODE_MIXED, 'Mixed'),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='vocabulary_quiz_attempts',
+    )
+    classroom = models.ForeignKey(
+        'Classroom',
+        on_delete=models.CASCADE,
+        related_name='vocabulary_quiz_attempts',
+        null=True,
+        blank=True,
+    )
+    mode = models.CharField(max_length=24, choices=MODE_CHOICES, default=MODE_MIXED)
+    selected_units = models.JSONField(default=list, blank=True)
+    score = models.PositiveIntegerField(default=0)
+    total_questions = models.PositiveIntegerField(default=0)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    started_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-completed_at']
+        indexes = [
+            models.Index(fields=['user', 'classroom', 'completed_at'], name='vocab_quiz_scope_date'),
+        ]
+
+    def __str__(self):
+        scope = self.classroom.name if self.classroom_id else 'Global'
+        return f"{self.user.username} · {scope} · {self.score}/{self.total_questions}"
+
+
+class VocabularyQuizAnswer(models.Model):
+    attempt = models.ForeignKey(
+        VocabularyQuizAttempt,
+        on_delete=models.CASCADE,
+        related_name='answers',
+    )
+    word = models.ForeignKey(
+        VocabularyWord,
+        on_delete=models.SET_NULL,
+        related_name='quiz_answers',
+        null=True,
+        blank=True,
+    )
+    prompt = models.TextField()
+    selected_answer = models.TextField(blank=True)
+    correct_answer = models.TextField()
+    is_correct = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f"Attempt {self.attempt_id} · {'Correct' if self.is_correct else 'Incorrect'}"
+
+
+
+# Support teacher planning and reviews
+class SupportTeacherProfile(BaseModel):
+    """Public profile for teachers who can be booked by students for support lessons."""
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='support_teacher_profile'
+    )
+    display_name = models.CharField(max_length=255, blank=True)
+    telegram_username = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text="Telegram username without @."
+    )
+    subjects = models.CharField(max_length=255, blank=True, help_text="Example: SAT Math, Reading, Writing")
+    headline = models.CharField(
+        max_length=180,
+        blank=True,
+        help_text="Short public headline, for example: SAT Math specialist.",
+    )
+    bio = models.TextField(blank=True)
+    education = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="University, degree, certification, or other public credential.",
+    )
+    languages = models.CharField(
+        max_length=180,
+        blank=True,
+        help_text="Languages used during support lessons.",
+    )
+    years_experience = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(50)],
+    )
+    sat_total_score = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(400), MaxValueValidator(1600)],
+    )
+    sat_math_score = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(200), MaxValueValidator(800)],
+    )
+    sat_reading_writing_score = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(200), MaxValueValidator(800)],
+    )
+    scores_verified = models.BooleanField(
+        default=False,
+        help_text="Admin verification flag for publicly displayed SAT scores.",
+    )
+    meeting_link = models.URLField(
+        blank=True,
+        help_text="Default Google Meet, Zoom, or other lesson link shown for scheduled lessons.",
+    )
+    booking_instructions = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Short instruction shown before a student confirms a booking.",
+    )
+    min_booking_notice_hours = models.PositiveSmallIntegerField(
+        default=2,
+        validators=[MinValueValidator(0), MaxValueValidator(168)],
+        help_text="Minimum notice required before a lesson can be booked.",
+    )
+    cancellation_notice_hours = models.PositiveSmallIntegerField(
+        default=2,
+        validators=[MinValueValidator(0), MaxValueValidator(168)],
+        help_text="Students cannot cancel inside this notice window.",
+    )
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_support_teacher_profiles'
+    )
+
+    class Meta:
+        ordering = ['sort_order', 'display_name', 'user__first_name', 'user__username']
+        verbose_name = "Support Teacher"
+        verbose_name_plural = "Support Teachers"
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        if self.sat_math_score and self.sat_reading_writing_score and self.sat_total_score:
+            expected_total = self.sat_math_score + self.sat_reading_writing_score
+            if self.sat_total_score != expected_total:
+                raise ValidationError({
+                    'sat_total_score': f'Total SAT score must equal Math + Reading & Writing ({expected_total}).'
+                })
+
+    @property
+    def name(self):
+        fallback = self.user.get_full_name() or self.user.username
+        return self.display_name.strip() or fallback
+
+    @property
+    def clean_telegram_username(self):
+        return (self.telegram_username or '').strip().lstrip('@')
+
+    @property
+    def telegram_url(self):
+        username = self.clean_telegram_username
+        if not username:
+            return ''
+        return f"https://t.me/{username}"
+
+    @property
+    def average_rating(self):
+        annotated = getattr(self, 'display_avg_rating', None)
+        if annotated is not None:
+            return round(float(annotated), 1)
+        value = self.reviews.filter(booking__status='completed').aggregate(avg=models.Avg('rating')).get('avg')
+        return round(value, 1) if value is not None else None
+
+    @property
+    def reviews_count(self):
+        annotated = getattr(self, 'display_reviews_count', None)
+        if annotated is not None:
+            return int(annotated)
+        return self.reviews.filter(booking__status='completed').count()
+
+    @property
+    def completed_lessons_count(self):
+        annotated = getattr(self, 'display_completed_lessons', None)
+        if annotated is not None:
+            return int(annotated)
+        grouped = self.sessions.filter(status='completed').count()
+        legacy = self.bookings.filter(status='completed', session__isnull=True).count()
+        return grouped + legacy
+
+    @property
+    def score_summary(self):
+        rows = []
+        if self.sat_total_score:
+            rows.append(('SAT', self.sat_total_score))
+        if self.sat_math_score:
+            rows.append(('Math', self.sat_math_score))
+        if self.sat_reading_writing_score:
+            rows.append(('Reading & Writing', self.sat_reading_writing_score))
+        return rows
+
+    @property
+    def profile_completion_percent(self):
+        values = [
+            self.display_name,
+            self.headline,
+            self.subjects,
+            self.bio,
+            self.education,
+            self.languages,
+            self.telegram_username,
+        ]
+        filled = sum(bool((value or '').strip()) for value in values)
+        if self.sat_total_score or self.sat_math_score or self.sat_reading_writing_score:
+            filled += 1
+        return round((filled / 8) * 100)
+
+
+class SupportTeacherProfileSection(models.Model):
+    """Teacher-defined public profile block (LinkedIn-style, intentionally generic)."""
+    profile = models.ForeignKey(
+        SupportTeacherProfile,
+        on_delete=models.CASCADE,
+        related_name='custom_sections',
+    )
+    title = models.CharField(max_length=120)
+    body = models.TextField(blank=True, max_length=2000)
+    url = models.URLField(blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+    is_visible = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at', 'id']
+
+    def __str__(self):
+        return f"{self.profile.name} · {self.title}"
+
+
+class SupportTeacherAvailability(BaseModel):
+    MONDAY = 0
+    TUESDAY = 1
+    WEDNESDAY = 2
+    THURSDAY = 3
+    FRIDAY = 4
+    SATURDAY = 5
+    SUNDAY = 6
+    DAY_CHOICES = [
+        (MONDAY, 'Monday'),
+        (TUESDAY, 'Tuesday'),
+        (WEDNESDAY, 'Wednesday'),
+        (THURSDAY, 'Thursday'),
+        (FRIDAY, 'Friday'),
+        (SATURDAY, 'Saturday'),
+        (SUNDAY, 'Sunday'),
+    ]
+
+    teacher = models.ForeignKey(
+        SupportTeacherProfile,
+        on_delete=models.CASCADE,
+        related_name='availabilities'
+    )
+    day_of_week = models.PositiveSmallIntegerField(choices=DAY_CHOICES)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    slot_duration_minutes = models.PositiveSmallIntegerField(
+        default=60,
+        validators=[MinValueValidator(15), MaxValueValidator(180)],
+        help_text="Length of each bookable lesson generated inside this weekly window.",
+    )
+    buffer_minutes = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(60)],
+        help_text="Optional break between generated lesson slots.",
+    )
+    is_active = models.BooleanField(default=True)
+    note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['day_of_week', 'start_time', 'end_time']
+        unique_together = ('teacher', 'day_of_week', 'start_time', 'end_time')
+        verbose_name = "Support Teacher Availability"
+        verbose_name_plural = "Support Teacher Availabilities"
+
+    def __str__(self):
+        return f"{self.teacher.name} · {self.get_day_of_week_display()} {self.start_time:%H:%M}-{self.end_time:%H:%M}"
+
+    def clean(self):
+        super().clean()
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValidationError("End time must be later than start time.")
+
+        if self.start_time and self.end_time and self.slot_duration_minutes:
+            start_minutes = self.start_time.hour * 60 + self.start_time.minute
+            end_minutes = self.end_time.hour * 60 + self.end_time.minute
+            if end_minutes - start_minutes < 15:
+                raise ValidationError("Availability windows must be at least 15 minutes long.")
+
+        if self.teacher_id and self.day_of_week is not None and self.start_time and self.end_time:
+            overlap = SupportTeacherAvailability.objects.filter(
+                teacher_id=self.teacher_id,
+                day_of_week=self.day_of_week,
+                start_time__lt=self.end_time,
+                end_time__gt=self.start_time,
+            )
+            if self.is_active:
+                overlap = overlap.filter(is_active=True)
+            if self.pk:
+                overlap = overlap.exclude(pk=self.pk)
+            if overlap.exists():
+                raise ValidationError("This availability window overlaps another window for the same day.")
+
+
+class SupportLessonTitle(BaseModel):
+    """Top-level category students choose before choosing a concrete topic."""
+    name = models.CharField(max_length=120, unique=True)
+    description = models.CharField(max_length=255, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+        verbose_name = 'Support Lesson Title'
+        verbose_name_plural = 'Support Lesson Titles'
+
+    def __str__(self):
+        return self.name
+
+
+class SupportLessonTopic(BaseModel):
+    """Concrete lesson topic nested under a support title/category."""
+    title = models.ForeignKey(
+        SupportLessonTitle,
+        on_delete=models.CASCADE,
+        related_name='topics',
+    )
+    name = models.CharField(max_length=160)
+    description = models.CharField(max_length=255, blank=True)
+    default_duration_minutes = models.PositiveSmallIntegerField(
+        default=60,
+        validators=[MinValueValidator(15), MaxValueValidator(180)],
+    )
+    default_capacity = models.PositiveSmallIntegerField(
+        default=20,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+        help_text='Default maximum number of students in one grouped support session.',
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['title__sort_order', 'title__name', 'sort_order', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['title', 'name'], name='unique_support_topic_in_title'),
+        ]
+        verbose_name = 'Support Lesson Topic'
+        verbose_name_plural = 'Support Lesson Topics'
+
+    def __str__(self):
+        return f'{self.title.name} · {self.name}'
+
+
+class SupportLessonSession(BaseModel):
+    """One concrete group lesson planned by a support teacher.
+
+    Students do not choose the time. They request a topic first; the support
+    teacher creates a session for that topic and pending requests are grouped
+    into the same session. The same topic may have multiple sessions per day.
+    """
+    STATUS_SCHEDULED = 'scheduled'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = [
+        (STATUS_SCHEDULED, 'Scheduled'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+
+    teacher = models.ForeignKey(
+        SupportTeacherProfile,
+        on_delete=models.CASCADE,
+        related_name='sessions',
+    )
+    lesson_topic = models.ForeignKey(
+        SupportLessonTopic,
+        on_delete=models.SET_NULL,
+        related_name='sessions',
+        null=True,
+        blank=True,
+    )
+    start_at = models.DateTimeField(db_index=True)
+    end_at = models.DateTimeField(db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_SCHEDULED, db_index=True)
+    meeting_link = models.URLField(blank=True)
+    teacher_note = models.TextField(blank=True)
+    max_students = models.PositiveSmallIntegerField(
+        default=20,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+    )
+    is_open_for_requests = models.BooleanField(
+        default=True,
+        help_text='If enabled, later requests for this same topic may automatically join this session.',
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_support_lesson_sessions',
+    )
+
+    class Meta:
+        ordering = ['start_at']
+        indexes = [
+            models.Index(fields=['teacher', 'status', 'start_at'], name='sat_sup_session_teacher_idx'),
+            models.Index(fields=['lesson_topic', 'status', 'start_at'], name='sat_sup_session_topic_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['teacher', 'start_at', 'end_at'],
+                condition=models.Q(status='scheduled'),
+                name='unique_support_teacher_session_slot',
+            ),
+        ]
+        verbose_name = 'Support Lesson Session'
+        verbose_name_plural = 'Support Lesson Sessions'
+
+    def __str__(self):
+        topic = self.lesson_topic.name if self.lesson_topic_id else 'Support lesson'
+        local_start = timezone.localtime(self.start_at) if self.start_at else None
+        stamp = local_start.strftime('%Y-%m-%d %H:%M') if local_start else 'unscheduled'
+        return f'{self.teacher.name} · {topic} · {stamp}'
+
+    def clean(self):
+        super().clean()
+        if self.start_at and self.end_at and self.end_at <= self.start_at:
+            raise ValidationError('End time must be later than start time.')
+
+    @property
+    def student_count(self):
+        annotated = getattr(self, 'display_student_count', None)
+        if annotated is not None:
+            return int(annotated)
+        return self.bookings.exclude(status='cancelled').count()
+
+    @property
+    def available_seats(self):
+        return max(0, int(self.max_students or 0) - self.student_count)
+
+    @property
+    def accepting_students(self):
+        return (
+            self.status == self.STATUS_SCHEDULED
+            and self.is_open_for_requests
+            and self.start_at > timezone.now()
+            and self.available_seats > 0
+        )
+
+    @property
+    def duration_minutes(self):
+        if not self.start_at or not self.end_at:
+            return 0
+        return max(0, int((self.end_at - self.start_at).total_seconds() // 60))
+
+
+class SupportLessonBooking(BaseModel):
+    STATUS_REQUESTED = 'requested'
+    STATUS_SCHEDULED = 'scheduled'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_NO_SHOW = 'no_show'
+    STATUS_CHOICES = [
+        (STATUS_REQUESTED, 'Waiting for teacher'),
+        (STATUS_SCHEDULED, 'Scheduled'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_CANCELLED, 'Cancelled'),
+        (STATUS_NO_SHOW, 'No-show'),
+    ]
+
+    # Legacy topic values are kept for historical bookings created before the
+    # Title -> Topic workflow. New bookings use lesson_title/lesson_topic.
+    TOPIC_GENERAL = 'general'
+    TOPIC_MATH = 'math'
+    TOPIC_READING_WRITING = 'reading_writing'
+    TOPIC_TEST_STRATEGY = 'test_strategy'
+    TOPIC_REVIEW = 'review'
+    TOPIC_OTHER = 'other'
+    TOPIC_CHOICES = [
+        (TOPIC_GENERAL, 'General SAT support'),
+        (TOPIC_MATH, 'SAT Math'),
+        (TOPIC_READING_WRITING, 'Reading & Writing'),
+        (TOPIC_TEST_STRATEGY, 'Test strategy'),
+        (TOPIC_REVIEW, 'Review mistakes'),
+        (TOPIC_OTHER, 'Other'),
+    ]
+
+    CANCELLED_BY_STUDENT = 'student'
+    CANCELLED_BY_TEACHER = 'teacher'
+    CANCELLED_BY_ADMIN = 'admin'
+    CANCELLED_BY_CHOICES = [
+        (CANCELLED_BY_STUDENT, 'Student'),
+        (CANCELLED_BY_TEACHER, 'Support teacher'),
+        (CANCELLED_BY_ADMIN, 'Administrator'),
+    ]
+
+    teacher = models.ForeignKey(
+        SupportTeacherProfile,
+        on_delete=models.CASCADE,
+        related_name='bookings'
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='support_lesson_bookings'
+    )
+    session = models.ForeignKey(
+        SupportLessonSession,
+        on_delete=models.SET_NULL,
+        related_name='bookings',
+        null=True,
+        blank=True,
+    )
+    lesson_title = models.ForeignKey(
+        SupportLessonTitle,
+        on_delete=models.SET_NULL,
+        related_name='bookings',
+        null=True,
+        blank=True,
+    )
+    lesson_topic = models.ForeignKey(
+        SupportLessonTopic,
+        on_delete=models.SET_NULL,
+        related_name='bookings',
+        null=True,
+        blank=True,
+    )
+    start_at = models.DateTimeField(db_index=True, null=True, blank=True)
+    end_at = models.DateTimeField(db_index=True, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_REQUESTED, db_index=True)
+    topic = models.CharField(max_length=32, choices=TOPIC_CHOICES, default=TOPIC_GENERAL)
+    student_note = models.TextField(blank=True)
+    teacher_note = models.TextField(blank=True)
+    meeting_link = models.URLField(blank=True)
+    cancellation_reason = models.TextField(blank=True)
+    cancelled_by = models.CharField(max_length=20, choices=CANCELLED_BY_CHOICES, blank=True)
+    cancelled_at = models.DateTimeField(blank=True, null=True)
+    marked_completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['teacher', 'status', 'start_at']),
+            models.Index(fields=['student', 'status', 'start_at']),
+            models.Index(fields=['teacher', 'status', 'lesson_topic'], name='sat_sup_booking_topic_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student', 'session'],
+                condition=models.Q(session__isnull=False),
+                name='unique_student_per_support_session',
+            ),
+            models.UniqueConstraint(
+                fields=['student', 'teacher', 'lesson_topic'],
+                condition=models.Q(status='requested', lesson_topic__isnull=False),
+                name='unique_pending_support_topic_request',
+            ),
+        ]
+        verbose_name = 'Support Lesson Booking'
+        verbose_name_plural = 'Support Lesson Bookings'
+
+    def __str__(self):
+        when = timezone.localtime(self.start_at).strftime('%Y-%m-%d %H:%M') if self.start_at else 'waiting for teacher'
+        return f'{self.student.username} → {self.teacher.name} · {self.display_topic} · {when}'
+
+    @property
+    def display_title(self):
+        if self.lesson_title_id:
+            return self.lesson_title.name
+        if self.lesson_topic_id:
+            return self.lesson_topic.title.name
+        return 'SAT Support'
+
+    @property
+    def display_topic(self):
+        if self.lesson_topic_id:
+            return self.lesson_topic.name
+        return self.get_topic_display()
+
+    @property
+    def is_waiting(self):
+        return self.status == self.STATUS_REQUESTED or not self.start_at or not self.end_at
+
+    @property
+    def is_past(self):
+        return bool(self.end_at and timezone.now() >= self.end_at)
+
+    @property
+    def is_live(self):
+        current = timezone.now()
+        return bool(
+            self.start_at and self.end_at
+            and self.status == self.STATUS_SCHEDULED
+            and self.start_at <= current < self.end_at
+        )
+
+    @property
+    def awaiting_confirmation(self):
+        return bool(
+            self.end_at
+            and self.status == self.STATUS_SCHEDULED
+            and timezone.now() >= self.end_at
+        )
+
+    @property
+    def duration_minutes(self):
+        if not self.start_at or not self.end_at:
+            return 0
+        return max(0, int((self.end_at - self.start_at).total_seconds() // 60))
+
+    @property
+    def student_can_cancel(self):
+        if self.status == self.STATUS_REQUESTED:
+            return True
+        if self.status != self.STATUS_SCHEDULED or not self.start_at:
+            return False
+        notice_hours = self.teacher.cancellation_notice_hours if self.teacher_id else 0
+        cutoff = self.start_at - timedelta(hours=notice_hours)
+        return timezone.now() < cutoff
+
+    @property
+    def effective_meeting_link(self):
+        if self.session_id and self.session.meeting_link:
+            return self.session.meeting_link.strip()
+        return (self.meeting_link or self.teacher.meeting_link or '').strip()
+
+    @property
+    def can_receive_feedback(self):
+        return (
+            self.is_past
+            and self.status == self.STATUS_COMPLETED
+            and not hasattr(self, 'review')
+        )
+
+    def mark_completed_if_past(self):
+        return False
+
+    def clean(self):
+        super().clean()
+        if self.start_at and self.end_at and self.end_at <= self.start_at:
+            raise ValidationError('End time must be later than start time.')
+        if self.status in {self.STATUS_SCHEDULED, self.STATUS_COMPLETED, self.STATUS_NO_SHOW}:
+            if not self.start_at or not self.end_at:
+                raise ValidationError('Scheduled/completed support lessons require a start and end time.')
+
+    def save(self, *args, **kwargs):
+        if self.lesson_topic_id and not self.lesson_title_id:
+            self.lesson_title_id = self.lesson_topic.title_id
+        if self.session_id:
+            self.teacher_id = self.session.teacher_id
+            self.lesson_topic_id = self.session.lesson_topic_id or self.lesson_topic_id
+            if self.lesson_topic_id and not self.lesson_title_id:
+                self.lesson_title_id = self.lesson_topic.title_id
+            self.start_at = self.session.start_at
+            self.end_at = self.session.end_at
+            if self.status == self.STATUS_REQUESTED:
+                self.status = self.STATUS_SCHEDULED
+            if self.session.meeting_link:
+                self.meeting_link = self.session.meeting_link
+        super().save(*args, **kwargs)
+
+
+class SupportTeacherReview(BaseModel):
+    """Private lesson feedback. It is never shown on student-facing teacher pages."""
+    booking = models.OneToOneField(
+        SupportLessonBooking,
+        on_delete=models.CASCADE,
+        related_name='review'
+    )
+    teacher = models.ForeignKey(
+        SupportTeacherProfile,
+        on_delete=models.CASCADE,
+        related_name='reviews'
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='support_teacher_reviews'
+    )
+    rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    feedback = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Support Teacher Review (Private)'
+        verbose_name_plural = 'Support Teacher Reviews (Private)'
+
+    def __str__(self):
+        return f'{self.teacher.name} · {self.rating}/5 by {self.student.username}'
+
+    @property
+    def reviewer_name(self):
+        return self.student.get_full_name() or self.student.username
+
+    def save(self, *args, **kwargs):
+        if self.booking_id:
+            self.teacher = self.booking.teacher
+            self.student = self.booking.student
+        super().save(*args, **kwargs)
+
+
+class DreamUniversity(BaseModel):
+    """Admin-managed university options shown in the student goal dashboard.
+
+    SAT ranges change over time, so MakonBook stores the value as an editable
+    planning reference instead of hard-coding admissions data in the UI.
+    """
+    name = models.CharField(max_length=180)
+    country = models.CharField(max_length=120, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    average_sat_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(400), MaxValueValidator(1600)],
+        help_text="Optional published or internally verified SAT reference. Do not invent values.",
+    )
+    qs_rank = models.PositiveSmallIntegerField(null=True, blank=True)
+    ranking_source = models.CharField(max_length=120, blank=True, default='QS World University Rankings')
+    ranking_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    score_note = models.CharField(
+        max_length=180,
+        blank=True,
+        help_text="Optional context, for example: typical admitted-student range or internal target.",
+    )
+    website = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+        verbose_name = 'Dream University'
+        verbose_name_plural = 'Dream Universities'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['name', 'country'],
+                name='sat_unique_dream_university_country',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.country})" if self.country else self.name
+
+
+class StudentGoalProfile(BaseModel):
+    """A student's SAT destination, exam date, and sustainable study target."""
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sat_goal_profile',
+    )
+    dream_university = models.ForeignKey(
+        DreamUniversity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_goals',
+    )
+    custom_university_name = models.CharField(max_length=180, blank=True)
+    custom_university_country = models.CharField(max_length=120, blank=True)
+    custom_average_sat_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(400), MaxValueValidator(1600)],
+    )
+    target_sat_score = models.PositiveSmallIntegerField(
+        default=1400,
+        validators=[MinValueValidator(400), MaxValueValidator(1600)],
+    )
+    exam_date = models.DateField(null=True, blank=True)
+    daily_study_minutes_goal = models.PositiveSmallIntegerField(
+        default=45,
+        validators=[MinValueValidator(15), MaxValueValidator(360)],
+    )
+    weekly_study_days_goal = models.PositiveSmallIntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(7)],
+    )
+
+    class Meta:
+        verbose_name = 'Student SAT Goal'
+        verbose_name_plural = 'Student SAT Goals'
+
+    def __str__(self):
+        destination = self.university_name or 'Goal not configured'
+        return f"{self.user.username} → {destination}"
+
+    def clean(self):
+        super().clean()
+        if self.exam_date and self.exam_date < timezone.localdate():
+            raise ValidationError({'exam_date': 'Exam date cannot be in the past.'})
+        if self.custom_university_name and not self.custom_average_sat_score and not self.dream_university_id:
+            raise ValidationError({
+                'custom_average_sat_score': 'Add an average SAT score for the custom university.'
+            })
+
+    @property
+    def university_name(self):
+        custom = (self.custom_university_name or '').strip()
+        if custom:
+            return custom
+        return self.dream_university.name if self.dream_university_id else ''
+
+    @property
+    def university_country(self):
+        custom = (self.custom_university_country or '').strip()
+        if custom:
+            return custom
+        return self.dream_university.country if self.dream_university_id else ''
+
+    @property
+    def average_sat_score(self):
+        if self.custom_university_name and self.custom_average_sat_score:
+            return self.custom_average_sat_score
+        if self.dream_university_id:
+            return self.dream_university.average_sat_score
+        return self.custom_average_sat_score
+
+    @property
+    def days_remaining(self):
+        if not self.exam_date:
+            return None
+        return max(0, (self.exam_date - timezone.localdate()).days)
+
+    @property
+    def is_configured(self):
+        return bool(self.university_name and self.exam_date and self.target_sat_score)
+
+
+class Classroom(models.Model):
+    CLASSROOM_TYPE_SAT = 'sat'
+    CLASSROOM_TYPE_AP = 'ap'
+    CLASSROOM_TYPE_CHOICES = (
+        (CLASSROOM_TYPE_SAT, 'SAT Classroom'),
+        (CLASSROOM_TYPE_AP, 'AP Classroom'),
+    )
+
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='owned_classrooms'
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    classroom_type = models.CharField(
+        max_length=10,
+        choices=CLASSROOM_TYPE_CHOICES,
+        default=CLASSROOM_TYPE_SAT,
+        db_index=True,
+    )
+    is_active = models.BooleanField(default=True)
+    # Hollihop organizational identity. Nullable keeps all legacy classrooms intact.
+    hollihop_edunit_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    hollihop_corporative = models.BooleanField(null=True, blank=True)
+    hollihop_managed = models.BooleanField(default=False)
+    hollihop_last_synced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    @property
+    def is_sat_classroom(self):
+        return self.classroom_type == self.CLASSROOM_TYPE_SAT
+
+    @property
+    def is_ap_classroom(self):
+        return self.classroom_type == self.CLASSROOM_TYPE_AP
+
+    def __str__(self):
+        return f"{self.name} ({self.get_classroom_type_display()} - {self.teacher.username})"
+
+
+class ClassroomJoinCode(models.Model):
+    classroom = models.OneToOneField(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='join_code'
+    )
+    code = models.CharField(max_length=6, unique=True)
+    expires_at = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.classroom.name} - {self.code}"
+
+    def is_valid(self):
+        return self.is_active and timezone.now() < self.expires_at
+
+    @staticmethod
+    def default_expiry():
+        return timezone.now() + timedelta(hours=12)
+
+
+class ClassroomMembership(models.Model):
+    ROLE_CHOICES = (
+        ('teacher', 'Teacher'),
+        ('student', 'Student'),
+    )
+
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('left', 'Left'),
+        ('removed', 'Removed'),
+    )
+
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='memberships'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='classroom_memberships'
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    requested_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(blank=True, null=True)
+    left_at = models.DateTimeField(blank=True, null=True)
+    removed_at = models.DateTimeField(blank=True, null=True)
+    hollihop_managed = models.BooleanField(default=False)
+    hollihop_status = models.CharField(max_length=30, blank=True)
+    hollihop_last_synced_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('classroom', 'user')
+        ordering = ['-requested_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.classroom.name} - {self.status}"
+
+
+class ClassroomLesson(models.Model):
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='lessons')
+    title = models.CharField(max_length=220)
+    summary = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=1, db_index=True)
+    is_published = models.BooleanField(default=True, db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_classroom_lessons')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        unique_together = ('classroom', 'order')
+
+    def __str__(self):
+        return f"{self.classroom.name} · Lesson {self.order}: {self.title}"
+
+
+class ClassroomLessonResource(models.Model):
+    RESOURCE_FILE = 'file'
+    RESOURCE_LINK = 'link'
+    RESOURCE_PRESENTATION = 'presentation'
+    RESOURCE_TEST = 'test'
+    RESOURCE_VOCAB_QUIZ = 'vocabulary_quiz'
+    RESOURCE_CHOICES = (
+        (RESOURCE_FILE, 'File'),
+        (RESOURCE_LINK, 'Link'),
+        (RESOURCE_PRESENTATION, 'Presentation'),
+        (RESOURCE_TEST, 'SAT Test'),
+        (RESOURCE_VOCAB_QUIZ, 'Vocabulary Quiz'),
+    )
+    SCORE_HIDDEN = 'hidden'
+    SCORE_IMMEDIATE = 'immediate'
+    SCORE_SCHEDULED = 'scheduled'
+    SCORE_VISIBILITY_CHOICES = (
+        (SCORE_HIDDEN, 'Do not show classroom points'),
+        (SCORE_IMMEDIATE, 'Show classroom points immediately'),
+        (SCORE_SCHEDULED, 'Show classroom points on a scheduled date'),
+    )
+
+    lesson = models.ForeignKey(ClassroomLesson, on_delete=models.CASCADE, related_name='resources')
+    title = models.CharField(max_length=220)
+    resource_type = models.CharField(max_length=20, choices=RESOURCE_CHOICES, default=RESOURCE_FILE)
+    file = models.FileField(upload_to='classroom_lessons/%Y/%m/', blank=True, null=True, storage=PublicStorage())
+    url = models.URLField(blank=True)
+    test = models.ForeignKey('Test', on_delete=models.SET_NULL, null=True, blank=True, related_name='classroom_lesson_resources')
+    vocabulary_unit = models.ForeignKey('VocabularyUnit', on_delete=models.SET_NULL, null=True, blank=True, related_name='classroom_lesson_resources')
+    vocabulary_question_count = models.PositiveSmallIntegerField(default=10, validators=[MinValueValidator(1), MaxValueValidator(100)])
+    vocabulary_quiz_mode = models.CharField(max_length=32, choices=VocabularyQuizAttempt.MODE_CHOICES, default=VocabularyQuizAttempt.MODE_MIXED)
+    access_code = models.CharField(max_length=50, blank=True)
+    total_points = models.PositiveSmallIntegerField(default=100, validators=[MinValueValidator(1), MaxValueValidator(10000)])
+    score_visibility = models.CharField(max_length=20, choices=SCORE_VISIBILITY_CHOICES, default=SCORE_IMMEDIATE)
+    score_visible_at = models.DateTimeField(null=True, blank=True)
+    description = models.CharField(max_length=300, blank=True)
+    is_visible = models.BooleanField(default=True, db_index=True)
+    order = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+    @property
+    def target_url(self):
+        if self.file:
+            return self.file.url
+        return self.url
+
+    @property
+    def classroom_points_visible_now(self):
+        if self.score_visibility == self.SCORE_IMMEDIATE:
+            return True
+        if self.score_visibility == self.SCORE_SCHEDULED and self.score_visible_at:
+            return timezone.now() >= self.score_visible_at
+        return False
+
+    def clean(self):
+        super().clean()
+        if self.resource_type == self.RESOURCE_TEST:
+            if not self.test_id:
+                raise ValidationError({'test': 'Choose a SAT test for this resource.'})
+            if self.score_visibility == self.SCORE_SCHEDULED and not self.score_visible_at:
+                raise ValidationError({'score_visible_at': 'Choose when classroom points become visible.'})
+        elif self.resource_type == self.RESOURCE_VOCAB_QUIZ:
+            if not self.vocabulary_unit_id:
+                raise ValidationError({'vocabulary_unit': 'Choose a vocabulary unit for this quiz.'})
+        elif not self.file and not self.url:
+            raise ValidationError('Add a file or a link for this lesson resource.')
+
+    def __str__(self):
+        return f"{self.lesson} · {self.title}"
+
+
+class ClassroomHomeworkAssignment(models.Model):
+    TYPE_TEST = 'sat_test'
+    TYPE_VOCAB = 'vocabulary_unit'
+    TYPE_VOCAB_QUIZ = 'vocabulary_quiz'
+    TYPE_CHOICES = (
+        (TYPE_TEST, 'SAT test'),
+        (TYPE_VOCAB, 'Vocabulary practice'),
+        (TYPE_VOCAB_QUIZ, 'Vocabulary quiz'),
+    )
+
+    TEST_MODE_FULL = 'full_test'
+    TEST_MODE_RW = 'rw_only'
+    TEST_MODE_MATH = 'math_only'
+    TEST_MODE_ENGLISH_M1 = 'single_english_m1'
+    TEST_MODE_ENGLISH_M2 = 'single_english_m2'
+    TEST_MODE_MATH_M1 = 'single_math_m1'
+    TEST_MODE_MATH_M2 = 'single_math_m2'
+    TEST_MODE_CHOICES = (
+        (TEST_MODE_FULL, 'Full Test'),
+        (TEST_MODE_RW, 'Reading & Writing'),
+        (TEST_MODE_MATH, 'Math'),
+        (TEST_MODE_ENGLISH_M1, 'Reading & Writing · Module 1'),
+        (TEST_MODE_ENGLISH_M2, 'Reading & Writing · Module 2'),
+        (TEST_MODE_MATH_M1, 'Math · Module 1'),
+        (TEST_MODE_MATH_M2, 'Math · Module 2'),
+    )
+
+    INTEGRITY_OFF = 'off'
+    INTEGRITY_STANDARD = 'standard'
+    INTEGRITY_STRICT = 'strict'
+    INTEGRITY_CHOICES = (
+        (INTEGRITY_OFF, 'Off'),
+        (INTEGRITY_STANDARD, 'Standard'),
+        (INTEGRITY_STRICT, 'Strict'),
+    )
+    VOCAB_MEMORY = 'memory'
+    VOCAB_ANIMATED = 'animated-immersion'
+    VOCAB_BOUNCE = 'word-bounce'
+    VOCAB_MATCH = 'meaning-match'
+    VOCAB_MODE_CHOICES = (
+        (VOCAB_MEMORY, 'Memory Layers'),
+        (VOCAB_ANIMATED, 'Animated Immersion'),
+        (VOCAB_BOUNCE, 'Word Bounce'),
+        (VOCAB_MATCH, 'Meaning Match'),
+    )
+
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='homework_assignments')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_homework_assignments')
+    title = models.CharField(max_length=220)
+    instructions = models.TextField(blank=True)
+    assignment_type = models.CharField(max_length=24, choices=TYPE_CHOICES)
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, null=True, blank=True, related_name='classroom_homework_assignments')
+    required_test_mode = models.CharField(
+        max_length=50,
+        choices=TEST_MODE_CHOICES,
+        default=TEST_MODE_FULL,
+    )
+    required_integrity_mode = models.CharField(
+        max_length=16,
+        choices=INTEGRITY_CHOICES,
+        default=INTEGRITY_OFF,
+    )
+    vocabulary_unit = models.ForeignKey('VocabularyUnit', on_delete=models.CASCADE, null=True, blank=True, related_name='classroom_homework_assignments')
+    vocabulary_mode = models.CharField(max_length=32, choices=VOCAB_MODE_CHOICES, default=VOCAB_MEMORY)
+    vocabulary_quiz_mode = models.CharField(
+        max_length=24,
+        choices=VocabularyQuizAttempt.MODE_CHOICES,
+        default=VocabularyQuizAttempt.MODE_MIXED,
+    )
+    question_count = models.PositiveSmallIntegerField(default=10, validators=[MinValueValidator(1), MaxValueValidator(100)])
+    assign_all = models.BooleanField(default=True)
+    assigned_students = models.ManyToManyField(User, blank=True, related_name='classroom_homework')
+    due_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['due_at', '-created_at']
+
+    def clean(self):
+        super().clean()
+        if self.assignment_type == self.TYPE_TEST and not self.test_id:
+            raise ValidationError({'test': 'Choose a SAT test.'})
+        if self.assignment_type in {self.TYPE_VOCAB, self.TYPE_VOCAB_QUIZ} and not self.vocabulary_unit_id:
+            raise ValidationError({'vocabulary_unit': 'Choose a vocabulary unit.'})
+
+    def __str__(self):
+        return f"{self.classroom.name} · {self.title}"
+
+
+class ClassroomHomeworkSubmission(models.Model):
+    """Per-student state for one classroom homework assignment.
+
+    A missing row is equivalent to NOT_STARTED, so rows are created lazily only
+    when a student actually interacts with the homework.
+
+    COMPLETED means the work itself is finished but has not necessarily been
+    handed in to the teacher. Stage 4 will use this state for the
+    "Submit as homework" confirmation after an ordinary /tests/ attempt.
+    """
+
+    STATUS_NOT_STARTED = 'not_started'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_COMPLETED = 'completed'
+    STATUS_SUBMITTED = 'submitted'
+    STATUS_CHOICES = (
+        (STATUS_NOT_STARTED, 'Not started'),
+        (STATUS_IN_PROGRESS, 'In progress'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_SUBMITTED, 'Submitted'),
+    )
+
+    SOURCE_HOMEWORK = 'homework'
+    SOURCE_PRACTICE_TESTS = 'practice_tests'
+    SOURCE_VOCABULARY = 'vocabulary'
+    SOURCE_CHOICES = (
+        (SOURCE_HOMEWORK, 'Homework'),
+        (SOURCE_PRACTICE_TESTS, 'Practice Tests'),
+        (SOURCE_VOCABULARY, 'Vocabulary'),
+    )
+
+    assignment = models.ForeignKey(
+        ClassroomHomeworkAssignment,
+        on_delete=models.CASCADE,
+        related_name='submissions',
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='classroom_homework_submissions',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_NOT_STARTED,
+        db_index=True,
+    )
+    source = models.CharField(
+        max_length=24,
+        choices=SOURCE_CHOICES,
+        default=SOURCE_HOMEWORK,
+    )
+
+    # SAT attempts are identified before TestReview exists, so keep the immutable
+    # attempt UUID in addition to the eventual review FK.
+    attempt_id = models.UUIDField(null=True, blank=True, db_index=True)
+    test_review = models.ForeignKey(
+        TestReview,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='homework_submissions',
+    )
+    vocabulary_quiz_attempt = models.ForeignKey(
+        VocabularyQuizAttempt,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='homework_submissions',
+    )
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['assignment', 'student'],
+                name='sat_unique_homework_submission_student',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['student', 'status', '-updated_at'],
+                name='sat_hwsub_student_status',
+            ),
+            models.Index(
+                fields=['assignment', 'status'],
+                name='sat_hwsub_assignment_status',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.assignment} · {self.student.username} · {self.status}"
+
+    @property
+    def is_finished(self):
+        return self.status in {self.STATUS_COMPLETED, self.STATUS_SUBMITTED}
+
+    def mark_in_progress(self, *, source=None, attempt_id=None):
+        """Move a not-started row forward without ever downgrading completion."""
+        if self.status in {self.STATUS_COMPLETED, self.STATUS_SUBMITTED}:
+            return self
+        now_value = timezone.now()
+        self.status = self.STATUS_IN_PROGRESS
+        self.started_at = self.started_at or now_value
+        if source:
+            self.source = source
+        if attempt_id:
+            self.attempt_id = attempt_id
+        self.save(update_fields=['status', 'started_at', 'source', 'attempt_id', 'updated_at'])
+        return self
+
+    def mark_completed(
+        self,
+        *,
+        source=None,
+        attempt_id=None,
+        test_review=None,
+        vocabulary_quiz_attempt=None,
+    ):
+        """Record finished work that has not necessarily been submitted yet."""
+        if self.status == self.STATUS_SUBMITTED:
+            return self
+        now_value = timezone.now()
+        self.status = self.STATUS_COMPLETED
+        self.started_at = self.started_at or now_value
+        self.completed_at = self.completed_at or now_value
+        if source:
+            self.source = source
+        if attempt_id:
+            self.attempt_id = attempt_id
+        if test_review is not None:
+            self.test_review = test_review
+            self.attempt_id = getattr(test_review, 'attempt_id', None) or self.attempt_id
+        if vocabulary_quiz_attempt is not None:
+            self.vocabulary_quiz_attempt = vocabulary_quiz_attempt
+        self.save(update_fields=[
+            'status',
+            'started_at',
+            'completed_at',
+            'source',
+            'attempt_id',
+            'test_review',
+            'vocabulary_quiz_attempt',
+            'updated_at',
+        ])
+        return self
+
+    def mark_submitted(
+        self,
+        *,
+        source=None,
+        attempt_id=None,
+        test_review=None,
+        vocabulary_quiz_attempt=None,
+    ):
+        """Finalize hand-in. Submission is terminal for the assignment/student row."""
+        now_value = timezone.now()
+        self.status = self.STATUS_SUBMITTED
+        self.started_at = self.started_at or now_value
+        self.completed_at = self.completed_at or now_value
+        self.submitted_at = self.submitted_at or now_value
+        if source:
+            self.source = source
+        if attempt_id:
+            self.attempt_id = attempt_id
+        if test_review is not None:
+            self.test_review = test_review
+            self.attempt_id = getattr(test_review, 'attempt_id', None) or self.attempt_id
+        if vocabulary_quiz_attempt is not None:
+            self.vocabulary_quiz_attempt = vocabulary_quiz_attempt
+        self.save(update_fields=[
+            'status',
+            'started_at',
+            'completed_at',
+            'submitted_at',
+            'source',
+            'attempt_id',
+            'test_review',
+            'vocabulary_quiz_attempt',
+            'updated_at',
+        ])
+        return self
+
+
+@receiver(models.signals.post_save, sender=ClassroomMembership)
+def activate_referral_after_classroom_join(sender, instance, **kwargs):
+    """Referrals count only after a referred student becomes an approved classroom member."""
+    if instance.role != 'student' or instance.status != 'approved':
+        return
+    try:
+        from apps.base.models import ReferralInvite
+        ReferralInvite.objects.filter(referred_user=instance.user, activated_at__isnull=True).update(activated_at=timezone.now())
+    except Exception:
+        # Referral accounting must never block classroom enrollment.
+        return
+
+class StudentSectionAccess(models.Model):
+    SECTION_CHOICES = (
+        ('practice_tests', 'Practice Tests'),
+        ('vocabulary', 'Vocabulary'),
+        ('admissions', 'Admissions'),
+    )
+
+    membership = models.ForeignKey(
+        ClassroomMembership,
+        on_delete=models.CASCADE,
+        related_name='section_access'
+    )
+    section = models.CharField(max_length=50, choices=SECTION_CHOICES)
+    has_access = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('membership', 'section')
+        ordering = ['section']
+
+    def __str__(self):
+        return f"{self.membership.user.username} - {self.section} - {self.has_access}"
+
+
+class ClassroomSectionAccessPolicy(models.Model):
+    """Default section access inherited by current and future classroom students."""
+
+    SECTION_CHOICES = StudentSectionAccess.SECTION_CHOICES
+
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='section_access_policies'
+    )
+    section = models.CharField(max_length=50, choices=SECTION_CHOICES)
+    has_access = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('classroom', 'section')
+        ordering = ['section']
+        verbose_name = 'Classroom Section Access Policy'
+        verbose_name_plural = 'Classroom Section Access Policies'
+
+    def __str__(self):
+        return f"{self.classroom.name} - {self.section} - {self.has_access}"
+
+
+class StudentProgress(models.Model):
+    SECTION_CHOICES = (
+        ('practice_tests', 'Practice Tests'),
+        ('vocabulary', 'Vocabulary'),
+        ('admissions', 'Admissions'),
+    )
+
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='progress_records'
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='classroom_progress'
+    )
+    section = models.CharField(max_length=50, choices=SECTION_CHOICES)
+
+    completion_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    completed_items = models.PositiveIntegerField(default=0)
+    total_items = models.PositiveIntegerField(default=0)
+    activity_count = models.PositiveIntegerField(default=0)
+    last_activity_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ('classroom', 'student', 'section')
+        ordering = ['student', 'section']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.section} - {self.completion_percent}%"
+
+
+class UserChatStickerPack(models.Model):
+    """A named personal sticker pack used by the standalone student inbox."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chat_sticker_packs',
+    )
+    title = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'title'], name='sat_chat_pack_user_title_uniq'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} · {self.title}"
+
+
+class UserChatSticker(models.Model):
+    """Reusable image sticker uploaded by a student for the standalone inbox."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chat_stickers',
+    )
+    pack = models.ForeignKey(
+        UserChatStickerPack,
+        on_delete=models.SET_NULL,
+        related_name='stickers',
+        blank=True,
+        null=True,
+    )
+    image = models.ImageField(
+        upload_to='classroom_chat_stickers/',
+        storage=PublicStorage(),
+    )
+    title = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"{self.user.username} sticker #{self.pk}"
+
+
+class ChatMessage(models.Model):
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='chat_messages'
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_classroom_messages'
+    )
+    message = models.TextField(blank=True, null=True)
+    file = models.FileField(upload_to='classroom_chat_files/', blank=True, null=True)
+    sticker = models.ForeignKey(
+        UserChatSticker,
+        on_delete=models.SET_NULL,
+        related_name='messages',
+        blank=True,
+        null=True,
+    )
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.sender.username} - {self.classroom.name} - {self.created_at:%Y-%m-%d %H:%M}"
+    
+
+
+#GUEST MODE
+class GlobalEvent(models.Model):
+    TYPE_EVENT = "event"
+    TYPE_PLACEMENT = "placement"
+    EVENT_TYPE_CHOICES = [
+        (TYPE_EVENT, "Event"),
+        (TYPE_PLACEMENT, "Placement Test"),
+    ]
+
+    EVENT_STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("scheduled", "Scheduled"),
+        ("live", "Live"),
+        ("closed", "Closed"),
+    ]
+
+    event_type = models.CharField(
+        "Event type",
+        max_length=20,
+        choices=EVENT_TYPE_CHOICES,
+        default=TYPE_EVENT,
+        db_default=TYPE_EVENT,
+        db_index=True,
+        help_text=(
+            "Controls where this Global Event appears. "
+            "Event = Events page. Placement Test = Placement Tests page. "
+            "The linked source Test keeps its own Test Type."
+        ),
+    )
+
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True)
+    description = models.TextField(blank=True)
+    rules = models.TextField(blank=True)
+
+    test = models.ForeignKey(
+        "sat.Test",
+        on_delete=models.CASCADE,
+        related_name="global_events"
+    )
+
+    access_code = models.CharField(max_length=50, blank=True)
+    is_public = models.BooleanField(default=True)
+
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField()
+    duration_minutes = models.PositiveIntegerField(
+        default=60,
+        help_text="Fallback duration in minutes for each module if section-specific duration is not set."
+    )
+    english_duration_minutes = models.PositiveIntegerField(
+        default=60,
+        help_text="Duration in minutes for each English module."
+    )
+    math_duration_minutes = models.PositiveIntegerField(
+        default=60,
+        help_text="Duration in minutes for each Math module."
+    )
+    always_live = models.BooleanField(default=False, help_text="If checked, event is available 24/7 regardless of start/end times")
+
+    status = models.CharField(
+        max_length=20,
+        choices=EVENT_STATUS_CHOICES,
+        default="draft"
+    )
+
+    show_score_immediately = models.BooleanField(default=True)
+    show_leaderboard = models.BooleanField(default=False)
+    allow_resume = models.BooleanField(default=True)
+
+    # V5581 verified mock registration. Legacy GlobalEvents keep these disabled.
+    registration_enabled = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Require a verified event registration before this event can be started.",
+    )
+    show_on_landing = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Show this registration-enabled event on the public landing page.",
+    )
+    branch = models.CharField(
+        max_length=160,
+        blank=True,
+        help_text="Branch / venue shown to participants, e.g. NOVZA.",
+    )
+    capacity = models.PositiveIntegerField(
+        default=0,
+        help_text="Maximum reserved participants. 0 is allowed only for legacy events without verified registration.",
+    )
+    registration_opens_at = models.DateTimeField(null=True, blank=True)
+    registration_closes_at = models.DateTimeField(null=True, blank=True)
+    verification_minutes = models.PositiveSmallIntegerField(
+        default=10,
+        help_text="How long an email verification code remains valid.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    END_GRACE_HOURS = 5
+
+    @property
+    def effective_end_at(self):
+        """Final close time for scheduled Global Events.
+
+        Scheduled events keep a five-hour completion/resume grace period after
+        ``end_at``. ``always_live`` events have no schedule-derived close time;
+        they stay available until an administrator changes ``status`` away from
+        ``live``.
+        """
+        if self.always_live or not self.end_at:
+            return None
+        return self.end_at + timedelta(hours=self.END_GRACE_HOURS)
+
+    @property
+    def is_live_now(self):
+        """Whether the event is currently open.
+
+        ``is_public`` controls discoverability only. ``status='closed'`` closes
+        immediately. When ``always_live`` is enabled, start/end timestamps are
+        ignored and the event remains open 24/7 while ``status='live'``.
+        Scheduled events still use the normal start gate and end + five-hour
+        grace window.
+        """
+        now = timezone.now()
+        if self.status != "live":
+            return False
+
+        if self.always_live:
+            return True
+
+        effective_end = self.effective_end_at
+        if effective_end and now > effective_end:
+            return False
+
+        if not self.start_at or not effective_end:
+            return False
+        return self.start_at <= now <= effective_end
+
+    @classmethod
+    def close_expired(cls, now=None):
+        """Close stale scheduled events without touching Always active rows."""
+        now = now or timezone.now()
+        cutoff = now - timedelta(hours=cls.END_GRACE_HOURS)
+        return cls.objects.filter(
+            status='live',
+            always_live=False,
+            end_at__lt=cutoff,
+        ).update(status='closed')
+
+    def get_module_duration(self, section):
+        if section == "english":
+            return self.english_duration_minutes or self.duration_minutes
+        if section == "math":
+            return self.math_duration_minutes or self.duration_minutes
+        return self.duration_minutes
+
+    def clean(self):
+        super().clean()
+        # v5563: GlobalEvent classification is independent from Test.test_type.
+        # A regular DAY test may remain in Practice while also powering a live Event.
+        if not self.always_live and self.start_at and self.end_at and self.end_at <= self.start_at:
+            raise ValidationError({"end_at": "Event end time must be later than its start time."})
+        if self.access_code:
+            self.access_code = self.access_code.strip()
+
+        # V5581 verified-registration validation.
+        if self.registration_enabled:
+            if not self.capacity or self.capacity < 1:
+                raise ValidationError({"capacity": "Verified registration requires a participant limit of at least 1."})
+            if not self.registration_opens_at:
+                raise ValidationError({"registration_opens_at": "Set when registration opens."})
+            if not self.registration_closes_at:
+                raise ValidationError({"registration_closes_at": "Set when registration closes."})
+            if self.registration_closes_at <= self.registration_opens_at:
+                raise ValidationError({"registration_closes_at": "Registration close time must be later than open time."})
+            if not self.branch.strip():
+                raise ValidationError({"branch": "Set the branch / venue for a verified mock event."})
+        if self.verification_minutes and not (3 <= int(self.verification_minutes) <= 30):
+            raise ValidationError({"verification_minutes": "Use a verification lifetime between 3 and 30 minutes."})
+
+    def __str__(self):
+        return self.title
+
+class GuestParticipant(models.Model):
+    guest_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
+    full_name = models.CharField(max_length=255)
+    display_name = models.CharField(max_length=255, blank=True)
+
+    session_key = models.CharField(max_length=255, blank=True)
+    first_ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.display_name or self.full_name
+    
+class GlobalEventAttempt(models.Model):
+    ATTEMPT_STATUS_CHOICES = [
+        ("in_progress", "In Progress"),
+        ("submitted", "Submitted"),
+        ("expired", "Expired"),
+    ]
+
+    event = models.ForeignKey(
+        "sat.GlobalEvent",
+        on_delete=models.CASCADE,
+        related_name="attempts"
+    )
+    guest = models.ForeignKey(
+        "sat.GuestParticipant",
+        on_delete=models.CASCADE,
+        related_name="attempts"
+    )
+
+    guest_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    current_module_started_at = models.DateTimeField(null=True, blank=True, help_text="When the current module started")
+
+    status = models.CharField(
+        max_length=20,
+        choices=ATTEMPT_STATUS_CHOICES,
+        default="in_progress"
+    )
+
+    score = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    raw_score = models.IntegerField(null=True, blank=True)
+
+    total_questions = models.PositiveIntegerField(default=0)
+    answered_questions = models.PositiveIntegerField(default=0)
+    completed_modules = models.JSONField(default=list, blank=True)
+    # Which part of the event's test this attempt takes: the whole test, or one
+    # section (the direct English / Math placement links, /check-level/english/).
+    RUN_FULL = "full_test"
+    RUN_ENGLISH = "rw_only"
+    RUN_MATH = "math_only"
+    RUN_MODE_CHOICES = [
+        (RUN_FULL, "Full test"),
+        (RUN_ENGLISH, "Reading and Writing only"),
+        (RUN_MATH, "Math only"),
+    ]
+    run_mode = models.CharField(max_length=20, choices=RUN_MODE_CHOICES, default=RUN_FULL, db_default=RUN_FULL)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "guest"],
+                name="unique_guest_attempt_per_event"
+            )
+        ]
+
+    def get_time_left_seconds(self, section=None):
+        """Calculate time remaining for the current module/section."""
+        module_start = self.current_module_started_at or self.started_at
+        elapsed = (timezone.now() - module_start).total_seconds()
+
+        if section:
+            module_duration_seconds = self.event.get_module_duration(section) * 60
+        else:
+            module_duration_seconds = self.event.duration_minutes * 60
+
+        return max(0, int(module_duration_seconds - elapsed))
+
+    @property
+    def time_left_seconds(self):
+        return self.get_time_left_seconds()
+
+    def __str__(self):
+        return f"{self.guest} - {self.event}"
+
+
+class GlobalEventModuleDraft(models.Model):
+    """Server-authoritative resumable state for a guest event module.
+
+    Guest answers were previously written directly to ``GlobalEventAnswer`` while
+    UI-only state (current question, eliminated choices, marks) lived only in the
+    browser.  This row mirrors the regular SAT ``TestModuleDraft`` flow so refresh,
+    another device, and an expired timer all resolve from one consistent snapshot.
+    The row is deleted after the module is submitted.
+    """
+    attempt = models.ForeignKey(
+        "sat.GlobalEventAttempt",
+        on_delete=models.CASCADE,
+        related_name="module_drafts",
+    )
+    section = models.CharField(max_length=8)
+    module = models.CharField(max_length=8)
+    answers = models.JSONField(default=list, blank=True)
+    time_spent = models.JSONField(default=list, blank=True)
+    eliminated_choices = models.JSONField(default=list, blank=True)
+    marked_for_review = models.JSONField(default=list, blank=True)
+    current_question_index = models.PositiveIntegerField(default=0)
+    deadline_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attempt", "section", "module"],
+                name="unique_guest_event_module_draft",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["attempt", "section", "module"], name="guest_draft_attempt_step"),
+            models.Index(fields=["deadline_at"], name="guest_draft_deadline"),
+        ]
+
+    def __str__(self):
+        return f"{self.attempt_id}:{self.section}:{self.module}"
+
+
+class GlobalEventAnswer(models.Model):
+    SECTION_CHOICES = [
+        ("english", "English"),
+        ("math", "Math"),
+    ]
+
+    attempt = models.ForeignKey(
+        "sat.GlobalEventAttempt",
+        on_delete=models.CASCADE,
+        related_name="answers"
+    )
+
+    section = models.CharField(max_length=20, choices=SECTION_CHOICES)
+    module = models.CharField(max_length=10, blank=True)
+    question_id = models.PositiveIntegerField()
+    selected_answer = models.TextField(blank=True, null=True)
+
+    is_correct = models.BooleanField(null=True, blank=True)
+    time_spent = models.PositiveIntegerField(default=0)
+
+    answered_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attempt", "section", "module", "question_id"],
+                name="unique_global_answer_per_question"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.attempt} - {self.section} - Q{self.question_id}"
+
+class ClassroomPracticeTestAccessPolicy(models.Model):
+    """Class-level SAT test selection inherited by students approved later."""
+
+    ACCESS_MODE_ALL = 'all'
+    ACCESS_MODE_SELECTED = 'selected'
+    ACCESS_MODE_CHOICES = (
+        (ACCESS_MODE_ALL, 'All practice tests'),
+        (ACCESS_MODE_SELECTED, 'Selected practice tests'),
+    )
+
+    classroom = models.OneToOneField(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='practice_test_access_policy'
+    )
+    access_mode = models.CharField(
+        max_length=20,
+        choices=ACCESS_MODE_CHOICES,
+        default=ACCESS_MODE_SELECTED,
+    )
+    selected_tests = models.ManyToManyField(
+        Test,
+        blank=True,
+        related_name='classroom_access_policies'
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Classroom Practice Test Access Policy'
+        verbose_name_plural = 'Classroom Practice Test Access Policies'
+
+    def __str__(self):
+        return f"{self.classroom.name} - {self.get_access_mode_display()}"
+
+
+class StudentPracticeTestAccess(models.Model):
+    membership = models.ForeignKey(
+        ClassroomMembership,
+        on_delete=models.CASCADE,
+        related_name='practice_test_access'
+    )
+    test = models.ForeignKey(
+        Test,
+        on_delete=models.CASCADE,
+        related_name='student_practice_access'
+    )
+    has_access = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('membership', 'test')
+        ordering = ['test__name']
+
+    def __str__(self):
+        return f"{self.membership.user.username} - {self.test.name} - {self.has_access}"
+
+
+class ClassroomPracticeTestIntegrityPolicy(models.Model):
+    MODE_CHOICES = [
+        ('off', 'Off'),
+        ('standard', 'Standard'),
+        ('strict', 'Strict'),
+    ]
+
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name='practice_test_integrity_policies',
+    )
+    test = models.ForeignKey(
+        Test,
+        on_delete=models.CASCADE,
+        related_name='classroom_integrity_policies',
+    )
+    mode = models.CharField(max_length=16, choices=MODE_CHOICES, default='standard')
+    max_violations = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
+    fullscreen_required = models.BooleanField(default=True)
+    monitored_events = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['classroom', 'test'],
+                name='sat_unique_classroom_test_integrity_policy',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.classroom.name} · {self.test.name} · {self.mode}"
+
+
+class ExamIntegrityViolation(BaseModel):
+    EVENT_CHOICES = [
+        ('tab_hidden', 'Browser tab changed'),
+        ('window_blur', 'Exam window lost focus'),
+        ('fullscreen_exit', 'Fullscreen exited'),
+        ('inactivity', 'Extended inactivity'),
+        ('copy', 'Copy attempted'),
+        ('paste', 'Paste attempted'),
+        ('contextmenu', 'Right-click attempted'),
+        ('restricted_shortcut', 'Restricted keyboard shortcut'),
+        ('leave_attempt', 'Page leave / refresh attempted'),
+    ]
+
+    event_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    stage = models.ForeignKey(
+        TestStage,
+        on_delete=models.CASCADE,
+        related_name='integrity_events',
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sat_integrity_events')
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True, blank=True)
+    classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True)
+    attempt_id = models.UUIDField(db_index=True)
+    event_type = models.CharField(max_length=40, choices=EVENT_CHOICES)
+    strike_number = models.PositiveSmallIntegerField(default=0)
+    client_occurred_at = models.DateTimeField(null=True, blank=True)
+    detail = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [
+            models.Index(fields=['user', 'attempt_id', 'created_at'], name='sat_eiv_u_att_cr'),
+            models.Index(fields=['classroom', 'test', 'created_at'], name='sat_eiv_cls_t_cr'),
+        ]
+
+    def __str__(self):
+        return f"{self.user} · {self.test} · {self.event_type} · {self.strike_number}"
+
+# ---------------------------------------------------------------------------
+# AI-assisted test import / review staging
+# ---------------------------------------------------------------------------
+class TestImportJob(models.Model):
+    STATUS_UPLOADED = 'uploaded'
+    STATUS_QUEUED = 'queued'
+    STATUS_PROCESSING = 'processing'
+    STATUS_REVIEW_REQUIRED = 'review_required'
+    STATUS_CHANGES_REQUESTED = 'changes_requested'
+    STATUS_READY_TO_PUBLISH = 'ready_to_publish'
+    STATUS_PUBLISHING = 'publishing'
+    STATUS_PUBLISHED = 'published'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = (
+        (STATUS_UPLOADED, 'Uploaded'),
+        (STATUS_QUEUED, 'Queued'),
+        (STATUS_PROCESSING, 'Processing'),
+        (STATUS_REVIEW_REQUIRED, 'Review required'),
+        (STATUS_CHANGES_REQUESTED, 'Changes requested'),
+        (STATUS_READY_TO_PUBLISH, 'Ready to publish'),
+        (STATUS_PUBLISHING, 'Publishing'),
+        (STATUS_PUBLISHED, 'Published'),
+        (STATUS_FAILED, 'Failed'),
+    )
+
+    TYPE_AUTO = 'auto'
+    TYPE_FULL = 'full'
+    TYPE_ENGLISH = 'english'
+    TYPE_MATH = 'math'
+    TEST_TYPE_CHOICES = (
+        (TYPE_AUTO, 'Auto detect'),
+        (TYPE_FULL, 'Full SAT'),
+        (TYPE_ENGLISH, 'Reading & Writing'),
+        (TYPE_MATH, 'Math'),
+    )
+
+    name = models.CharField(max_length=400)
+    # Legacy arbitrary-PDF import fields are kept for old staging jobs.
+    source_pdf = models.FileField(upload_to='sat/test_imports/source/', storage=PrivateStorage(), blank=True, null=True)
+    answer_pdf = models.FileField(upload_to='sat/test_imports/answers/', storage=PrivateStorage(), blank=True, null=True)
+    # New deterministic import path: files must follow MakonBook Structured PDF v1.
+    english_pdf = models.FileField(upload_to='sat/test_imports/structured/english/', storage=PrivateStorage(), blank=True, null=True)
+    math_pdf = models.FileField(upload_to='sat/test_imports/structured/math/', storage=PrivateStorage(), blank=True, null=True)
+    requested_test_type = models.CharField(max_length=20, choices=TEST_TYPE_CHOICES, default=TYPE_AUTO)
+    detected_test_type = models.CharField(max_length=20, blank=True)
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_UPLOADED, db_index=True)
+    required_approvals = models.PositiveSmallIntegerField(default=2)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_test_imports')
+    ai_model = models.CharField(max_length=80, blank=True)
+    page_count = models.PositiveIntegerField(default=0)
+    structure_data = models.JSONField(default=dict, blank=True)
+    processing_log = models.JSONField(default=list, blank=True)
+    celery_task_id = models.CharField(max_length=255, blank=True, db_index=True)
+    progress_percent = models.PositiveSmallIntegerField(default=0)
+    progress_stage = models.CharField(max_length=64, blank=True)
+    progress_message = models.CharField(max_length=500, blank=True)
+    queued_at = models.DateTimeField(blank=True, null=True)
+    processing_started_at = models.DateTimeField(blank=True, null=True)
+    processing_heartbeat_at = models.DateTimeField(blank=True, null=True)
+    error_message = models.TextField(blank=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    published_test = models.OneToOneField(
+        Test, on_delete=models.SET_NULL, null=True, blank=True, related_name='import_job'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['status', '-created_at'], name='sat_import_status_created')]
+
+    @property
+    def approval_count(self):
+        return self.reviews.filter(verdict=TestImportReview.VERDICT_APPROVED).count()
+
+    @property
+    def reviewer_count(self):
+        return self.reviews.count()
+
+    @property
+    def approval_target(self):
+        reviewers = self.reviewer_count
+        if reviewers <= 0:
+            return self.required_approvals
+        return min(self.required_approvals, reviewers)
+
+    @property
+    def has_blocking_errors(self):
+        return self.questions.filter(validation_status=TestImportQuestion.VALIDATION_ERROR).exists()
+
+    def refresh_review_status(self, save=True):
+        if self.status in {self.STATUS_PUBLISHED, self.STATUS_PUBLISHING, self.STATUS_QUEUED, self.STATUS_PROCESSING, self.STATUS_FAILED}:
+            return self.status
+        if self.has_blocking_errors:
+            self.status = self.STATUS_CHANGES_REQUESTED
+        elif self.reviews.filter(verdict=TestImportReview.VERDICT_CHANGES).exists():
+            self.status = self.STATUS_CHANGES_REQUESTED
+        elif self.approval_target > 0 and self.approval_count >= self.approval_target:
+            self.status = self.STATUS_READY_TO_PUBLISH
+        else:
+            self.status = self.STATUS_REVIEW_REQUIRED
+        if save:
+            self.save(update_fields=['status', 'updated_at'])
+        return self.status
+
+    def __str__(self):
+        return f'{self.name} · {self.get_status_display()}'
+
+
+class TestImportQuestion(models.Model):
+    SECTION_CHOICES = (('english', 'Reading & Writing'), ('math', 'Math'))
+    MODULE_CHOICES = modules
+    VALIDATION_OK = 'ok'
+    VALIDATION_WARNING = 'warning'
+    VALIDATION_ERROR = 'error'
+    VALIDATION_CHOICES = (
+        (VALIDATION_OK, 'OK'),
+        (VALIDATION_WARNING, 'Warning'),
+        (VALIDATION_ERROR, 'Error'),
+    )
+
+    job = models.ForeignKey(TestImportJob, on_delete=models.CASCADE, related_name='questions')
+    section = models.CharField(max_length=16, choices=SECTION_CHOICES)
+    module = models.CharField(max_length=16, choices=MODULE_CHOICES)
+    number = models.PositiveIntegerField()
+    passage = models.TextField(blank=True)
+    question = models.TextField(blank=True)
+    a = models.TextField(blank=True)
+    b = models.TextField(blank=True)
+    c = models.TextField(blank=True)
+    d = models.TextField(blank=True)
+    answer = models.CharField(max_length=400, blank=True)
+    explanation = models.TextField(blank=True)
+    image = models.ImageField(upload_to='sat/test_imports/question_images/', storage=PublicStorage(), blank=True, null=True)
+    image_a = models.ImageField(upload_to='sat/test_imports/choice_images/', storage=PublicStorage(), blank=True, null=True)
+    image_b = models.ImageField(upload_to='sat/test_imports/choice_images/', storage=PublicStorage(), blank=True, null=True)
+    image_c = models.ImageField(upload_to='sat/test_imports/choice_images/', storage=PublicStorage(), blank=True, null=True)
+    image_d = models.ImageField(upload_to='sat/test_imports/choice_images/', storage=PublicStorage(), blank=True, null=True)
+    response_type = models.CharField(max_length=24, choices=(('multiple_choice', 'Multiple choice'), ('open_text', 'Open text')), default='multiple_choice')
+    written = models.BooleanField(default=False)
+    graph = models.BooleanField(default=False)
+    choice_graph = models.BooleanField(default=False)
+    source_page = models.PositiveIntegerField(blank=True, null=True)
+    ai_confidence = models.FloatField(default=0)
+    validation_status = models.CharField(max_length=12, choices=VALIDATION_CHOICES, default=VALIDATION_OK, db_index=True)
+    validation_errors = models.JSONField(default=list, blank=True)
+    audit_verdict = models.CharField(max_length=20, blank=True)
+    audit_severity = models.CharField(max_length=20, blank=True)
+    audit_confidence = models.FloatField(blank=True, null=True)
+    audit_summary = models.TextField(blank=True)
+    audit_verified_answer = models.CharField(max_length=400, blank=True)
+    audit_recommended_fix = models.TextField(blank=True)
+    raw_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['section', 'module', 'number', 'id']
+        indexes = [
+            models.Index(fields=['job', 'section', 'module', 'number'], name='sat_import_q_slot'),
+            models.Index(fields=['job', 'validation_status'], name='sat_import_q_validation'),
+        ]
+
+    @property
+    def display_code(self):
+        prefix = 'EBRW' if self.section == 'english' else 'MATH'
+        module_number = '1' if self.module == 'module_1' else '2'
+        return f'{prefix} M{module_number} #{self.number}'
+
+    def __str__(self):
+        return f'{self.job.name} · {self.display_code}'
+
+
+class TestImportReview(models.Model):
+    VERDICT_PENDING = 'pending'
+    VERDICT_APPROVED = 'approved'
+    VERDICT_CHANGES = 'changes_requested'
+    VERDICT_CHOICES = (
+        (VERDICT_PENDING, 'Pending'),
+        (VERDICT_APPROVED, 'Approved'),
+        (VERDICT_CHANGES, 'Changes requested'),
+    )
+
+    job = models.ForeignKey(TestImportJob, on_delete=models.CASCADE, related_name='reviews')
+    reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='test_import_reviews')
+    verdict = models.CharField(max_length=24, choices=VERDICT_CHOICES, default=VERDICT_PENDING, db_index=True)
+    note = models.TextField(blank=True)
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['job', 'reviewer'], name='unique_import_reviewer')]
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.job.name} · {self.reviewer.username} · {self.verdict}'
+
+
+class MakonNotification(models.Model):
+    TYPE_TEST_REVIEW = 'test_review'
+    TYPE_TEST_PUBLISHED = 'test_published'
+    TYPE_HOMEWORK = 'homework'
+    TYPE_CLASSROOM = 'classroom'
+    TYPE_LESSON = 'lesson'
+    TYPE_ACCESS = 'access'
+    TYPE_ASSESSMENT = 'assessment'
+    TYPE_SUPPORT = 'support'
+    TYPE_CHOICES = (
+        (TYPE_TEST_REVIEW, 'Test review'),
+        (TYPE_TEST_PUBLISHED, 'Test published'),
+        (TYPE_HOMEWORK, 'Homework'),
+        (TYPE_CLASSROOM, 'Classroom'),
+        (TYPE_LESSON, 'Lesson'),
+        (TYPE_ACCESS, 'Access'),
+        (TYPE_ASSESSMENT, 'Assessment'),
+        (TYPE_SUPPORT, 'Support lesson'),
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='makon_notifications')
+    type = models.CharField(max_length=32, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=180)
+    message = models.CharField(max_length=500, blank=True)
+    url = models.CharField(max_length=500, blank=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['user', 'is_read', '-created_at'], name='makon_notice_user_unread')]
+
+    def __str__(self):
+        return f'{self.user.username} · {self.title}'
+# V5581 model lives in a separate module to keep the legacy SAT models file stable.
+from .event_registration_models import EventRegistration
+from .public_placement_models import PublicPlacementLead, PlacementTelegramNotification
+

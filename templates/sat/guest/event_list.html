@@ -1,0 +1,83 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  {% include 'landing/_public_transition_head_v645.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  {% include 'base/theme_init.html' %}
+  <title>Mock Exams | SAT Makon</title>
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5612.1">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5599">
+  <link rel="stylesheet" href="{% static 'assets/css/mock-registration-inline-v5597.css' %}?v=5599">
+  <link rel="stylesheet" href="{% static 'assets/css/mock-public-header-v5612-1.css' %}?v=5612.1">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-header-v642.css' %}?v=6421">
+</head>
+<body class="mb642-public-chrome mkp-page public-page">
+<div class="mkp-shell">
+  {% include 'landing/_public_header.html' with public_nav=True %}
+
+  <main>
+    <section class="mkp-page-hero">
+      <div class="mkp-container">
+        <span class="mkp-kicker">Verified registration</span>
+        <h1>Mock exams.</h1>
+        <p>Choose a mock exam, review the branch and schedule, then reserve your seat without leaving this page. MakonBook students use their existing account; external participants can register directly.</p>
+      </div>
+    </section>
+
+    <section class="mkp-section compact">
+      <div class="mkp-container">
+        {% if messages %}<div class="mkp-alert"><ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul></div>{% endif %}
+        {% if events %}
+          <div class="mkp-event-grid">
+            {% for event in events %}
+            <article class="mkp-event-card">
+              <div class="mkp-event-top">
+                <span class="mkp-chip">{{ event.source_label }}</span>
+                <span class="mkp-chip{% if event.availability.state == 'live' %} success{% endif %}">{{ event.availability.label }}</span>
+              </div>
+              <h3>{{ event.title }}</h3>
+              {% if event.description %}<p>{{ event.description|truncatewords:20 }}</p>{% else %}<p>Public SAT Makon event with a structured test flow.</p>{% endif %}
+              <div class="mkp-event-meta">
+                {% if event.registration_enabled %}
+                  <div><span>Branch</span><strong>{{ event.branch|default:"SATMakon" }}</strong></div>
+                  {% if event.capacity %}<div><span>Confirmed</span><strong>{{ event.confirmed_count }} / {{ event.capacity }}</strong></div>{% endif %}
+                  {% if event.pending_hold_count %}<div><span>Verifying</span><strong>{{ event.pending_hold_count }}</strong></div>{% endif %}
+                  {% if event.capacity %}<div><span>Seats left</span><strong>{{ event.seats_left }}</strong></div>{% endif %}
+                {% endif %}
+                {% if event.always_live %}
+                  <div><span>Schedule</span><strong>Always live</strong></div>
+                {% else %}
+                  <div><span>Starts</span><strong>{{ event.start_at|date:"d M Y · H:i" }}</strong></div>
+                {% endif %}
+              </div>
+              <div class="mkp-event-action">
+                {% if event.registration_enabled and event.source == 'sat' %}<button class="mkp-btn wide" type="button" data-mock-open="mock-reg-{{ event.slug }}">Register for this mock exam</button>{% else %}<a class="mkp-btn wide" href="{{ event.detail_url }}">Open event</a>{% endif %}
+              </div>
+            </article>
+            {% if event.registration_enabled and event.source == 'sat' %}{% include 'landing/_mock_registration_dialog.html' with mock=event confirmed=event.registration registration_window=event.registration_window confirmed_count=event.confirmed_count seats_left=event.seats_left %}{% endif %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="mkp-empty"><span class="mkp-kicker">No active events</span><h3>Nothing is open right now.</h3><p>New mock exams will appear here automatically when registration is published.</p></div>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+
+  <footer class="mkp-footer"><div class="mkp-container mkp-footer-inner"><span>© {% now "Y" %} SAT Makon · MakonBook</span><div class="mkp-footer-links"><a href="/">Home</a><a href="{% url 'rating_parent_lookup' %}">Parent portal</a><a href="{% url 'login' %}">Login</a></div></div></footer>
+</div>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
+<script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5597"></script>
+<script src="{% static 'assets/js/mock-registration-inline-v5597.js' %}?v=5599"></script>
+{% include 'base/issue_report_widget.html' %}
+<script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=6451" defer></script>
+<script src="{% static 'assets/js/makon-public-header-locale-v645.js' %}?v=6451" defer></script>
+</body>
+</html>

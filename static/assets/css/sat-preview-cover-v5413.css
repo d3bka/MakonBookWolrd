@@ -1,0 +1,117 @@
+
+/* V54.1.3 — restore clean GitHub-style SAT cover while keeping mode + anti-cheat selection */
+.sat5413-setup-shell{
+  margin-top:22px;
+  padding-top:18px;
+  border-top:1px solid rgba(109,40,217,.12);
+}
+.sat5413-setup-summary{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  padding:0;
+}
+.sat5413-setup-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  width:100%;
+}
+.sat5413-setup-head>div{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.sat5413-setup-kicker{
+  color:#6d28d9;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.sat5413-setup-head strong{
+  color:#2a1746;
+  font-size:14px;
+  font-weight:800;
+}
+.sat5413-setup-toggle{
+  appearance:none;
+  border:1px solid rgba(124,58,237,.16);
+  border-radius:999px;
+  background:#fff;
+  color:#5b21b6;
+  padding:10px 14px;
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 6px 16px rgba(76,29,149,.08);
+}
+.sat5413-setup-toggle:hover{transform:translateY(-1px)}
+.sat5413-setup-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
+}
+.sat5413-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:40px;
+  padding:0 14px;
+  border-radius:999px;
+  border:1px solid rgba(124,58,237,.14);
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,245,255,.94));
+  color:#2a1746;
+  box-shadow:0 8px 18px rgba(76,29,149,.06);
+}
+.sat5413-chip i{color:#7c3aed}
+.sat5413-chip b{font-size:11px;font-weight:800}
+.sat5413-setup-panel{
+  margin-top:14px;
+  padding:18px;
+  border:1px solid rgba(124,58,237,.12);
+  border-radius:20px;
+  background:linear-gradient(180deg, rgba(251,249,255,.96), rgba(255,255,255,.96));
+  box-shadow:0 16px 34px rgba(76,29,149,.06);
+}
+.sat5413-setup-panel[hidden]{display:none !important}
+.sat5413-setup-panel .sat5411-mode-picker,
+.sat5413-setup-panel .sat54-integrity-picker{
+  margin-top:0;
+  padding-top:0;
+  border-top:0;
+}
+.sat5413-setup-panel .sat54-integrity-picker{margin-top:18px !important}
+.sat5413-setup-panel .sat5411-mode-head small,
+.sat5413-setup-panel .sat54-integrity-heading small{
+  display:none;
+}
+/* keep the GitHub-like cover clean */
+.sat531-overview{align-items:stretch}
+.sat531-intro{display:flex;flex-direction:column}
+.sat531-intro > p{max-width:54ch}
+html[data-theme="dark"] .sat5413-setup-head strong,
+html[data-theme="dark"] .sat5413-chip{color:#fff}
+html[data-theme="dark"] .sat5413-setup-toggle{
+  background:rgba(255,255,255,.04);
+  color:#d9c7ff;
+  border-color:rgba(167,139,250,.18);
+}
+html[data-theme="dark"] .sat5413-chip{
+  background:rgba(255,255,255,.04);
+  border-color:rgba(167,139,250,.14);
+}
+html[data-theme="dark"] .sat5413-setup-panel{
+  background:rgba(19,14,26,.92);
+  border-color:rgba(167,139,250,.14);
+}
+@media (max-width:760px){
+  .sat5413-setup-summary,.sat5413-setup-head{display:block}
+  .sat5413-setup-toggle{margin-top:10px}
+  .sat5413-setup-panel{padding:14px}
+}

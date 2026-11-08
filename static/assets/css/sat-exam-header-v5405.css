@@ -1,0 +1,241 @@
+/* MakonBook Exam Header V54.0.5
+   Compact SAT-style header for BOTH Reading & Writing and Mathematics. */
+
+body.github-test-template-v20 .container {
+  margin-top: 8px !important;
+  gap: 10px !important;
+}
+
+/* Main header: significantly shorter, without feeling cramped. */
+body.github-test-template-v20 header {
+  min-height: 68px !important;
+  padding: 9px 16px !important;
+  border-radius: 18px !important;
+  display: grid !important;
+  grid-template-columns: minmax(230px, 1fr) auto minmax(230px, 1fr) !important;
+  align-items: center !important;
+  column-gap: 14px !important;
+}
+
+body.github-test-template-v20 .github-test-heading {
+  align-self: center !important;
+}
+
+body.github-test-template-v20 .github-test-heading h1 {
+  font-size: 20px !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.025em !important;
+  font-weight: 800 !important;
+}
+
+body.github-test-template-v20 .github-test-heading small {
+  margin-top: 4px !important;
+  font-size: 9.5px !important;
+  line-height: 1 !important;
+}
+
+/* Timer area becomes one compact horizontal control group. */
+body.github-test-template-v20 .github-test-timer-wrap {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  grid-column: 2 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
+body.github-test-template-v20 .github-test-timer-wrap .timer {
+  min-width: 78px !important;
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid rgba(109,40,217,.14) !important;
+  border-radius: 11px !important;
+  background: rgba(255,255,255,.92) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  font-variant-numeric: tabular-nums !important;
+  box-shadow: 0 6px 15px rgba(76,29,149,.045) !important;
+}
+
+body.github-test-template-v20.exam54-time-hidden .github-test-timer-wrap .timer,
+body.github-test-template-v20.exam54-time-hidden #timer {
+  min-width: 88px !important;
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+}
+
+body.github-test-template-v20.exam54-time-hidden #timer::after {
+  content: "Time hidden" !important;
+  font-size: 9.5px !important;
+  font-weight: 850 !important;
+  color: #5e526c !important;
+  white-space: nowrap !important;
+}
+
+body.github-test-template-v20 .test-save-status {
+  min-height: 28px !important;
+  padding: 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  border: 1px solid rgba(109,40,217,.11) !important;
+  border-radius: 999px !important;
+  background: rgba(109,40,217,.045) !important;
+  font-size: 8.5px !important;
+  font-weight: 750 !important;
+  white-space: nowrap !important;
+}
+
+body.github-test-template-v20 .save-status-dot {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+/* Tiny Hide / Show control instead of another large header pill. */
+body.github-test-template-v20 .exam54-time-toggle {
+  min-width: 0 !important;
+  min-height: 28px !important;
+  height: 28px !important;
+  margin: 0 !important;
+  padding: 0 9px !important;
+  border-radius: 999px !important;
+  font-size: 8.5px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+}
+
+body.github-test-template-v20 .exam54-time-toggle:hover {
+  transform: none !important;
+}
+
+/* Right-side tools: one native toolbar, equal compact buttons. */
+body.github-test-template-v20 .header-tools,
+body.github-test-template-v20 .exam54-generated-tools {
+  grid-column: 3 !important;
+  justify-self: end !important;
+  margin-left: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+  gap: 7px !important;
+}
+
+body.github-test-template-v20 .header-tool,
+body.github-test-template-v20 header > a[data-test-exit] {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border-radius: 11px !important;
+}
+
+body.github-test-template-v20 .header-tool i,
+body.github-test-template-v20 header > a[data-test-exit] i {
+  font-size: 14px !important;
+}
+
+/* Old absolutely-positioned V54 toolbar must never reserve/overlay space. */
+body.github-test-template-v20 .exam54-header-tools {
+  display: none !important;
+}
+
+/* Compact header gives the actual question workspace more vertical room. */
+body.scroll-hide.mk-test-window.github-test-template-v20 main {
+  height: calc(100vh - 190px) !important;
+}
+
+/* Light mode. */
+html[data-theme="light"] body.github-test-template-v20 .github-test-timer-wrap .timer {
+  color: #271741 !important;
+  background: #fff !important;
+  border-color: rgba(109,40,217,.14) !important;
+}
+
+html[data-theme="light"] body.github-test-template-v20 .exam54-time-toggle {
+  color: #5b21b6 !important;
+  background: rgba(109,40,217,.055) !important;
+  border-color: rgba(109,40,217,.13) !important;
+}
+
+html[data-theme="light"] body.github-test-template-v20 .exam54-time-toggle:hover {
+  background: rgba(109,40,217,.10) !important;
+}
+
+/* Dark mode. */
+html[data-theme="dark"] body.github-test-template-v20 .github-test-timer-wrap .timer {
+  background: rgba(24,18,30,.92) !important;
+  border-color: rgba(196,181,253,.13) !important;
+}
+
+html[data-theme="dark"] body.github-test-template-v20.exam54-time-hidden #timer::after {
+  color: #d8cfdf !important;
+}
+
+/* Tablet: keep timer centered without colliding with Math tools. */
+@media (max-width: 980px) {
+  body.github-test-template-v20 header {
+    grid-template-columns: minmax(180px,1fr) auto minmax(150px,1fr) !important;
+    padding-inline: 12px !important;
+  }
+
+  body.github-test-template-v20 .github-test-heading h1 {
+    font-size: 17px !important;
+  }
+
+  body.github-test-template-v20 .test-save-status [data-test-save-label] {
+    display: none !important;
+  }
+
+  body.github-test-template-v20 .test-save-status {
+    width: 24px !important;
+    min-width: 24px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 720px) {
+  body.github-test-template-v20 header {
+    min-height: 62px !important;
+    grid-template-columns: minmax(0,1fr) auto !important;
+    gap: 8px !important;
+  }
+
+  body.github-test-template-v20 .github-test-timer-wrap {
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+
+  body.github-test-template-v20 .header-tools,
+  body.github-test-template-v20 .exam54-generated-tools {
+    grid-column: 2 !important;
+  }
+
+  body.github-test-template-v20 .github-test-heading small {
+    display: none !important;
+  }
+
+  body.github-test-template-v20 .github-test-timer-wrap .timer {
+    min-width: 70px !important;
+  }
+
+  body.github-test-template-v20 .test-save-status,
+  body.github-test-template-v20 .exam54-time-toggle {
+    display: none !important;
+  }
+}

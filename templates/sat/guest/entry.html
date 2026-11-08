@@ -1,0 +1,117 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  {% include 'base/theme_init.html' %}
+  <title>SAT Makon - Guest Entry</title>
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-style.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-auth.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-responsive.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-header-hotfix.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
+  {% include 'base/responsive_css.html' %}
+</head>
+<body class="auth-page auth-guest">
+  <div class="auth-shell">
+    <nav class="auth-nav" data-auth-reveal>
+      <a href="/" class="auth-brand">
+        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon logo">
+        <span>SAT Makon</span>
+      </a>
+      <div class="auth-nav-actions">
+        {% include 'base/theme_toggle.html' %}
+        <a href="{% url 'login' %}" class="auth-link-pill muted-pill">Sign in</a>
+        <a href="{% url 'login' %}" class="auth-link-pill">Login</a>
+      </div>
+    </nav>
+
+    <div class="auth-grid">
+      <section class="auth-visual" data-auth-reveal>
+        <span class="eyebrow">Guest mode</span>
+        <h1>Join public events without an account.</h1>
+        <p>Use guest access for live or scheduled SAT events. Your name appears on the event leaderboard if the teacher enables it.</p>
+
+        <div class="auth-metrics">
+          <div class="auth-metric"><strong>No</strong><span>account needed</span></div>
+          <div class="auth-metric"><strong>Live</strong><span>event access</span></div>
+          <div class="auth-metric"><strong>Fast</strong><span>entry flow</span></div>
+        </div>
+
+        <div class="auth-note-list guest-note-grid">
+          <div class="auth-note-item"><i>1</i><div><strong>Enter your name</strong><span>No password or email required.</span></div></div>
+          <div class="auth-note-item"><i>2</i><div><strong>Pick an event</strong><span>Open live or scheduled public tests.</span></div></div>
+          <div class="auth-note-item"><i>3</i><div><strong>Submit once</strong><span>Your score appears after completion.</span></div></div>
+        </div>
+
+        <div class="auth-dashboard-card guest-pass-card" data-tilt>
+          <div class="mini-row"><span>Guest session</span><span class="live-dot">Ready</span></div>
+          <div class="score-big">Join</div>
+          <div class="progress-line"><span></span></div>
+          <div class="mini-row"><span>Global events</span><strong>Open</strong></div>
+          <div class="guest-pass-footer">Temporary access for public SAT events.</div>
+        </div>
+      </section>
+
+      <section class="auth-card auth-guest-card" data-auth-reveal>
+        <div class="auth-card-header">
+          <span class="eyebrow">Continue</span>
+          <h2>Guest entry</h2>
+          <p>Use a recognizable name. Teachers and leaderboard pages may show it.</p>
+        </div>
+
+        {% if messages %}
+          <div class="alert-box">
+            <ul class="messages">
+              {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if error %}
+          <div class="alert-box">
+            <ul class="messages">
+              <li class="error">{{ error }}</li>
+            </ul>
+          </div>
+        {% endif %}
+
+        <form action="" method="POST" class="signin-form auth-form">
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label class="form-label" for="full-name-field">Full name or nickname</label>
+            <input id="full-name-field" type="text" name="full_name" placeholder="Enter your name" autocomplete="name" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="display-name-field">Display name</label>
+            <input id="display-name-field" type="text" name="display_name" placeholder="Optional leaderboard name">
+          </div>
+
+          <div class="form-group">
+            <button type="submit" class="primary-btn">Enter as guest</button>
+          </div>
+        </form>
+
+        <div class="auth-divider"><span>want saved progress?</span></div>
+
+        <div class="auth-card-footer compact-footer">
+          <a href="{% url 'login' %}">Back to sign in</a>
+          <a href="{% url 'login' %}">Sign in</a>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="{% static 'assets/js/login-main.js' %}"></script>
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+  {% include 'base/issue_report_widget.html' %}
+</body>
+</html>

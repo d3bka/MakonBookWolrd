@@ -1,0 +1,135 @@
+{% load static question_text %}
+{% if attempt %}
+    {% url 'save_global_event_answer_root' guest_token=attempt.guest_token as form_action %}
+    {% url 'submit_global_event_root' guest_token=attempt.guest_token as submit_url %}
+    {% url 'global_event_submit_status_root' guest_token=attempt.guest_token as submit_status_url %}
+    {% if public_placement_mode %}
+        {% url 'public_placement_list' as home_url %}
+    {% else %}
+        {% url 'events' as home_url %}
+    {% endif %}
+{% else %}
+    {% url 'practice_test_check_answers_root' as form_action %}
+    {% if is_makeup %}
+        {% url 'makeup_test_module_root' pk=test.name as next_url %}
+        {% url 'practice_tests_root' as home_url %}
+    {% else %}
+        {% url 'practice_test_module_root' pk=test.name as next_url %}
+        {% url 'practice_tests_root' as home_url %}
+    {% endif %}
+{% endif %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    {% include 'base/theme_init.html' %}
+    <title>{{ display_test_name|default:test.name|default:'SAT' }} · Reading and Writing · {{ module|upper }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400..800&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+    <link rel="stylesheet" href="{% static 'assets/css/makon-rich-text.css' %}?v=1">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+    <link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
+    <link rel="stylesheet" href="{% static 'assets/css/sat-image-focus-v49.css' %}?v=49">
+    <link rel="stylesheet" href="{% static 'assets/css/sat-exam-experience-v54.css' %}?v=5410">
+    <link rel="stylesheet" href="{% static 'assets/css/sat-runner-mb-v60.css' %}?v=60">
+    {% if public_placement_mode %}<link rel="stylesheet" href="{% static 'assets/css/public-placement-runner-v5612.css' %}?v=5612">{% endif %}
+</head>
+<body class="mb-runner mb-runner-english github-test-template-v20 github-test-english{% if public_placement_mode %} pp-test-runner{% endif %}">
+    <noscript><div class="sat-test-noscript" role="alert">JavaScript is required for this timed module. Enable JavaScript and reload the page. The server timer is still running.</div></noscript>
+    <div class="container mbr-shell">
+        {% include 'test/shared/mb_runner_header.html' with mbr_math=False %}
+
+        <div class="mbr-body">
+            <form class="fm mbr-form" id="quiz-form" action="{{ form_action }}" method="post">
+                {% csrf_token %}
+                {% comment %} A passage and its question side by side, each scrolling on its own
+                (sat-runner-mb-v60.js sets is-two only when the question has a passage); one
+                scrolling page on a phone. {% endcomment %}
+                <main class="mbr-main" data-mbr-main>
+                    <div class="question-container mbr-passage-pane" data-mbr-passage-pane>
+                        <div class="just-div mbr-graph"></div>
+                        <div id="passage" class="mbr-passage"></div>
+                    </div>
+                    <div class="answers-container mbr-question">
+                        <div class="question-title mbr-strip">
+                            <div class="question-number"></div>
+                            <button type="button" class="bookmark" onclick="markForReview()" aria-pressed="false">
+                                {% include 'test/shared/mb_icon.html' with name='bookmark' size=18 %}<span>Mark for Review</span>
+                            </button>
+                            <button type="button" class="crossing-options" onclick="show_eliminate()" aria-label="Cross out answer choices" aria-pressed="false" title="Cross out answer choices">ABC</button>
+                        </div>
+                        <div class="question-text" id="question-text"></div>
+                        <div class="answers" id="answers"></div>
+                    </div>
+                </main>
+            </form>
+        </div>
+
+        {% include 'test/shared/mb_runner_footer.html' %}
+    </div>
+    {% include 'test/shared/question_overview.html' %}
+    {% if display_test_name %}
+    {% include 'test/shared/flow_overlays.html' with overlay_test_name=display_test_name %}
+    {% else %}
+    {% include 'test/shared/flow_overlays.html' with overlay_test_name=test.name %}
+    {% endif %}
+    <canvas id="drawing-canvas"></canvas>
+
+    <script id="sat-test-config" type="application/json">
+    {
+        "mode": "{% if attempt %}guest{% else %}standard{% endif %}",
+        "testName": "{{ test.name|default_if_none:''|escapejs }}",
+        "moduleName": "{{ module|escapejs }}",
+        "sectionName": "{{ section|escapejs }}",
+        "classroomId": "{% if classroom %}{{ classroom.id }}{% endif %}",
+        "attemptId": "{{ attempt_id|default_if_none:''|escapejs }}",
+        "testType": "{% if is_makeup %}makeup{% else %}regular{% endif %}",
+        "timeRemaining": {% if time_remaining_seconds is not None %}{{ time_remaining_seconds }}{% elif attempt %}{{ time_left_seconds|default:1920 }}{% elif custom_time_seconds %}{{ custom_time_seconds }}{% else %}1920{% endif %},
+        "deadlineAt": {% if test_session_state.deadlineAt %}{{ test_session_state.deadlineAt }}{% else %}0{% endif %},
+        "draftSaveUrl": "{{ draft_save_url|default_if_none:''|escapejs }}",
+        "submitUrl": "{% if attempt %}{{ submit_url|escapejs }}{% endif %}",
+        "submitStatusUrl": "{% if attempt %}{{ submit_status_url|escapejs }}{% endif %}",
+        "nextUrl": "{% if not attempt %}{{ next_url|escapejs }}{% endif %}",
+        "storageScope": "{% if attempt %}guest-{{ attempt.guest_token }}{% else %}user-{{ request.user.id }}-{{ test.name|escapejs }}{% endif %}",
+        "submitTimeoutMs": 180000,
+        "integrityMode": "{{ integrity_mode|default:'off'|escapejs }}",
+        "integrityMaxViolations": {{ integrity_max_violations|default:3 }},
+        "integrityViolationCount": {{ integrity_violation_count|default:0 }},
+        "integrityFullscreenRequired": {% if integrity_fullscreen_required %}true{% else %}false{% endif %},
+        "integrityMonitoredEvents": {{ integrity_monitored_events_json|default:"[]"|safe }},
+        "integrityViolationUrl": "{% url 'exam_integrity_violation' %}"
+    }
+    </script>
+
+    <script id="sat-test-questions" type="application/json">[
+    {% for question in questions %}
+        {
+            "passage": "{{ question|question_html:'passage'|default_if_none:''|escapejs }}",
+            "number": {{ question.number|default:forloop.counter }},
+            "question": "{{ question|question_html:'question'|default_if_none:''|escapejs }}",
+            "response_type": "{{ question.response_type|default:'multiple_choice'|escapejs }}",
+            "format": "{{ question|question_format|escapejs }}",
+            "a": "{{ question|question_html:'a'|default_if_none:''|escapejs }}",
+            "b": "{{ question|question_html:'b'|default_if_none:''|escapejs }}",
+            "c": "{{ question|question_html:'c'|default_if_none:''|escapejs }}",
+            "d": "{{ question|question_html:'d'|default_if_none:''|escapejs }}",
+            "id": {{ question.id }},
+            "graph": "{{ question.graph_url|default_if_none:''|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+    ]</script>
+
+    {% if test_session_state %}{{ test_session_state|json_script:"sat-test-session-state" }}{% else %}<script id="sat-test-session-state" type="application/json">{}</script>{% endif %}
+    <script src="{% static 'assets/js/sat-test-core-v13.js' %}?v=6701"></script>
+    <script src="{% static 'assets/js/sat-exam-experience-v54.js' %}?v=6810"></script>
+    <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+    <script src="{% static 'assets/js/sat-image-focus-v49.js' %}?v=49"></script>
+    <script src="{% static 'assets/js/sat-runner-mb-v60.js' %}?v=60"></script>
+    <script src="{% static 'assets/js/test-eng.js' %}?v=46"></script>
+  {% include 'base/issue_report_widget.html' %}
+</body>
+</html>

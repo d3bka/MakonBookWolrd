@@ -1,0 +1,49 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Enter code · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page v523-code-page">
+  <section class="v523-hero v523-code-hero v523-reveal">
+    <span class="v523-kicker"><i class="bi bi-key"></i> Enter code</span>
+    <h1>One place for MakonBook access codes.</h1>
+    <p>Use a 6-character classroom, SAT or AP code. Classroom codes send an approval request; assigned tests and live AP events open only when your account is eligible.</p>
+  </section>
+
+  <section class="v523-code-layout">
+    <article class="v523-card v523-code-card v523-reveal" style="--reveal-index:1">
+      {% if messages %}<div class="v523-code-messages">{% for message in messages %}<div class="v523-code-message {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+      <form method="post" data-v523-code-form>
+        {% csrf_token %}
+        <input type="hidden" name="code" data-v523-code-value>
+        <label>6-character access code</label>
+        <div class="v523-code-boxes" data-v523-code-boxes>
+          {% for _ in "123456" %}<input maxlength="1" inputmode="text" autocomplete="one-time-code" aria-label="Code character {{ forloop.counter }}" data-code-cell>{% endfor %}
+        </div>
+        <button class="mb50-primary-btn v523-code-submit" type="submit"><i class="bi bi-arrow-right-circle"></i> Continue</button>
+      </form>
+    </article>
+    <aside class="v523-code-types">
+      <article class="v523-code-type v523-reveal" style="--reveal-index:2"><i class="bi bi-people"></i><div><strong>Classroom</strong><span>Request access to a teacher workspace. Tests remain locked until approval and assignment.</span></div></article>
+      <article class="v523-code-type v523-reveal" style="--reveal-index:3"><i class="bi bi-clipboard2-check"></i><div><strong>SAT / Makeup</strong><span>Open only when the test is assigned to your account or supported by the existing makeup flow.</span></div></article>
+      <article class="v523-code-type v523-reveal" style="--reveal-index:4"><i class="bi bi-layers"></i><div><strong>AP event</strong><span>Live event codes use the existing AP access policy.</span></div></article>
+    </aside>
+  </section>
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}
+<script>
+(function(){
+  var form=document.querySelector('[data-v523-code-form]'); if(!form)return;
+  var cells=Array.prototype.slice.call(form.querySelectorAll('[data-code-cell]'));
+  var hidden=form.querySelector('[data-v523-code-value]');
+  function sync(){hidden.value=cells.map(function(c){return c.value.trim().toUpperCase();}).join('');}
+  cells.forEach(function(cell,index){
+    cell.addEventListener('input',function(){cell.value=(cell.value||'').replace(/[^a-z0-9]/gi,'').slice(-1).toUpperCase();sync();if(cell.value&&cells[index+1])cells[index+1].focus();});
+    cell.addEventListener('keydown',function(e){if(e.key==='Backspace'&&!cell.value&&cells[index-1])cells[index-1].focus();});
+    cell.addEventListener('paste',function(e){var text=(e.clipboardData||window.clipboardData).getData('text').replace(/[^a-z0-9]/gi,'').slice(0,6).toUpperCase();if(!text)return;e.preventDefault();cells.forEach(function(c,i){c.value=text[i]||'';});sync();(cells[Math.min(text.length,5)]||cells[0]).focus();});
+  });
+  form.addEventListener('submit',sync);
+  if(cells[0])setTimeout(function(){cells[0].focus();},100);
+})();
+</script>
+{% endblock %}

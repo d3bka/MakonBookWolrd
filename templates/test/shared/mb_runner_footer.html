@@ -1,0 +1,20 @@
+{% comment %}
+The test screen's footer, as Bluebook's: the student's name, the question
+navigator in the middle, Back and Next on the right (on a phone Back moves to
+the left and the name goes). #backButton, #nextButton, #finishButton,
+#currentQuestionIndex and #totalQuestions are the runner's hooks.
+{% endcomment %}
+<footer class="mbr-footer">
+    <p class="footer-left mbr-name">{% if attempt %}{{ request.session.guest_name }}{% else %}{{ request.user.first_name }} {{ request.user.last_name }}{% endif %}</p>
+    <div class="footer-center">
+        <button type="button" class="question-progress nav-button mbr-qbutton" onclick="toggleQuestionModal()" aria-haspopup="dialog" aria-controls="questionModal">
+            <span class="mbr-qbutton-label"><span class="mbr-only-wide">Question </span><span id="currentQuestionIndex">1</span> of <span id="totalQuestions">{{ questions|length }}</span></span>
+            {% include 'test/shared/mb_icon.html' with name='chevron-up' size=16 stroke='2' class='mbr-qbutton-chevron' %}
+        </button>
+    </div>
+    <div class="footer-right">
+        <button id="backButton" type="button" class="nav-button mbr-nav mbr-back" onclick="prevQuestion()">Back</button>
+        <button id="nextButton" type="button" class="nav-button mbr-nav" onclick="nextQuestion()">Next</button>
+        <button id="finishButton" type="button" class="nav-button mbr-nav" onclick="finishTest()">Finish module</button>
+    </div>
+</footer>

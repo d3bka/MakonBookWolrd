@@ -1,0 +1,153 @@
+/* MakonBook Exam Header V54.0.6
+   Typography alignment refinement for both Reading & Writing and Mathematics. */
+
+body.github-test-template-v20 header {
+  min-height: 72px !important;
+  padding: 10px 18px !important;
+}
+
+/* Left section title: cleaner hierarchy and vertical rhythm. */
+body.github-test-template-v20 .github-test-heading {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  min-width: 0 !important;
+  gap: 3px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+body.github-test-template-v20 .github-test-heading h1 {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 18px !important;
+  line-height: 1.12 !important;
+  font-weight: 800 !important;
+  letter-spacing: -.018em !important;
+  color: #251836 !important;
+  white-space: nowrap !important;
+}
+
+body.github-test-template-v20 .github-test-heading small {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 9px !important;
+  line-height: 1.2 !important;
+  font-weight: 650 !important;
+  letter-spacing: .015em !important;
+  color: #776b83 !important;
+}
+
+/* Center cluster: make Time hidden / Saved / Show look like one designed unit. */
+body.github-test-template-v20 .github-test-timer-wrap {
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+body.github-test-template-v20 .github-test-timer-wrap .timer {
+  min-width: 82px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 11px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  letter-spacing: -.005em !important;
+}
+
+body.github-test-template-v20.exam54-time-hidden .github-test-timer-wrap .timer,
+body.github-test-template-v20.exam54-time-hidden #timer {
+  min-width: 92px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+}
+
+body.github-test-template-v20.exam54-time-hidden #timer::after {
+  font-size: 9px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+  letter-spacing: .01em !important;
+}
+
+body.github-test-template-v20 .test-save-status {
+  min-height: 26px !important;
+  height: 26px !important;
+  padding: 0 9px !important;
+  gap: 5px !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+  font-weight: 750 !important;
+  letter-spacing: .005em !important;
+}
+
+body.github-test-template-v20 .exam54-time-toggle {
+  min-height: 26px !important;
+  height: 26px !important;
+  padding: 0 9px !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+  letter-spacing: .005em !important;
+}
+
+/* Right tools: same optical center as title and timer cluster. */
+body.github-test-template-v20 .header-tools,
+body.github-test-template-v20 .exam54-generated-tools {
+  align-self: center !important;
+}
+
+body.github-test-template-v20 .header-tool,
+body.github-test-template-v20 header > a[data-test-exit] {
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 10px !important;
+}
+
+/* Light theme text tuning. */
+html[data-theme="light"] body.github-test-template-v20 .github-test-heading h1 {
+  color: #241632 !important;
+}
+
+html[data-theme="light"] body.github-test-template-v20 .github-test-heading small {
+  color: #6f6479 !important;
+}
+
+/* Dark mode */
+html[data-theme="dark"] body.github-test-template-v20 .github-test-heading h1 {
+  color: #f7f2fb !important;
+}
+
+html[data-theme="dark"] body.github-test-template-v20 .github-test-heading small {
+  color: #b9aebe !important;
+}
+
+/* Prevent ugly wrapping on medium widths while keeping hierarchy. */
+@media (max-width: 1100px) {
+  body.github-test-template-v20 .github-test-heading h1 {
+    font-size: 16.5px !important;
+  }
+
+  body.github-test-template-v20 .github-test-heading small {
+    font-size: 8.5px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body.github-test-template-v20 header {
+    min-height: 64px !important;
+    padding: 8px 10px !important;
+  }
+
+  body.github-test-template-v20 .github-test-heading h1 {
+    font-size: 15px !important;
+  }
+
+  body.github-test-template-v20 .github-test-heading small {
+    display: none !important;
+  }
+}

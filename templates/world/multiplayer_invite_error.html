@@ -1,0 +1,10 @@
+{% extends 'world/base.html' %}
+{% block world_content %}
+<div class="mw504-invite-error">
+  <span class="mw504-finish-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+  <small>MULTIPLAYER INVITE</small>
+  <h1>This invite is unavailable.</h1>
+  <p>{{ world_multiplayer_invite_error }}</p>
+  <a class="mw503-result-action mw503-result-action-primary" href="{% url 'world_multiplayer_home' %}">Open Multiplayer</a>
+</div>
+{% endblock %}

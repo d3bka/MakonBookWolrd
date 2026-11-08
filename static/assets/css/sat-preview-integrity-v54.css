@@ -1,0 +1,19 @@
+/* MakonBook V54 — start-page integrity selector */
+.sat54-integrity-picker{margin-top:22px;padding-top:18px;border-top:1px solid rgba(109,40,217,.12)}
+.sat54-integrity-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.sat54-integrity-heading>span{display:flex;align-items:center;gap:7px;color:#5b21b6;font-size:10px;font-weight:850;letter-spacing:.04em;text-transform:uppercase}
+.sat54-integrity-heading small{color:#8a7d9b;font-size:9px}
+.sat54-integrity-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.sat54-integrity-option{position:relative;display:block;min-width:0;cursor:pointer}
+.sat54-integrity-option input{position:absolute;opacity:0;pointer-events:none}
+.sat54-integrity-option>span{display:block;height:100%;min-height:62px;padding:10px 11px;border:1px solid rgba(92,69,107,.11);border-radius:12px;background:#fff;transition:.16s ease}
+.sat54-integrity-option strong{display:block;color:#2e2139;font-size:10px}
+.sat54-integrity-option small{display:block;margin-top:4px;color:#8a7d94;font-size:8.5px;line-height:1.35}
+.sat54-integrity-option.is-selected>span{border-color:#8b5cf6;background:linear-gradient(135deg,rgba(109,40,217,.10),rgba(236,72,153,.06));box-shadow:0 0 0 2px rgba(109,40,217,.08)}
+.sat54-integrity-option:has(input:disabled){cursor:default}
+.sat54-integrity-note{display:flex;align-items:flex-start;gap:7px;margin-top:8px;color:#786b86;font-size:8.8px;line-height:1.4}
+.sat54-integrity-note i{margin-top:2px;color:#7c3aed}
+html[data-theme="dark"] .sat54-integrity-option>span{border-color:rgba(255,255,255,.08);background:#17131d}
+html[data-theme="dark"] .sat54-integrity-option strong{color:#fff}
+html[data-theme="dark"] .sat54-integrity-option.is-selected>span{border-color:#a78bfa;background:rgba(124,58,237,.13)}
+@media(max-width:760px){.sat54-integrity-options{grid-template-columns:1fr}.sat54-integrity-option>span{min-height:0}}

@@ -1,0 +1,17 @@
+{% if is_allowed and can_restart %}
+  {% if section %}
+    <form method="post" action="{% url 'restart_section' pk=test.name section=section %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning btn-sm">
+        <i class="fa fa-refresh"></i> Retake {{ section|title }} Section
+      </button>
+    </form>
+  {% else %}
+    <form method="post" action="{% url 'restart' pk=test.name %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-sm">
+        <i class="fa fa-refresh"></i> Retake Full Test
+      </button>
+    </form>
+  {% endif %}
+{% endif %} 

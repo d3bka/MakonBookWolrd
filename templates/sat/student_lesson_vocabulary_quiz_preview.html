@@ -1,0 +1,21 @@
+{% extends 'sat/student_workspace.html' %}
+{% block content %}
+<div class="v50211-preview-page">
+  <section class="v50211-preview-card">
+    <span class="v523-kicker"><i class="bi bi-journal-check"></i> Vocabulary quiz</span>
+    <h1>{{ resource.title }}</h1>
+    <p>{{ resource.description|default:resource.vocabulary_unit.title }}</p>
+    <div class="v50211-preview-meta">
+      <span><strong>{{ resource.vocabulary_unit.title }}</strong><small>Vocabulary unit</small></span>
+      <span><strong>{{ question_count }}</strong><small>questions</small></span>
+      <span><strong>{{ resource.get_vocabulary_quiz_mode_display }}</strong><small>mode</small></span>
+    </div>
+    {% if active_words < 4 %}
+      <div class="v50211-warning"><i class="bi bi-exclamation-triangle"></i>This quiz cannot start yet. The unit needs at least 4 active words.</div>
+    {% else %}
+      <form method="post">{% csrf_token %}<button class="mb50-primary-btn" type="submit"><i class="bi bi-play-fill"></i> Start vocabulary quiz</button></form>
+    {% endif %}
+    <a class="mb50-secondary-btn" href="{% url 'student_classroom_home_root' classroom.id %}">Back to classroom</a>
+  </section>
+</div>
+{% endblock %}

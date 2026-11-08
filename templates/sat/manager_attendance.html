@@ -1,0 +1,20 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Attendance insights · MakonBook{% endblock %}
+{% block content %}
+<div class="mb60-page">
+  <div class="mb60-page-head"><div><span class="mb60-eyebrow">OPERATIONS / HOLLIHOP</span><h1>Attendance intelligence</h1><p>Find students with repeated absences or falling attendance. Data comes from synced Hollihop records only.</p></div><a class="mb60-button soft" href="{% url 'hollihop_dashboard' %}">Sync status →</a></div>
+  <form class="mb60-filters" method="get" aria-label="Filter attendance insights">
+    <label>From <input name="from" type="date" value="{{ start|date:'Y-m-d' }}"></label>
+    <label>To <input name="to" type="date" value="{{ end|date:'Y-m-d' }}"></label>
+    <label>Classroom<select name="classroom"><option value="">All classrooms</option>{% for c in classrooms %}<option value="{{ c.pk }}" {% if classroom_id == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+    <label>Student<input name="search" value="{{ search }}" placeholder="Name / username"></label>
+    <label>Smart filter<select name="trend"><option value="all" {% if trend == 'all' %}selected{% endif %}>All students</option><option value="declining" {% if trend == 'declining' %}selected{% endif %}>Attendance declining</option><option value="low" {% if trend == 'low' %}selected{% endif %}>Below 80%</option></select></label>
+    <label>Sort<select name="sort"><option value="absent" {% if sort == 'absent' %}selected{% endif %}>Most absences</option><option value="decline" {% if sort == 'decline' %}selected{% endif %}>Biggest drop</option><option value="rate" {% if sort == 'rate' %}selected{% endif %}>Lowest attendance</option></select></label>
+    <button class="mb60-button primary" type="submit">Apply filters</button>
+  </form>
+  <div class="mb60-meta"><span><strong>{{ matched_students }}</strong> students matched</span><span>Trend compares {{ start|date:'d M' }} – {{ boundary|date:'d M' }} with {{ boundary|date:'d M' }} – {{ end|date:'d M' }} (the boundary day belongs to the first period).</span></div>
+  <div class="mb60-table-scroll"><table class="mb60-table"><thead><tr><th>Student</th><th>Present</th><th>Absent</th><th>Attendance</th><th>Trend (pp)</th></tr></thead><tbody>{% for r in attendance_rows %}<tr><td><strong>{{ r.name }}</strong><small>@{{ r.username }}</small></td><td>{{ r.present }}</td><td><span class="mb60-pill {% if r.absent > 2 %}danger{% endif %}">{{ r.absent }}</span></td><td><strong>{{ r.attendance_pct }}%</strong><div class="mb60-progress"><i style="width:{{ r.attendance_pct }}%"></i></div></td><td>{% if r.delta is None %}<span class="mb60-muted">Not enough data</span>{% elif r.delta < 0 %}<span class="mb60-pill danger">↓ {{ r.delta }} pp</span>{% elif r.delta > 0 %}<span class="mb60-pill good">↑ +{{ r.delta }} pp</span>{% else %}<span class="mb60-muted">No change</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="mb60-empty">No synchronized attendance entries match these filters.</td></tr>{% endfor %}</tbody></table></div>
+  {% if matched_students > 500 %}<p class="mb60-note">Only the first 500 matching students are displayed. Narrow your filters.</p>{% endif %}
+  <p class="mb60-note">Trends are calculated from recorded sessions, not calendar days. No observations in either half means insufficient data—not a decline.</p>
+</div>
+{% endblock %}

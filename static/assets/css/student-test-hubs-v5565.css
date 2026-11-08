@@ -1,0 +1,14 @@
+/* v5565: clarify event-source labels without changing the v5561 visual system. */
+.mb5565-source{
+  display:block;
+  margin-top:8px;
+  font-size:12px;
+  line-height:1.45;
+  opacity:.62;
+}
+.mb5565-empty-note{
+  margin:8px auto 0;
+  max-width:520px;
+  text-align:center;
+  opacity:.68;
+}

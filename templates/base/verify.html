@@ -1,0 +1,89 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include 'base/theme_init.html' %}
+  <title>SAT Makon - Verify Email</title>
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-style.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-auth.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
+  {% include 'base/responsive_css.html' %}
+</head>
+<body class="auth-page">
+  <div class="auth-shell">
+    <nav class="auth-nav" data-auth-reveal>
+      <a href="/" class="auth-brand">
+        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon logo">
+        <span>SAT Makon</span>
+      </a>
+      <div class="auth-nav-actions">
+        {% include 'base/theme_toggle.html' %}
+        <a href="{% url 'login' %}" class="auth-link-pill">Login</a>
+      </div>
+    </nav>
+
+    <div class="auth-grid">
+      <section class="auth-visual" data-auth-reveal>
+        <span class="eyebrow">Email security</span>
+        <h1>Verify once. Keep your account safe.</h1>
+        <p>Enter the verification code from your email to activate access to your dashboard, practice history, and classroom tools.</p>
+
+        <div class="auth-metrics">
+          <div class="auth-metric"><strong>01</strong><span>check inbox</span></div>
+          <div class="auth-metric"><strong>02</strong><span>enter code</span></div>
+          <div class="auth-metric"><strong>03</strong><span>start prep</span></div>
+        </div>
+
+        <div class="auth-dashboard-card" data-tilt>
+          <div class="mini-row"><span>Account status</span><span>Pending</span></div>
+          <div class="score-big">Verify</div>
+          <div class="progress-line"><span></span></div>
+          <div class="mini-row"><span>Email confirmation</span><strong>Required</strong></div>
+        </div>
+      </section>
+
+      <section class="auth-card" data-auth-reveal>
+        <div class="auth-card-header">
+          <span class="eyebrow">Verification</span>
+          <h2>Enter code</h2>
+          <p>Use the latest code. Old codes may be expired.</p>
+        </div>
+
+        {% if messages %}
+          <div class="alert-box">
+            <ul class="messages">
+              {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <form action="" method="POST" class="signin-form auth-form">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="form-label" for="code-field">Verification code</label>
+            <input id="code-field" type="text" name="code" placeholder="Enter verification code" inputmode="numeric" autocomplete="one-time-code" required>
+          </div>
+          <div class="form-group">
+            <button type="submit" class="primary-btn">Verify account</button>
+          </div>
+        </form>
+
+        <div class="auth-card-footer">
+          <a href="/software/">Download app</a>
+          <a href="{% url 'login' %}">Back to login</a>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="{% static 'assets/js/login-main.js' %}"></script>
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
+</body>
+</html>

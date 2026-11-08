@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<body style="margin:0;background:#f6f7fb;padding:24px;font-family:Arial,sans-serif;color:#171124">
+  <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #ebe7f3;border-radius:20px;padding:30px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:.14em;color:#7c3aed">SATMAKON · MAKONBOOK</div>
+    <h1 style="margin:12px 0 8px;font-size:28px">You're registered.</h1>
+    <p style="margin:0 0 20px;color:#5f5870">Hi, {{ registration.full_name }}. Your seat for <strong>{{ event.title }}</strong> is confirmed.</p>
+
+    <div style="background:#f7f3ff;border-radius:16px;padding:18px;margin-bottom:20px">
+      <div style="font-size:12px;color:#7c718e;text-transform:uppercase;letter-spacing:.08em">Registration ID</div>
+      <div style="font-size:22px;font-weight:800;margin-top:4px">{{ registration_id }}</div>
+      <div style="margin-top:12px;line-height:1.65">
+        {% if event.branch %}<strong>Branch:</strong> {{ event.branch }}<br>{% endif %}
+        <strong>Date &amp; time:</strong> {{ event.start_at|date:"d M Y H:i" }}
+      </div>
+    </div>
+
+    <h2 style="font-size:18px;margin:0 0 10px">Mock exam checklist</h2>
+    <ul style="padding-left:20px;line-height:1.7;margin-top:0;color:#3f3850">
+      <li>Save your Registration ID and keep this email available.</li>
+      <li>Arrive at least 15 minutes before the event starts.</li>
+      <li>Bring a photo ID or student ID if you have one.</li>
+      <li>Bring the stationery and calculator you normally use for a SAT mock exam.</li>
+      <li>Use the same full name you used during registration.</li>
+      <li>If your plans change, contact SATMakon staff before the event.</li>
+    </ul>
+
+    <p style="margin:24px 0 0"><a href="{{ confirmation_url }}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px">View registration</a></p>
+    <p style="font-size:12px;color:#8b8499;margin-top:24px">This confirmation email was sent after successful email verification.</p>
+  </div>
+</body>
+</html>

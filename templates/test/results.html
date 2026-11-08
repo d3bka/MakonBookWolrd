@@ -1,0 +1,778 @@
+{% extends results_base_template %}
+{% load sat_extras static %}
+
+{% block title-main %} Results {% endblock title-main %}
+{% block title %} Results {% endblock title %}
+
+{% block style %}
+{{ block.super }}
+<style>
+  :root {
+    --themeColor: #6d28d9;
+    --results-accent: #6d28d9;
+    --results-accent-2: #ec4899;
+    --results-bg: #f6f1ff;
+    --results-surface: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(246, 241, 255, 0.98));
+    --results-surface-2: rgba(244, 239, 255, 0.94);
+    --results-border: rgba(109, 40, 217, 0.16);
+    --results-text: #1d1635;
+    --results-text-soft: rgba(29, 22, 53, 0.82);
+    --results-muted: rgba(29, 22, 53, 0.62);
+    --results-divider: rgba(109, 40, 217, 0.14);
+    --results-correct: #15803d;
+    --results-correct-bg: rgba(34, 197, 94, 0.18);
+    --results-incorrect: #dc2626;
+    --results-incorrect-bg: rgba(239, 68, 68, 0.18);
+    --results-pending: #475569;
+    --results-pending-bg: rgba(148, 163, 184, 0.18);
+    --results-chart-grid: rgba(109, 40, 217, 0.12);
+    --results-chart-tick: #312e81;
+  }
+
+  html[data-theme="dark"],
+  body[data-theme="dark"],
+  html.theme-dark,
+  body.theme-dark {
+    --themeColor: #a78bfa;
+    --results-accent: #a78bfa;
+    --results-accent-2: #ff74d4;
+    --results-bg: #070317;
+    --results-surface: linear-gradient(135deg, rgba(18, 11, 44, 0.96), rgba(6, 16, 42, 0.94));
+    --results-surface-2: rgba(17, 16, 42, 0.92);
+    --results-border: rgba(196, 181, 253, 0.16);
+    --results-text: #f8f7ff;
+    --results-text-soft: rgba(248, 247, 255, 0.88);
+    --results-muted: rgba(230, 225, 255, 0.72);
+    --results-divider: rgba(196, 181, 253, 0.14);
+    --results-correct: #4ade80;
+    --results-correct-bg: rgba(22, 163, 74, 0.24);
+    --results-incorrect: #ff8a8a;
+    --results-incorrect-bg: rgba(239, 68, 68, 0.28);
+    --results-pending: #d8d8f8;
+    --results-pending-bg: rgba(148, 163, 184, 0.18);
+    --results-chart-grid: rgba(196, 181, 253, 0.16);
+    --results-chart-tick: #e8e3ff;
+  }
+
+  .results-shell {
+    color: var(--results-text);
+    padding-top: 8px;
+    padding-bottom: 40px;
+  }
+  .results-shell::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.10), transparent 26%), radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.08), transparent 24%), var(--results-bg);
+    z-index: -1;
+  }
+  .results-shell a,
+  .results-shell div,
+  .results-shell p,
+  .results-shell span,
+  .results-shell textarea {
+    word-break: normal !important;
+  }
+  .results-shell ul { list-style: none; padding-left: 0; }
+  .results-shell li { text-align: left; }
+  .results-shell hr {
+    border: 0;
+    border-top: 1px solid var(--results-divider);
+    margin-top: 18px;
+    margin-bottom: 30px;
+  }
+
+  .sat[data-v-27935a7a] {
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 14px 18px;
+    border-radius: 24px;
+    background: var(--results-surface);
+    border: 1px solid var(--results-border);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+  }
+  .sat_left[data-v-27935a7a] {
+    display: flex;
+    color: var(--results-text);
+    text-decoration: none;
+    align-items: flex-start;
+  }
+  .sat_left>p[data-v-27935a7a]:first-child {
+    font-size: clamp(110px, 12vw, 150px);
+    font-weight: 900;
+    line-height: 0.9;
+    margin-bottom: 0;
+    color: #5b21b6 !important;
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 48%, #ec4899 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 14px 34px rgba(91, 33, 182, 0.14);
+    letter-spacing: -0.04em;
+  }
+  .sat_left>span[data-v-27935a7a] {
+    font-size: clamp(42px, 4vw, 56px);
+    color: #5b21b6 !important;
+    font-weight: 800;
+  }
+  html[data-theme="dark"] .sat_left>p[data-v-27935a7a]:first-child,
+  body[data-theme="dark"] .sat_left>p[data-v-27935a7a]:first-child,
+  html.theme-dark .sat_left>p[data-v-27935a7a]:first-child,
+  body.theme-dark .sat_left>p[data-v-27935a7a]:first-child {
+    color: #f8f7ff !important;
+    background: linear-gradient(135deg, #ffffff 0%, #c4b5fd 45%, #f0abfc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 16px 36px rgba(196, 181, 253, 0.20);
+  }
+  html[data-theme="dark"] .sat_left>span[data-v-27935a7a],
+  body[data-theme="dark"] .sat_left>span[data-v-27935a7a],
+  html.theme-dark .sat_left>span[data-v-27935a7a],
+  body.theme-dark .sat_left>span[data-v-27935a7a] {
+    color: #f8f7ff !important;
+  }
+  .sat_right[data-v-27935a7a] {
+    padding-left: 0;
+    padding-top: 18px;
+  }
+  .sat_right ul li[data-v-27935a7a] {
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--results-text-soft);
+    margin-bottom: 6px;
+  }
+  .sat_right b[data-v-27935a7a] { color: var(--results-text); }
+
+  .teacher-mode-badge {
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: var(--results-surface-2) !important;
+    color: var(--results-accent) !important;
+    border: 1px solid var(--results-border);
+    font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  }
+
+  .total[data-v-049b5cac],
+  .chart-container,
+  .total_score.print_div {
+    padding: 24px 28px;
+    border-radius: 24px;
+    background: var(--results-surface);
+    border: 1px solid var(--results-border);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
+  }
+  .total .title[data-v-049b5cac] {
+    font-weight: 700;
+    line-height: 1.2;
+    margin-top: 0;
+    margin-bottom: .5rem;
+    font-size: 30px;
+    color: var(--results-text);
+  }
+  .total_above[data-v-049b5cac] {
+    padding: 0 15px;
+    margin-bottom: .5rem;
+    align-items: flex-end;
+  }
+  .total_above .score[data-v-049b5cac] {
+    width: auto;
+    font-size: clamp(58px, 7vw, 72px);
+    color: var(--results-text);
+    font-weight: 800;
+    line-height: 1;
+    height: auto;
+    margin-right: 1rem;
+    margin-bottom: 0;
+  }
+  .total .score+p[data-v-049b5cac] {
+    width: auto;
+    margin-top: 18px;
+    min-height: 40px;
+    line-height: 40px;
+    padding-left: 20px;
+    border-left: 4px solid var(--results-divider);
+    color: var(--results-text-soft);
+  }
+
+  .row.module-row > div { margin-bottom: 16px; }
+  .module-card {
+    padding: 10px 6px;
+  }
+  .module-card h5,
+  .chart-container h4,
+  .chart-container h5 {
+    color: var(--results-accent);
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .navigation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .rect-question {
+    font-size: 12px;
+    text-align: center;
+    border: 1px solid var(--results-border);
+    width: 34px;
+    height: 34px;
+    line-height: 34px;
+    border-radius: 10px;
+    margin: 0;
+    background: var(--results-pending-bg);
+    color: var(--results-pending);
+    overflow: hidden;
+    font-weight: 700;
+  }
+  .rect-question a {
+    display: block;
+    width: 100%;
+    height: 100%;
+    color: inherit;
+    text-decoration: none;
+  }
+  .rect-question.correct {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--results-correct) 86%, white) 0%, var(--results-correct) 100%);
+    color: #ffffff;
+    border-color: color-mix(in srgb, var(--results-correct) 72%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--results-correct) 32%, transparent), 0 8px 18px color-mix(in srgb, var(--results-correct) 28%, transparent);
+  }
+  .rect-question.correct a { color: #ffffff; }
+  .rect-question.incorrect {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--results-incorrect) 86%, white) 0%, var(--results-incorrect) 100%);
+    color: #ffffff;
+    border-color: color-mix(in srgb, var(--results-incorrect) 72%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--results-incorrect) 32%, transparent), 0 8px 18px color-mix(in srgb, var(--results-incorrect) 24%, transparent);
+  }
+  .rect-question.incorrect a { color: #ffffff; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: .5rem .9rem;
+    font-size: .95rem;
+    line-height: 1.4;
+    border-radius: 999px;
+    transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+    text-decoration: none;
+  }
+  .btn-sm { padding: .45rem .85rem; font-size: .9rem; }
+  .btn-warning {
+    color: #fff;
+    background: linear-gradient(90deg, var(--results-accent) 0%, var(--results-accent-2) 100%);
+    border-color: transparent;
+    box-shadow: 0 10px 24px rgba(124, 108, 255, 0.22);
+  }
+  .btn-danger {
+    color: #fff;
+    background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
+    border-color: transparent;
+    box-shadow: 0 10px 24px rgba(239, 68, 68, 0.22);
+  }
+
+  .results-shell label,
+  .results-shell select {
+    color: var(--results-text);
+  }
+  .results-shell select {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--results-border);
+    background: var(--results-surface-2);
+  }
+
+
+  .button-container a {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 54px;
+    padding: 0 22px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--results-accent) 0%, #8b5cf6 100%);
+    color: #fff !important;
+    font-weight: 800;
+    box-shadow: 0 14px 30px rgba(109, 40, 217, 0.22);
+  }
+
+  .button-container a:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+  }
+
+  .button-container i {
+    font-size: 28px !important;
+  }
+
+  .total_score.print_div {
+    min-height: 250px;
+  }
+
+  .restart-btn-container {
+    margin-top: 14px;
+  }
+
+  .results-shell .score,
+  .results-shell .t_score,
+  .results-shell .title,
+  .results-shell h4,
+  .results-shell h5,
+  .results-shell p,
+  .results-shell span,
+  .results-shell li,
+  .results-shell a {
+    transition: color .2s ease, background-color .2s ease, border-color .2s ease;
+  }
+
+  .results-shell .total_score.print_div .title,
+  .results-shell .total_score.print_div .score,
+  .results-shell .total_score.print_div .t_score {
+    color: var(--results-text) !important;
+  }
+
+  .results-shell .total_score.print_div .score {
+    text-shadow: none;
+  }
+
+  @media (max-width: 992px) {
+    .sat_left>p[data-v-27935a7a]:first-child { font-size: 96px; }
+    .sat_right ul li[data-v-27935a7a] { font-size: 18px; }
+    .total[data-v-049b5cac], .chart-container { padding: 20px; }
+  }
+  @media (max-width: 768px) {
+    .results-shell { width: 94% !important; }
+    .sat[data-v-27935a7a] { padding: 16px; }
+    .total_above .score[data-v-049b5cac] { font-size: 54px; }
+    .rect-question { width: 32px; height: 32px; line-height: 32px; }
+  }
+
+  .retake-form { display: inline-flex; margin: 0; }
+  .retake-form button { border: 0; }
+  .retake-form button[disabled] { opacity:.68; cursor:wait; }
+  .chart-container.charts-unavailable::after { content:'Timing chart could not load. Question review and scores are still available above.'; display:block; margin-top:14px; padding:14px; border:1px solid var(--results-border); border-radius:14px; color:var(--results-muted); }
+  .v553-hw-result{margin:18px 0 22px;padding:20px 22px;border:1px solid var(--results-border);border-radius:20px;background:var(--results-surface);box-shadow:0 10px 28px rgba(15,23,42,.08)}
+  .v553-hw-result.is-success{border-color:rgba(22,163,74,.24);background:linear-gradient(135deg,rgba(34,197,94,.08),var(--results-surface-2))}
+  .v553-hw-result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.v553-hw-result-head h2{display:flex;align-items:center;gap:10px;font-size:1.04rem;margin:0}.v553-hw-result-head p{margin:6px 0 0;color:var(--results-muted);font-size:.82rem;line-height:1.55}
+  .v553-hw-list{display:grid;gap:10px}.v553-hw-choice{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid var(--results-border);border-radius:14px;background:var(--results-surface-2);cursor:pointer}.v553-hw-choice input{margin-top:4px}.v553-hw-choice strong{display:block;font-size:.86rem}.v553-hw-choice small{display:block;margin-top:4px;color:var(--results-muted);line-height:1.45}.v553-hw-choice>span{min-width:0}.v553-hw-choice i{margin-top:2px;color:var(--results-correct)}
+  .v553-hw-submit{margin-top:14px;display:flex;justify-content:flex-end}.v553-hw-submit button{border:0;border-radius:999px;padding:12px 18px;background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;font-weight:800;box-shadow:0 14px 28px rgba(109,40,217,.22)}
+  .v553-hw-choice:hover{border-color:rgba(139,92,246,.36);transform:translateY(-1px)}
+  @media (max-width: 900px){.v553-hw-result{padding:18px}.v553-hw-submit{justify-content:stretch}.v553-hw-submit button{width:100%}}
+</style>
+<link rel="stylesheet" href="{% static 'assets/css/results-v527.css' %}?v=527">
+<link rel="stylesheet" href="{% static 'assets/css/results-v528.css' %}?v=528">
+<link rel="stylesheet" href="{% static 'assets/css/results-v530-workspace.css' %}?v=530">
+{% endblock style %}
+
+{% block content %}
+<div class="results-shell mr527-page">
+
+  <section class="mr527-hero">
+    <div>
+      <span class="mr527-eyebrow"><i class="bi bi-bar-chart-line"></i> Test results</span>
+      <h1>{{ stats.test }}</h1>
+      <p>
+        {% if is_teacher_review %}Teacher review for {{ display_user|default:user }}.
+        {% else %}Completed by {{ display_user|default:user }}. Review your section scores, question accuracy and time spent below.{% endif %}
+      </p>
+      <div class="mr527-chips">
+        <span class="mr527-chip"><i class="bi bi-person"></i>{{ display_user|default:user }}</span>
+        <span class="mr527-chip"><i class="bi bi-clipboard2-check"></i>{% if test_mode == 'full' %}Full SAT{% else %}Partial test{% endif %}</span>
+        {% if is_teacher_review %}<span class="mr527-chip"><i class="bi bi-person-check"></i>Teacher review</span>{% endif %}
+      </div>
+      <div class="mr530-hero-actions">
+        <a class="mr530-hero-link" href="{% if is_teacher_review %}{% url 'classroom_student_practice_progress' classroom.id review_student.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">
+          <i class="bi bi-arrow-left"></i><span>Back to tests</span>
+        </a>
+        {% if not is_teacher_review %}
+        <a class="mr530-hero-link is-primary" href="{% url 'practice_test_certificate_root' stats.test %}?review_key={{ key|urlencode }}">
+          <i class="bi bi-patch-check"></i><span>Certificate</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="mr527-score-orb">
+      <small>TOTAL SCORE</small>
+      <strong>{{ score.total }}</strong>
+      <span>{% if test_mode == 'full' %}400–1600{% else %}Partial test score{% endif %}</span>
+    </div>
+  </section>
+
+  {% if attempt_options and attempt_options|length > 1 %}
+  <div class="mr527-attempts">
+    <label for="review_attempt_url">Attempt history</label>
+    <select id="review_attempt_url" onchange="if(this.value){window.location.assign(this.value)}">
+      {% for option in attempt_options %}
+        <option value="{{ option.url }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  {% if homework_auto_submitted %}
+  <section class="v553-hw-result is-success">
+    <div class="v553-hw-result-head"><div><h2><i class="bi bi-check2-all"></i> Homework submitted automatically</h2><p>You launched this attempt from Homework, so no extra confirmation was needed.</p></div></div>
+    <div class="v553-hw-list">{% for assignment in homework_auto_submitted %}<div class="v553-hw-choice"><i class="bi bi-check-circle-fill"></i><span><strong>{{ assignment.title }}</strong><small>{{ assignment.classroom.name }}{% if assignment.due_at %} · due {{ assignment.due_at|date:'d M, H:i' }}{% endif %}</small></span></div>{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if homework_submit_candidates and not is_teacher_review %}
+  <section class="v553-hw-result">
+    <div class="v553-hw-result-head"><div><h2><i class="bi bi-send-check"></i> Submit this attempt as homework?</h2><p>This result satisfies the teacher requirements below. Nothing is sent until you confirm.</p></div></div>
+    <form method="post" action="{% url 'student_homework_submit_attempt_root' %}">
+      {% csrf_token %}<input type="hidden" name="review_key" value="{{ key }}">
+      <div class="v553-hw-list">
+        {% for assignment in homework_submit_candidates %}
+        <label class="v553-hw-choice"><input type="checkbox" name="assignment_ids" value="{{ assignment.id }}" checked><span><strong>{{ assignment.title }}</strong><small>{{ assignment.classroom.name }} · {{ assignment.get_required_test_mode_display }} · Anti-Cheat {{ assignment.get_required_integrity_mode_display }}{% if assignment.due_at %} · due {{ assignment.due_at|date:'d M, H:i' }}{% endif %}</small></span></label>
+        {% endfor %}
+      </div>
+      <div class="v553-hw-submit"><button type="submit"><i class="bi bi-send"></i> Submit selected homework</button></div>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="mr527-metrics">
+    <article class="mr527-metric">
+      <small>Correct answers</small>
+      <strong>{{ stats.total }}</strong>
+      <span>across completed modules</span>
+    </article>
+    <article class="mr527-metric">
+      <small>Total time</small>
+      <strong>{{ stats.time_spent }}</strong>
+      <span>seconds recorded</span>
+    </article>
+    {% if not is_teacher_review %}
+    <article class="mr527-metric is-action">
+      <div><small>Try again</small><strong>Retake this test</strong><span>Your previous result stays in history.</span></div>
+      <form method="post" action="{% url 'practice_test_restart_root' pk=stats.test %}" class="retake-form">
+        {% csrf_token %}
+        {% if classroom %}<input type="hidden" name="classroom_id" value="{{ classroom.id }}">{% endif %}
+        <button type="submit" class="btn btn-danger btn-sm"><i class="fa fa-refresh"></i> Retake</button>
+      </form>
+    </article>
+    {% else %}
+    <article class="mr527-metric">
+      <small>Review mode</small>
+      <strong>Teacher</strong>
+      <span>{{ display_user|default:user }}</span>
+    </article>
+    {% endif %}
+  </section>
+
+  <div class="mr527-section-title">
+    <div><small>Score breakdown</small><h2>Section scores</h2></div>
+    <p>Use section retakes to target one area without losing this result.</p>
+  </div>
+  <div class="row module-row">
+    {% if has_english %}
+    <div class="col-md-6">
+      <div data-v-049b5cac="" class="col-md-10 col-sm-12 total_score print_div">
+        <h4 data-v-049b5cac="" class="title"> Your English Score </h4>
+        <div data-v-049b5cac="" class="row total_above">
+          <p data-v-049b5cac="" class="col-xs-8 score">
+            {% if score.sections.english.score %}
+              {{ score.sections.english.score }}
+            {% else %}
+              {{ score.sections.english }}
+            {% endif %}
+          </p>
+          {% if score.sections.english.range %}
+          <p data-v-049b5cac="" class="col-xs-4 t_score">
+            {{ score.sections.english.range.lower }} to {{ score.sections.english.range.upper }}
+          </p>
+          {% endif %}
+        </div>
+        {% if not is_teacher_review %}
+        <div class="restart-btn-container">
+          <form method="post" action="{% url 'practice_test_restart_section_root' pk=stats.test section='english' %}" class="retake-form">
+            {% csrf_token %}
+            {% if classroom %}<input type="hidden" name="classroom_id" value="{{ classroom.id }}">{% endif %}
+            <button type="submit" class="btn btn-warning btn-sm">
+              <i class="fa fa-refresh"></i> Retake English Section
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if has_math %}
+    <div class="col-md-6">
+      <div data-v-049b5cac="" class="col-md-10 col-sm-12 total_score print_div">
+        <h4 data-v-049b5cac="" class="title"> Your Mathematics Score </h4>
+        <div data-v-049b5cac="" class="row total_above">
+          <p data-v-049b5cac="" class="col-xs-8 score">
+            {% if score.sections.math.score %}
+              {{ score.sections.math.score }}
+            {% else %}
+              {{ score.sections.math }}
+            {% endif %}
+          </p>
+          {% if score.sections.math.range %}
+          <p data-v-049b5cac="" class="col-xs-4 t_score">
+            {{ score.sections.math.range.lower }} to {{ score.sections.math.range.upper }}
+          </p>
+          {% endif %}
+        </div>
+        {% if not is_teacher_review %}
+        <div class="restart-btn-container">
+          <form method="post" action="{% url 'practice_test_restart_section_root' pk=stats.test section='math' %}" class="retake-form">
+            {% csrf_token %}
+            {% if classroom %}<input type="hidden" name="classroom_id" value="{{ classroom.id }}">{% endif %}
+            <button type="submit" class="btn btn-warning btn-sm">
+              <i class="fa fa-refresh"></i> Retake Math Section
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mr527-section-title">
+    <div><small>Review</small><h2>Question map</h2></div>
+    <p>Open any question to review the selected attempt.</p>
+  </div>
+  <div class="row module-row">
+    {% if has_english_m1 %}
+    <div class="col-md-3 module-card">
+      <h5>English Module 1</h5>
+      <div class="navigation" style="display: flex; flex-wrap: wrap;">
+        {% for q in questions.english.m1 %}
+        <div class="rect-question {{ q.status }}">
+          {% if is_teacher_review %}<a href="{% url 'teacher_classroom_student_review_question_root' classroom.id review_student.id key 'english' 'm1' q.id %}">{{ q.number }}</a>{% else %}<a href="{% url 'practice_test_review_question_root' key 'english' 'm1' q.id %}">{{ q.number }}</a>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if has_english_m2 %}
+    <div class="col-md-3 module-card">
+      <h5>English Module 2</h5>
+      <div class="navigation" style="display: flex; flex-wrap: wrap;">
+        {% for q in questions.english.m2 %}
+        <div class="rect-question {{ q.status }}">
+          {% if is_teacher_review %}<a href="{% url 'teacher_classroom_student_review_question_root' classroom.id review_student.id key 'english' 'm2' q.id %}">{{ q.number }}</a>{% else %}<a href="{% url 'practice_test_review_question_root' key 'english' 'm2' q.id %}">{{ q.number }}</a>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if has_math_m1 %}
+    <div class="col-md-3 module-card">
+      <h5>Math Module 1</h5>
+      <div class="navigation" style="display: flex; flex-wrap: wrap;">
+        {% for q in questions.math.m1 %}
+        <div class="rect-question {{ q.status }}">
+          {% if is_teacher_review %}<a href="{% url 'teacher_classroom_student_review_question_root' classroom.id review_student.id key 'math' 'm1' q.id %}">{{ q.number }}</a>{% else %}<a href="{% url 'practice_test_review_question_root' key 'math' 'm1' q.id %}">{{ q.number }}</a>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if has_math_m2 %}
+    <div class="col-md-3 module-card">
+      <h5>Math Module 2</h5>
+      <div class="navigation" style="display: flex; flex-wrap: wrap;">
+        {% for q in questions.math.m2 %}
+        <div class="rect-question {{ q.status }}">
+          {% if is_teacher_review %}<a href="{% url 'teacher_classroom_student_review_question_root' classroom.id review_student.id key 'math' 'm2' q.id %}">{{ q.number }}</a>{% else %}<a href="{% url 'practice_test_review_question_root' key 'math' 'm2' q.id %}">{{ q.number }}</a>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mr527-section-title">
+    <div><small>Timing</small><h2>Time per question</h2></div>
+    <p>See where this attempt spent the most time.</p>
+  </div>
+  <div class="chart-container">
+    <h4>Time spent per question for each module</h4>
+
+    <div class="row" style="row-gap:24px;">
+      {% if has_english_m1 %}<div class="col-md-6"><h5>English Module 1</h5><canvas id="chart-english-m1"></canvas></div>{% endif %}
+      {% if has_english_m2 %}<div class="col-md-6"><h5>English Module 2</h5><canvas id="chart-english-m2"></canvas></div>{% endif %}
+      {% if has_math_m1 %}<div class="col-md-6"><h5>Math Module 1</h5><canvas id="chart-math-m1"></canvas></div>{% endif %}
+      {% if has_math_m2 %}<div class="col-md-6"><h5>Math Module 2</h5><canvas id="chart-math-m2"></canvas></div>{% endif %}
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    if (typeof window.Chart === 'undefined') {
+      document.querySelector('.chart-container')?.classList.add('charts-unavailable');
+      console.warn('Chart.js was unavailable; score and review data remain accessible.');
+    }
+    const __resultsDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const __chartText = __resultsDark ? '#e8e3ff' : '#312e81';
+    const __chartGrid = __resultsDark ? 'rgba(196,181,253,0.16)' : 'rgba(99,102,241,0.14)';
+    const __chartTitle = __resultsDark ? '#f8f7ff' : '#17142b';
+    const __baseChartOptions = {
+      scales: {
+        y: { beginAtZero: true, ticks: { color: __chartText }, grid: { color: __chartGrid } },
+        x: { ticks: { color: __chartText }, grid: { color: __chartGrid } }
+      },
+      plugins: {
+        legend: { labels: { color: __chartText } },
+        title: { color: __chartTitle }
+      }
+    };
+    {% if has_english_m1 %}
+    var englishM1Labels = [
+      {% for q in questions.english.m1 %}
+      "{{ q.number }}",
+      {% endfor %}
+    ];
+    var englishM1Time = [
+      {% for q in questions.english.m1 %}
+      {{ q.time_spent }},
+      {% endfor %}
+    ];
+    var ctx1 = document.getElementById('chart-english-m1')?.getContext('2d');
+    if (ctx1 && window.Chart) new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: englishM1Labels,
+        datasets: [{
+          label: 'Time (seconds)',
+          data: englishM1Time,
+          backgroundColor: 'rgba(54, 162, 235, 0.7)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: { ...__baseChartOptions, plugins: { ...__baseChartOptions.plugins, title: { display: true, text: 'English Module 1', color: __chartTitle } } }
+    });
+    {% endif %}
+
+    {% if has_english_m2 %}
+    var englishM2Labels = [
+      {% for q in questions.english.m2 %}
+      "{{ q.number }}",
+      {% endfor %}
+    ];
+    var englishM2Time = [
+      {% for q in questions.english.m2 %}
+      {{ q.time_spent }},
+      {% endfor %}
+    ];
+    var ctx2 = document.getElementById('chart-english-m2')?.getContext('2d');
+    if (ctx2 && window.Chart) new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: englishM2Labels,
+        datasets: [{
+          label: 'Time (seconds)',
+          data: englishM2Time,
+          backgroundColor: 'rgba(75, 192, 192, 0.7)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: { ...__baseChartOptions, plugins: { ...__baseChartOptions.plugins, title: { display: true, text: 'English Module 2', color: __chartTitle } } }
+    });
+    {% endif %}
+
+    {% if has_math_m1 %}
+    var mathM1Labels = [
+      {% for q in questions.math.m1 %}
+      "{{ q.number }}",
+      {% endfor %}
+    ];
+    var mathM1Time = [
+      {% for q in questions.math.m1 %}
+      {{ q.time_spent }},
+      {% endfor %}
+    ];
+    var ctx3 = document.getElementById('chart-math-m1')?.getContext('2d');
+    if (ctx3 && window.Chart) new Chart(ctx3, {
+      type: 'bar',
+      data: {
+        labels: mathM1Labels,
+        datasets: [{
+          label: 'Time (seconds)',
+          data: mathM1Time,
+          backgroundColor: 'rgba(255, 206, 86, 0.7)',
+          borderColor: 'rgba(255, 206, 86, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: { ...__baseChartOptions, plugins: { ...__baseChartOptions.plugins, title: { display: true, text: 'Math Module 1', color: __chartTitle } } }
+    });
+    {% endif %}
+
+    {% if has_math_m2 %}
+    var mathM2Labels = [
+      {% for q in questions.math.m2 %}
+      "{{ q.number }}",
+      {% endfor %}
+    ];
+    var mathM2Time = [
+      {% for q in questions.math.m2 %}
+      {{ q.time_spent }},
+      {% endfor %}
+    ];
+    var ctx4 = document.getElementById('chart-math-m2')?.getContext('2d');
+    if (ctx4 && window.Chart) new Chart(ctx4, {
+      type: 'bar',
+      data: {
+        labels: mathM2Labels,
+        datasets: [{
+          label: 'Time (seconds)',
+          data: mathM2Time,
+          backgroundColor: 'rgba(255, 99, 132, 0.7)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: { ...__baseChartOptions, plugins: { ...__baseChartOptions.plugins, title: { display: true, text: 'Math Module 2', color: __chartTitle } } }
+    });
+    {% endif %}
+  </script>
+  <script>
+    (function(){
+      try {
+        var saved = localStorage.getItem('sat-makon-theme');
+        var mode = saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
+        var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        var resolved = mode === 'system' ? (prefersLight ? 'light' : 'dark') : mode;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+        document.body.dataset.theme = resolved;
+      } catch (error) {}
+    })();
+  </script>
+  <script>
+    document.querySelectorAll('.retake-form').forEach(function(form){
+      form.addEventListener('submit',function(event){
+        if(form.dataset.submitting==='1'){event.preventDefault();return;}
+        if(!window.confirm('Open the retake overview? Your selected result will stay in attempt history.')){event.preventDefault();return;}
+        form.dataset.submitting='1';
+        const button=form.querySelector('button[type="submit"]');
+        if(button){button.disabled=true;button.innerHTML='<i class="fa fa-circle-o-notch fa-spin"></i> Opening…';}
+      });
+    });
+  </script>
+{% endblock content %}
+
+{% block issue_report_widget %}
+  {% include 'base/issue_report_widget.html' %}
+{% endblock issue_report_widget %}

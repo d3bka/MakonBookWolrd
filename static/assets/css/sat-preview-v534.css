@@ -1,0 +1,142 @@
+/* MakonBook SAT Preview V53.4
+   SATMakon palette + exam-language polish + fixed theme icon.
+   Loaded after v533. */
+
+:root {
+  --sat534-bg: #f7f4ff;
+  --sat534-surface: #ffffff;
+  --sat534-soft: #f5f0ff;
+  --sat534-muted: #5b5176;
+  --sat534-text: #1f1338;
+  --sat534-border: #ddd6fe;
+  --sat534-border-strong: #c4b5fd;
+  --sat534-primary: #6d28d9;
+  --sat534-primary-strong: #4c1d95;
+  --sat534-primary-soft: #8b5cf6;
+  --sat534-primary-tint: #ede9fe;
+  --sat534-accent: #c084fc;
+  --sat534-gradient: linear-gradient(135deg, #4c1d95 0%, #6d28d9 45%, #8b5cf6 100%);
+}
+
+html:not([data-theme="dark"]) body.sat531-page {
+  --sat531-bg: var(--sat534-bg);
+  --sat531-card: var(--sat534-surface);
+  --sat531-text: var(--sat534-text);
+  --sat531-muted: var(--sat534-muted);
+  --sat531-line: var(--sat534-border);
+  --sat531-blue: var(--sat534-primary);
+  --sat531-blue-dark: var(--sat534-primary-strong);
+  --sat531-soft-blue: var(--sat534-primary-tint);
+  --sat531-shadow: 0 14px 34px rgba(76, 29, 149, .08);
+
+  background:
+    radial-gradient(circle at 88% -5%, rgba(192,132,252,.18), transparent 24%),
+    radial-gradient(circle at 8% 0%, rgba(109,40,217,.08), transparent 20%),
+    linear-gradient(180deg, #fcfbff 0%, #f7f4ff 100%) !important;
+}
+
+/* Header and overview use SATMakon colors, not generic blue. */
+html:not([data-theme="dark"]) body.sat531-page .sat531-header {
+  border-bottom-color: rgba(109,40,217,.12) !important;
+  background: rgba(255,255,255,.94) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-brand strong,
+html:not([data-theme="dark"]) body.sat531-page .sat531-test-label strong,
+html:not([data-theme="dark"]) body.sat531-page .sat531-intro h1,
+html:not([data-theme="dark"]) body.sat531-page .sat531-summary strong {
+  color: var(--sat534-text) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-kicker,
+html:not([data-theme="dark"]) body.sat531-page .sat531-exam-note > span {
+  color: var(--sat534-primary) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-overview {
+  border-color: rgba(109,40,217,.14) !important;
+  background: #fff !important;
+  box-shadow: 0 18px 42px rgba(76,29,149,.08) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-exam-note {
+  border-left-color: rgba(109,40,217,.12) !important;
+  background:
+    linear-gradient(180deg, rgba(245,240,255,.96), rgba(237,233,254,.86)) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-exam-note li {
+  color: #655a7c !important;
+  border-bottom-color: rgba(109,40,217,.10) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-exam-note li::before {
+  background: linear-gradient(135deg, #6d28d9, #c084fc) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-summary {
+  border-top-color: rgba(109,40,217,.12) !important;
+}
+
+/* "One active test at a time" now also fits SATMakon palette. */
+html:not([data-theme="dark"]) body.sat531-page .sat-retake-guard {
+  border-color: rgba(109,40,217,.16) !important;
+  background:
+    linear-gradient(135deg, rgba(245,240,255,.98), rgba(250,245,255,.98)) !important;
+  box-shadow: 0 14px 30px rgba(76,29,149,.07) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat-retake-guard-icon {
+  color: var(--sat534-primary) !important;
+  background: var(--sat534-primary-tint) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat-retake-guard-copy > span {
+  color: var(--sat534-primary) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat-retake-guard-copy strong {
+  color: var(--sat534-text) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat-retake-guard-copy p {
+  color: var(--sat534-muted) !important;
+}
+
+/* Buttons use the project-native MakonBook gradient. */
+html:not([data-theme="dark"]) body.sat531-page .sat531-btn.primary,
+html:not([data-theme="dark"]) body.sat531-page .sat-retake-guard-action {
+  border: 1px solid transparent !important;
+  background: var(--sat534-gradient) !important;
+  box-shadow: 0 12px 24px rgba(109,40,217,.22) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-btn.primary:hover,
+html:not([data-theme="dark"]) body.sat531-page .sat-retake-guard-action:hover {
+  background: linear-gradient(135deg, #3b0f82 0%, #5b21b6 100%) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-btn.secondary {
+  border-color: var(--sat534-border) !important;
+  color: var(--sat534-primary-strong) !important;
+  background: rgba(255,255,255,.96) !important;
+}
+
+html:not([data-theme="dark"]) body.sat531-page .sat531-btn.secondary:hover {
+  border-color: var(--sat534-border-strong) !important;
+  color: var(--sat534-primary) !important;
+  background: var(--sat534-primary-tint) !important;
+}
+
+/* Make exam reminder copy slightly denser so it reads like instructions,
+   not marketing copy. */
+.sat531-exam-note li {
+  font-size: 10.5px !important;
+  line-height: 1.48 !important;
+}
+
+.sat531-intro > p {
+  font-size: 11.5px !important;
+  line-height: 1.5 !important;
+  max-width: 560px !important;
+}

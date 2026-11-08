@@ -1,0 +1,41 @@
+<article
+  class="practice-test-card practice-history-card state-completed"
+  data-practice-card
+  data-search="{{ attempt.name|lower }} {{ attempt.mode_label|lower }} score {{ attempt.score }} attempt {{ attempt.attempt_number }}"
+  style="--card-index:{{ forloop.counter0|default:0 }}"
+>
+  <div class="practice-score-visual">
+    <span>Score</span>
+    <strong>{{ attempt.score|default_if_none:'—' }}</strong>
+    <small>{{ attempt.completed_at|date:"M d, Y · H:i" }}</small>
+    <div class="practice-score-rings" aria-hidden="true"></div>
+  </div>
+
+  <div class="practice-card-body">
+    <div class="practice-card-heading">
+      <div>
+        <span class="practice-test-type">{{ attempt.mode_label }}</span>
+        <h3>{{ attempt.name }}</h3>
+      </div>
+      <span class="practice-history-attempt">Attempt {{ attempt.attempt_number }}</span>
+    </div>
+
+    <div class="practice-card-facts">
+      {% if attempt.module_count %}<span><i class="bi bi-grid-1x2" aria-hidden="true"></i>{{ attempt.module_count }} module{{ attempt.module_count|pluralize }}</span>{% endif %}
+      {% if attempt.integrity_mode %}<span><i class="bi bi-shield-check" aria-hidden="true"></i>{{ attempt.integrity_mode|title }}</span>{% endif %}
+      <span><i class="bi bi-check2-circle" aria-hidden="true"></i>Completed</span>
+    </div>
+
+    <div class="practice-progress-note is-complete">
+      <i class="bi bi-clock-history" aria-hidden="true"></i>
+      <span>This attempt is permanent history and does not depend on current classroom access.</span>
+    </div>
+
+    <div class="practice-card-actions">
+      <a href="{{ attempt.result_url }}" class="practice-action is-secondary" data-practice-navigate>
+        <span>View results</span>
+        <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+      </a>
+    </div>
+  </div>
+</article>

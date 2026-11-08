@@ -1,0 +1,219 @@
+/* MakonBook SAT Preview V53.4.2
+   Theme switcher matched to the provided reference:
+   - dynamic System / Light / Dark icons are visible again;
+   - compact white pill;
+   - white dropdown;
+   - active option uses SATMakon purple -> pink gradient.
+   Loaded after v5341, so it intentionally overrides the fixed-icon experiment. */
+
+/* Re-enable the real glyph controlled by makon-theme-switcher.js. */
+body.sat531-page .theme-toggle-icon {
+  position: relative !important;
+  width: 29px !important;
+  height: 29px !important;
+  flex: 0 0 29px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  overflow: visible !important;
+  border-radius: 999px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+  color: #2e1747 !important;
+  background: #f3ecff !important;
+  box-shadow: none !important;
+}
+
+/* Remove the CSS-drawn icon from v534/v5341. */
+body.sat531-page .theme-toggle-icon::before,
+body.sat531-page .theme-toggle-icon::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Top toggle pill */
+body.sat531-page .theme-toggle {
+  min-height: 44px !important;
+  padding: 0 14px 0 8px !important;
+  gap: 9px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(109,40,217,.16) !important;
+  color: #241334 !important;
+  background: rgba(255,255,255,.96) !important;
+  box-shadow:
+    0 10px 26px rgba(76,29,149,.10),
+    inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+
+body.sat531-page .theme-toggle:hover,
+body.sat531-page .theme-toggle[aria-expanded="true"] {
+  transform: translateY(-1px) !important;
+  border-color: rgba(109,40,217,.30) !important;
+  background: #ffffff !important;
+  box-shadow: 0 15px 32px rgba(76,29,149,.14) !important;
+}
+
+body.sat531-page .theme-toggle-label {
+  color: #241334 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.015em !important;
+}
+
+/* Current-mode icon colors, matching the reference. */
+html[data-theme-mode="light"] body.sat531-page .theme-toggle-icon {
+  color: #ffb51b !important;
+  background:
+    radial-gradient(circle at 50% 50%, #ffe06b 0 26%, transparent 28%),
+    linear-gradient(135deg, #9a63f5 0%, #d956c9 100%) !important;
+  box-shadow: 0 6px 14px rgba(174,72,202,.22) !important;
+}
+
+html[data-theme-mode="dark"] body.sat531-page .theme-toggle-icon {
+  color: #4c1d95 !important;
+  background: #f1eaff !important;
+}
+
+html[data-theme-mode="system"] body.sat531-page .theme-toggle-icon {
+  color: #2c163f !important;
+  background: #f0eafd !important;
+}
+
+/* Dropdown */
+body.sat531-page .theme-menu {
+  top: calc(100% + 10px) !important;
+  right: 0 !important;
+  width: 218px !important;
+  padding: 11px !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(109,40,217,.10) !important;
+  background: rgba(255,255,255,.985) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  box-shadow:
+    0 20px 50px rgba(62,36,82,.16),
+    inset 0 1px 0 rgba(255,255,255,.95) !important;
+}
+
+body.sat531-page .theme-menu button {
+  min-height: 52px !important;
+  padding: 8px 11px !important;
+  gap: 11px !important;
+  border-radius: 14px !important;
+  color: #29153d !important;
+  background: transparent !important;
+  transform: none !important;
+}
+
+body.sat531-page .theme-menu button:hover {
+  transform: none !important;
+  background: #f7f2fc !important;
+}
+
+body.sat531-page .theme-menu button strong {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+}
+
+body.sat531-page .theme-menu button span {
+  width: 29px !important;
+  height: 29px !important;
+  flex: 0 0 29px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border-radius: 10px !important;
+  color: #28143d !important;
+  background: transparent !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+
+/* Active option = the purple/pink bar from the reference. */
+body.sat531-page .theme-menu button[aria-checked="true"] {
+  color: #fff !important;
+  background: linear-gradient(100deg, #8b5cf6 0%, #c85ccc 100%) !important;
+  box-shadow: 0 9px 18px rgba(139,92,246,.18) !important;
+}
+
+body.sat531-page .theme-menu button[aria-checked="true"] strong {
+  color: #fff !important;
+}
+
+body.sat531-page .theme-menu button[aria-checked="true"] span {
+  color: #fff !important;
+  background: rgba(255,255,255,.12) !important;
+}
+
+/* Give Light's sun the yellow center used in the reference. */
+body.sat531-page .theme-menu button[data-theme-choice="light"] span {
+  color: #ffb51b !important;
+}
+
+body.sat531-page .theme-menu button[data-theme-choice="light"][aria-checked="true"] span {
+  color: #ffd347 !important;
+  background:
+    radial-gradient(circle at 50% 50%, #ffbd24 0 26%, transparent 28%),
+    rgba(255,255,255,.13) !important;
+}
+
+/* Dark and System glyphs stay simple / readable. */
+body.sat531-page .theme-menu button[data-theme-choice="system"] span,
+body.sat531-page .theme-menu button[data-theme-choice="dark"] span {
+  color: #2b173e !important;
+}
+
+body.sat531-page .theme-menu button[data-theme-choice="system"][aria-checked="true"] span,
+body.sat531-page .theme-menu button[data-theme-choice="dark"][aria-checked="true"] span {
+  color: #fff !important;
+}
+
+/* Dark theme menu keeps the same structure but uses dark surfaces. */
+html[data-theme="dark"] body.sat531-page .theme-toggle {
+  color: #fff !important;
+  border-color: rgba(255,255,255,.12) !important;
+  background: rgba(29,23,36,.94) !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.24) !important;
+}
+
+html[data-theme="dark"] body.sat531-page .theme-toggle-label {
+  color: #fff !important;
+}
+
+html[data-theme="dark"] body.sat531-page .theme-menu {
+  border-color: rgba(255,255,255,.09) !important;
+  background: rgba(24,18,31,.98) !important;
+  box-shadow: 0 22px 56px rgba(0,0,0,.34) !important;
+}
+
+html[data-theme="dark"] body.sat531-page .theme-menu button {
+  color: #eee6f4 !important;
+}
+
+html[data-theme="dark"] body.sat531-page .theme-menu button:hover {
+  background: rgba(255,255,255,.055) !important;
+}
+
+html[data-theme="dark"] body.sat531-page .theme-menu button strong {
+  color: inherit !important;
+}
+
+html[data-theme="dark"] body.sat531-page .theme-menu button:not([aria-checked="true"]) span {
+  color: #d9c8e7 !important;
+}
+
+@media (max-width: 760px) {
+  body.sat531-page .theme-toggle {
+    width: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+  }
+
+  body.sat531-page .theme-toggle-icon {
+    width: 29px !important;
+    height: 29px !important;
+  }
+
+  body.sat531-page .theme-menu {
+    width: 205px !important;
+  }
+}

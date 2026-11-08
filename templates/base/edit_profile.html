@@ -1,0 +1,66 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Profile · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page v524-profile-page v525-profile-page">
+  <header class="v524-profile-heading v523-reveal">
+    <div><span class="v523-kicker"><i class="bi bi-person-circle"></i> Profile</span><h1>{{ request.user.get_full_name|default:request.user.username }}</h1><p>Your account, SAT destination and classroom membership in one compact place.</p></div>
+    <div><a class="mb50-secondary-btn" href="{% url 'settings_page' %}"><i class="bi bi-gear"></i> Settings</a></div>
+  </header>
+
+  <section class="v524-profile-grid">
+    <article class="v524-profile-identity v523-reveal" style="--reveal-index:1">
+      <div class="v524-profile-avatar">{{ request.user.first_name|default:request.user.username|slice:":1"|upper }}</div>
+      <div class="v524-profile-name"><span>Student account</span><h2>{{ request.user.get_full_name|default:request.user.username }}</h2><p>@{{ request.user.username }}</p></div>
+      <div class="v524-profile-pills"><span><i class="bi bi-check-circle-fill"></i> Active</span>{% if gamification %}<span>Lv {{ gamification.level }} · {{ gamification.xp_total }} XP</span>{% endif %}</div>
+      <div class="v525-profile-contact-grid">
+        <div class="v525-profile-contact"><small>Login</small><strong>{{ request.user.username }}</strong></div>
+        <div class="v525-profile-contact"><small>Email</small><strong>{{ request.user.email|default:"Not added" }}</strong></div>
+        <div class="v525-profile-contact"><small>Phone</small><strong>{% if profile_user_profile and profile_user_profile.phone_number %}{{ profile_user_profile.phone_number }}{% else %}Not added{% endif %}</strong></div>
+      </div>
+      <div class="v526-profile-card-actions"><button class="mb50-secondary-btn" type="button" data-profile-modal-open="password"><i class="bi bi-key"></i> Change password</button><button class="mb50-primary-btn" type="button" data-profile-modal-open="profile"><i class="bi bi-pencil-square"></i> Edit profile</button></div>
+    </article>
+
+    <article class="v524-profile-goal v523-reveal" style="--reveal-index:2">
+      <span class="v523-card-label">SAT goal</span>
+      {% if student_goal and student_goal.university_name %}<h2>{{ student_goal.university_name }}</h2><p>{{ student_goal.university_country|default:"Target university" }}</p><strong>{{ student_goal.target_sat_score|default:"—" }} <small>target SAT</small></strong><div class="v525-profile-goal-meta">{% if student_goal.exam_date %}<span><i class="bi bi-calendar3"></i> {{ student_goal.exam_date|date:"M j, Y" }}</span><span>{{ student_goal.days_remaining }} days left</span>{% endif %}</div>{% else %}<h2>No university target yet.</h2><p>Set your SAT destination when you are ready.</p>{% endif %}
+      <a href="{% url 'student_dashboard_root' %}?goal=1">Manage goal <i class="bi bi-arrow-right"></i></a>
+    </article>
+  </section>
+
+  <section class="v526-profile-lower">
+    <article class="v523-card v524-memberships-card v523-reveal" style="--reveal-index:3"><div class="v524-card-head"><div><span class="v523-card-label">Membership</span><h2>{{ profile_classrooms|length }} active classroom{{ profile_classrooms|length|pluralize }}</h2></div><a class="v523-text-action" href="{% url 'student_classrooms_root' %}">View all</a></div><div class="v524-membership-list">{% for membership in profile_classrooms|slice:":4" %}<a href="{% url 'student_classroom_home_root' membership.classroom.id %}"><span>{{ membership.classroom.name|slice:":1"|upper }}</span><div><strong>{{ membership.classroom.name }}</strong><small>{{ membership.classroom.teacher.get_full_name|default:membership.classroom.teacher.username }}</small></div><i class="bi bi-arrow-right"></i></a>{% empty %}<p>No approved classroom yet.</p>{% endfor %}</div></article>
+    <article class="v523-card v524-referral-card v523-reveal" style="--reveal-index:4"><span class="v523-card-label">Account access</span><h2>Managed by SATMakon.</h2><p>Student accounts are created automatically from Hollihop. If your account or classroom information is incorrect, contact SATMakon staff.</p></article>
+  </section>
+</div>
+
+<div class="v526-profile-modal" data-profile-modal="profile" hidden aria-hidden="true">
+  <button class="v526-profile-modal-backdrop" type="button" data-profile-modal-close aria-label="Close"></button>
+  <section class="v526-profile-modal-panel" role="dialog" aria-modal="true" aria-labelledby="profileEditModalTitle">
+    <div class="v526-profile-modal-head"><div><span class="v523-card-label">Basic information</span><h2 id="profileEditModalTitle">Edit profile</h2><p>Update the identity teachers and classrooms use.</p></div><button class="v526-profile-modal-close" type="button" data-profile-modal-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div>
+    <form method="post" class="v523-account-form" novalidate>{% csrf_token %}<input type="hidden" name="profile_action" value="profile">{% if form.non_field_errors %}<div class="v523-form-alert">{{ form.non_field_errors }}</div>{% endif %}<div class="v523-form-grid">{% for field in form %}<label class="v523-field{% if field.name == 'email' %} v523-field-wide{% endif %}"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}</div><div class="v523-form-actions"><button class="mb50-secondary-btn" type="button" data-profile-modal-close>Cancel</button><button class="mb50-primary-btn" type="submit"><i class="bi bi-check2"></i> Save profile</button></div></form>
+  </section>
+</div>
+
+<div class="v526-profile-modal" data-profile-modal="password" hidden aria-hidden="true">
+  <button class="v526-profile-modal-backdrop" type="button" data-profile-modal-close aria-label="Close"></button>
+  <section class="v526-profile-modal-panel" role="dialog" aria-modal="true" aria-labelledby="profilePasswordModalTitle">
+    <div class="v526-profile-modal-head"><div><span class="v523-card-label">Security</span><h2 id="profilePasswordModalTitle">Change password</h2><p>Confirm your current password, then choose a new one.</p></div><button class="v526-profile-modal-close" type="button" data-profile-modal-close aria-label="Close"><i class="bi bi-x-lg"></i></button></div>
+    <p class="v526-password-help"><i class="bi bi-shield-check"></i> Your session stays active after a successful password change on this device.</p>
+    <form method="post" class="v523-account-form" novalidate>{% csrf_token %}<input type="hidden" name="profile_action" value="password">{% if password_form.non_field_errors %}<div class="v523-form-alert">{{ password_form.non_field_errors }}</div>{% endif %}<div class="v523-form-grid">{% for field in password_form %}<label class="v523-field v523-field-wide"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text|safe }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}</div><div class="v523-form-actions"><button class="mb50-secondary-btn" type="button" data-profile-modal-close>Cancel</button><button class="mb50-primary-btn" type="submit"><i class="bi bi-key"></i> Update password</button></div></form>
+  </section>
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}
+<script>
+(function(){
+  var modals=Array.prototype.slice.call(document.querySelectorAll('[data-profile-modal]'));
+  function setModal(name,open){var modal=modals.find(function(item){return item.dataset.profileModal===name;});if(!modal)return;if(open){modals.forEach(function(other){if(other!==modal){other.classList.remove('is-open');other.hidden=true;other.setAttribute('aria-hidden','true');}});modal.hidden=false;requestAnimationFrame(function(){modal.classList.add('is-open');});modal.setAttribute('aria-hidden','false');document.documentElement.classList.add('mb526-profile-modal-open');var first=modal.querySelector('input:not([type=hidden])');if(first)setTimeout(function(){first.focus();},110);}else{modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true');setTimeout(function(){if(!modal.classList.contains('is-open'))modal.hidden=true;},210);if(!modals.some(function(item){return item.classList.contains('is-open');}))document.documentElement.classList.remove('mb526-profile-modal-open');}}
+  document.querySelectorAll('[data-profile-modal-open]').forEach(function(btn){btn.addEventListener('click',function(){setModal(btn.dataset.profileModalOpen,true);});});
+  document.querySelectorAll('[data-profile-modal-close]').forEach(function(btn){btn.addEventListener('click',function(){var modal=btn.closest('[data-profile-modal]');if(modal)setModal(modal.dataset.profileModal,false);});});
+  document.addEventListener('keydown',function(event){if(event.key!=='Escape')return;var open=modals.find(function(item){return item.classList.contains('is-open');});if(open)setModal(open.dataset.profileModal,false);});
+  document.querySelectorAll('[data-copy-value]').forEach(function(btn){btn.addEventListener('click',function(){var value=btn.dataset.copyValue||'';if(navigator.clipboard)navigator.clipboard.writeText(value);btn.innerHTML='<i class="bi bi-check2"></i>';setTimeout(function(){btn.innerHTML='<i class="bi bi-copy"></i>';},1000);});});
+  {% if profile_modal_open %}setModal('{{ profile_modal_open|escapejs }}',true);{% endif %}
+})();
+</script>
+{% endblock %}

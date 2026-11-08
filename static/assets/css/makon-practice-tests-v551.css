@@ -1,0 +1,13 @@
+/* MakonBook V55.1 — Available / In Progress / History */
+.practice-tabs-v551{grid-template-columns:repeat(3,minmax(0,1fr));max-width:620px}
+.practice-page-v551 .practice-library-head p{max-width:720px}
+.practice-page-v551 .practice-card-facts{flex-wrap:wrap}
+.practice-page-v551 .practice-history-attempt{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:0 10px;border-radius:999px;background:rgba(124,58,237,.08);color:#6d28d9;font-size:10px;font-weight:800;white-space:nowrap}
+.practice-page-v551 .practice-history-card .practice-score-visual{min-height:156px}
+.practice-page-v551 .practice-history-card .practice-progress-note{min-height:58px}
+.practice-page-v551 .practice-history-grid{align-items:stretch}
+.practice-page-v551 .practice-test-card{height:100%}
+.practice-page-v551 .practice-card-body{display:flex;flex-direction:column}
+.practice-page-v551 .practice-card-actions{margin-top:auto}
+html[data-theme="dark"] .practice-page-v551 .practice-history-attempt{background:rgba(167,139,250,.12);color:#d8c7ff}
+@media(max-width:760px){.practice-tabs-v551{max-width:none;grid-template-columns:1fr}.practice-tabs-v551 .practice-tab{justify-content:space-between}.practice-page-v551 .practice-history-attempt{min-height:26px}}

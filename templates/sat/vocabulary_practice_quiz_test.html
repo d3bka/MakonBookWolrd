@@ -1,0 +1,47 @@
+{% extends student_workspace_base_template|default:'template.html' %}
+{% load static %}
+
+{% block title-main %}{% if classroom %}{{ classroom.name }}{% else %}MakonBook{% endif %}{% endblock title-main %}
+{% block breadcrumb_parent %}<li><a href="{% if classroom %}{% url 'classroom_vocabulary' classroom.id %}{% else %}{% url 'vocabulary_root' %}{% endif %}">Vocabulary</a></li>{% endblock breadcrumb_parent %}
+{% block title %}Vocabulary Quiz{% endblock title %}
+
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-vocabulary-v2.css' %}?v=524">{% endblock style %}
+
+{% block content %}
+<div class="vocab-shell v524-assigned-quiz">
+  {% if homework_assignment %}<div class="v524-homework-quiz-head"><span><i class="bi bi-list-check"></i> Homework · {{ homework_assignment.classroom.name }}</span><strong>{{ homework_assignment.title }}</strong></div>{% endif %}
+  {% if questions %}
+  <form method="post" action="{% if homework_assignment %}{% url 'student_homework_vocab_quiz_result_root' homework_assignment.id %}{% elif classroom %}{% url 'classroom_vocabulary_practice_quiz_result' classroom.id %}{% else %}{% url 'vocabulary_practice_quiz_result_root' %}{% endif %}" data-vocab-quiz-test>
+    {% csrf_token %}
+    <div class="vocab-test-top">
+      <div class="vocab-test-status">
+        <div><strong>Vocabulary Quiz</strong><div style="color:var(--vocab-muted);font-size:13px;margin-top:4px"><span data-answered-count>0 / {{ questions|length }} answered</span> · <span data-quiz-timer>00:00</span></div></div>
+        <div style="min-width:220px;flex:1;max-width:420px"><div class="vocab-meter" style="margin:0"><span data-answer-meter style="width:0"></span></div></div>
+      </div>
+    </div>
+
+    <div class="vocab-question-list">
+      {% for question in questions %}
+        <article class="vocab-question-card" data-question-group>
+          <div class="vocab-question-number">Question {{ forloop.counter }} · {{ question.unit }}</div>
+          <h3>{{ question.question }}</h3>
+          <div class="vocab-choice-list">
+            {% for choice in question.choices %}
+              <label class="vocab-choice"><input type="radio" name="question_{{ forloop.parentloop.counter0 }}" value="{{ choice }}"><span>{{ choice }}</span></label>
+            {% endfor %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    <div class="vocab-actions" style="justify-content:space-between;margin-top:20px">
+      <a class="vocab-btn" href="{% if homework_assignment %}{% url 'student_homework_root' %}{% elif classroom %}{% url 'classroom_vocabulary_section' classroom.id 'practice-quiz' %}{% else %}{% url 'vocabulary_practice_quiz_root' %}{% endif %}">Cancel quiz</a>
+      <button class="vocab-btn vocab-btn-primary" type="submit">Submit and check answers</button>
+    </div>
+  </form>
+  {% else %}
+    <div class="vocab-empty">No questions were generated. Start a new quiz.</div>
+  {% endif %}
+</div>
+<script src="{% static 'assets/js/makon-vocabulary-v2.js' %}?v=524"></script>
+{% endblock content %}

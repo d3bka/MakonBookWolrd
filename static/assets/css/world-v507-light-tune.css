@@ -1,0 +1,128 @@
+/* MakonBook World V50.7 — light-mode alignment + stronger selected states
+   Loaded after world-v506-polish.css. Visual-only. */
+
+html:not([data-theme="dark"]) .mw503-embedded-shell {
+  background:
+    radial-gradient(circle at 72% -6%, rgba(157,66,239,.065), transparent 29%),
+    linear-gradient(180deg, #faf8fc 0%, #f7f4fa 100%) !important;
+}
+
+/* Kill almost-black surfaces in LIGHT mode. */
+html:not([data-theme="dark"]) .mw503-embedded-shell > .mw503-worldbar {
+  background: rgba(255,255,255,.96) !important;
+  box-shadow: 0 14px 36px rgba(69,47,86,.055) !important;
+}
+
+html:not([data-theme="dark"]) .mw503-world-tabs {
+  background: #f4eefb !important;
+  border: 1px solid rgba(124,58,237,.10) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85) !important;
+}
+
+html:not([data-theme="dark"]) .mw503-world-tabs a {
+  color: #6d5e78 !important;
+}
+html:not([data-theme="dark"]) .mw503-world-tabs a.is-active {
+  color: #ffffff !important;
+  background: linear-gradient(100deg, #7c3aed 0%, #9f43ef 52%, #cb3fe8 100%) !important;
+  box-shadow:
+    0 8px 18px rgba(124,58,237,.22),
+    inset 0 0 0 1px rgba(255,255,255,.14) !important;
+}
+html:not([data-theme="dark"]) .mw503-world-tabs a:not(.is-active) {
+  background: transparent !important;
+}
+html:not([data-theme="dark"]) .mw503-world-tabs a:not(.is-active):hover {
+  background: rgba(124,58,237,.06) !important;
+  color: #47395a !important;
+}
+
+html:not([data-theme="dark"]) .mw503-server-badge {
+  background: #ffffff !important;
+  color: #7a6c84 !important;
+}
+
+/* Player card: remove black accent feeling */
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-avatar {
+  background: linear-gradient(135deg, #7c3aed 0%, #a344ee 58%, #d042ea 100%) !important;
+  box-shadow: 0 10px 20px rgba(124,58,237,.20) !important;
+}
+
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-tier {
+  color: #a56b16 !important;
+  border: 1px solid rgba(235,179,82,.42) !important;
+  background: #fff8ef !important;
+}
+
+/* Duel hero: keep dramatic, but no near-black background in light mode */
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw504-clean-hero {
+  border-color: rgba(124,58,237,.12) !important;
+  background:
+    radial-gradient(circle at 87% 0, rgba(252,255,255,.14), transparent 24%),
+    radial-gradient(circle at 92% 12%, rgba(233,161,255,.24), transparent 30%),
+    linear-gradient(110deg, #6f39dd 0%, #8c42eb 56%, #c643eb 100%) !important;
+  box-shadow: 0 18px 42px rgba(124,58,237,.16) !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw504-clean-hero::after {
+  border-color: rgba(255,255,255,.18) !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw504-clean-hero .mw503-eyebrow {
+  color: rgba(255,255,255,.86) !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-page-head-meta span {
+  color: rgba(255,255,255,.92) !important;
+  border-color: rgba(255,255,255,.18) !important;
+  background: rgba(255,255,255,.10) !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-page-head-meta i {
+  color: #ffffff !important;
+}
+
+/* Selected vs unselected: much clearer */
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-segment label,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-mode {
+  border-color: rgba(84,60,100,.10) !important;
+  background: #ffffff !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-segment label span,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-mode strong {
+  color: #35293d !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-segment label small {
+  color: #9b8ca5 !important;
+}
+
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-segment label.is-active,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-mode.is-active {
+  border-color: #a24ff0 !important;
+  background:
+    linear-gradient(135deg, rgba(124,58,237,.14), rgba(205,64,232,.10)),
+    #fff !important;
+  box-shadow:
+    0 0 0 2px rgba(124,58,237,.14),
+    0 8px 18px rgba(124,58,237,.10) !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-segment label.is-active span,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-mode.is-active strong,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-segment label.is-active i,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-mode.is-active i {
+  color: #7c3aed !important;
+}
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-segment label.is-active::after,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-mode.is-active::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-left: auto;
+  background: linear-gradient(135deg, #7c3aed, #cb3fe8);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.10);
+}
+
+/* Find match can stay gradient, but the setup container should match the light system better. */
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-matchmaker,
+html:not([data-theme="dark"]) .mw504-mode-shell[data-world-home] .mw503-player-card {
+  background:
+    radial-gradient(circle at 97% 0, rgba(181,76,232,.035), transparent 25%),
+    #fff !important;
+}

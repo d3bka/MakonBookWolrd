@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>{{ event.title }} - MakonBook</title>
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-style.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme.css' %}">
+  <style>
+    body { min-height: 100vh; margin: 0; display: flex; flex-direction: column; }
+    .simple-header { padding: 18px 0; background: #4c1d95; border-bottom: 1px solid rgba(255,255,255,0.12); }
+    .simple-header-inner, .simple-footer-inner, .page-wrap { max-width: 1100px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
+    .simple-header-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .brand { color: #fff; text-decoration: none; font-size: 24px; font-weight: 700; line-height: 1; transition: opacity .2s ease; }
+    .brand:hover, .brand:focus { color: #fff; text-decoration: none; opacity: .86; }
+    .guest-nav { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .guest-nav span, .guest-nav a { color: #fff; text-decoration: none; font-weight: 600; }
+    .guest-nav a:hover, .guest-nav a:focus { color: #fff; text-decoration: underline; }
+    .page-wrap { flex: 1 0 auto; width: 100%; padding-top: 36px; padding-bottom: 48px; }
+    .back-link { display: inline-flex; align-items: center; margin-bottom: 18px; color: #6d28d9; text-decoration: none; font-weight: 600; transition: color .2s ease, opacity .2s ease; }
+    .back-link:hover, .back-link:focus { color: #4c1d95; text-decoration: none; opacity: .95; }
+    .detail-card { background: #fff; border-radius: 16px; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); max-width: 940px; margin: 0 auto; }
+    .detail-card h1 { margin: 0 0 4px; font-size: 2.2rem; line-height: 1.15; }
+    .description { margin: 0 0 10px; color: #1f2937; font-size: 1.05rem; }
+    .meta-row { margin-bottom: 10px; color: #555; font-size: 1.05rem; }
+    .meta-row strong { color: #374151; }
+    .rules-box { margin: 20px 0; padding: 16px; background: #f8fafc; border-radius: 12px; }
+    .messages { list-style: none; padding-left: 0; margin: 0 0 18px; }
+    .messages li { margin-bottom: 10px; padding: 12px 14px; border-radius: 10px; background: #f8fafc; color: #1f2937; }
+    .messages li.success { background: #dcfce7; color: #166534; }
+    .messages li.error, .messages li.warning { background: #fee2e2; color: #991b1b; }
+    .form-group { margin-top: 20px; margin-bottom: 0; }
+    .form-group input { width: 100%; min-height: 58px; border-radius: 8px; border: 1px solid #d8d4fe; background: #f6f5ff; padding: 0 16px; font-size: 1rem; outline: none; transition: border-color .2s ease, box-shadow .2s ease; box-sizing: border-box; }
+    .form-group input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.10); }
+    .actions { margin-top: 26px; display: block; }
+    .actions .primary-btn, .actions button.primary-btn, .full-width-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 60px; border: none; border-radius: 8px; text-decoration: none; font-size: 1rem; font-weight: 700; cursor: pointer; }
+    .secondary-link-inline { display: inline-flex; align-items: center; justify-content: center; margin-top: 14px; color: #6d28d9; font-weight: 600; text-decoration: none; width: 100%; }
+    .secondary-link-inline:hover, .secondary-link-inline:focus { color: #5b21b6; text-decoration: underline; }
+    .simple-footer { margin-top: auto; padding: 16px 0; background: #4c1d95; border-top: 1px solid rgba(255,255,255,0.12); }
+    .simple-footer-inner { display: flex; justify-content: center; align-items: center; color: #fff; font-size: 14px; font-weight: 600; text-align: center; }
+    @media (max-width: 768px) { .detail-card { padding: 24px 18px; } .detail-card h1 { font-size: 1.8rem; } }
+  </style>
+  {% include 'base/responsive_css.html' %}
+</head>
+<body>
+  <header class="simple-header">
+    <div class="simple-header-inner">
+      <a href="{% url 'home' %}" class="brand">MakonBook</a>
+      <div class="guest-nav">
+        {% if request.session.guest_name %}
+          <span>{{ request.session.guest_name }}</span>
+          <a href="{% url 'guest_logout' %}">Logout</a>
+        {% else %}
+          <span>Guest</span>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <div class="page-wrap">
+    <a href="{% if event.is_global %}{% url 'global_event_list' %}{% else %}{% url 'apclasses:event_list' %}{% endif %}" class="back-link">
+      ← Back to {% if event.is_global %}Global Events{% else %}AP Events{% endif %}
+    </a>
+
+    <div class="detail-card">
+      <h1>{{ event.title }}</h1>
+
+      {% if messages %}
+        <ul class="messages">
+          {% for message in messages %}
+            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if event.description %}
+        <p class="description">{{ event.description }}</p>
+      {% endif %}
+
+      {% if event.always_live %}
+        <div class="meta-row"><strong>Availability:</strong> Always Live (24/7)</div>
+      {% else %}
+        <div class="meta-row"><strong>Start:</strong> {{ event.start_at }}</div>
+        <div class="meta-row"><strong>End:</strong> {{ event.end_at }}</div>
+      {% endif %}
+      <div class="meta-row"><strong>Part A duration:</strong> {{ event.part_a_duration_minutes|default:event.exam.part_a_duration_minutes }} minutes</div>
+      <div class="meta-row"><strong>Part B duration:</strong> {{ event.part_b_duration_minutes|default:event.exam.part_b_duration_minutes }} minutes</div>
+      <div class="meta-row"><strong>FRQ duration:</strong> {{ event.frq_duration_minutes|default:event.exam.frq_duration_minutes }} minutes</div>
+      <div class="meta-row"><strong>Status:</strong> {{ event.status|title }}</div>
+
+      {% if event.rules %}
+        <div class="rules-box">
+          <h3>Rules</h3>
+          <p>{{ event.rules|linebreaks }}</p>
+        </div>
+      {% endif %}
+
+      <div class="meta-row"><strong>Attempts:</strong> {{ attempts_used }} used{% if event.max_attempts %} / {{ event.max_attempts }} allowed{% endif %}</div>
+
+      {% if event.requires_secret_code and not secret_unlocked %}
+        <form method="post" class="signin-form">
+          {% csrf_token %}
+          <div class="form-group">
+            <input type="text" name="access_code" placeholder="Access code" autocomplete="off" required>
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-btn full-width-btn">Unlock Event</button>
+          </div>
+        </form>
+      {% else %}
+        {% if existing_attempt and existing_attempt.status == "in_progress" %}
+          <div class="actions">
+            <a class="primary-btn full-width-btn" href="{% url 'apclasses:attempt' existing_attempt.token %}">Resume Attempt #{{ existing_attempt.attempt_number }}</a>
+          </div>
+        {% elif existing_attempt and existing_attempt.status == "submitted" %}
+          <div class="actions">
+            <a class="primary-btn full-width-btn" href="{% url 'apclasses:event_result' existing_attempt.token %}">View Latest Result</a>
+          </div>
+        {% endif %}
+
+        {% if not event.is_live_now %}
+          <div class="actions"><button type="button" class="primary-btn full-width-btn" disabled>This event is not live now</button></div>
+        {% elif can_start_new_attempt %}
+          <form method="post" action="{% url 'apclasses:start_event' event.slug %}" class="signin-form">
+            {% csrf_token %}
+            <div class="actions">
+              <button type="submit" class="primary-btn full-width-btn">{% if existing_attempt %}Start New Attempt{% else %}Start Event{% endif %}</button>
+            </div>
+          </form>
+        {% elif existing_attempt and existing_attempt.status == "submitted" %}
+          <p class="description" style="margin-top:16px;">Attempt limit reached for this event.</p>
+        {% endif %}
+      {% endif %}
+
+      {% if attempts %}
+        <div class="rules-box">
+          <h3>Attempt history</h3>
+          {% for item in attempts %}
+            <div class="meta-row">
+              Attempt #{{ item.attempt_number }} — {{ item.get_status_display }}{% if item.submitted_at %} · submitted {{ item.submitted_at }}{% endif %}
+              {% if item.status == "submitted" %}<a href="{% url 'apclasses:event_result' item.token %}">Result</a>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <footer class="simple-footer">
+    <div class="simple-footer-inner">© MakonBook</div>
+  </footer>
+</body>
+</html>

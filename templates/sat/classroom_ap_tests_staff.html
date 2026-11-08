@@ -1,0 +1,8 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}AP Tests · {{ classroom.name }}{% endblock %}
+{% block content %}
+<div class="sf27-form-page">
+  <section class="sf27-page-head"><div><small>Teacher · AP classroom</small><h1>{{ classroom.name }} · AP tests</h1><p>Review the AP events currently attached to this classroom, then change classroom event access from the dedicated access tool.</p></div><div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'teacher_classroom_root' classroom.id %}"><i class="bi bi-arrow-left"></i> Classroom</a><a class="sf27-btn" href="{% url 'teacher_classroom_ap_access_root' classroom.id %}"><i class="bi bi-sliders"></i> Manage access</a></div></section>
+  <section class="sf27-card"><div class="sf27-ap-list">{% for event in events %}<article class="sf27-ap-row"><div class="sf27-ap-state {% if event.is_live_now %}is-live{% endif %}"><i class="bi bi-layers"></i></div><div class="sf27-ap-copy"><div class="sf27-ap-kicker">{% if event.is_live_now %}Live now{% else %}{{ event.get_status_display|default:'AP event' }}{% endif %}</div><h3>{{ event.title }}</h3><p>{{ event.exam.title }}{% if event.exam.ap_class %} · {{ event.exam.ap_class.name }}{% endif %}</p></div><div class="sf27-actions"><a class="sf27-btn secondary" href="{% url 'apclasses:event_detail' event.slug %}">Open</a></div></article>{% empty %}<div class="sf27-empty"><i class="bi bi-layers"></i><strong>No AP events assigned.</strong><span>Use Manage access to attach published AP events to this classroom.</span></div>{% endfor %}</div></section>
+</div>
+{% endblock %}

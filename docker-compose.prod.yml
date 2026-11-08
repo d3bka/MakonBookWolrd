@@ -1,0 +1,190 @@
+# =============================================================================
+# Production stack for makonbook.uz — the complete edge.
+#
+# Runs: web (gunicorn) + telegram-bot + nginx + certbot.
+# Does NOT run PostgreSQL: the shared "db" container already exists on the
+# external sat_makon_network and is reached by that name.
+#
+# This nginx owns :80/:443 and also serves sat-makon.uz by proxying to the
+# sat-makon-site container (separate Compose project, same network). Only one
+# stack can bind those ports — bring makonbook-old down before starting this.
+#
+# Deploy on the VPS as /opt/sat-makon/makonbook/docker-compose.yml.
+# See DEPLOY.md for the cutover sequence.
+# =============================================================================
+
+# Pins the Compose project name so volumes resolve to makonbook_* regardless of
+# the directory this file sits in. The certificate is expected in the volume
+# makonbook_certbot_conf — see DEPLOY.md step 4 for populating it from the
+# outgoing makonbook-old stack without re-issuing.
+name: makonbook
+
+services:
+  web:
+    image: ${APP_IMAGE:-nazacd/makonbook:latest}
+    pull_policy: always
+    restart: always
+    container_name: makonbook-web
+    volumes:
+      - static_files:/app/staticfiles
+      - media_files:/app/media
+      - logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      # NOTE: if .env sets DATABASE_URL it takes priority over every DB_* var
+      # (settings.py:151-155). The live .env does set it. These remain as the
+      # fallback path for when it is absent.
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
+      COLLECTSTATIC_ON_START: ${COLLECTSTATIC_ON_START:-1}
+      DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-90}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
+      REGISTRATION_RATE_LIMIT_CACHE_URL: ${REGISTRATION_RATE_LIMIT_CACHE_URL:-redis://redis:6379/3}
+      GUNICORN_CMD_ARGS: >-
+        --workers ${GUNICORN_WORKERS:-3}
+        --timeout ${GUNICORN_TIMEOUT:-120}
+        --max-requests 1000
+        --max-requests-jitter 50
+        --worker-tmp-dir /dev/shm
+    networks:
+      - sat_makon_network
+    expose:
+      - "8000"
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    container_name: makonbook-redis
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    networks:
+      - sat_makon_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  celery-worker:
+    image: ${APP_IMAGE:-nazacd/makonbook:latest}
+    pull_policy: always
+    restart: always
+    container_name: makonbook-celery-worker
+    command: celery -A satmakon worker --loglevel=INFO --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
+    volumes:
+      - media_files:/app/media
+      - logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      RUN_MIGRATIONS: 0
+      COLLECTSTATIC_ON_START: 0
+      DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-90}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
+    networks:
+      - sat_makon_network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+
+  celery-beat:
+    image: ${APP_IMAGE:-nazacd/makonbook:latest}
+    pull_policy: always
+    restart: always
+    container_name: makonbook-celery-beat
+    command: celery -A satmakon beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    volumes:
+      - logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      RUN_MIGRATIONS: 0
+      COLLECTSTATIC_ON_START: 0
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
+    networks:
+      - sat_makon_network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  telegram-bot:
+    image: ${APP_IMAGE:-nazacd/makonbook:latest}
+    pull_policy: always
+    restart: always
+    container_name: makonbook-telegram-bot
+    command: python manage.py run_telegram_bot
+    volumes:
+      - logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      # Migrations belong to the web service only — running them from two
+      # containers at once races on the same database.
+      RUN_MIGRATIONS: 0
+      COLLECTSTATIC_ON_START: 0
+      DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-90}
+    networks:
+      - sat_makon_network
+    depends_on:
+      - web
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    container_name: makonbook-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_files:/app/staticfiles:ro
+      - media_files:/app/media:ro
+      - certbot_conf:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    networks:
+      - sat_makon_network
+    depends_on:
+      - web
+    # Reload every 6h so renewed certs are picked up without a restart.
+    command: >
+      /bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'
+
+  certbot:
+    image: certbot/certbot
+    restart: always
+    container_name: makonbook-certbot
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    # Attempt renewal every 12h; certbot no-ops until a cert is within its renewal window.
+    entrypoint: >
+      /bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done'
+
+volumes:
+  redis_data:
+  static_files:
+  media_files:
+  logs:
+  certbot_conf:
+  certbot_webroot:
+
+networks:
+  sat_makon_network:
+    external: true

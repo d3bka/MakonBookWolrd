@@ -1,0 +1,59 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Ranking · MakonBook{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/makon-ratings-v523.css' %}?v=523">{% endblock %}
+{% block content %}
+<div class="v523-page rating523-student">
+  <section class="rating523-hero v523-reveal">
+    <div>
+      <span class="v523-kicker"><i class="bi bi-trophy"></i> Ranking</span>
+      <h1>Teacher rating is one signal.<br>Your progress is bigger than one number.</h1>
+      <p>Your monthly rating is built from teacher assessments. SAT score, vocabulary mastery and weak topics stay on the separate Progress page.</p>
+      <div class="rating523-actions">
+        <a class="mb50-primary-btn" href="{% url 'student_progress_root' %}"><i class="bi bi-graph-up-arrow"></i> Open Progress</a>
+      </div>
+    </div>
+    <div class="rating523-ring" aria-label="Current ranking">
+      <span>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</span>
+      <small>{% if entry %}{{ entry.rating }} pts{% else %}No rating yet{% endif %}</small>
+    </div>
+  </section>
+
+  <section class="rating523-stat-grid v523-reveal" style="--reveal-index:1">
+    <article><span>Rank</span><strong>{% if entry and entry.eligible %}#{{ entry.rank }}{% else %}—{% endif %}</strong><small>{% if entry and not entry.eligible %}Needs more assessments{% else %}Current board position{% endif %}</small></article>
+    <article><span>Rating</span><strong>{% if entry %}{{ entry.rating }}{% else %}—{% endif %}</strong><small>Teacher-assessed points</small></article>
+    <article><span>Assessments</span><strong>{% if entry %}{{ entry.assessment_count }}{% else %}0{% endif %}</strong><small>Saved evaluations</small></article>
+    <article><span>Classrooms</span><strong>{% if entry %}{{ entry.streams|length }}{% else %}0{% endif %}</strong><small>Rating streams</small></article>
+  </section>
+
+  <section class="rating523-grid">
+    <article class="rating523-card rating523-streams v523-reveal" style="--reveal-index:2">
+      <div class="rating523-card-head"><div><span class="v523-card-label">Classroom streams</span><h2>Where your rating comes from</h2></div></div>
+      <div class="rating523-stream-list">
+        {% if entry %}{% for stream in entry.streams %}
+          <div class="rating523-stream">
+            <span><strong>{{ stream.classroom_name }}</strong><small>{{ stream.assessment_count }} assessment{{ stream.assessment_count|pluralize }}{% if not stream.qualifies %} · needs more data{% endif %}</small></span>
+            <b>{{ stream.rating }}</b>
+          </div>
+        {% empty %}<div class="rating523-empty">No classroom rating streams yet.</div>{% endfor %}{% else %}<div class="rating523-empty">No classroom rating streams yet.</div>{% endif %}
+      </div>
+    </article>
+
+
+    <article class="rating523-card rating523-history v523-reveal" style="--reveal-index:4">
+      <div class="rating523-card-head"><div><span class="v523-card-label">Assessment history</span><h2>Recent teacher evaluations</h2></div><span class="rating523-count">{{ history|length }} shown</span></div>
+      {% if history %}
+      <div class="rating523-history-list">
+        {% for item in history %}
+        <div class="rating523-history-row">
+          <time>{{ item.assessed_at|date:"d M" }}<small>{{ item.assessed_at|date:"Y" }}</small></time>
+          <span><strong>{{ item.classroom.name }}</strong><small>{{ item.teacher.get_full_name|default:item.teacher.username }}</small></span>
+          <b>{{ item.mean_score|floatformat:2 }}</b>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="rating523-empty">No assessment history yet. This page will fill automatically after a teacher rates your classroom performance.</div>{% endif %}
+    </article>
+  </section>
+</div>
+{% endblock %}
