@@ -10,6 +10,7 @@ from apps.ratings import views as rating_views
 from apps.ratings import assessment_management as rating_manager_views
 from apps.integrations.hollihop.attendance_insights import manager_attendance_insights
 from apps.base.views_season import seasonal_theme_settings
+from apps.gamification import views as room_views
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -143,6 +144,8 @@ urlpatterns = [
     path('homework/<int:assignment_id>/vocabulary-quiz/result/', sat_views.student_homework_vocab_quiz_result, name='student_homework_vocab_quiz_result_root'),
     path('homework/submit-attempt/', sat_views.student_homework_submit_attempt, name='student_homework_submit_attempt_root'),
     path('progress/', sat_views.student_progress, name='student_progress_root'),
+    path('room/', room_views.makon_room, name='makon_room'),
+    path('room/equip/', room_views.makon_room_equip, name='makon_room_equip'),
     path('messages/', sat_views.student_messages, name='student_messages_root'),
     path('messages/stickers/upload/', sat_views.student_chat_sticker_upload, name='student_chat_sticker_upload_root'),
     path('messages/sticker-packs/create/', sat_views.student_chat_sticker_pack_create, name='student_chat_sticker_pack_create_root'),

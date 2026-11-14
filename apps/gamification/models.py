@@ -114,3 +114,20 @@ class UserAchievement(models.Model):
 
     def __str__(self):
         return f"{self.user.username} · {self.title}"
+
+
+class RoomLayout(models.Model):
+    """V50.6 MakonRoom: which cosmetic item a student placed in each room slot.
+
+    Purely cosmetic. ``slots`` maps slot -> item code (validated against
+    apps.gamification.room on read and write); ``seen`` lists unlocked items the
+    student has already been shown, so new unlocks can be highlighted once.
+    """
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="makon_room")
+    slots = models.JSONField(default=dict, blank=True)
+    seen = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"MakonRoom · {self.user.username}"

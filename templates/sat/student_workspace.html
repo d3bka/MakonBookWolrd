@@ -53,6 +53,7 @@
         <a class="mb50-nav-item{% if student_workspace_active == 'practice' %} is-active{% endif %}" href="{% url 'student_practice_root' %}" data-nav-key="practice" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-lightning-charge"></i><span>Practice</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'homework' %} is-active{% endif %}" href="{% url 'student_homework_root' %}" data-nav-key="homework" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-list-check"></i><span>Homework</span>{% if student_homework_pending_count %}<b class="mb554-homework-badge" title="{{ student_homework_pending_count }} homework assignment{{ student_homework_pending_count|pluralize }} to submit"><i class="bi bi-exclamation"></i><span>{{ student_homework_pending_count }}</span></b>{% endif %}</a>
         <a class="mb50-nav-item{% if student_workspace_active == 'tests' %} is-active{% endif %}" href="{% url 'practice_tests_root' %}" data-nav-key="tests" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-clipboard2-check"></i><span>Tests</span></a>
+        <a class="mb50-nav-item{% if student_workspace_active == 'room' %} is-active{% endif %}" href="{% url 'makon_room' %}" data-nav-key="room" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-house-heart"></i><span>MakonRoom</span></a>
         {% if makonbook_world_enabled %}
         <a class="mb50-nav-item mb50-world-link{% if student_workspace_active == 'world' %} is-active{% endif %}" href="{% url 'world_home' %}" data-nav-key="world" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-globe2"></i><span>MakonBook World</span><em>V50.3</em></a>
         {% else %}
@@ -102,7 +103,7 @@
     </div>
   </aside>
 
-  <div class="mb50-workspace">{% include 'base/seasons/_layer.html' %}{% if student_workspace_active != 'home' %}{% include 'base/mascot/_companion.html' %}{% endif %}
+  <div class="mb50-workspace">{% include 'base/seasons/_layer.html' %}{% if student_workspace_active != 'home' and student_workspace_active != 'room' %}{% include 'base/mascot/_companion.html' %}{% endif %}
     <header class="mb50-mobile-head">
       <button class="mb50-mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false" data-workspace-mobile-open><i class="bi bi-list"></i></button>
       <a class="mb50-mobile-brand" href="{% url 'student_dashboard_root' %}"><img src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt=""><strong>MakonBook</strong></a>

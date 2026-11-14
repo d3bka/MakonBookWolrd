@@ -209,6 +209,14 @@
     }
   }
 
+  // any other panda wrapped in [data-panda-poke] (e.g. MakonRoom) reacts to pokes too
+  const pandaOf = (svg) => pandas.find((p) => p.svg === svg);
+  document.querySelectorAll('[data-panda-poke]').forEach((btn) => {
+    const p = pandaOf(btn.querySelector('[data-panda]'));
+    if (p) pokeable(p, btn, null);
+  });
+  window.MakonPanda = { of: pandaOf };
+
   // ------------------------------------------------------------------ corner companion
   const companion = document.querySelector('[data-mako-companion]');
   if (!companion) return;

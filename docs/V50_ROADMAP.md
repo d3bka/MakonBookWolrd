@@ -109,7 +109,7 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
 
 ## Status (2026-11-14)
 - V50.1–V50.4 are live in the V64–V68 releases (student shell, gamification, World 1v1 Quick/Ranked, multiplayer FFA/2v2/Survival/Classroom).
-- V50.5 Mako: first iteration shipped (below). V50.6 MakonRoom and V50.7 Friends + World Events are next.
+- V50.5 Mako: first iteration shipped (below). V50.6 MakonRoom shipped in V71 (below). V50.7 Friends + World Events is next.
 
 ## V50.5.1 — Mako companion (first iteration)
 - `apps/gamification/mako.py`: `mako_state()` is a pure, rule-based function over the Home context the view already builds — no extra queries, no writes, no AI/LLM, no invented scores or predictions.
@@ -142,3 +142,17 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
   He reacts to dark/light, toasts and the connection. He can be tucked away.
 - Home: the Mako card is gone (in saved widget layouts it sank to the bottom). Mako now greets from the
   header next to "Welcome back": a speech bubble with his daily line and next step; pressing him cycles the steps.
+
+## V50.6 — MakonRoom (V71, 2026-11-15)
+- `/room/` (student sidebar → MakonRoom): Mako's study room, an SVG scene with six slots: wallpaper, wall art,
+  rug, furniture, light and plant. Each slot has a free starter and 2–3 Uzbek-flavoured unlocks: atlas ikat, girih
+  tiles, suzani, Registan print, Bukhara gilam, tapchan with choynak, chiroq lantern, tulips, pomegranate tree…
+- Unlocks come only from existing progress (XP, level, best streak, mastered words, completed quests). Items are
+  cosmetic; nothing touches SAT/AP scoring (guardrail 2).
+- `apps/gamification/room.py` holds the catalog and rules; `RoomLayout` stores the student's choice. The server
+  accepts only unlocked items and falls back to the starter if a saved item is invalid.
+- Every achievement is a trophy on the shelf; locked ones are silhouettes. New unlocks are announced once with a
+  celebration.
+- The window shows the current season; in dark mode the room dims and its lamps glow. Mako sits in the room,
+  reacts to choices and pokes, and the corner companion is hidden on this page.
+- Tests: `apps/gamification/test_makon_room_v506.py`.

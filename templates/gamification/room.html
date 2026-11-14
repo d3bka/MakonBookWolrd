@@ -1,0 +1,72 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}MakonRoom · MakonBook{% endblock page_title %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/makon-room-v506.css' %}?v=5060">{% endblock student_workspace_style %}
+{% block content %}
+<div class="mr-page" data-room data-equip-url="{% url 'makon_room_equip' %}"{% if room_new_items %} data-room-new="{% for i in room_new_items %}{{ i.name }}{% if not forloop.last %}|{% endif %}{% endfor %}"{% endif %}>
+  {% csrf_token %}
+  <div class="mr-head">
+    <div>
+      <span class="mr-kicker"><i class="bi bi-house-heart"></i> MakonRoom</span>
+      <h1>Your study room</h1>
+      <p>Everything here is earned by learning — levels, streaks, words and quests unlock new things for Mako's room. It's all cosmetic: your SAT scores are never touched.</p>
+    </div>
+    <dl class="mr-stats">
+      <div><dt>Level</dt><dd>{{ room_level }}</dd></div>
+      <div><dt>Items</dt><dd>{{ room_items_unlocked }}<small>/{{ room_items_total }}</small></dd></div>
+      <div><dt>Trophies</dt><dd>{{ room_trophies_earned }}<small>/{{ room_trophies|length }}</small></dd></div>
+    </dl>
+  </div>
+
+  {% if room_new_items %}
+  <div class="mr-new" role="status"><i class="bi bi-gift"></i><span><strong>New for your room:</strong> {% for i in room_new_items %}{{ i.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.</span></div>
+  {% endif %}
+
+  <div class="mr-layout">
+    <section class="mr-stage" aria-label="Room preview">
+      <div class="mr-room-wrap">
+        {% include 'gamification/_room_scene.html' %}
+        <button type="button" class="mr-mako" data-panda-poke aria-label="Mako the panda">{% include 'base/mascot/_panda.html' with pid='r' %}</button>
+        <div class="mr-toast" data-room-toast role="status" aria-live="polite"></div>
+      </div>
+      <div class="mr-trophies">
+        <h2><i class="bi bi-trophy"></i> Trophy shelf</h2>
+        <ul>
+          {% for t in room_trophies %}<li class="{% if t.earned %}is-earned{% else %}is-locked{% endif %}" title="{{ t.description }}"><i class="bi {% if t.earned %}bi-trophy-fill{% else %}bi-lock{% endif %}" aria-hidden="true"></i><span>{{ t.title }}</span>{% if t.earned %}<small>{{ t.earned_at|date:"j M" }}</small>{% endif %}</li>{% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <aside class="mr-panel" aria-label="Customize your room">
+      <div class="mr-tabs" role="tablist">
+        {% for slot in room_slots %}
+        <button type="button" role="tab" class="mr-tab{% if forloop.first %} is-active{% endif %}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="mr-slot-{{ slot.key }}" data-room-tab="{{ slot.key }}">
+          <i class="bi {{ slot.icon }}" aria-hidden="true"></i><span>{{ slot.label }}</span><small>{{ slot.unlocked }}/{{ slot.items|length }}</small>
+        </button>
+        {% endfor %}
+      </div>
+      {% for slot in room_slots %}
+      <div class="mr-items" role="tabpanel" id="mr-slot-{{ slot.key }}" data-room-panel="{{ slot.key }}"{% if not forloop.first %} hidden{% endif %}>
+        {% for item in slot.items %}
+        <button type="button" class="mr-item{% if item.equipped %} is-equipped{% endif %}{% if not item.unlocked %} is-locked{% endif %}{% if item.is_new %} is-new{% endif %}"
+                data-room-pick="{{ item.code }}" data-room-slot="{{ slot.key }}" data-unlocked="{{ item.unlocked|yesno:'1,0' }}"
+                data-requirement="{{ item.requirement|default:'' }}" aria-pressed="{{ item.equipped|yesno:'true,false' }}">
+          <svg class="mr-thumb" viewBox="{{ slot.viewbox }}" aria-hidden="true" focusable="false"><use href="#ri-{{ item.code }}"/></svg>
+          <span class="mr-item-copy">
+            <strong>{{ item.name }}{% if item.is_new %} <em>New</em>{% endif %}</strong>
+            <small>{{ item.blurb }}</small>
+            {% if not item.unlocked %}
+            <span class="mr-lock"><i class="bi bi-lock-fill" aria-hidden="true"></i> {{ item.requirement }} · {{ item.progress }}/{{ item.target }}</span>
+            <span class="mr-bar"><i style="width:{{ item.percent }}%"></i></span>
+            {% endif %}
+          </span>
+          <span class="mr-state" aria-hidden="true">{% if item.equipped %}<i class="bi bi-check-circle-fill"></i>{% elif not item.unlocked %}<i class="bi bi-lock"></i>{% endif %}</span>
+        </button>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </aside>
+  </div>
+</div>
+{% endblock content %}
+{% block scripts %}{{ block.super }}<script src="{% static 'assets/js/makon-room-v506.js' %}?v=5060" defer></script>{% endblock scripts %}
