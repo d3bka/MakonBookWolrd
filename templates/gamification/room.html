@@ -1,28 +1,42 @@
 {% extends 'sat/student_workspace.html' %}
 {% load static %}
-{% block page_title %}MakonRoom · MakonBook{% endblock page_title %}
-{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/makon-room-v506.css' %}?v=5060">{% endblock student_workspace_style %}
+{% block page_title %}{% if room_readonly %}{{ room_owner.name }}'s room{% else %}MakonRoom{% endif %} · MakonBook{% endblock page_title %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/makon-room-v506.css' %}?v=5070">{% if room_readonly %}<link rel="stylesheet" href="{% static 'assets/css/friends-v507.css' %}?v=5071">{% endif %}{% endblock student_workspace_style %}
 {% block content %}
-<div class="mr-page" data-room data-equip-url="{% url 'makon_room_equip' %}"{% if room_new_items %} data-room-new="{% for i in room_new_items %}{{ i.name }}{% if not forloop.last %}|{% endif %}{% endfor %}"{% endif %}>
+<div class="mr-page" data-room{% if room_readonly %} data-room-readonly{% else %} data-equip-url="{% url 'makon_room_equip' %}"{% endif %}{% if room_new_items %} data-room-new="{% for i in room_new_items %}{{ i.name }}{% if not forloop.last %}|{% endif %}{% endfor %}"{% endif %}>
   {% csrf_token %}
   <div class="mr-head">
+    {% if room_readonly %}
+    <div class="mr-visit">
+      <span class="fr-avatar" data-tone="a">{{ room_owner.initials }}</span>
+      <div>
+        <a class="mr-kicker" href="{% url 'friends' %}"><i class="bi bi-arrow-left"></i> Friends</a>
+        <h1>{{ room_owner.name }}'s room</h1>
+        <p>You're visiting. Every item and trophy here was earned by learning.</p>
+      </div>
+    </div>
+    {% else %}
     <div>
       <span class="mr-kicker"><i class="bi bi-house-heart"></i> MakonRoom</span>
       <h1>Your study room</h1>
       <p>Everything here is earned by learning — levels, streaks, words and quests unlock new things for Mako's room. It's all cosmetic: your SAT scores are never touched.</p>
     </div>
+    {% endif %}
     <dl class="mr-stats">
       <div><dt>Level</dt><dd>{{ room_level }}</dd></div>
       <div><dt>Items</dt><dd>{{ room_items_unlocked }}<small>/{{ room_items_total }}</small></dd></div>
       <div><dt>Trophies</dt><dd>{{ room_trophies_earned }}<small>/{{ room_trophies|length }}</small></dd></div>
     </dl>
+    {% if room_readonly and world_enabled %}
+    <form method="post" action="{% url 'world_challenge_friend' room_owner.username %}" class="fr-duel">{% csrf_token %}<select name="subject" aria-label="Duel subject"><option value="math">Math</option><option value="rw">R&amp;W</option></select><button type="submit" class="fr-btn fr-btn-primary"><i class="bi bi-lightning-charge-fill"></i> Challenge to a duel</button></form>
+    {% endif %}
   </div>
 
   {% if room_new_items %}
   <div class="mr-new" role="status"><i class="bi bi-gift"></i><span><strong>New for your room:</strong> {% for i in room_new_items %}{{ i.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.</span></div>
   {% endif %}
 
-  <div class="mr-layout">
+  <div class="mr-layout{% if room_readonly %} is-readonly{% endif %}">
     <section class="mr-stage" aria-label="Room preview">
       <div class="mr-room-wrap">
         {% include 'gamification/_room_scene.html' %}
@@ -37,6 +51,7 @@
       </div>
     </section>
 
+    {% if not room_readonly %}
     <aside class="mr-panel" aria-label="Customize your room">
       <div class="mr-tabs" role="tablist">
         {% for slot in room_slots %}
@@ -66,6 +81,7 @@
       </div>
       {% endfor %}
     </aside>
+    {% endif %}
   </div>
 </div>
 {% endblock content %}

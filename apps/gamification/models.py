@@ -12,6 +12,8 @@ class GamificationProfile(models.Model):
     best_streak = models.PositiveIntegerField(default=0)
     last_active_date = models.DateField(blank=True, null=True)
     bootstrap_version = models.PositiveSmallIntegerField(default=0)
+    # V50.7: short shareable code friends use to find each other (no public user search).
+    friend_code = models.CharField(max_length=9, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -131,3 +133,29 @@ class RoomLayout(models.Model):
 
     def __str__(self):
         return f"MakonRoom · {self.user.username}"
+
+
+class Friendship(models.Model):
+    """V50.7: a friend request; ``accepted`` rows are friendships (one row per pair)."""
+
+    STATUS_PENDING = "pending"
+    STATUS_ACCEPTED = "accepted"
+    STATUS_CHOICES = ((STATUS_PENDING, "Pending"), (STATUS_ACCEPTED, "Accepted"))
+
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="friend_requests_sent")
+    to_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="friend_requests_received")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["from_user", "to_user"], name="gamification_unique_friend_request"),
+            models.CheckConstraint(condition=~models.Q(from_user=models.F("to_user")), name="gamification_no_self_friend"),
+        ]
+
+    def other(self, user):
+        return self.to_user if self.from_user_id == user.id else self.from_user
+
+    def __str__(self):
+        return f"{self.from_user.username} -> {self.to_user.username} ({self.status})"

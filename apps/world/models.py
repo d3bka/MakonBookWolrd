@@ -442,3 +442,51 @@ class WorldMultiplayerAnswer(models.Model):
             models.UniqueConstraint(fields=["room", "user", "question_index"], name="world_mp_unique_room_user_question"),
         ]
         ordering = ["question_index", "answered_at"]
+
+
+class WorldEvent(models.Model):
+    """V50.7: a time-boxed World event, created by staff in the admin.
+
+    * cooperative — every player adds to one shared goal; when it is reached,
+      everyone who took part earns the reward.
+    * competition — a seasonal leaderboard; the top N earn the reward.
+
+    Progress is read from completed 1v1 matches inside the window (see
+    apps.world.events); rewards are XP only and are paid once (idempotent).
+    """
+
+    KIND_COOP = "coop"
+    KIND_COMPETITION = "competition"
+    KIND_CHOICES = ((KIND_COOP, "Cooperative goal"), (KIND_COMPETITION, "Seasonal competition"))
+
+    METRIC_WINS = "wins"
+    METRIC_MATCHES = "matches"
+    METRIC_POINTS = "points"
+    METRIC_CHOICES = ((METRIC_WINS, "Wins"), (METRIC_MATCHES, "Matches played"), (METRIC_POINTS, "Points scored"))
+
+    SUBJECT_ANY = ""
+    SUBJECT_CHOICES = ((SUBJECT_ANY, "Any subject"),) + tuple(WorldRating.SUBJECT_CHOICES)
+
+    SEASON_CHOICES = (("", "—"), ("winter", "Winter"), ("spring", "Spring"), ("summer", "Summer"), ("autumn", "Autumn"))
+
+    title = models.CharField(max_length=120)
+    description = models.CharField(max_length=300, blank=True)
+    kind = models.CharField(max_length=12, choices=KIND_CHOICES, default=KIND_COMPETITION)
+    metric = models.CharField(max_length=10, choices=METRIC_CHOICES, default=METRIC_WINS)
+    subject = models.CharField(max_length=8, choices=SUBJECT_CHOICES, blank=True, default=SUBJECT_ANY)
+    goal = models.PositiveIntegerField(default=0, help_text="Cooperative events: the shared target.")
+    top_rewarded = models.PositiveSmallIntegerField(default=10, help_text="Competitions: how many top players are rewarded.")
+    reward_xp = models.PositiveSmallIntegerField(default=50)
+    season = models.CharField(max_length=8, choices=SEASON_CHOICES, blank=True, default="")
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    is_published = models.BooleanField(default=True)
+    settled_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-starts_at"]
+        constraints = [models.CheckConstraint(condition=models.Q(ends_at__gt=models.F("starts_at")), name="world_event_ends_after_start")]
+
+    def __str__(self):
+        return self.title

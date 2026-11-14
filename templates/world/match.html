@@ -13,8 +13,13 @@
   {% if match.status == 'waiting' %}
   <section class="mw503-wait-room">
     <span class="mw503-radar" data-world-radar><i></i><b></b><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em></span>
+    {% if match.invitee and not match.rematch_of_id %}
+    <small>FRIEND CHALLENGE</small><h1>Waiting for {{ match.invitee.get_full_name|default:match.invitee.username }}</h1><p>Your friend has 5 minutes to accept. Keep this tab open — the duel starts automatically. Friend duels are unranked.</p>
+    <form method="post" action="{% url 'world_queue_cancel' match.id %}" data-world-cancel-form>{% csrf_token %}<button type="submit">Cancel challenge</button></form>
+    {% else %}
     <small>QUEUE ACTIVE</small><h1>Waiting for an opponent</h1><p>Keep this tab open. The room starts automatically when another player joins.</p>
     <form method="post" action="{% url 'world_queue_cancel' match.id %}" data-world-cancel-form>{% csrf_token %}<button type="submit">Cancel queue</button></form>
+    {% endif %}
   </section>
   {% elif match.status == 'active' %}
   {% if opponent %}

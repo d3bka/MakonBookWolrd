@@ -1,0 +1,34 @@
+{% with e=card.event %}
+<article class="we-card is-{{ card.phase }}{% if e.season %} season-{{ e.season }}{% endif %}">
+  <header class="we-card-head">
+    <span class="we-badge">{% if e.kind == 'coop' %}<i class="bi bi-people-fill"></i> Cooperative{% else %}<i class="bi bi-trophy-fill"></i> Competition{% endif %}</span>
+    <span class="we-when">{% if card.phase == 'live' %}Ends {{ e.ends_at|timeuntil }} from now{% elif card.phase == 'upcoming' %}Starts in {{ e.starts_at|timeuntil }}{% else %}Ended {{ e.ends_at|date:"j M" }}{% endif %}</span>
+  </header>
+  <h3>{{ e.title }}</h3>
+  {% if e.description %}<p class="we-desc">{{ e.description }}</p>{% endif %}
+  <ul class="we-meta">
+    <li><i class="bi bi-bullseye"></i> {{ e.get_metric_display }}{% if e.subject %} · {{ e.get_subject_display }}{% endif %}</li>
+    <li><i class="bi bi-stars"></i> +{{ e.reward_xp }} XP {% if e.kind == 'coop' %}for everyone who joins{% else %}for the top {{ e.top_rewarded }}{% endif %}</li>
+    <li><i class="bi bi-person"></i> {{ card.players }} player{{ card.players|pluralize }}</li>
+  </ul>
+
+  {% if e.kind == 'coop' %}
+  <div class="we-goal">
+    <div class="we-goal-line"><strong>{{ card.total }}</strong><span>/ {{ e.goal }} {{ e.get_metric_display|lower }}</span>{% if card.goal_reached %}<em><i class="bi bi-check-circle-fill"></i> Goal reached</em>{% endif %}</div>
+    <div class="we-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ card.percent|default:0 }}"><i style="width:{{ card.percent|default:0 }}%"></i></div>
+    <small>Your share: <b>{{ card.my_value }}</b></small>
+  </div>
+  {% else %}
+  <div class="we-me{% if card.in_reward_zone %} is-rewarded{% endif %}">
+    {% if card.my_rank %}<span>You're <b>#{{ card.my_rank }}</b> with {{ card.my_value }}</span>{% if card.in_reward_zone %}<em><i class="bi bi-gift"></i> in the reward zone</em>{% endif %}
+    {% else %}<span>{% if card.phase == 'ended' %}You didn't play in this one.{% else %}Play a match to enter the standings.{% endif %}</span>{% endif %}
+  </div>
+  {% if card.leaderboard %}
+  <ol class="we-board">
+    {% for row in card.leaderboard %}<li class="{% if row.is_me %}is-me{% endif %}{% if row.rank <= 3 %} is-podium{% endif %}"><span class="we-rank">{{ row.rank }}</span><span class="we-name">{{ row.name }}{% if row.is_me %} (you){% endif %}</span><b>{{ row.value }}</b></li>{% endfor %}
+  </ol>
+  {% endif %}
+  {% endif %}
+  {% if card.phase == 'ended' and e.settled_at %}<p class="we-settled"><i class="bi bi-check2-all"></i> Rewards paid</p>{% endif %}
+</article>
+{% endwith %}

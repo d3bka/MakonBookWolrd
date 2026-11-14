@@ -17,14 +17,20 @@ from apps.gamification.services import level_snapshot
 from apps.sat.models import MakonNotification
 from apps.sat.student_workspace import should_use_student_workspace
 
+from django.contrib import messages
+
+from .events import PAIR_DAILY_CAP, events_for
 from .models import WorldMatch, WorldRating, WorldMultiplayerRoom, WorldMultiplayerSeat
 from .services import (
     QUEUE_MAX_SECONDS,
+    waiting_limit_seconds,
     active_match_for_user,
     accept_rematch_invite,
     answered_counts,
     cancel_waiting_match,
     create_rematch_invite,
+    create_friend_challenge,
+    is_friend_challenge,
     decline_rematch_invite,
     expire_waiting_match,
     ensure_ratings,
@@ -264,7 +270,7 @@ def world_queue_status(request, match_id):
         "opponent_score": match.score_for(opponent) if opponent else 0,
         "completed": match.status == WorldMatch.STATUS_COMPLETED,
         "queue_timed_out": queue_timed_out,
-        "queue_limit_seconds": QUEUE_MAX_SECONDS,
+        "queue_limit_seconds": waiting_limit_seconds(match),
         "queue_seconds_remaining": queue_seconds_remaining(match),
         "my_answered_count": my_answered_count,
         "opponent_answered_count": opponent_answered_count,
@@ -506,7 +512,8 @@ def world_rematch_incoming(request):
             "rating": rating.rating,
             "tier": rating.tier,
             "subject": invite.get_subject_display(),
-            "mode": invite.get_mode_display(),
+            "mode": "Unranked" if is_friend_challenge(invite) else invite.get_mode_display(),
+            "friend_challenge": is_friend_challenge(invite),
             "seconds_remaining": queue_seconds_remaining(invite),
             "accept_url": reverse("world_rematch_accept", args=[invite.id]),
             "decline_url": reverse("world_rematch_decline", args=[invite.id]),
@@ -1048,3 +1055,47 @@ def world_multiplayer_answer(request, room_id):
         "play_url": reverse("world_multiplayer_play", args=[updated.id]),
     })
     return JsonResponse(payload)
+
+
+
+# ---------------------------------------------------------------- V50.7 friends + events
+
+@login_required(login_url="/login/")
+@require_POST
+def world_challenge_friend(request, username):
+    """Challenge a friend to an unranked duel; the challenger waits in the match room."""
+    if not _student_only(request):
+        return redirect("student_dashboard_root")
+    friend = get_object_or_404(User, username=username)
+    subject = request.POST.get("subject") or WorldRating.SUBJECT_MATH
+    try:
+        match, created = create_friend_challenge(request.user, friend, subject=subject)
+    except (ValueError, RuntimeError) as exc:  # RuntimeError: question pool not ready yet
+        messages.error(request, str(exc))
+        return redirect("friends")
+    if created:
+        name = request.user.get_full_name().strip() or request.user.username
+        MakonNotification.objects.create(
+            user=friend,
+            type=MakonNotification.TYPE_SOCIAL,
+            title=f"{name} challenged you to a duel",
+            message=f"{match.get_subject_display()} · unranked · {match.total_questions or 5} questions. Accept within 5 minutes.",
+            url=reverse("world_rematch_offer", args=[match.id]),
+        )
+    return redirect("world_match", match.id)
+
+
+@login_required(login_url="/login/")
+def world_events(request):
+    if not _student_only(request):
+        return redirect("student_dashboard_root")
+    context = _world_context(request.user)
+    groups = events_for(request.user)
+    context.update({
+        "world_active": "events",
+        "world_events_live": groups["live"],
+        "world_events_upcoming": groups["upcoming"],
+        "world_events_ended": groups["ended"],
+        "world_events_pair_cap": PAIR_DAILY_CAP,
+    })
+    return render(request, "world/events.html", context)

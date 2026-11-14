@@ -1,0 +1,34 @@
+{% extends 'world/base.html' %}
+{% load static %}
+{% block student_workspace_style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/world-events-v507.css' %}?v=5070">{% endblock student_workspace_style %}
+{% block world_content %}
+<div class="we-page">
+  <div class="we-head">
+    <div>
+      <span class="we-kicker"><i class="bi bi-calendar-event"></i> World events</span>
+      <h1>Play together, climb together</h1>
+      <p>Cooperative goals count every player's games; seasonal cups crown the top players. Only 1v1 matches count, and at most {{ world_events_pair_cap }} games a day between the same two players.</p>
+    </div>
+  </div>
+
+
+  {% if world_events_live %}
+  <h2 class="we-section"><i class="bi bi-broadcast"></i> Live now</h2>
+  <div class="we-grid">{% for card in world_events_live %}{% include 'world/_event_card.html' %}{% endfor %}</div>
+  {% endif %}
+
+  {% if world_events_upcoming %}
+  <h2 class="we-section"><i class="bi bi-hourglass-split"></i> Coming up</h2>
+  <div class="we-grid">{% for card in world_events_upcoming %}{% include 'world/_event_card.html' %}{% endfor %}</div>
+  {% endif %}
+
+  {% if world_events_ended %}
+  <h2 class="we-section"><i class="bi bi-flag"></i> Finished</h2>
+  <div class="we-grid">{% for card in world_events_ended %}{% include 'world/_event_card.html' %}{% endfor %}</div>
+  {% endif %}
+
+  {% if not world_events_live and not world_events_upcoming and not world_events_ended %}
+  <div class="we-empty"><i class="bi bi-calendar2-heart"></i><strong>No events right now</strong><p>New cooperative goals and seasonal cups appear here. Play a few matches and be ready.</p></div>
+  {% endif %}
+</div>
+{% endblock world_content %}

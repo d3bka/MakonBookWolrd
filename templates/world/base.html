@@ -25,6 +25,7 @@
     <nav class="mw503-world-tabs" aria-label="World navigation">
       <a class="{% if world_active == 'play' or world_active == 'multiplayer' %}is-active{% endif %}" href="{% url 'world_home' %}"><i class="bi bi-lightning-charge-fill"></i><span>Play</span></a>
       <a class="{% if world_active == 'ranks' %}is-active{% endif %}" href="{% url 'world_leaderboard' %}"><i class="bi bi-bar-chart-fill"></i><span>Leaderboard</span></a>
+      <a class="{% if world_active == 'events' %}is-active{% endif %}" href="{% url 'world_events' %}"><i class="bi bi-calendar-event-fill"></i><span>Events</span></a>
     </nav>
     {% endif %}
     <span class="mw503-worldbar-security"><i class="bi bi-shield-check"></i> Server scored</span>
@@ -35,7 +36,7 @@
   <aside class="mw503-rematch-popover" data-world-rematch-popover hidden aria-live="polite">
     <div class="mw503-rematch-popover-head">
       <span class="mw503-rematch-popover-icon"><i class="bi bi-arrow-repeat"></i></span>
-      <div><small>REMATCH REQUEST</small><strong data-rematch-requester>Opponent</strong></div>
+      <div><small data-rematch-kind>REMATCH REQUEST</small><strong data-rematch-requester>Opponent</strong></div>
       <button type="button" data-world-rematch-popover-close aria-label="Dismiss"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="mw503-rematch-popover-player">
@@ -43,7 +44,7 @@
       <div><b data-rematch-rating>1000</b><span data-rematch-tier>BRONZE</span></div>
       <em data-rematch-format>Math · Quick Match</em>
     </div>
-    <p><span data-rematch-requester-copy>Opponent</span> wants another game with the same settings.</p>
+    <p><span data-rematch-requester-copy>Opponent</span> <span data-rematch-copy>wants another game with the same settings.</span></p>
     <div class="mw503-rematch-popover-actions">
       <button type="button" class="is-decline" data-world-rematch-popover-decline>Decline</button>
       <button type="button" class="is-accept" data-world-rematch-popover-accept><i class="bi bi-check-lg"></i> Accept rematch</button>
@@ -57,6 +58,6 @@
   {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
-  <script src="{% static 'assets/js/world-v503.js' %}?v=504182"></script>
+  <script src="{% static 'assets/js/world-v503.js' %}?v=5070"></script>
   <script src="{% static 'assets/js/world-multiplayer-v504.js' %}?v=504182"></script>
 {% endblock student_workspace_scripts %}

@@ -822,6 +822,8 @@
       set('[data-rematch-rating]',String(invite.rating||1000));
       set('[data-rematch-tier]',String(invite.tier||'BRONZE').toUpperCase());
       set('[data-rematch-format]',`${invite.subject} · ${invite.mode}`);
+      set('[data-rematch-kind]',invite.friend_challenge?'FRIEND CHALLENGE':'REMATCH REQUEST');
+      set('[data-rematch-copy]',invite.friend_challenge?'challenges you to an unranked duel.':'wants another game with the same settings.');
       const profile=qs('[data-rematch-profile]',popover);if(profile)profile.href=invite.profile_url||'#';
       const accept=qs('[data-world-rematch-popover-accept]',popover);if(accept)accept.disabled=false;
       const decline=qs('[data-world-rematch-popover-decline]',popover);if(decline)decline.disabled=false;

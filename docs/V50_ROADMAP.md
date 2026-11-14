@@ -109,7 +109,7 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
 
 ## Status (2026-11-14)
 - V50.1–V50.4 are live in the V64–V68 releases (student shell, gamification, World 1v1 Quick/Ranked, multiplayer FFA/2v2/Survival/Classroom).
-- V50.5 Mako: first iteration shipped (below). V50.6 MakonRoom shipped in V71 (below). V50.7 Friends + World Events is next.
+- V50.5 Mako: first iteration shipped (below). V50.6 MakonRoom shipped in V71, V50.7 Friends + World Events in V72 (below). The V50 roadmap is complete.
 
 ## V50.5.1 — Mako companion (first iteration)
 - `apps/gamification/mako.py`: `mako_state()` is a pure, rule-based function over the Home context the view already builds — no extra queries, no writes, no AI/LLM, no invented scores or predictions.
@@ -156,3 +156,23 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
 - The window shows the current season; in dark mode the room dims and its lamps glow. Mako sits in the room,
   reacts to choices and pokes, and the corner companion is hidden on this page.
 - Tests: `apps/gamification/test_makon_room_v506.py`.
+
+## V50.7 — Friends + World Events (V72, 2026-11-15)
+**Friends (live now, no flag)**: `/friends/`, `apps/gamification/friends.py`, `Friendship`.
+- Each student has a private friend code like `ABCD-2345`. Friends are added by code or from their own
+  classmates. There is no public search over accounts, which protects minors.
+- Requests can be accepted, declined or cancelled. Crossed requests become a friendship. At most 30 requests
+  can wait at once. Notifications go to the bell, and the sidebar badge counts incoming requests.
+- The friend list shows level, streak and trophies. Students can visit a friend's MakonRoom (`/room/<username>/`,
+  friends only, read-only) and see their trophy shelf.
+
+**Behind `MAKONBOOK_WORLD_ENABLED`** (everything appears when World opens; `/world/*` stays 423/redirect until then)
+- Direct challenges: a Duel from the friend list or a friend's room creates a private Quick match. It is
+  unranked, so ratings never move. The friend has 5 minutes to accept, from the bell, from a pop-up on any
+  student page, or from the World pop-up. Crossed challenges start the duel.
+- World Events (`/world/events/`, `WorldEvent` in admin): cooperative goals pay everyone who joins once the
+  shared target is reached; seasonal competitions pay the top N. Only completed 1v1 matches inside the window
+  count, at most 3 games a day per pair, to stop farming. Rewards are XP through the idempotent ledger.
+- Seasonal cups (Qish / Navro'z / Yoz / Kuz Cup) are created automatically. The hourly Celery task
+  `apps.world.tasks.settle_world_events` (or `manage.py settle_world_events`) pays ended events.
+- Tests: `apps/gamification/test_friends_v507.py`, `apps/world/test_social_events_v507.py`.

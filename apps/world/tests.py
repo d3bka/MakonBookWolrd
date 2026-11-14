@@ -424,7 +424,9 @@ class WorldV503Tests(TestCase):
         self.assertNotContains(home, 'mw503-compact-links')
         self.assertNotContains(home, 'mw503-rating-switch')
         self.assertNotContains(home, ">Cups<")
-        self.assertNotContains(home, ">Friends<")
+        # V50.7: Friends shipped as a real student page; the lobby itself still has no placeholder mode.
+        self.assertNotContains(home, "mw503-mode-friends")
+        self.assertContains(home, 'data-nav-key="friends"')
         self.assertContains(ranks, 'data-world-rank-search')
         self.assertContains(ranks, reverse("world_leaderboard_search"))
 

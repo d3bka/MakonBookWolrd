@@ -1,0 +1,7 @@
+{% comment %}V50.7: a friend's duel challenge pops up on any student page while World is open.{% endcomment %}
+<aside class="wc-toast" data-challenge-toast data-incoming-url="{% url 'world_rematch_incoming' %}" hidden role="dialog" aria-live="polite" aria-label="Duel challenge">
+  {% csrf_token %}
+  <span class="wc-avatar" data-challenge-initials>?</span>
+  <div class="wc-copy"><small data-challenge-kind>FRIEND CHALLENGE</small><strong><span data-challenge-name>Friend</span> wants a duel</strong><span data-challenge-format>Math · Unranked</span></div>
+  <div class="wc-actions"><button type="button" class="wc-no" data-challenge-decline>Not now</button><button type="button" class="wc-yes" data-challenge-accept><i class="bi bi-lightning-charge-fill"></i> Accept</button></div>
+</aside>

@@ -67,3 +67,14 @@ class WorldMultiplayerAnswerAdmin(admin.ModelAdmin):
     list_display = ("room", "user", "question_index", "selected_answer", "is_correct", "points", "response_ms", "integrity_flag", "answered_at")
     list_filter = ("is_correct", "integrity_flag", "room__subject")
     search_fields = ("room__join_code", "user__username")
+
+
+from .models import WorldEvent  # noqa: E402
+
+
+@admin.register(WorldEvent)
+class WorldEventAdmin(admin.ModelAdmin):
+    list_display = ("title", "kind", "metric", "subject", "goal", "top_rewarded", "reward_xp", "starts_at", "ends_at", "is_published", "settled_at")
+    list_filter = ("kind", "metric", "season", "is_published")
+    search_fields = ("title",)
+    readonly_fields = ("settled_at", "created_at")

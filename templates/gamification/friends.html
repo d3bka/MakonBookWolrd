@@ -1,0 +1,126 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Friends · MakonBook{% endblock page_title %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/friends-v507.css' %}?v=5071">{% endblock student_workspace_style %}
+{% block content %}
+<div class="fr-page" data-friends>
+  <div class="fr-head">
+    <div>
+      <span class="fr-kicker"><i class="bi bi-people-fill"></i> Friends</span>
+      <h1>Study with friends</h1>
+      <p>Add friends with their code, visit their MakonRoom and see their trophies{% if world_enabled %}, and challenge them to unranked duels in MakonBook World{% endif %}.</p>
+    </div>
+  </div>
+
+  <div class="fr-layout">
+    <aside class="fr-side">
+      <section class="fr-card fr-code-card">
+        <h2><i class="bi bi-qr-code"></i> Your friend code</h2>
+        <button type="button" class="fr-code" data-friend-code="{{ friend_code }}" aria-label="Copy your friend code {{ friend_code }}">
+          <span>{{ friend_code }}</span><i class="bi bi-copy" aria-hidden="true"></i>
+        </button>
+        <p class="fr-hint" data-friend-code-status>Share it only with people you know.</p>
+      </section>
+
+      <section class="fr-card">
+        <h2><i class="bi bi-person-plus"></i> Add a friend</h2>
+        <form method="post" action="{% url 'friends_add' %}" class="fr-add">
+          {% csrf_token %}
+          <label class="visually-hidden" for="friend-code-input">Friend code</label>
+          <input id="friend-code-input" name="code" placeholder="ABCD-2345" maxlength="12" autocomplete="off" required data-friend-code-input>
+          <button type="submit" class="fr-btn fr-btn-primary">Send</button>
+        </form>
+      </section>
+
+      {% if friend_suggestions %}
+      <section class="fr-card">
+        <h2><i class="bi bi-mortarboard"></i> Your classmates</h2>
+        <ul class="fr-list">
+          {% for s in friend_suggestions %}
+          <li class="fr-row">
+            <span class="fr-avatar" data-tone="{{ forloop.counter|divisibleby:2|yesno:'a,b' }}">{{ s.initials }}</span>
+            <span class="fr-row-copy"><strong>{{ s.name }}</strong><small>Level {{ s.level }}</small></span>
+            <form method="post" action="{% url 'friends_add' %}">{% csrf_token %}<input type="hidden" name="suggest" value="{{ s.user.pk }}"><button type="submit" class="fr-btn fr-btn-soft" aria-label="Add {{ s.name }}"><i class="bi bi-person-plus"></i> Add</button></form>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </aside>
+
+    <section class="fr-main">
+      {% if friend_incoming %}
+      <section class="fr-card fr-requests">
+        <h2><i class="bi bi-envelope-heart"></i> Friend requests <b>{{ friend_incoming|length }}</b></h2>
+        <ul class="fr-list">
+          {% for r in friend_incoming %}
+          <li class="fr-row">
+            <span class="fr-avatar" data-tone="a">{{ r.initials }}</span>
+            <span class="fr-row-copy"><strong>{{ r.name }}</strong><small>Level {{ r.level }} · {{ r.trophies }} trophies</small></span>
+            <span class="fr-actions">
+              <form method="post" action="{% url 'friends_respond' r.id 'decline' %}">{% csrf_token %}<button type="submit" class="fr-btn fr-btn-ghost">Decline</button></form>
+              <form method="post" action="{% url 'friends_respond' r.id 'accept' %}">{% csrf_token %}<button type="submit" class="fr-btn fr-btn-primary"><i class="bi bi-check2"></i> Accept</button></form>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      <section class="fr-card">
+        <h2><i class="bi bi-people"></i> Your friends <b>{{ friend_cards|length }}</b></h2>
+        {% if friend_cards %}
+        <div class="fr-grid">
+          {% for f in friend_cards %}
+          <article class="fr-friend">
+            <div class="fr-friend-top">
+              <span class="fr-avatar fr-avatar-lg" data-tone="{{ forloop.counter|divisibleby:2|yesno:'a,b' }}">{{ f.initials }}</span>
+              <div class="fr-friend-copy"><strong>{{ f.name }}</strong><small>@{{ f.username }}</small></div>
+              <form method="post" action="{% url 'friends_remove' f.username %}" data-friend-remove="{{ f.name }}">{% csrf_token %}<button type="submit" class="fr-icon-btn" aria-label="Remove {{ f.name }} from friends" title="Remove friend"><i class="bi bi-person-dash"></i></button></form>
+            </div>
+            <dl class="fr-stats">
+              <div><dt>Level</dt><dd>{{ f.level }}</dd></div>
+              <div><dt>Streak</dt><dd><i class="bi bi-fire"></i> {{ f.streak }}</dd></div>
+              <div><dt>Trophies</dt><dd><i class="bi bi-trophy-fill"></i> {{ f.trophies }}</dd></div>
+            </dl>
+            <div class="fr-friend-actions">
+              <a class="fr-btn fr-btn-soft" href="{% url 'friend_room' f.username %}"><i class="bi bi-house-heart"></i> Visit room</a>
+              {% if world_enabled %}
+              <form method="post" action="{% url 'world_challenge_friend' f.username %}" class="fr-duel">
+                {% csrf_token %}
+                <select name="subject" aria-label="Duel subject"><option value="math">Math</option><option value="rw">R&amp;W</option></select>
+                <button type="submit" class="fr-btn fr-btn-primary"><i class="bi bi-lightning-charge-fill"></i> Duel</button>
+              </form>
+              {% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="fr-empty">
+          <i class="bi bi-people" aria-hidden="true"></i>
+          <strong>No friends yet</strong>
+          <p>Share your code <b>{{ friend_code }}</b> with a classmate, or add someone from your classes.</p>
+        </div>
+        {% endif %}
+      </section>
+
+      {% if friend_outgoing %}
+      <section class="fr-card">
+        <h2><i class="bi bi-hourglass-split"></i> Waiting for an answer</h2>
+        <ul class="fr-list">
+          {% for r in friend_outgoing %}
+          <li class="fr-row">
+            <span class="fr-avatar" data-tone="b">{{ r.initials }}</span>
+            <span class="fr-row-copy"><strong>{{ r.name }}</strong><small>Request sent</small></span>
+            <form method="post" action="{% url 'friends_cancel' r.id %}">{% csrf_token %}<button type="submit" class="fr-btn fr-btn-ghost">Cancel</button></form>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock content %}
+{% block scripts %}{{ block.super }}<script src="{% static 'assets/js/friends-v507.js' %}?v=5070" defer></script>{% endblock scripts %}

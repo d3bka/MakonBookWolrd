@@ -72,6 +72,7 @@
       <div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="explore">
         <span class="mb50-nav-label">Explore</span>
         <a class="mb50-nav-item{% if student_workspace_active == 'messages' %} is-active{% endif %}" href="{% url 'student_messages_root' %}" data-nav-key="messages" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-chat-left-text"></i><span>Messages</span></a>
+        <a class="mb50-nav-item{% if student_workspace_active == 'friends' %} is-active{% endif %}" href="{% url 'friends' %}" data-nav-key="friends" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-people-fill"></i><span>Friends</span>{% with pending=friends_pending_count %}{% if pending %}<b>{{ pending }}</b>{% endif %}{% endwith %}</a>
         <a class="mb50-nav-item{% if student_workspace_active == 'bookings' %} is-active{% endif %}" href="{% url 'my_support_lessons_root' %}" data-nav-key="bookings" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-calendar2-week"></i><span>Support sessions</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'events' %} is-active{% endif %}" href="{% url 'events' %}" data-nav-key="events" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-calendar-event"></i><span>Events</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'placement' %} is-active{% endif %}" href="{% url 'public_placement_list' %}" data-nav-key="placement" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-ui-checks-grid"></i><span>Placement Tests</span></a>
@@ -103,7 +104,7 @@
     </div>
   </aside>
 
-  <div class="mb50-workspace">{% include 'base/seasons/_layer.html' %}{% if student_workspace_active != 'home' and student_workspace_active != 'room' %}{% include 'base/mascot/_companion.html' %}{% endif %}
+  <div class="mb50-workspace">{% include 'base/seasons/_layer.html' %}{% if student_workspace_active != 'home' and student_workspace_active != 'room' and not room_readonly %}{% include 'base/mascot/_companion.html' %}{% endif %}
     <header class="mb50-mobile-head">
       <button class="mb50-mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false" data-workspace-mobile-open><i class="bi bi-list"></i></button>
       <a class="mb50-mobile-brand" href="{% url 'student_dashboard_root' %}"><img src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt=""><strong>MakonBook</strong></a>
@@ -184,6 +185,7 @@
   <script src="{% static 'assets/js/student-world-upcoming-v5571.js' %}?v=5571"></script>
   <script src="{% static 'assets/js/season-v70.js' %}?v=7000" defer></script>
   <script src="{% static 'assets/js/mascot-v70.js' %}?v=7000" defer></script>
+  {% if makonbook_world_enabled %}{% include 'world/_challenge_toast.html' %}<link rel="stylesheet" href="{% static 'assets/css/friends-v507.css' %}?v=5070"><script src="{% static 'assets/js/challenge-toast-v507.js' %}?v=5070" defer></script>{% endif %}
   {% block student_workspace_scripts %}{% endblock student_workspace_scripts %}
 {% endblock scripts %}
 

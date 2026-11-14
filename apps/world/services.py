@@ -35,6 +35,8 @@ HEARTBEAT_GRACE_SECONDS = 25
 RECENT_QUESTION_DAYS = 30
 RECENT_PAIR_HOURS = 24
 QUEUE_MAX_SECONDS = 60
+# V50.7: a direct challenge waits longer — the friend may be on another page.
+FRIEND_CHALLENGE_SECONDS = 300
 MATCH_INTRO_SECONDS = 5
 
 DIFFICULTY_POINTS = {
@@ -244,7 +246,7 @@ def expire_waiting_match(match: WorldMatch, *, now=None) -> bool:
     if not match or match.status != WorldMatch.STATUS_WAITING:
         return False
     now = now or timezone.now()
-    if (now - match.created_at).total_seconds() < QUEUE_MAX_SECONDS:
+    if (now - match.created_at).total_seconds() < waiting_limit_seconds(match):
         return False
     updated = WorldMatch.objects.filter(pk=match.pk, status=WorldMatch.STATUS_WAITING).update(
         status=WorldMatch.STATUS_CANCELLED
@@ -260,7 +262,51 @@ def queue_seconds_remaining(match: WorldMatch, *, now=None) -> int:
         return 0
     now = now or timezone.now()
     elapsed = max(0, int((now - match.created_at).total_seconds()))
-    return max(0, QUEUE_MAX_SECONDS - elapsed)
+    return max(0, waiting_limit_seconds(match) - elapsed)
+
+
+def is_friend_challenge(match: WorldMatch) -> bool:
+    return bool(match and match.invitee_id and not match.rematch_of_id)
+
+
+def waiting_limit_seconds(match: WorldMatch) -> int:
+    return FRIEND_CHALLENGE_SECONDS if is_friend_challenge(match) else QUEUE_MAX_SECONDS
+
+
+def create_friend_challenge(requester, friend, *, subject: str):
+    """V50.7: challenge a friend to an unranked duel (Quick mode never moves ratings).
+
+    Returns (match, created). A challenge the friend already sent us is
+    accepted instead of creating a crossed pair, like simultaneous rematches.
+    """
+    from apps.gamification.friends import are_friends
+
+    if subject not in dict(WorldRating.SUBJECT_CHOICES):
+        raise ValueError("Pick Math or Reading & Writing.")
+    if not are_friends(requester, friend):
+        raise ValueError("You can only challenge your friends.")
+    if active_match_for_user(requester) or active_match_for_user(friend):
+        raise ValueError("One of you is already in a match.")
+    now = timezone.now()
+    with transaction.atomic():
+        rows = list(
+            WorldMatch.objects.select_for_update()
+            .filter(status=WorldMatch.STATUS_WAITING, rematch_of__isnull=True)
+            .filter(Q(player1=requester, invitee=friend) | Q(player1=friend, invitee=requester))
+            .order_by("created_at")
+        )
+        for row in rows:
+            if queue_seconds_remaining(row, now=now) <= 0:
+                row.status = WorldMatch.STATUS_CANCELLED
+                row.save(update_fields=["status"])
+                continue
+            if row.player1_id == requester.id:
+                return row, False
+            return _activate_waiting_match(row, opponent_user=requester, now=now), False
+        return WorldMatch.objects.create(
+            subject=subject, mode=WorldMatch.MODE_QUICK, player1=requester, invitee=friend,
+            status=WorldMatch.STATUS_WAITING,
+        ), True
 
 def _recent_pair_count(user_a, user_b) -> int:
     cutoff = timezone.now() - timedelta(hours=RECENT_PAIR_HOURS)

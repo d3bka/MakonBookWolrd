@@ -3497,6 +3497,7 @@ class MakonNotification(models.Model):
     TYPE_ACCESS = 'access'
     TYPE_ASSESSMENT = 'assessment'
     TYPE_SUPPORT = 'support'
+    TYPE_SOCIAL = 'social'  # V50.7 friend requests and duel challenges
     TYPE_CHOICES = (
         (TYPE_TEST_REVIEW, 'Test review'),
         (TYPE_TEST_PUBLISHED, 'Test published'),
@@ -3506,6 +3507,7 @@ class MakonNotification(models.Model):
         (TYPE_ACCESS, 'Access'),
         (TYPE_ASSESSMENT, 'Assessment'),
         (TYPE_SUPPORT, 'Support lesson'),
+        (TYPE_SOCIAL, 'Friends'),
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='makon_notifications')
     type = models.CharField(max_length=32, choices=TYPE_CHOICES)

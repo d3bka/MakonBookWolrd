@@ -139,6 +139,7 @@ TEMPLATES = [
                 "apps.base.context_processors.test_import_meta",
                 "apps.base.context_processors.staff_workspace_meta",
                 "apps.base.context_processors.season_meta",
+                "apps.gamification.context_processors.friends_meta",
             ],
         },
     },
@@ -815,3 +816,9 @@ elif QUESTION_AUDIT_PROVIDER == "openai" and TEST_IMPORT_AUDIT_MODEL.startswith(
 TEST_IMPORT_TIMEOUT_SECONDS = int(os.getenv("TEST_IMPORT_TIMEOUT_SECONDS", "180"))
 TEST_IMPORT_RUN_AI_AUDIT = os.getenv("TEST_IMPORT_RUN_AI_AUDIT", "1").strip().lower() not in {"0", "false", "no", "off"}  # CLI/legacy opt-in only; web import never auto-audits.
 
+
+# V50.7: pay World event rewards once events end; create the seasonal cup.
+CELERY_BEAT_SCHEDULE["world-events-settlement"] = {
+    "task": "apps.world.tasks.settle_world_events",
+    "schedule": 3600.0,
+}
