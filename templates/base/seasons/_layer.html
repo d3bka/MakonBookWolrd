@@ -1,0 +1,7 @@
+{# V70 seasonal decor. Must be a direct child of .mb50-workspace (see season-v70.css). #}
+<div class="mbs-layer" data-season-layer="{{ season.key }}" aria-hidden="true">
+  <div class="mbs-wash"></div>
+  {% if season.key == 'spring' %}{% include 'base/seasons/_spring.html' %}{% elif season.key == 'summer' %}{% include 'base/seasons/_summer.html' %}{% elif season.key == 'autumn' %}{% include 'base/seasons/_autumn.html' %}{% else %}{% include 'base/seasons/_winter.html' %}{% endif %}
+  <canvas class="mbs-particles"></canvas>
+</div>
+<canvas class="mbs-front" data-season-front aria-hidden="true"></canvas>

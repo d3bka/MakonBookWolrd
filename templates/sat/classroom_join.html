@@ -6,14 +6,17 @@
 {# The goal modal below is the V65 onboarding; without its stylesheet it renders unstyled on Home. #}
 <link rel="stylesheet" href="{% static 'assets/css/makon-onboarding-v65.css' %}?v=6903">
 <link rel="stylesheet" href="{% static 'assets/css/student-dashboard-v523.css' %}?v=524">
-<link rel="stylesheet" href="{% static 'assets/css/mako-v505.css' %}?v=5050">
 {% endblock student_workspace_style %}
 {% block content %}
 <div class="v523-home mb66-dashboard" id="studentDashboardV523" data-exam-date="{{ goal.exam_date|date:'Y-m-d' }}" data-real-target="{{ target_score|default:'' }}">
   <header class="mb66-d-head">
+    <div class="mk70-greet-row"{% if mako %} data-mako data-mako-state="{{ mako.state }}" data-mako-event="{{ mako.event }}"{% endif %}>
+    {% if mako %}<button type="button" class="mk70-hello-panda" data-mako-hello-panda aria-label="Mako the panda. Press for another next step.">{% include 'base/mascot/_panda.html' with pid='h' %}</button>{% endif %}
     <div class="mb66-d-greet">
       <h1>Welcome back, {{ request.user.first_name|default:request.user.username }}</h1>
       <p>{% if goal.exam_date %}SAT on <strong>{{ goal.exam_date|date:"j M Y" }}</strong>.{% else %}Set your SAT date.{% endif %} {% if target_score %}Target <strong>{{ target_score }}</strong>.{% endif %} {% if goal.university_name %}Dream university <strong>{{ goal.university_name }}</strong>.{% endif %}</p>
+      {% if mako %}{% include 'sat/_mako_hello.html' %}{% endif %}
+    </div>
     </div>
     <div class="mb66-head-actions">
       <button type="button" class="mb66-btn mb66-btn-outline" data-dashboard-customize-open><i class="bi bi-grid-3x3-gap"></i> Edit widgets</button>
@@ -29,8 +32,6 @@
       <div class="mb66-continue-meter"><div class="mb66-track"><i style="width:{% if gamification.daily_total %}{% widthratio gamification.daily_completed gamification.daily_total 100 %}{% else %}0{% endif %}%"></i></div><strong>{% if gamification %}{{ gamification.daily_completed }}/{{ gamification.daily_total }} today{% else %}Ready to begin{% endif %}</strong></div>
       <a class="mb66-btn mb66-btn-white" href="{{ dashboard_continue.url }}">Continue learning <i class="bi bi-arrow-right"></i></a>
     </article>
-
-    {% if mako %}{% include 'sat/_mako_widget.html' %}{% endif %}
 
     <article class="v523-home-card mb66-w mb66-countdown" data-dashboard-widget="countdown" data-dashboard-label="SAT exam countdown">
       <div class="mb66-widget-label"><i class="bi bi-clock"></i> SAT exam</div>

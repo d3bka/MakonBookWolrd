@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{% static 'assets/css/student-shell-layers.bundle.css' %}?v=6901">
 
 {% endblock style %}
-{% block workspace_final_styles %}<link rel="stylesheet" href="{% static 'assets/css/student-shell-final.bundle.css' %}?v=6900">{% endblock workspace_final_styles %}
+{% block workspace_final_styles %}<link rel="stylesheet" href="{% static 'assets/css/student-shell-final.bundle.css' %}?v=6900"><link rel="stylesheet" href="{% static 'assets/css/season-v70.css' %}?v=7000"><link rel="stylesheet" href="{% static 'assets/css/mascot-v70.css' %}?v=7000">{% endblock workspace_final_styles %}
 
 {% block body %}
 <div class="mb50-shell{% if student_workspace_active == 'home' %} mb66-shell{% endif %}" data-student-workspace data-workspace-storage-scope="student" data-workspace-search-url="{% url 'workspace_search_root' %}">
@@ -32,6 +32,7 @@
         <span class="mb50-brand-mark">
           <img class="mb50-logo-dark" src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt="">
           <img class="mb50-logo-light" src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt="">
+          {% include 'base/seasons/_brand.html' %}
         </span>
         <span class="mb50-brand-copy"><strong>MakonBook</strong><small>Student workspace</small></span>
       </a>
@@ -101,7 +102,7 @@
     </div>
   </aside>
 
-  <div class="mb50-workspace">
+  <div class="mb50-workspace">{% include 'base/seasons/_layer.html' %}{% if student_workspace_active != 'home' %}{% include 'base/mascot/_companion.html' %}{% endif %}
     <header class="mb50-mobile-head">
       <button class="mb50-mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false" data-workspace-mobile-open><i class="bi bi-list"></i></button>
       <a class="mb50-mobile-brand" href="{% url 'student_dashboard_root' %}"><img src="{% static 'assets/img/brand/makonbook-prototype-logo.webp' %}" alt=""><strong>MakonBook</strong></a>
@@ -180,6 +181,8 @@
   <script src="{% static 'assets/js/student-workspace-v50210.js' %}?v=50210"></script><script src="{% static 'assets/js/workspace-v50211.js' %}?v=50212"></script>
   <script src="{% static 'assets/js/student-speed-v554.js' %}?v=554"></script>
   <script src="{% static 'assets/js/student-world-upcoming-v5571.js' %}?v=5571"></script>
+  <script src="{% static 'assets/js/season-v70.js' %}?v=7000" defer></script>
+  <script src="{% static 'assets/js/mascot-v70.js' %}?v=7000" defer></script>
   {% block student_workspace_scripts %}{% endblock student_workspace_scripts %}
 {% endblock scripts %}
 

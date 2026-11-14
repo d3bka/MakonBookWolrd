@@ -1,0 +1,84 @@
+{# V70 summer · Yoz — ishkom grapevine, turquoise peshtoq, melons and a paxta choynak. #}
+<svg class="mbs-corner" viewBox="0 0 360 260" preserveAspectRatio="xMaxYMin meet" aria-hidden="true" focusable="false">
+  <defs>
+    <path id="mbsSuLeaf" d="M0 0C-6-6-20-6-24-16C-16-16-14-24-20-30C-10-30-6-36-4-44C2-36 8-34 16-36C14-28 20-22 28-22C22-14 20-6 12-4C8-2 4-1 0 0Z" fill="#52b788"/>
+    <g id="mbsSuGrapes">
+      <path d="M0-4C2-12 6-16 10-18" fill="none" stroke="#6b4630" stroke-width="2.4" stroke-linecap="round"/>
+      <g fill="#7b4ab3">
+        <circle cx="-8" cy="4" r="6.5"/><circle cx="4" cy="4" r="6.5"/><circle cx="-2" cy="14" r="6.5"/><circle cx="10" cy="13" r="6"/>
+        <circle cx="-12" cy="14" r="6"/><circle cx="-6" cy="24" r="6"/><circle cx="6" cy="23" r="6"/><circle cx="0" cy="33" r="5.6"/>
+      </g>
+      <g fill="#b48ae0" opacity=".7"><circle cx="-10" cy="2" r="2"/><circle cx="2" cy="2" r="2"/><circle cx="-4" cy="12" r="2"/><circle cx="4" cy="21" r="1.8"/></g>
+    </g>
+  </defs>
+  <g class="mbs-sway-branch">
+    <path d="M362 18C320 28 290 20 250 34C210 48 170 40 130 56C100 68 80 64 54 76" fill="none" stroke="#7a5233" stroke-width="7" stroke-linecap="round"/>
+    <path d="M120 60C112 50 116 40 126 40C134 42 132 52 124 52" fill="none" stroke="#7a5233" stroke-width="2" stroke-linecap="round"/>
+    <path d="M232 40C224 30 230 22 238 24" fill="none" stroke="#7a5233" stroke-width="2" stroke-linecap="round"/>
+    <use href="#mbsSuLeaf" transform="translate(330 30) rotate(160) scale(1.1)"/>
+    <use href="#mbsSuLeaf" transform="translate(280 26) rotate(-10)"/>
+    <use href="#mbsSuLeaf" transform="translate(212 50) rotate(170) scale(1.15)"/>
+    <use href="#mbsSuLeaf" transform="translate(160 44) rotate(-20) scale(.9)"/>
+    <use href="#mbsSuLeaf" transform="translate(96 70) rotate(150) scale(.95)"/>
+    <use href="#mbsSuLeaf" transform="translate(64 76) rotate(-30) scale(.8)"/>
+    <g class="mbs-swing" style="--d:0s"><use href="#mbsSuGrapes" transform="translate(250 50)"/></g>
+    <g class="mbs-swing" style="--d:-1.8s"><use href="#mbsSuGrapes" transform="translate(140 66) scale(.85)"/></g>
+    <g class="mbs-swing" style="--d:-3.2s"><use href="#mbsSuGrapes" transform="translate(312 36) scale(.7)"/></g>
+  </g>
+</svg>
+<svg class="mbs-scene" viewBox="0 0 640 420" preserveAspectRatio="xMaxYMax meet" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="mbsSuTile" width="22" height="22" patternUnits="userSpaceOnUse">
+      <rect width="22" height="22" fill="#4fb3bf"/>
+      <path d="M11 3L13.5 8.5L19 11L13.5 13.5L11 19L8.5 13.5L3 11L8.5 8.5Z" fill="#1f6f8b"/>
+      <circle cx="11" cy="11" r="2.2" fill="#f2e8cf"/>
+    </pattern>
+    <g id="mbsSuPaxta" fill="#1d4e89"><circle r="3.2"/><circle cx="-4" cy="-4" r="2.6"/><circle cx="4" cy="-4" r="2.6"/><circle cx="-4" cy="4" r="2.6"/><circle cx="4" cy="4" r="2.6"/></g>
+  </defs>
+  <!-- sky: sun by day, moon and stars by night -->
+  <g class="mbs-day">
+    <g class="mbs-spin" style="transform-origin:150px 116px">
+      <g stroke="#ffd166" stroke-width="4" stroke-linecap="round" opacity=".8">
+        <path d="M150 62V48"/><path d="M150 184V170"/><path d="M96 116H82"/><path d="M218 116H204"/>
+        <path d="M112 78L102 68"/><path d="M198 164L188 154"/><path d="M188 78L198 68"/><path d="M112 154L102 164"/>
+      </g>
+    </g>
+    <circle cx="150" cy="116" r="38" fill="#ffd166"/>
+    <circle cx="150" cy="116" r="28" fill="#ffe29a"/>
+  </g>
+  <g class="mbs-night">
+    <path d="M168 84A40 40 0 1 0 186 150A32 32 0 1 1 168 84Z" fill="#fff3bf"/>
+    <g fill="#fff8dc" class="mbs-twinkle"><circle cx="70" cy="70" r="2" style="--d:0s"/><circle cx="240" cy="54" r="1.6" style="--d:-1s"/><circle cx="300" cy="120" r="2.2" style="--d:-2s"/><circle cx="40" cy="160" r="1.5" style="--d:-.5s"/><circle cx="360" cy="70" r="1.8" style="--d:-1.5s"/></g>
+  </g>
+  <!-- peshtoq: tiled portal -->
+  <g opacity=".9">
+    <path d="M404 420V128H632V420Z" fill="url(#mbsSuTile)"/>
+    <path d="M404 128H632V140H404Z" fill="#1f6f8b"/>
+    <path d="M444 420V262C444 208 478 178 518 160C558 178 592 208 592 262V420Z" fill="#e8f4f1"/>
+    <path d="M444 420V262C444 208 478 178 518 160C558 178 592 208 592 262V420" fill="none" stroke="#f2e8cf" stroke-width="5"/>
+    <path d="M462 420V270C462 228 488 204 518 190C548 204 574 228 574 270V420Z" fill="#cfe9e4"/>
+  </g>
+  <path d="M0 420V382C200 366 420 374 640 362V420Z" fill="#f3dfb5"/>
+  <path d="M0 420V400C220 390 430 396 640 388V420Z" fill="#ead0a0"/>
+  <!-- lagan with qovun, tarvuz and uzum -->
+  <ellipse cx="300" cy="388" rx="128" ry="22" fill="#f8f4ec" stroke="#2b6cb0" stroke-width="3"/>
+  <ellipse cx="300" cy="388" rx="100" ry="15" fill="none" stroke="#2b6cb0" stroke-width="2" stroke-dasharray="6 6"/>
+  <ellipse cx="352" cy="364" rx="50" ry="27" fill="#f4c95d"/>
+  <g fill="none" stroke="#d4a537" stroke-width="2"><path d="M312 356C332 344 372 344 394 358"/><path d="M306 368C330 360 374 360 400 372"/><path d="M330 340C326 356 330 374 338 388"/><path d="M362 338C366 356 366 374 360 390"/></g>
+  <path d="M398 360C406 354 410 350 414 346" stroke="#6b4630" stroke-width="3" stroke-linecap="round"/>
+  <path d="M206 386A44 44 0 0 1 294 386Z" fill="#ef476f"/>
+  <path d="M206 386A44 44 0 0 1 294 386" fill="none" stroke="#2d6a4f" stroke-width="6"/>
+  <path d="M212 386A38 38 0 0 1 288 386" fill="none" stroke="#b7e4c7" stroke-width="3"/>
+  <g fill="#2b2d42"><ellipse cx="236" cy="372" rx="2" ry="3"/><ellipse cx="252" cy="364" rx="2" ry="3"/><ellipse cx="268" cy="372" rx="2" ry="3"/><ellipse cx="250" cy="378" rx="2" ry="3"/></g>
+  <g fill="#7b4ab3"><circle cx="186" cy="380" r="7"/><circle cx="174" cy="384" r="7"/><circle cx="180" cy="372" r="7"/><circle cx="168" cy="374" r="6.5"/></g>
+  <!-- choynak and piyolas in the paxta pattern -->
+  <path d="M452 392C440 366 452 338 482 334C512 338 524 366 512 392Z" fill="#fdfdfd" stroke="#1d4e89" stroke-width="2.4"/>
+  <path d="M452 368C440 364 432 352 426 340L432 336C440 348 446 354 456 356" fill="#fdfdfd" stroke="#1d4e89" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M512 350C534 350 534 380 512 382" fill="none" stroke="#1d4e89" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="482" cy="334" rx="20" ry="5.5" fill="#fdfdfd" stroke="#1d4e89" stroke-width="2.4"/>
+  <circle cx="482" cy="326" r="4.5" fill="#1d4e89"/>
+  <use href="#mbsSuPaxta" transform="translate(470 360)"/><use href="#mbsSuPaxta" transform="translate(494 372) scale(.85)"/><use href="#mbsSuPaxta" transform="translate(486 350) scale(.7)"/>
+  <g class="mbs-steam" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"><path d="M426 332C420 320 432 312 426 300" style="--d:-.8s"/></g>
+  <path d="M536 380Q552 404 568 380Z" fill="#fdfdfd" stroke="#1d4e89" stroke-width="2"/><use href="#mbsSuPaxta" transform="translate(552 388) scale(.6)"/>
+  <path d="M578 384Q594 408 610 384Z" fill="#fdfdfd" stroke="#1d4e89" stroke-width="2"/><use href="#mbsSuPaxta" transform="translate(594 392) scale(.6)"/>
+</svg>

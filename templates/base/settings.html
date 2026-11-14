@@ -14,6 +14,7 @@
       <header><span class="v523-settings-icon"><i class="bi bi-circle-half"></i></span><div><h2>Appearance</h2><p>Theme changes apply to the whole MakonBook workspace, including the sidebar.</p></div></header>
       <div class="v523-setting-row"><div><strong>Color theme</strong><small>System, Light or Dark</small></div><div class="v523-theme-inline">{% include 'base/theme_toggle.html' %}</div></div>
       <div class="v523-setting-row"><div><strong>Sidebar layout</strong><small>Reorder or hide optional navigation items.</small></div><button class="mb50-secondary-btn" type="button" data-workspace-sidebar-customize-open><i class="bi bi-sliders2"></i> Customize sidebar</button></div>
+      {% if season.key %}<div class="v523-setting-row"><div><strong>Seasonal effects</strong><small>{{ season.label }} · {{ season.uz }} — falling {{ season.particles }}. The season itself is chosen by MakonBook.</small></div><button class="mb50-secondary-btn mbs-fx-toggle" type="button" role="switch" aria-checked="true" data-season-fx-toggle><i class="bi bi-stars"></i> <span data-season-fx-label>On</span></button></div>{% endif %}
     </article>
 
     <article class="v523-settings-card v523-reveal" id="maintenance" style="--reveal-index:2">

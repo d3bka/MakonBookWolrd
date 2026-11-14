@@ -1,0 +1,101 @@
+{% comment %}V70 Mako the panda — a vector rig redrawn from the six reference poses.
+   Every part is its own element so CSS/JS can animate it: ears, brows, lids,
+   pupils (they follow the pointer), six mouths, arms, cheeks and FX.
+   `pid` keeps clip-path ids unique when two pandas share a page.{% endcomment %}
+<svg class="pd" viewBox="0 0 240 250" data-panda data-emotion="idle" role="img" aria-label="Mako the panda" focusable="false">
+  <defs>
+    <clipPath id="pdBody{{ pid }}"><ellipse cx="120" cy="132" rx="88" ry="90"/></clipPath>
+    <clipPath id="pdEyeL{{ pid }}"><circle cx="80" cy="112" r="25.5"/></clipPath>
+    <clipPath id="pdEyeR{{ pid }}"><circle cx="160" cy="112" r="25.5"/></clipPath>
+    <linearGradient id="pdBelly{{ pid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9c9ce"/><stop offset="1" stop-color="#a7a7ad"/></linearGradient>
+    <radialGradient id="pdFace{{ pid }}" cx="45%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ececef"/></radialGradient>
+  </defs>
+  <ellipse class="pd-shadow" cx="120" cy="238" rx="64" ry="7"/>
+  <g class="pd-body">
+    <g class="pd-legs" fill="#1f1d22">
+      <path d="M76 196H108V226Q108 233 101 233H83Q76 233 76 226Z"/>
+      <path d="M132 196H164V226Q164 233 157 233H139Q132 233 132 226Z"/>
+    </g>
+    <g class="pd-arm pd-arm-l"><path d="M44 128C24 122 8 142 12 164C15 180 32 184 42 174C50 164 54 140 44 128Z" fill="#1f1d22"/></g>
+    <g class="pd-arm pd-arm-r"><path d="M196 128C216 122 232 142 228 164C225 180 208 184 198 174C190 164 186 140 196 128Z" fill="#1f1d22"/></g>
+    <g class="pd-ear pd-ear-l"><circle cx="52" cy="60" r="27" fill="#1f1d22"/><circle cx="55" cy="63" r="15" fill="#4a4850"/></g>
+    <g class="pd-ear pd-ear-r"><circle cx="188" cy="60" r="27" fill="#1f1d22"/><circle cx="185" cy="63" r="15" fill="#4a4850"/></g>
+    <path class="pd-tuft" d="M102 48C102 32 108 18 117 8C118 20 123 22 128 15C129 26 135 28 142 23C139 33 137 42 136 50Z" fill="#f7f7f9" stroke="#d6d6dd" stroke-width="2.5" stroke-linejoin="round"/>
+    <ellipse cx="120" cy="132" rx="88" ry="90" fill="url(#pdFace{{ pid }})" stroke="#dcdce3" stroke-width="2"/>
+    <g clip-path="url(#pdBody{{ pid }})">
+      <path d="M22 86C38 64 84 58 104 76C118 89 117 128 107 147C90 158 48 158 22 152Z" fill="#1f1d22"/>
+      <path d="M218 86C202 64 156 58 136 76C122 89 123 128 133 147C150 158 192 158 218 152Z" fill="#1f1d22"/>
+      <ellipse cx="120" cy="212" rx="66" ry="38" fill="url(#pdBelly{{ pid }})"/>
+    </g>
+    <g class="pd-cheeks" fill="#ff8fab"><ellipse cx="66" cy="164" rx="11" ry="6"/><ellipse cx="174" cy="164" rx="11" ry="6"/></g>
+    <!-- eyes -->
+    <g class="pd-eye pd-eye-l">
+      <circle cx="80" cy="112" r="27.5" fill="#1f1d22"/>
+      <circle cx="80" cy="112" r="25.5" fill="#ffffff"/>
+      <g clip-path="url(#pdEyeL{{ pid }})">
+        <g class="pd-pupil"><circle cx="81" cy="113" r="17" fill="#141216"/><circle cx="87" cy="105" r="6" fill="#ffffff"/><circle cx="75" cy="120" r="2.4" fill="#ffffff"/></g>
+        <rect class="pd-lid pd-lid-l" x="44" y="22" width="72" height="62" fill="#55525a" stroke="#2b2930" stroke-width="3"/>
+        <rect class="pd-lid-low pd-lid-low-l" x="44" y="139" width="72" height="30" fill="#55525a" stroke="#2b2930" stroke-width="3"/>
+      </g>
+    </g>
+    <g class="pd-eye pd-eye-r">
+      <circle cx="160" cy="112" r="27.5" fill="#1f1d22"/>
+      <circle cx="160" cy="112" r="25.5" fill="#ffffff"/>
+      <g clip-path="url(#pdEyeR{{ pid }})">
+        <g class="pd-pupil"><circle cx="161" cy="113" r="17" fill="#141216"/><circle cx="167" cy="105" r="6" fill="#ffffff"/><circle cx="155" cy="120" r="2.4" fill="#ffffff"/></g>
+        <rect class="pd-lid pd-lid-r" x="124" y="22" width="72" height="62" fill="#55525a" stroke="#2b2930" stroke-width="3"/>
+        <rect class="pd-lid-low pd-lid-low-r" x="124" y="139" width="72" height="30" fill="#55525a" stroke="#2b2930" stroke-width="3"/>
+      </g>
+    </g>
+    <path class="pd-brow pd-brow-l" d="M62 72C70 63 86 61 97 66" fill="none" stroke="#1f1d22" stroke-width="9" stroke-linecap="round"/>
+    <path class="pd-brow pd-brow-r" d="M178 72C170 63 154 61 143 66" fill="none" stroke="#1f1d22" stroke-width="9" stroke-linecap="round"/>
+    <!-- nose -->
+    <path d="M111 127C111 121 129 121 129 127C129 133 123 138 120 138C117 138 111 133 111 127Z" fill="#2b2930"/>
+    <path d="M120 138V146" stroke="#2b2930" stroke-width="2.4" stroke-linecap="round"/>
+    <!-- mouths: one is visible per emotion -->
+    <g class="pd-mouth pd-m-open"><path d="M105 152C105 149 135 149 135 152C135 167 128 175 120 175C112 175 105 167 105 152Z" fill="#8f1d2c"/><path d="M111 168C114 161 126 161 129 168C126 173 123 175 120 175C117 175 114 173 111 168Z" fill="#e05a6d"/></g>
+    <g class="pd-mouth pd-m-o"><ellipse cx="120" cy="161" rx="8" ry="10.5" fill="#8f1d2c"/><ellipse cx="120" cy="166" rx="5.5" ry="4" fill="#e05a6d"/></g>
+    <path class="pd-mouth pd-m-smile" d="M109 154C113 163 127 163 131 154" fill="none" stroke="#2b2930" stroke-width="3.2" stroke-linecap="round"/>
+    <path class="pd-mouth pd-m-frown" d="M109 163C113 154 127 154 131 163" fill="none" stroke="#2b2930" stroke-width="3.2" stroke-linecap="round"/>
+    <path class="pd-mouth pd-m-flat" d="M107 160C114 157 126 157 133 159" fill="none" stroke="#2b2930" stroke-width="3.2" stroke-linecap="round"/>
+    <path class="pd-mouth pd-m-smirk" d="M110 161C117 160 125 158 131 153" fill="none" stroke="#2b2930" stroke-width="3.2" stroke-linecap="round"/>
+    <path class="pd-mouth pd-m-wobble" d="M107 160Q111 155 115 160T123 160T131 160" fill="none" stroke="#2b2930" stroke-width="3" stroke-linecap="round"/>
+    <!-- seasonal accessory -->
+    {% if season.key == 'spring' %}
+    <g class="pd-acc pd-acc-spring" transform="translate(196 44)">
+      <g fill="#fbb6ce"><ellipse cy="-9" rx="7" ry="9.5"/><ellipse cy="-9" rx="7" ry="9.5" transform="rotate(72)"/><ellipse cy="-9" rx="7" ry="9.5" transform="rotate(144)"/><ellipse cy="-9" rx="7" ry="9.5" transform="rotate(216)"/><ellipse cy="-9" rx="7" ry="9.5" transform="rotate(288)"/></g>
+      <circle r="4" fill="#c2255c"/>
+      <path d="M-14 12C-8 8 -2 8 2 12C-2 16 -8 16 -14 12Z" fill="#69b34c"/>
+    </g>
+    {% elif season.key == 'summer' %}
+    <g class="pd-acc pd-acc-summer">
+      <path d="M78 46L84 22C100 14 140 14 156 22L162 46C140 40 100 40 78 46Z" fill="#1f1d22"/>
+      <path d="M84 22C100 14 140 14 156 22L150 30C136 25 104 25 90 30Z" fill="#2c2a30"/>
+      <g fill="#ffffff"><path d="M98 38C92 32 96 26 102 28C100 32 102 35 98 38Z"/><path d="M142 38C148 32 144 26 138 28C140 32 138 35 142 38Z"/><path d="M120 36C114 30 116 24 120 22C124 24 126 30 120 36Z"/></g>
+      <path d="M78 46C100 40 140 40 162 46" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-dasharray="3 3"/>
+    </g>
+    {% elif season.key == 'autumn' %}
+    <g class="pd-acc pd-acc-autumn" transform="translate(150 20) rotate(24) scale(.42) translate(-50 -50)">
+      <path d="M50 94L48 75C40 79 28 81 17 78L24 68C13 64 5 56 3 47L16 47C11 39 11 29 15 20C24 27 30 31 34 34L31 17C38 21 43 13 50 3C57 13 62 21 69 17L66 34C70 31 76 27 85 20C89 29 89 39 84 47L97 47C95 56 87 64 76 68L83 78C72 81 60 79 52 75L50 94Z" fill="#e76f51"/>
+      <path d="M50 90L50 14M50 62L18 26M50 62L82 26" stroke="#9c3d1d" stroke-width="3" fill="none"/>
+    </g>
+    {% else %}
+    <g class="pd-acc pd-acc-winter">
+      <path d="M44 180C70 194 170 194 196 180L200 196C172 212 68 212 40 196Z" fill="#d62839"/>
+      <g fill="#ffffff" opacity=".9"><rect x="64" y="188" width="8" height="15" rx="2"/><rect x="92" y="191" width="8" height="15" rx="2"/><rect x="120" y="192" width="8" height="15" rx="2"/><rect x="148" y="191" width="8" height="15" rx="2"/><rect x="176" y="188" width="8" height="15" rx="2"/></g>
+      <path d="M168 196L178 230L162 232L156 200Z" fill="#b51d2e"/>
+      <path d="M162 232L160 238M168 231L167 238M174 230L175 237" stroke="#b51d2e" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    {% endif %}
+  </g>
+  <!-- effects -->
+  <g class="pd-fx">
+    <path class="pd-fx-tear" d="M96 140C96 140 90 150 90 154C90 158 93 160 96 160C99 160 102 158 102 154C102 150 96 140 96 140Z" fill="#7cc4ff"/>
+    <path class="pd-fx-sweat" d="M200 60C200 60 192 72 192 77C192 82 196 85 200 85C204 85 208 82 208 77C208 72 200 60 200 60Z" fill="#9fd6ff"/>
+    <g class="pd-fx-anger" stroke="#e03131" stroke-width="5" stroke-linecap="round" fill="none"><path d="M196 30C202 34 202 40 196 44"/><path d="M216 30C210 34 210 40 216 44"/><path d="M200 26C204 20 208 20 212 26"/><path d="M200 48C204 54 208 54 212 48"/></g>
+    <g class="pd-fx-zzz" fill="#7c6cf0" font-family="inherit" font-weight="900"><text x="190" y="44" font-size="22">z</text><text x="206" y="26" font-size="16">z</text><text x="218" y="12" font-size="12">z</text></g>
+    <text class="pd-fx-q" x="196" y="44" font-size="40" font-weight="900" fill="#7c6cf0">?</text>
+    <g class="pd-fx-hearts" fill="#ff4d6d"><path d="M24 40C24 34 32 32 34 38C36 32 44 34 44 40C44 46 34 52 34 52C34 52 24 46 24 40Z"/><path d="M196 24C196 20 201 19 203 23C205 19 210 20 210 24C210 28 203 32 203 32C203 32 196 28 196 24Z"/></g>
+    <g class="pd-fx-sparkles" fill="#ffc53d"><path d="M22 70L26 80L36 84L26 88L22 98L18 88L8 84L18 80Z"/><path d="M214 92L217 99L224 102L217 105L214 112L211 105L204 102L211 99Z"/><path d="M200 18L202 23L207 25L202 27L200 32L198 27L193 25L198 23Z"/></g>
+  </g>
+</svg>

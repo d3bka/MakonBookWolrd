@@ -1,0 +1,9 @@
+{% comment %}V70: Mako greets from the Home header — the panda sits next to "Welcome back" and his
+daily line (rule-based, apps/gamification/mako.py) is a speech bubble under the subtitle.
+Pressing the panda walks through his next steps.{% endcomment %}
+<div class="mk70-say" aria-live="polite">
+  <span class="mk70-say-name">Mako</span>
+  <strong class="mk70-say-head">{{ mako.headline }}</strong>
+  <span class="mk70-say-msg">{{ mako.message }}</span>
+  {% for rec in mako.recommendations %}<a class="mk70-say-step" href="{{ rec.url }}" data-mako-step data-mako-kind="{{ rec.kind }}" title="{{ rec.reason }}"{% if not forloop.first %} hidden{% endif %}><i class="bi {{ rec.icon }}" aria-hidden="true"></i><span>{{ rec.title }}</span><i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endfor %}
+</div>

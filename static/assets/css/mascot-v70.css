@@ -1,0 +1,171 @@
+/* MakonBook V70 — Mako the panda (vector rig + corner companion).
+ * Emotions are a data attribute on the <svg>; each one sets a handful of
+ * custom properties (lids, brows, arms, gaze) and shows one mouth and FX.
+ * Transitions blend between emotions, so changes morph instead of cutting.
+ */
+
+.pd {
+  --lidL-y: 0px; --lidL-r: 0deg; --lidR-y: 0px; --lidR-r: 0deg; --low-y: 0px;
+  --browL-y: 0px; --browL-r: 0deg; --browR-y: 0px; --browR-r: 0deg;
+  --armL: 8deg; --armR: -8deg; --px: 0px; --py: 0px; --pupil-s: 1; --cheeks: 0;
+  display: block; width: 100%; height: auto; overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+}
+.pd-shadow { fill: rgba(20, 12, 34, .16); transform-box: fill-box; transform-origin: center; }
+html[data-theme="dark"] .pd-shadow { fill: rgba(0, 0, 0, .42); }
+
+.pd-body { transform-box: view-box; transform-origin: 120px 236px; }
+.pd-arm, .pd-lid, .pd-lid-low, .pd-brow, .pd-mouth, .pd-pupil, .pd-ear, .pd-cheeks, .pd-fx > * { transition: transform .32s cubic-bezier(.3, 1.35, .5, 1), opacity .2s ease; }
+.pd-arm { transform-box: view-box; }
+.pd-arm-l { transform-origin: 44px 136px; transform: rotate(var(--armL)); }
+.pd-arm-r { transform-origin: 196px 136px; transform: rotate(var(--armR)); }
+.pd-ear { transform-box: fill-box; transform-origin: 50% 90%; }
+.pd-lid { transform-box: view-box; }
+.pd-lid-l { transform-origin: 80px 112px; transform: translateY(var(--lidL-y)) rotate(var(--lidL-r)); }
+.pd-lid-r { transform-origin: 160px 112px; transform: translateY(var(--lidR-y)) rotate(var(--lidR-r)); }
+.pd-lid-low { transform: translateY(var(--low-y)); }
+.pd-pupil { transform-box: fill-box; transform-origin: center; transform: translate(var(--px), var(--py)) scale(var(--pupil-s)); transition-duration: .14s; }
+.pd-brow { transform-box: fill-box; transform-origin: center; }
+.pd-brow-l { transform: translateY(var(--browL-y)) rotate(var(--browL-r)); }
+.pd-brow-r { transform: translateY(var(--browR-y)) rotate(var(--browR-r)); }
+.pd-cheeks { opacity: var(--cheeks); }
+.pd-mouth { opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(.55); }
+.pd-fx > * { opacity: 0; transform-box: fill-box; transform-origin: center; }
+
+/* blink: lids drop and come straight back */
+.pd.is-blink .pd-lid { transition-duration: .07s; }
+.pd.is-blink .pd-lid-l, .pd.is-blink .pd-lid-r { transform: translateY(56px) rotate(0deg); }
+.pd.is-talking .pd-mouth { animation: pd-talk .16s ease-in-out infinite alternate; }
+
+/* ---------- emotions ---------- */
+.pd[data-emotion="idle"] .pd-m-smile,
+.pd[data-emotion="love"] .pd-m-smile { opacity: 1; transform: none; }
+.pd[data-emotion="idle"] .pd-body { animation: pd-breathe 4.2s ease-in-out infinite; }
+
+.pd[data-emotion="happy"] { --browL-y: -5px; --browR-y: -5px; --low-y: -9px; --armL: 112deg; --armR: -112deg; --cheeks: .75; }
+.pd[data-emotion="happy"] .pd-m-open { opacity: 1; transform: none; }
+.pd[data-emotion="happy"] .pd-body { animation: pd-bounce .9s cubic-bezier(.3, 1.4, .5, 1) 2; }
+
+.pd[data-emotion="greet"] { --browL-y: -5px; --browR-y: -5px; --low-y: -6px; --armL: 18deg; --armR: -138deg; --cheeks: .55; }
+.pd[data-emotion="greet"] .pd-m-open { opacity: 1; transform: none; }
+.pd[data-emotion="greet"] .pd-arm-r { animation: pd-wave .52s ease-in-out infinite alternate; }
+.pd[data-emotion="greet"] .pd-body { animation: pd-bounce 1.1s cubic-bezier(.3, 1.4, .5, 1) 1; }
+
+.pd[data-emotion="celebrate"] { --browL-y: -9px; --browR-y: -9px; --low-y: -10px; --armL: 148deg; --armR: -148deg; --cheeks: .85; }
+.pd[data-emotion="celebrate"] .pd-m-open { opacity: 1; transform: scale(1.08); }
+.pd[data-emotion="celebrate"] .pd-body { animation: pd-jump .62s cubic-bezier(.3, 1.2, .5, 1) 3; }
+.pd[data-emotion="celebrate"] .pd-shadow { animation: pd-shadow .62s ease 3; }
+.pd[data-emotion="celebrate"] .pd-fx-sparkles { opacity: 1; animation: pd-twinkle .6s ease-in-out infinite alternate; }
+
+.pd[data-emotion="surprised"] { --browL-y: -12px; --browR-y: -12px; --armL: 52deg; --armR: -52deg; --pupil-s: .86; }
+.pd[data-emotion="surprised"] .pd-m-o { opacity: 1; transform: none; }
+.pd[data-emotion="surprised"] .pd-body { animation: pd-hop .42s cubic-bezier(.3, 1.4, .5, 1) 1; }
+.pd[data-emotion="surprised"] .pd-ear { animation: pd-ear-perk .42s ease 1; }
+
+.pd[data-emotion="sad"] { --lidL-y: 18px; --lidL-r: -15deg; --lidR-y: 18px; --lidR-r: 15deg; --browL-y: 3px; --browL-r: -17deg; --browR-y: 3px; --browR-r: 17deg; --armL: -4deg; --armR: 4deg; --py: 5px; }
+.pd[data-emotion="sad"] .pd-m-frown { opacity: 1; transform: none; }
+.pd[data-emotion="sad"] .pd-body { animation: pd-droop 3.6s ease-in-out infinite; }
+.pd[data-emotion="sad"] .pd-fx-tear { opacity: 1; animation: pd-tear 2.6s ease-in infinite; }
+
+.pd[data-emotion="angry"] { --lidL-y: 22px; --lidL-r: 18deg; --lidR-y: 22px; --lidR-r: -18deg; --browL-y: 12px; --browL-r: 24deg; --browR-y: 12px; --browR-r: -24deg; --armL: -22deg; --armR: 22deg; }
+.pd[data-emotion="angry"] .pd-m-flat { opacity: 1; transform: none; }
+.pd[data-emotion="angry"] .pd-body { animation: pd-shake .36s ease-in-out 3, pd-puff 1.1s ease-in-out .5s 1; }
+.pd[data-emotion="angry"] .pd-fx-anger { opacity: 1; animation: pd-throb .5s ease-in-out infinite alternate; }
+
+.pd[data-emotion="skeptical"] { --lidL-y: 8px; --lidR-y: 26px; --lidR-r: -6deg; --browL-y: -11px; --browL-r: -6deg; --browR-y: 6px; --browR-r: 12deg; --px: 5px; }
+.pd[data-emotion="skeptical"] .pd-m-smirk { opacity: 1; transform: none; }
+.pd[data-emotion="skeptical"] .pd-body { animation: pd-tilt 2.4s ease-in-out infinite alternate; }
+
+.pd[data-emotion="bored"] { --lidL-y: 30px; --lidR-y: 30px; --browL-y: 3px; --browR-y: 3px; --px: -6px; --py: 2px; --armL: 0deg; --armR: 0deg; }
+.pd[data-emotion="bored"] .pd-m-flat { opacity: 1; transform: scale(.8); }
+.pd[data-emotion="bored"] .pd-body { animation: pd-sway 5s ease-in-out infinite; }
+
+.pd[data-emotion="sleepy"] { --lidL-y: 40px; --lidR-y: 40px; --py: 4px; --browL-y: 3px; --browR-y: 3px; --armL: 0deg; --armR: 0deg; }
+.pd[data-emotion="sleepy"] .pd-m-o { opacity: 1; transform: scale(.6); }
+.pd[data-emotion="sleepy"] .pd-body { animation: pd-nod 3.4s ease-in-out infinite; }
+.pd[data-emotion="sleepy"] .pd-fx-zzz { opacity: 1; animation: pd-zzz 2.8s ease-in-out infinite; }
+
+.pd[data-emotion="thinking"] { --browL-y: -9px; --browL-r: -5deg; --px: 6px; --py: -6px; --armL: -6deg; }
+.pd[data-emotion="thinking"] .pd-m-smirk { opacity: 1; transform: scale(.85); }
+.pd[data-emotion="thinking"] .pd-body { animation: pd-tilt 2.8s ease-in-out infinite alternate; }
+.pd[data-emotion="thinking"] .pd-fx-q { opacity: 1; animation: pd-float 1.8s ease-in-out infinite alternate; }
+
+.pd[data-emotion="love"] { --low-y: -12px; --browL-y: -4px; --browR-y: -4px; --cheeks: 1; --armL: -18deg; --armR: 18deg; }
+.pd[data-emotion="love"] .pd-body { animation: pd-sway 2.4s ease-in-out infinite; }
+.pd[data-emotion="love"] .pd-fx-hearts { opacity: 1; animation: pd-float 1.4s ease-in-out infinite alternate; }
+
+.pd[data-emotion="worried"] { --browL-y: -4px; --browL-r: -12deg; --browR-y: -4px; --browR-r: 12deg; --py: -2px; --armL: -10deg; --armR: 10deg; }
+.pd[data-emotion="worried"] .pd-m-wobble { opacity: 1; transform: none; }
+.pd[data-emotion="worried"] .pd-body { animation: pd-tremble .12s linear 8; }
+.pd[data-emotion="worried"] .pd-fx-sweat { opacity: 1; animation: pd-tear 2.2s ease-in infinite; }
+
+.pd.is-perk .pd-ear { animation: pd-ear-perk .45s ease 1; }
+
+@keyframes pd-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, .985); } }
+@keyframes pd-bounce { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-12px) scale(.98, 1.03); } 70% { transform: translateY(0) scale(1.04, .96); } }
+@keyframes pd-jump { 0%, 100% { transform: translateY(0) scale(1, 1); } 15% { transform: translateY(0) scale(1.08, .9); } 50% { transform: translateY(-30px) scale(.94, 1.08); } 85% { transform: translateY(0) scale(1.06, .94); } }
+@keyframes pd-shadow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.7); opacity: .5; } }
+@keyframes pd-hop { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-14px) scale(1.06); } 100% { transform: translateY(0) scale(1); } }
+@keyframes pd-droop { 0%, 100% { transform: translateY(4px) scale(1.02, .97); } 50% { transform: translateY(6px) scale(1.03, .96) rotate(-1deg); } }
+@keyframes pd-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px) rotate(-1.5deg); } 75% { transform: translateX(4px) rotate(1.5deg); } }
+@keyframes pd-puff { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05, 1.03); } }
+@keyframes pd-tilt { from { transform: rotate(-5deg); } to { transform: rotate(-1deg); } }
+@keyframes pd-sway { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+@keyframes pd-nod { 0%, 100% { transform: rotate(-3deg) translateY(2px); } 50% { transform: rotate(4deg) translateY(5px); } }
+@keyframes pd-tremble { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1.5px); } }
+@keyframes pd-wave { from { transform: rotate(-118deg); } to { transform: rotate(-158deg); } }
+@keyframes pd-ear-perk { 0%, 100% { transform: rotate(0); } 40% { transform: rotate(-12deg) scale(1.06); } 70% { transform: rotate(8deg); } }
+@keyframes pd-tear { 0% { transform: translateY(-6px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(26px); opacity: 0; } }
+@keyframes pd-throb { from { transform: scale(.85); } to { transform: scale(1.12); } }
+@keyframes pd-zzz { 0% { transform: translate(0, 6px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(8px, -10px); opacity: 0; } }
+@keyframes pd-float { from { transform: translateY(2px); } to { transform: translateY(-6px); } }
+@keyframes pd-twinkle { from { transform: scale(.7) rotate(0); } to { transform: scale(1.15) rotate(20deg); } }
+@keyframes pd-talk { from { transform: scale(1, 1); } to { transform: scale(1.04, .7); } }
+
+/* ---------- corner companion ---------- */
+.mako-companion { position: fixed; right: 26px; bottom: 74px; z-index: 40; width: 104px; pointer-events: none; }
+.mako-companion[hidden] { display: none; }
+.mako-companion-btn { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto; border-radius: 40%; transition: transform .5s cubic-bezier(.3, 1.3, .5, 1); animation: mako-enter .7s cubic-bezier(.3, 1.4, .5, 1) both; }
+.mako-companion-btn:focus-visible { outline: 3px solid var(--mbs-accent, #7c3aed); outline-offset: 4px; }
+.mako-companion-btn:hover .pd { filter: drop-shadow(0 10px 18px rgba(80, 40, 140, .22)); }
+.mako-companion-tuck { position: absolute; left: -4px; top: 2px; z-index: 2; width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--mb50-border, #e8e2f2); border-radius: 50%; background: var(--mb50-panel, #fff); color: var(--mb50-muted, #6b6578); font-size: 12px; cursor: pointer; pointer-events: auto; opacity: 0; transform: scale(.7); transition: opacity .2s, transform .2s; }
+.mako-companion:hover .mako-companion-tuck, .mako-companion-tuck:focus-visible { opacity: 1; transform: none; }
+.mako-companion.is-tucked .mako-companion-btn { transform: translateY(78px) rotate(-8deg); }
+.mako-companion.is-tucked .mako-companion-tuck { display: none; }
+
+.mako-bubble { position: absolute; right: calc(100% + 6px); bottom: 54px; width: max-content; max-width: min(270px, 62vw); padding: 11px 14px; border: 1px solid var(--mb50-border, #e8e2f2); border-radius: 18px 18px 6px 18px; background: var(--mb50-panel, #fff); color: var(--mb50-text, #1d1726); box-shadow: 0 18px 44px -18px rgba(40, 20, 70, .38); font-size: 13px; font-weight: 600; line-height: 1.45; opacity: 0; transform: translateY(8px) scale(.92); transform-origin: 100% 100%; transition: opacity .22s ease, transform .3s cubic-bezier(.3, 1.4, .5, 1); pointer-events: none; }
+.mako-bubble.is-open { opacity: 1; transform: none; pointer-events: auto; }
+.mako-bubble strong { display: block; margin-bottom: 2px; color: var(--mbs-accent, #7c3aed); font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+
+@keyframes mako-enter { from { transform: translateY(120px) scale(.7); } to { transform: none; } }
+
+@media (max-width: 760px) {
+  .mako-companion { right: 12px; bottom: 70px; width: 78px; }
+  .mako-bubble { bottom: 42px; font-size: 12px; }
+}
+@media print { .mako-companion { display: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .pd *, .mako-companion-btn { animation: none !important; }
+  .pd .pd-fx > * { animation: none !important; }
+}
+
+/* ---------- Home header: Mako says hello next to "Welcome back" ---------- */
+.mk70-greet-row { display: flex; align-items: flex-start; gap: 16px; flex: 1; min-width: 260px; }
+.mk70-hello-panda { flex: 0 0 auto; width: 104px; margin-top: -6px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 30%; animation: mako-enter .8s cubic-bezier(.3, 1.4, .5, 1) both; }
+.mk70-hello-panda:focus-visible { outline: 3px solid var(--mbs-accent, #7c3aed); outline-offset: 4px; }
+.mk70-hello-panda:hover .pd { filter: drop-shadow(0 10px 18px rgba(80, 40, 140, .22)); }
+.mk70-say { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: fit-content; max-width: 100%; margin-top: 10px; padding: 10px 12px 10px 14px; border: 1px solid var(--mb50-border, #ece6f5); border-radius: 6px 18px 18px 18px; background: var(--mb50-panel, #fff); box-shadow: 0 14px 34px -22px rgba(40, 20, 70, .45); animation: mk70-say-in .5s .35s cubic-bezier(.3, 1.4, .5, 1) both; }
+.mk70-say::before { content: ""; position: absolute; left: -7px; top: 10px; width: 12px; height: 12px; border-left: 1px solid var(--mb50-border, #ece6f5); border-bottom: 1px solid var(--mb50-border, #ece6f5); background: inherit; transform: rotate(45deg); }
+.mk70-say-name { padding: 2px 8px; border-radius: 999px; background: var(--mbs-accent-soft, rgba(124, 58, 237, .12)); color: var(--mbs-accent, #7c3aed); font-size: 10px; font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
+.mk70-say-head { color: var(--mb50-text, #1d1726); font-size: 14px; font-weight: 800; }
+.mk70-say-msg { color: var(--mb50-muted, #6b6578); font-size: 13px; }
+.mk70-say-step { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 10px; background: var(--mb66-purple, #7c3aed); color: #fff !important; font-size: 12px; font-weight: 750; text-decoration: none !important; transition: transform .2s ease, box-shadow .2s ease; animation: mk70-say-in .35s cubic-bezier(.3, 1.4, .5, 1) both; }
+.mk70-say-step:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -8px rgba(124, 58, 237, .7); }
+.mk70-say-step[hidden] { display: none; }
+@keyframes mk70-say-in { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  .mk70-greet-row { gap: 10px; min-width: 0; }
+  .mk70-hello-panda { width: 70px; margin-top: 0; }
+  .mk70-say { margin-top: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .mk70-hello-panda, .mk70-say, .mk70-say-step { animation: none !important; } }

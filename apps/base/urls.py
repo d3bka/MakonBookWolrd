@@ -9,6 +9,7 @@ from apps.sat import public_placement_views as public_placement_views
 from apps.ratings import views as rating_views
 from apps.ratings import assessment_management as rating_manager_views
 from apps.integrations.hollihop.attendance_insights import manager_attendance_insights
+from apps.base.views_season import seasonal_theme_settings
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -82,6 +83,7 @@ urlpatterns = [
     path('manager/assessment-compliance/export.xlsx', rating_manager_views.manager_penalties_xlsx, name='manager_penalties_xlsx'),
     path('manager/assessment-compliance/<int:penalty_id>/review/', rating_manager_views.manager_review_penalty, name='manager_review_penalty'),
     path('manager/activity/', rating_manager_views.manager_activity_report, name='manager_activity_report'),
+    path('manager/seasonal-theme/', seasonal_theme_settings, name='manager_seasonal_theme'),
     path('manager/teachers/', sat_views.manager_teacher_list, name='manager_teacher_list_root'),
     path('manager/teachers/<int:teacher_id>/', sat_views.manager_teacher_detail, name='manager_teacher_detail_root'),
     path('manager/classrooms/<int:classroom_id>/', sat_views.manager_classroom_detail, name='manager_classroom_detail_root'),

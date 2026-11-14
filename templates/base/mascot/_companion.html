@@ -1,0 +1,11 @@
+{# V70: Mako lives in the corner of every student page (the Home dashboard has the big widget instead). #}
+<div class="mako-companion" data-mako-companion
+     data-name="{{ request.user.first_name|default:request.user.username }}"
+     data-holiday="{{ season.holiday.label|default:'' }}"
+     data-season="{{ season.key }}">
+  <div class="mako-bubble" role="status" aria-live="polite" data-mako-bubble><strong>Mako</strong><span data-mako-text></span></div>
+  <button type="button" class="mako-companion-tuck" data-mako-tuck aria-label="Hide Mako"><i class="bi bi-chevron-down"></i></button>
+  <button type="button" class="mako-companion-btn" data-mako-poke aria-label="Mako the panda. Press to say hi.">
+    {% include 'base/mascot/_panda.html' with pid='c' %}
+  </button>
+</div>

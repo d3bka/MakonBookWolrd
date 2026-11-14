@@ -197,6 +197,7 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "manager_assessment_report": "assessment",
     "manager_assessment_schedules": "schedules",
     "manager_activity_report": "activity",
+    "manager_seasonal_theme": "seasonal-theme",
     "manager_teacher_list_root": "teachers",
     "manager_support_teacher_list_root": "support",
     "manager_dashboard": "manager",
@@ -338,3 +339,11 @@ def staff_workspace_meta(request):
         # available to platform admins for backwards-compatible operational overrides.
         "staff_role_count": sum((has_teacher, has_manager or has_admin, has_admin, has_support)),
     }
+
+
+def season_meta(request):
+    """V70: the platform-wide seasonal theme (cached; see apps.base.seasons)."""
+    from apps.base.seasons import current_season
+
+    state = current_season()
+    return {"season": {"key": state.key, "mode": state.mode, "holiday": state.holiday, **state.meta}}

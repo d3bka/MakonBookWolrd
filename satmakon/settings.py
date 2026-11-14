@@ -138,6 +138,7 @@ TEMPLATES = [
                 "apps.base.context_processors.site_meta",
                 "apps.base.context_processors.test_import_meta",
                 "apps.base.context_processors.staff_workspace_meta",
+                "apps.base.context_processors.season_meta",
             ],
         },
     },

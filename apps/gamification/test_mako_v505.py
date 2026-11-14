@@ -123,15 +123,18 @@ class MakoHomeIntegrationTests(TestCase):
     def setUp(self):
         self.student = User.objects.create_user("mako-student", password="x", first_name="Aziz")
 
-    def test_student_home_renders_mako_widget(self):
+    def test_student_home_greets_with_mako_in_the_header(self):
+        # V70: Mako moved from a dashboard card (which sank to the bottom of saved
+        # layouts) into the "Welcome back" header, as the panda with a speech bubble.
         self.client.force_login(self.student)
         response = self.client.get(reverse("student_dashboard_root"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-dashboard-widget="mako"')
+        self.assertNotContains(response, 'data-dashboard-widget="mako"')
         self.assertContains(response, "data-mako-state=")
-        self.assertContains(response, "mako-v505.css")
+        self.assertContains(response, "data-mako-hello-panda")
+        self.assertContains(response, 'class="mk70-say"')
         self.assertContains(response, "mako-v505.js")
-        self.assertContains(response, "Mako")
+        self.assertContains(response, "mascot-v70.js")
 
     def test_mako_adds_no_database_queries(self):
         self.client.force_login(self.student)
@@ -152,4 +155,4 @@ class MakoHomeIntegrationTests(TestCase):
         self.client.force_login(teacher)
         response = self.client.get(reverse("student_dashboard_root"), follow=True)
         self.assertNotContains(response, "data-mako")
-        self.assertNotContains(response, "mako-v505.css")
+        self.assertNotContains(response, "mascot-v70.js")

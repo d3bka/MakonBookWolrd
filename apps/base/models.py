@@ -174,3 +174,32 @@ class ReferralInvite(models.Model):
     def __str__(self):
         state = "active" if self.activated_at else "pending"
         return f"{self.referrer.username} · {self.code} · {state}"
+
+
+class SeasonalTheme(models.Model):
+    """V70: one platform-wide seasonal theme (singleton row, pk=1).
+
+    ``mode`` is either ``auto`` (season follows the Tashkent calendar) or a
+    season pinned by an Admin/Manager. Read it through ``apps.base.seasons``,
+    which caches the row; never query this model per request directly.
+    """
+
+    MODE_AUTO = "auto"
+    MODE_CHOICES = (
+        (MODE_AUTO, "Automatic (calendar)"),
+        ("winter", "Winter"),
+        ("spring", "Spring"),
+        ("summer", "Summer"),
+        ("autumn", "Autumn"),
+    )
+
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, default=MODE_AUTO)
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Seasonal theme"
+        verbose_name_plural = "Seasonal theme"
+
+    def __str__(self):
+        return f"Seasonal theme: {self.get_mode_display()}"

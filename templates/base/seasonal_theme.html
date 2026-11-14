@@ -1,0 +1,51 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Seasonal theme • MakonBook{% endblock %}
+{% block content %}
+<div class="sf29-page mbs-admin">
+  <section class="sf29-hero">
+    <span class="sf28-kicker"><i class="bi bi-flower1"></i> Platform look</span>
+    <h1>Seasonal theme</h1>
+    <p>One theme for every student and staff workspace, in light and dark mode. Automatic follows the Tashkent calendar; pick a season to pin it. Each viewer can still switch the falling-particle effect off in their own Settings.</p>
+    <div class="mbs-admin-status">
+      <span class="mbs-admin-pill"><i class="bi bi-palette2"></i> Now showing <strong>{{ season.label }} · {{ season.uz }}</strong></span>
+      <span class="mbs-admin-pill">{% if state.is_auto %}<i class="bi bi-calendar3"></i> Automatic{% else %}<i class="bi bi-pin-angle"></i> Pinned by hand{% endif %}</span>
+      {% if season.holiday %}<span class="mbs-admin-pill mbs-admin-holiday"><i class="bi bi-stars"></i> {{ season.holiday.label }}</span>{% endif %}
+      {% if row and row.updated_by %}<span class="mbs-admin-meta">Last changed by {{ row.updated_by.get_full_name|default:row.updated_by.username }} · {{ row.updated_at|date:"j M Y, H:i" }}</span>{% endif %}
+    </div>
+  </section>
+
+  <form method="post" class="mbs-admin-grid">
+    {% csrf_token %}
+    <article class="mbs-admin-card mbs-admin-auto{% if state.is_auto %} is-active{% endif %}">
+      <div class="mbs-admin-auto-art" aria-hidden="true">
+        <span data-k="winter"><i class="bi bi-snow"></i></span><span data-k="spring"><i class="bi bi-flower1"></i></span>
+        <span data-k="summer"><i class="bi bi-sun"></i></span><span data-k="autumn"><svg viewBox="0 0 100 100" width="28" height="28" aria-hidden="true"><path d="M50 94L48 75C40 79 28 81 17 78L24 68C13 64 5 56 3 47L16 47C11 39 11 29 15 20C24 27 30 31 34 34L31 17C38 21 43 13 50 3C57 13 62 21 69 17L66 34C70 31 76 27 85 20C89 29 89 39 84 47L97 47C95 56 87 64 76 68L83 78C72 81 60 79 52 75L50 94Z" fill="currentColor"/></svg></span>
+      </div>
+      <div class="mbs-admin-copy">
+        <h2>Automatic</h2>
+        <p>Dec–Feb winter, Mar–May spring, Jun–Aug summer, Sep–Nov autumn. Today the calendar says <strong>{{ calendar_season.label }}</strong>.</p>
+      </div>
+      {% if state.is_auto %}<span class="mbs-admin-badge"><i class="bi bi-check2-circle"></i> Active</span>
+      {% else %}<button class="sf28-btn mbs-admin-use" type="submit" name="mode" value="auto">Use automatic</button>{% endif %}
+    </article>
+
+    {% for card in season_cards %}
+    <article class="mbs-admin-card{% if card.active %} is-active{% endif %}" data-season-card="{{ card.key }}">
+      <div class="mbs-admin-preview">
+        <div class="mbs-layer mbs-preview" data-season-layer="{{ card.key }}" aria-hidden="true">
+          <div class="mbs-wash"></div>
+          {% if card.key == 'spring' %}{% include 'base/seasons/_spring.html' %}{% elif card.key == 'summer' %}{% include 'base/seasons/_summer.html' %}{% elif card.key == 'autumn' %}{% include 'base/seasons/_autumn.html' %}{% else %}{% include 'base/seasons/_winter.html' %}{% endif %}
+        </div>
+      </div>
+      <div class="mbs-admin-copy">
+        <h2>{{ card.label }} <span>· {{ card.uz }}</span></h2>
+        <small>{{ card.months }}</small>
+        <p>{{ card.motif }}.</p>
+      </div>
+      {% if card.active %}<span class="mbs-admin-badge"><i class="bi bi-pin-angle-fill"></i> Pinned</span>
+      {% else %}<button class="sf28-btn mbs-admin-use" type="submit" name="mode" value="{{ card.key }}">Use {{ card.label|lower }}</button>{% endif %}
+    </article>
+    {% endfor %}
+  </form>
+</div>
+{% endblock %}

@@ -118,3 +118,27 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
 - Home widget `templates/sat/_mako_widget.html` joins the existing widget customizer (`data-dashboard-widget="mako"`), so students can move or hide it. Original SVG mascot; celebrate/nudge/focus/welcome/idle expressions; tapping Mako spotlights the next step; entrance animation plays once per event (localStorage, optional).
 - Styles live only in `static/assets/css/mako-v505.css`, scoped to `.mb66-dashboard` and the V66 theme tokens (light/dark), with tablet/phone layouts and `prefers-reduced-motion`. Staff layouts never load it.
 - Tests: `apps/gamification/test_mako_v505.py` (every rule, step limits, no AI/prediction wording, no added queries, staff exclusion).
+
+## V70 — Seasonal themes + Mako the panda (2026-11-14)
+
+**Seasonal themes** (`apps/base/seasons.py`, `SeasonalTheme` singleton, `season-v70.css/js`)
+- Four Uzbek-inspired themes, each in light and dark mode:
+  - Winter / Qish: snow on a blue dome and minaret, a tandir with non; snowflakes and girih stars.
+  - Spring / Bahor: Navro'z — sumalak in the kazan, peach blossom, tulips, ko'k; red-pink petals.
+  - Summer / Yoz: ishkom grapevine, turquoise peshtoq, melons, paxta choynak; pollen by day, fireflies by night.
+  - Autumn / Kuz: pomegranate branch, cotton in a ko'za, a savat of anor; tumbling chinar leaves.
+- Automatic by the Tashkent calendar; Admin/Manager can pin a season at `/manager/seasonal-theme/`
+  (nobody else can). Holidays (Navro'z, Yangi yil, Mustaqillik, O'qituvchilar kuni) are detected.
+- Decor sits at z-index -1 inside `.mb50-workspace`, under every card. Each viewer can switch the
+  particles off in Settings; `prefers-reduced-motion` turns all motion off.
+
+**Mako the panda** (`templates/base/mascot/_panda.html`, `mascot-v70.css/js`)
+- Vector rig redrawn from the six reference poses, with 13 emotions: idle, happy, greet, celebrate,
+  surprised, sad, angry, skeptical, bored, sleepy, thinking, love, worried.
+- Eyes follow the pointer, he blinks and talks, wears a seasonal accessory (blossom, do'ppi,
+  chinar leaf, scarf).
+- Corner companion on student pages: greets once per session (time of day or holiday). Pokes make
+  him giggle; five quick pokes make him angry. He gets bored after 1 min and sleeps after 3 min.
+  He reacts to dark/light, toasts and the connection. He can be tucked away.
+- Home: the Mako card is gone (in saved widget layouts it sank to the bottom). Mako now greets from the
+  header next to "Welcome back": a speech bubble with his daily line and next step; pressing him cycles the steps.
