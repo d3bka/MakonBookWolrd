@@ -52,7 +52,8 @@ class Command(BaseCommand):
                 f"review #{review.pk} {review.user.username} · {review.test.name}: {review.score} -> {new_score}"
             )
             if apply:
-                TestReview.objects.filter(pk=review.pk).update(score=new_score)
+                # drop the cached PDF too, so the certificate is rebuilt with the new score
+                TestReview.objects.filter(pk=review.pk).update(score=new_score, certificate='')
 
         verb = "Updated" if apply else "Would update"
         self.stdout.write(self.style.SUCCESS(

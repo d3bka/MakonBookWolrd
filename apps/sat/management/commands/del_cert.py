@@ -1,12 +1,11 @@
 from django.core.management.base import BaseCommand
+
 from apps.sat.models import TestReview
 
+
 class Command(BaseCommand):
-    help = 'Sets all certificates to blank in all TestReviews'
+    help = "Forget every cached certificate PDF; each one is rebuilt on its next download."
 
     def handle(self, *args, **kwargs):
-        reviews = TestReview.objects.all()
-        for review in reviews:
-            review.certificate = ''
-            review.save()
-        self.stdout.write(self.style.SUCCESS('Successfully set all certificates to blank'))
+        cleared = TestReview.objects.exclude(certificate="").update(certificate="")
+        self.stdout.write(self.style.SUCCESS(f"Cleared {cleared} cached certificate(s)."))

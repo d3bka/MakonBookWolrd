@@ -1,6 +1,4 @@
 import fitz  
-import os
-import tempfile
 from django.core.files.base import ContentFile
 from apps.sat.storages import PrivateStorage
 from django.conf import settings
@@ -64,29 +62,14 @@ def create_certificate(replacements, code, path, black_counts):
                 page.insert_image(rect, filename=BLACK_IMG)
             else:
                 page.insert_image(rect, filename=WHITE_IMG)
-    # Create a temporary file to save the PDF
-    temp_filename = tempfile.mktemp(suffix='.pdf')
+    # Render in memory and upload. (The old temp-file version returned from a
+    # `finally:` block, which hid real upload errors behind UnboundLocalError.)
     try:
-        doc.save(temp_filename)
-        
-        # Read the PDF content
-        with open(temp_filename, 'rb') as pdf_file:
-            pdf_content = pdf_file.read()
-        
-        # Upload to R2 storage
-        file_name = f'certificates/{code}.pdf'
-        certificate_file = ContentFile(pdf_content, name=file_name)
-        
-        # Save to R2 and get the URL
-        file_path = storage.save(file_name, certificate_file)
-        
+        pdf_content = doc.tobytes(garbage=3, deflate=True)
     finally:
-        # Clean up temporary file
-        if os.path.exists(temp_filename):
-            os.unlink(temp_filename)
-        
-        # Return the R2 file path (not URL, we'll generate URL when needed)
-        return file_path
+        doc.close()
+    file_name = f'certificates/{code}.pdf'
+    return storage.save(file_name, ContentFile(pdf_content, name=file_name))
 
 
 # black_counts = [

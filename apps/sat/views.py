@@ -4912,7 +4912,12 @@ def _generate_certificate_response(user, test_obj, testreview):
         'total': {name: 0 for name in domain_names},
     }
 
-    latest_modules = _load_latest_modules(user, test_obj, attempt_id=testreview.attempt_id)
+    # V70: a classroom attempt stores its modules under that classroom; without
+    # the scope the lookup only saw non-classroom rows and every classroom
+    # student got "attempt is incomplete".
+    latest_modules = _load_latest_modules(
+        user, test_obj, attempt_id=testreview.attempt_id, classroom=testreview.classroom,
+    )
     modules_to_process = []
     for section, module in required_modules:
         module_obj = latest_modules.get(f"{section}_{module}")
@@ -4979,12 +4984,13 @@ def _generate_certificate_response(user, test_obj, testreview):
     math_section = score['sections'].get('math') or {'score': 0, 'range': {'lower': 0, 'upper': 0}}
     range_total = score.get('range_total') or {'lower': score['total'], 'upper': score['total']}
 
+    taken_on = timezone.localtime(testreview.created_at)
     details = {
         "t-sc": str(score['total']),
         "t-rs": f"{range_total['lower']}-{range_total['upper']}",
-        "full_name": user.username,
+        "full_name": user.get_full_name().strip() or user.username,
         "test_name": test_obj.name,
-        "test_date": str(testreview.created_at)[:11],
+        "test_date": f"{taken_on:%B} {taken_on.day}, {taken_on.year}",
         "r-sc": str(english_section['score']),
         "r-rs": f"{english_section['range']['lower']}-{english_section['range']['upper']}",
         "m-sc": str(math_section['score']),
