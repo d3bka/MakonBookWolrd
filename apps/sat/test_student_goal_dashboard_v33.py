@@ -34,7 +34,7 @@ class StudentGoalDashboardV33CsrfTests(TestCase):
             f'action="{reverse("student_goal_settings_root")}"',
         )
         self.assertContains(response, 'data-goal-form')
-        self.assertContains(response, 'class="sg-goal-modal-body"')
+        self.assertContains(response, 'class="sg-goal-modal-body')
         # The browser now uses Django's normal form POST and synchronizes the
         # embedded token from the CSRF cookie before submit. It deliberately
         # avoids a second fetch-based CSRF handshake on every save.

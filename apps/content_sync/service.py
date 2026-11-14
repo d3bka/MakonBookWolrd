@@ -10,6 +10,8 @@ import contextlib
 import logging
 import zlib
 
+from celery.exceptions import SoftTimeLimitExceeded
+
 from django.conf import settings
 from django.db import connection
 from django.utils import timezone
@@ -76,6 +78,8 @@ def run_sync(*, parts=PARTS, dry_run: bool = False, force: bool = False, source=
                         version, lists, words, mirror, last_version=state.value, dry_run=dry_run, force=force
                     ).as_dict()
             except Exception as exc:  # noqa: BLE001 - recorded, reported, and the next part still runs
+                if isinstance(exc, SoftTimeLimitExceeded):
+                    raise
                 if isinstance(exc, ImageMirrorUnavailable):
                     log.error("makonbook-api sync of %s failed: %s", part, exc)
                 else:

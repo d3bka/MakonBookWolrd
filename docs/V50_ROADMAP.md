@@ -106,3 +106,15 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
 - Initial achievements: First Step, Word Builder, Three-Day Spark, Week Warrior, Level Five.
 - Existing V50 vocabulary progress is converted once into starting XP (5 XP learning, 15 XP mastered) so current students do not restart at zero.
 - Home dashboard and student sidebar expose the live level/XP/streak/quest state.
+
+## Status (2026-11-14)
+- V50.1–V50.4 are live in the V64–V68 releases (student shell, gamification, World 1v1 Quick/Ranked, multiplayer FFA/2v2/Survival/Classroom).
+- V50.5 Mako: first iteration shipped (below). V50.6 MakonRoom and V50.7 Friends + World Events are next.
+
+## V50.5.1 — Mako companion (first iteration)
+- `apps/gamification/mako.py`: `mako_state()` is a pure, rule-based function over the Home context the view already builds — no extra queries, no writes, no AI/LLM, no invented scores or predictions.
+- States tied to real product events, most meaningful first: level reached today → deadline within 24 h → all daily quests done → streak at risk (streak ≥ 2, no XP today) → weakest topic (≥ 3 answers, ≤ 70 % correct) → welcome (no classroom or no goal) → idle.
+- Up to three deduplicated next steps: nearest homework, weakest topic practice, vocabulary review, goal setup, joining a classroom, unfinished daily quests.
+- Home widget `templates/sat/_mako_widget.html` joins the existing widget customizer (`data-dashboard-widget="mako"`), so students can move or hide it. Original SVG mascot; celebrate/nudge/focus/welcome/idle expressions; tapping Mako spotlights the next step; entrance animation plays once per event (localStorage, optional).
+- Styles live only in `static/assets/css/mako-v505.css`, scoped to `.mb66-dashboard` and the V66 theme tokens (light/dark), with tablet/phone layouts and `prefers-reduced-motion`. Staff layouts never load it.
+- Tests: `apps/gamification/test_mako_v505.py` (every rule, step limits, no AI/prediction wording, no added queries, staff exclusion).

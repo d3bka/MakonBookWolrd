@@ -22,6 +22,9 @@ class StudentGoalDashboardV32Tests(TestCase):
             username='v32_student',
             password='pass123',
             first_name='Student',
+            # V69: a missing last name keeps the wizard open (it asks for the
+            # name); these tests are about the goal modal itself.
+            last_name='Tester',
         )
         self.classroom = Classroom.objects.create(
             teacher=self.teacher,
@@ -51,12 +54,15 @@ class StudentGoalDashboardV32Tests(TestCase):
         response = self.client.get(reverse('student_dashboard_root'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Student Dashboard')
-        self.assertContains(response, 'Set your dream university')
+        self.assertContains(response, 'Welcome back')
+        self.assertContains(response, 'Find your dream university.')
         self.assertContains(response, 'Purdue University')
         self.assertContains(response, 'Others')
         self.assertContains(response, 'data-official-sat-date-select="1"')
-        self.assertContains(response, 'data-auto-open="0"')
+        self.assertContains(response, 'data-auto-open="1"')
+        self.assertContains(response, 'data-goal-modal-close')
+        second = self.client.get(reverse('student_dashboard_root'))
+        self.assertContains(second, 'data-auto-open="0"')
         self.assertContains(response, 'data-goal-modal-close')
         self.assertNotContains(response, 'data-required-setup')
         self.assertNotContains(response, 'type="date"')
@@ -185,7 +191,7 @@ class StudentGoalDashboardV32Tests(TestCase):
         self.assertNotContains(response, 'Student command center')
         self.assertContains(response, 'data-goal-modal-open')
         self.assertContains(response, 'data-goal-modal-close')
-        self.assertContains(response, 'Set your dream university')
+        self.assertContains(response, 'Find your dream university.')
 
     def test_teacher_cannot_use_global_student_goal_endpoint(self):
         self.client.force_login(self.teacher)

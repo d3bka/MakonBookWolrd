@@ -185,9 +185,16 @@ class PracticeSyncTests(TestCase):
 
     def test_a_test_the_api_no_longer_has_is_hidden(self):
         sync_practice([package()], fake_mirror())
-        summary = sync_practice([], fake_mirror())
+        summary = sync_practice([package(code="DAY13")], fake_mirror())
         self.assertEqual(summary.withdrawn, ["DAY12"])
         self.assertFalse(Test.objects.get(name="DAY12").is_available)
+
+    def test_an_empty_read_never_withdraws_the_library(self):
+        # Wrong schema, replica mid-restore or bad URL must not hide every test.
+        sync_practice([package()], fake_mirror())
+        summary = sync_practice([], fake_mirror())
+        self.assertEqual(summary.withdrawn, [])
+        self.assertTrue(Test.objects.get(name="DAY12").is_available)
 
     def test_dry_run_writes_nothing(self):
         summary = sync_practice([package()], fake_mirror(), dry_run=True)

@@ -1,4 +1,6 @@
 from django.db import models
+
+from apps.base.upload_paths import RandomUploadPath
 from django.contrib.auth.models import User
 import uuid
 from django.utils import timezone
@@ -136,7 +138,7 @@ class GeneralIssueReport(models.Model):
     page_title = models.CharField(max_length=300, blank=True)
     user_agent = models.CharField(max_length=1000, blank=True)
     context_data = models.JSONField(default=dict, blank=True)
-    attachment = models.FileField(upload_to="issue_reports/%Y/%m/", blank=True, null=True)
+    attachment = models.FileField(upload_to=RandomUploadPath("issue_reports"), blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="new", db_index=True)
     admin_note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

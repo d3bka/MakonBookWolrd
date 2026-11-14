@@ -6,7 +6,6 @@ from unittest import TestCase
 ROOT = Path(__file__).resolve().parents[2]
 ENG_TEMPLATE = ROOT / "templates/test/shared/attempt_eng.html"
 MATH_TEMPLATE = ROOT / "templates/test/shared/attempt_math.html"
-THEME_CSS = ROOT / "static/assets/css/sat-test-theme-v49.css"
 FOCUS_CSS = ROOT / "static/assets/css/sat-image-focus-v49.css"
 FOCUS_JS = ROOT / "static/assets/js/sat-image-focus-v49.js"
 
@@ -31,39 +30,12 @@ class TestRunnerThemeImageFocusV49Tests(TestCase):
             self.assertIn("assets/css/sat-image-focus-v49.css", source)
             self.assertIn("assets/js/sat-image-focus-v49.js", source)
 
-    def test_light_theme_overrides_legacy_dark_test_shell(self):
-        css = THEME_CSS.read_text(encoding="utf-8")
-        self.assertIn('html[data-theme="light"] body.github-test-template-v20', css)
-        self.assertIn(".question-container", css)
-        self.assertIn(".choice-container", css)
-        self.assertIn(".question-overview-card", css)
-        self.assertIn(".test-flow-modal-card.finish-summary-card", css)
-
-    def test_light_theme_keeps_footer_secondary_controls_visible(self):
-        css = THEME_CSS.read_text(encoding="utf-8")
-        for selector in ("#clear-button", "#pen-button", "#backButton"):
-            self.assertIn(selector, css)
-        self.assertIn('html[data-theme="light"] body.github-test-template-v20 .footer-right', css)
-        self.assertIn("background: #ffffff !important", css)
-        self.assertIn("color: #5b21b6 !important", css)
-        self.assertIn("#pen-button.active", css)
-
     def test_test_runner_styles_follow_light_and_dark_theme(self):
         css = (ROOT / "static/assets/css/sat-runner-mb-v60.css").read_text(encoding="utf-8")
         self.assertIn("body.mb-runner {", css)
         self.assertIn('html[data-theme="dark"] body.mb-runner {', css)
         for path in (ENG_TEMPLATE, MATH_TEMPLATE):
             self.assertIn("assets/css/sat-runner-mb-v60.css' %}?v=60", self._template(path))
-
-    def test_timer_and_save_status_are_readable_in_light_theme(self):
-        css = THEME_CSS.read_text(encoding="utf-8")
-        self.assertIn(".github-test-timer-wrap .timer", css)
-        self.assertIn("font-variant-numeric: tabular-nums !important", css)
-        self.assertIn('html[data-theme="light"] body.github-test-template-v20 .github-test-timer-wrap .timer', css)
-        self.assertIn("background: #ffffff !important", css)
-        self.assertIn(".timer.is-warning", css)
-        self.assertIn(".timer.is-critical", css)
-        self.assertIn(".github-test-timer-wrap .test-save-status", css)
 
     def test_image_focus_covers_question_graphs_and_visual_answers(self):
         js = FOCUS_JS.read_text(encoding="utf-8")

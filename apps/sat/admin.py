@@ -1328,6 +1328,14 @@ class SupportTeacherReviewAdmin(admin.ModelAdmin):
         return super().get_model_perms(request)
 
 
+@admin.register(OfficialSatDate)
+class OfficialSatDateAdmin(admin.ModelAdmin):
+    list_display = ("date", "is_confirmed", "is_active", "note")
+    list_editable = ("is_confirmed", "is_active", "note")
+    list_filter = ("is_confirmed", "is_active")
+    ordering = ("date",)
+
+
 @admin.register(DreamUniversity)
 class DreamUniversityAdmin(admin.ModelAdmin):
     list_display = [

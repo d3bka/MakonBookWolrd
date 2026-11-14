@@ -6,7 +6,7 @@ from django.conf import settings
 from .models import BaseVideo as Video
 
 
-@shared_task
+@shared_task(soft_time_limit=60 * 60, time_limit=65 * 60)
 def convert_video_to_hls(video_id):
     """Convert an uploaded MP4 video to HLS (.m3u8) and upload to Cloudflare R2."""
     video = Video.objects.get(id=video_id)
@@ -22,7 +22,8 @@ def convert_video_to_hls(video_id):
             "-start_number", "0", "-hls_time", "10", "-hls_list_size", "0",
             "-f", "hls", local_hls_path,
         ]
-        subprocess.run(ffmpeg_cmd, check=True)
+        # Bounded even if Celery limits are not enforced (e.g. solo pool on Windows).
+        subprocess.run(ffmpeg_cmd, check=True, timeout=55 * 60)
 
         s3_client = boto3.client(
             "s3",

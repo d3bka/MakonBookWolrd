@@ -4,12 +4,23 @@ from django import forms
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import DreamUniversity, StudentGoalProfile
+from .models import DreamUniversity, OfficialSatDate, StudentGoalProfile
 
 
-# Official College Board weekend SAT administrations currently published for
-# the 2026–27 testing year. Keep this list explicit so students can select a
-# real administration instead of entering arbitrary dates.
+def official_sat_dates():
+    """Return [(date, is_confirmed), ...] for active official SAT dates, oldest first."""
+    try:
+        rows = list(
+            OfficialSatDate.objects.filter(is_active=True).order_by("date").values_list("date", "is_confirmed")
+        )
+    except Exception:  # table missing mid-deploy: keep the form usable
+        rows = []
+    return rows or [(item, True) for item in OFFICIAL_SAT_DATES]
+
+
+# Seed/fallback list of official College Board SAT administrations. The live
+# list is the admin-managed OfficialSatDate table (migration 0067 seeds it);
+# this tuple is only used if that table is empty or unavailable.
 OFFICIAL_SAT_DATES = (
     date(2026, 8, 22),
     date(2026, 9, 12),
@@ -150,16 +161,23 @@ class StudentGoalProfileForm(forms.ModelForm):
         self.fields['university_choice'].initial = initial_choice
 
         today = timezone.localdate()
-        available_dates = [item for item in OFFICIAL_SAT_DATES if item >= today]
+        official = official_sat_dates()
+        self._official_dates = {item for item, _confirmed in official}
+        confirmed_by_date = dict(official)
+        available_dates = [item for item, _confirmed in official if item >= today]
         current_date = self.instance.exam_date if self.instance and self.instance.exam_date else None
         if current_date and current_date >= today and current_date not in available_dates:
             available_dates.insert(0, current_date)
+        # No announced future administration (admin has not added the next
+        # year yet): never block a student from saving the rest of their plan.
+        self.no_upcoming_official_dates = not available_dates
 
         date_choices = [('', 'Choose an official SAT date')]
         for sat_date in available_dates:
             days_away = (sat_date - today).days
             proximity = 'today' if days_away == 0 else f'{days_away} days away'
-            label = f'{sat_date.strftime("%B %d, %Y")} — {proximity}'
+            provisional = '' if confirmed_by_date.get(sat_date, True) else ' (provisional)'
+            label = f'{sat_date.strftime("%B %d, %Y")}{provisional} — {proximity}'
             date_choices.append((sat_date.isoformat(), label))
         self.fields['exam_date'].choices = date_choices
 
@@ -167,7 +185,7 @@ class StudentGoalProfileForm(forms.ModelForm):
             field.required = False
         self.fields['university_choice'].required = True
         self.fields['target_sat_score'].required = True
-        self.fields['exam_date'].required = True
+        self.fields['exam_date'].required = not self.no_upcoming_official_dates
         self.fields['daily_study_minutes_goal'].required = True
         self.fields['weekly_study_days_goal'].required = True
 
@@ -209,7 +227,7 @@ class StudentGoalProfileForm(forms.ModelForm):
 
         if exam_date and exam_date < timezone.localdate():
             self.add_error('exam_date', 'Exam date cannot be in the past.')
-        if exam_date and exam_date not in OFFICIAL_SAT_DATES and exam_date != getattr(self.instance, 'exam_date', None):
+        if exam_date and exam_date not in self._official_dates and exam_date != getattr(self.instance, 'exam_date', None):
             self.add_error('exam_date', 'Choose one of the official SAT dates from the list.')
 
         return cleaned

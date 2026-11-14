@@ -3,7 +3,10 @@
 {% block page_title %}Dashboard · MakonBook{% endblock page_title %}
 {% block student_workspace_style %}
 <link rel="stylesheet" href="{% static 'assets/css/student-goal-dashboard-v30.css' %}?v=37">
+{# The goal modal below is the V65 onboarding; without its stylesheet it renders unstyled on Home. #}
+<link rel="stylesheet" href="{% static 'assets/css/makon-onboarding-v65.css' %}?v=6903">
 <link rel="stylesheet" href="{% static 'assets/css/student-dashboard-v523.css' %}?v=524">
+<link rel="stylesheet" href="{% static 'assets/css/mako-v505.css' %}?v=5050">
 {% endblock student_workspace_style %}
 {% block content %}
 <div class="v523-home mb66-dashboard" id="studentDashboardV523" data-exam-date="{{ goal.exam_date|date:'Y-m-d' }}" data-real-target="{{ target_score|default:'' }}">
@@ -27,11 +30,13 @@
       <a class="mb66-btn mb66-btn-white" href="{{ dashboard_continue.url }}">Continue learning <i class="bi bi-arrow-right"></i></a>
     </article>
 
+    {% if mako %}{% include 'sat/_mako_widget.html' %}{% endif %}
+
     <article class="v523-home-card mb66-w mb66-countdown" data-dashboard-widget="countdown" data-dashboard-label="SAT exam countdown">
       <div class="mb66-widget-label"><i class="bi bi-clock"></i> SAT exam</div>
       <strong class="mb66-big-num" data-mb66-countdown>{% if goal.exam_date %}—{% else %}—{% endif %}</strong>
       <span class="mb66-countdown-caption">{% if goal.exam_date %}days left{% else %}Date not set{% endif %}</span>
-      {% if goal.exam_date %}<small>{{ goal.exam_date|date:'j F Y' }}</small>{% else %}<button class="mb66-inline-link" type="button" data-goal-modal-open>Choose exam date</button>{% endif %}
+      {% if goal.exam_date %}<small>{{ goal.exam_date|date:'j F Y' }} · <button class="mb66-inline-link mb69-inline-edit" type="button" data-goal-modal-open data-goal-edit="date">Change date</button></small>{% else %}<button class="mb66-inline-link" type="button" data-goal-modal-open data-goal-edit="date">Choose exam date</button>{% endif %}
     </article>
 
     <article class="v523-home-card mb66-w mb66-streak" data-dashboard-widget="activity" data-dashboard-label="Study streak">
@@ -79,9 +84,9 @@
     </article>
 
     <article class="v523-home-card mb66-w mb66-target" data-dashboard-widget="target" data-dashboard-label="Dream university">
-      <div class="mb66-widget-top"><span class="mb66-widget-label"><i class="bi bi-mortarboard"></i> Dream university</span><button class="mb66-inline-link" type="button" data-goal-modal-open>Edit</button></div>
+      <div class="mb66-widget-top"><span class="mb66-widget-label"><i class="bi bi-mortarboard"></i> Dream university</span><button class="mb66-inline-link" type="button" data-goal-modal-open data-goal-edit="uni">Edit</button></div>
       <h2>{% if goal.university_name %}{{ goal.university_name }}{% else %}Choose your dream university{% endif %}</h2>
-      <p>{% if target_score %}SAT target {{ target_score }}{% else %}Set a goal to begin tracking progress{% endif %}</p>
+      <p>{% if target_score %}<button class="mb69-inline-edit mb69-target-edit" type="button" data-goal-modal-open data-goal-edit="target" aria-label="Change SAT target score">SAT target {{ target_score }} <i class="bi bi-pencil" aria-hidden="true"></i></button>{% else %}Set a goal to begin tracking progress{% endif %}</p>
       <div class="mb66-progress"><i style="width:{{ goal_progress_percent|default:0 }}%"></i></div>
       <small>{% if current_score %}Current score {{ current_score }}{% else %}Your score appears after a graded test{% endif %}</small>
     </article>
@@ -164,8 +169,9 @@
 
 {% block student_workspace_scripts %}
 <script src="{% static 'assets/js/student-goal-dashboard-v30.js' %}?v=37"></script>
-<script src="{% static 'assets/js/goal-onboarding-v62.js' %}?v=6540"></script>
+<script src="{% static 'assets/js/goal-onboarding-v62.js' %}?v=6901"></script>
 <script src="{% static 'assets/js/gamification-v52.js' %}?v=50213"></script>
 <script src="{% static 'assets/js/student-dashboard-v524.js' %}?v=6611"></script>
 <script src="{% static 'assets/js/makon-dashboard-prototype-v66.js' %}?v=6601"></script>
+<script src="{% static 'assets/js/mako-v505.js' %}?v=5050"></script>
 {% endblock student_workspace_scripts %}

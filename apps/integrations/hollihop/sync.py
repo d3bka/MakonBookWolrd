@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+import logging
 import os
 import time
 import uuid
@@ -22,6 +23,33 @@ from .client import HollihopClient, HollihopError
 from .credentials import can_deliver_temporary_access, deliver_new_temporary_access
 from .error_reporting import safe_sync_error_details, safe_sync_error_from_exception
 from .normalization import normalize_email, normalize_phone, safe_text
+
+logger = logging.getLogger(__name__)
+
+
+def guard_classroom_deactivation(*, deactivate_count, total_count):
+    """Refuse to bulk-deactivate Hollihop classrooms on a suspicious read.
+
+    A malformed, empty or truncated HTTP-200 catalog must never translate into
+    "switch off every Hollihop classroom". Mirrors the membership removal guard.
+    """
+    if not deactivate_count or not total_count:
+        return
+    if total_count > 1 and deactivate_count >= total_count:
+        raise HollihopError(
+            "Classroom deactivation aborted by safety guard: Hollihop returned none of the "
+            f"{total_count} active managed classrooms. Verify Hollihop API data before retrying."
+        )
+    min_population = int(getattr(settings, "HOLLIHOP_CLASSROOM_DEACTIVATION_GUARD_MIN_POPULATION", 10))
+    max_count = int(getattr(settings, "HOLLIHOP_MAX_AUTOMATIC_CLASSROOM_DEACTIVATIONS", 100))
+    max_ratio = float(getattr(settings, "HOLLIHOP_MAX_AUTOMATIC_CLASSROOM_DEACTIVATION_RATIO", 0.35))
+    ratio = deactivate_count / total_count
+    if total_count >= min_population and (deactivate_count > max_count or ratio > max_ratio):
+        raise HollihopError(
+            "Classroom deactivation aborted by safety guard: "
+            f"{deactivate_count}/{total_count} ({ratio:.1%}) active managed classrooms would be deactivated. "
+            "Verify Hollihop API data before retrying or raise the explicit safety limits."
+        )
 
 User = get_user_model()
 
@@ -44,6 +72,24 @@ def hollihop_bool(value, *, default=False):
 
 class HollihopSyncAlreadyRunning(RuntimeError):
     pass
+
+
+try:
+    from celery.exceptions import SoftTimeLimitExceeded
+except ImportError:  # pragma: no cover - celery is a hard dependency in production
+    class SoftTimeLimitExceeded(Exception):
+        pass
+
+
+def reraise_fatal(exc):
+    """Per-row handlers keep going on data errors, never on these.
+
+    A Celery soft time limit must stop the run (so the task can release the
+    lease), and a lost lease means another sync now owns the data.
+    """
+    if isinstance(exc, (SoftTimeLimitExceeded, HollihopSyncAlreadyRunning)):
+        raise exc
+
 
 
 @dataclass
@@ -175,6 +221,13 @@ class HollihopSyncEngine:
         if self.dry_run:
             return
         if event_type == "sync_error":
+            # The DB row keeps only a sanitized summary for managers; the full
+            # traceback goes to the protected server log the UI points operators to.
+            # Called from inside except-blocks, so exc_info picks up the live error.
+            logger.error(
+                "Hollihop sync error: entity=%s external_id=%s",
+                entity_type, external_id, exc_info=True,
+            )
             raw = details if isinstance(details, dict) else {}
             details = safe_sync_error_details(raw)
             code = raw.get("http_status")
@@ -775,6 +828,7 @@ class HollihopSyncEngine:
                 with transaction.atomic():
                     self._sync_manager(data)
             except Exception as exc:
+                reraise_fatal(exc)
                 self.summary.errors += 1
                 self._log("sync_error", entity_type="manager", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
 
@@ -784,6 +838,7 @@ class HollihopSyncEngine:
                     with transaction.atomic():
                         self._revoke_manager_role(data, reason="Hollihop employee no longer has an admin type/role.")
                 except Exception as exc:
+                    reraise_fatal(exc)
                     self.summary.errors += 1
                     self._log("sync_error", entity_type="manager", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
         else:
@@ -1094,6 +1149,7 @@ class HollihopSyncEngine:
                 with transaction.atomic():
                     self._sync_student(data)
             except Exception as exc:
+                reraise_fatal(exc)
                 self.summary.errors += 1
                 self._log("sync_error", entity_type="student", external_id=data.get("ClientId"), details=safe_sync_error_from_exception(exc))
         return self.summary
@@ -1217,6 +1273,7 @@ class HollihopSyncEngine:
                 with transaction.atomic():
                     self._sync_teacher(data)
             except Exception as exc:
+                reraise_fatal(exc)
                 self.summary.errors += 1
                 self._log("sync_error", entity_type="teacher", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
         return self.summary
@@ -1357,6 +1414,7 @@ class HollihopSyncEngine:
             with transaction.atomic():
                 self._sync_teacher(data)
         except Exception as exc:
+            reraise_fatal(exc)
             self.summary.errors += 1
             self._log("sync_error", entity_type="teacher", external_id=teacher_id, details=safe_sync_error_from_exception(exc))
             return None
@@ -1418,6 +1476,7 @@ class HollihopSyncEngine:
                         active_ids={edunit_id} if self._edunit_is_active(data) else set(),
                     )
             except Exception as exc:
+                reraise_fatal(exc)
                 self.summary.errors += 1
                 self._log("sync_error", entity_type="classroom", external_id=edunit_id, details=safe_sync_error_from_exception(exc))
         return self.summary
@@ -1464,6 +1523,7 @@ class HollihopSyncEngine:
                 with transaction.atomic():
                     self._sync_classroom(data, active_ids=active_ids)
             except Exception as exc:
+                reraise_fatal(exc)
                 self.summary.errors += 1
                 self._log("sync_error", entity_type="classroom", external_id=data.get("Id"), details=safe_sync_error_from_exception(exc))
 
@@ -1478,8 +1538,10 @@ class HollihopSyncEngine:
             )
             if self.corporative_filter is not None:
                 stale = stale.filter(hollihop_corporative=self.corporative_filter)
+            total_active = stale.count()
             stale = stale.exclude(hollihop_edunit_id__in=seen_edunit_ids)
             stale_count = stale.count()
+            guard_classroom_deactivation(deactivate_count=stale_count, total_count=total_active)
             if self.dry_run:
                 self.summary.classrooms_updated += stale_count
             elif stale_count:

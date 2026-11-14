@@ -113,7 +113,7 @@
               {% for teacher in teacher_choices %}<option value="{{ teacher.id }}">#{{ teacher.id }} · {{ teacher.get_full_name|default:teacher.username }}{% if teacher.profile.hollihop_teacher_id %} · HH {{ teacher.profile.hollihop_teacher_id }}{% endif %}</option>{% endfor %}
             </select>
             <button class="holli-btn secondary" name="action" value="link">Map teacher</button>
-          {% else %}
+          {% elif conflict.external_type != 'student_sync' %}
             <input type="number" name="user_id" placeholder="User ID">
             <button class="holli-btn secondary" name="action" value="link">Link</button>
           {% endif %}

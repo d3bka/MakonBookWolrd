@@ -66,7 +66,7 @@ class StudentGoalDashboardV30Tests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Course timeline')
         self.assertContains(response, 'Units &amp; materials')
-        self.assertContains(response, 'Set your dream university')
+        self.assertContains(response, 'Find your dream university.')
         self.assertNotContains(response, 'Student command center')
         self.assertTrue(StudentGoalProfile.objects.filter(user=self.student).exists())
 

@@ -515,6 +515,34 @@ def activate(request, token):
         messages.error(request, "Invalid or expired activation link.")
     return redirect('login')
 
+_ISSUE_ATTACHMENT_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", ".png", {".png"}),
+    (b"\xff\xd8\xff", ".jpg", {".jpg", ".jpeg"}),
+    (b"GIF87a", ".gif", {".gif"}),
+    (b"GIF89a", ".gif", {".gif"}),
+    (b"%PDF-", ".pdf", {".pdf"}),
+)
+
+
+def _issue_attachment_extension(upload):
+    """Return a safe extension when name and file signature agree, else None."""
+    import os
+
+    ext = os.path.splitext(upload.name or "")[1].lower()
+    try:
+        upload.seek(0)
+        head = upload.read(16)
+        upload.seek(0)
+    except Exception:
+        return None
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return ".webp" if ext == ".webp" else None
+    for signature, canonical, allowed_exts in _ISSUE_ATTACHMENT_SIGNATURES:
+        if head.startswith(signature):
+            return canonical if ext in allowed_exts else None
+    return None
+
+
 @require_POST
 def submit_general_issue_report(request):
     from django.http import JsonResponse
@@ -563,6 +591,15 @@ def submit_general_issue_report(request):
         content_type = (getattr(attachment, 'content_type', '') or '').lower()
         if content_type not in allowed_types:
             return JsonResponse({"ok": False, "error": "Attach PNG, JPG, WEBP, GIF, or PDF."}, status=400)
+        # Content-Type is client-supplied and the file lands in the public bucket,
+        # so also require a matching extension and file signature, and store it
+        # under an unguessable name (an .html/.svg disguised as image/png would
+        # otherwise be served from our domain).
+        safe_ext = _issue_attachment_extension(attachment)
+        if safe_ext is None:
+            return JsonResponse({"ok": False, "error": "Attach PNG, JPG, WEBP, GIF, or PDF."}, status=400)
+        import uuid
+        attachment.name = f"{uuid.uuid4().hex}{safe_ext}"
 
     report = GeneralIssueReport.objects.create(
         reporter=request.user if request.user.is_authenticated else None,

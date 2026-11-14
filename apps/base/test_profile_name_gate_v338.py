@@ -109,8 +109,12 @@ class ProfileNameGateV338Tests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_template_contains_prompt_for_missing_name(self):
-        response = self.client.get(reverse('student_dashboard_root'))
+        response = self.client.get(reverse('student_learn_root'))
         self.assertContains(response, 'data-profile-name-gate')
+        # On Home the goal wizard asks for the name itself (V69: no double prompt).
+        home = self.client.get(reverse('student_dashboard_root'))
+        self.assertNotContains(home, 'data-profile-name-gate')
+        self.assertContains(home, 'data-name-required="1"')
 
     def test_template_hides_prompt_after_completion(self):
         self.user.first_name = 'Islom'

@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.db import models
+
+from apps.base.upload_paths import RandomUploadPath
 from django.utils import timezone
 from django.utils.text import slugify
 from apps.sat.roles import is_teacher as has_teacher_access
@@ -153,8 +155,8 @@ class APFRQPage(models.Model):
     page_number = models.PositiveIntegerField()
     title = models.CharField(max_length=255, blank=True)
     instructions = models.TextField(blank=True)
-    image = models.ImageField("FRQ page image", upload_to="apclasses/frq_pages", storage=_public_storage(), null=True, blank=True)
-    file = models.FileField("FRQ PDF/file", upload_to="apclasses/frq_files", storage=_public_storage(), null=True, blank=True)
+    image = models.ImageField("FRQ page image", upload_to=RandomUploadPath("apclasses/frq_pages"), storage=_public_storage(), null=True, blank=True)
+    file = models.FileField("FRQ PDF/file", upload_to=RandomUploadPath("apclasses/frq_files"), storage=_public_storage(), null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -369,8 +371,8 @@ class APExamAnswer(models.Model):
 class APFRQSubmission(models.Model):
     attempt = models.ForeignKey(APExamAttempt, on_delete=models.CASCADE, related_name="frq_submissions")
     page_number = models.PositiveIntegerField(default=1)
-    image = models.ImageField("Handwritten answer image", upload_to="apclasses/frq_submissions", storage=_public_storage(), null=True, blank=True)
-    file = models.FileField("Handwritten answer file", upload_to="apclasses/frq_submissions", storage=_public_storage(), null=True, blank=True)
+    image = models.ImageField("Handwritten answer image", upload_to=RandomUploadPath("apclasses/frq_submissions"), storage=_public_storage(), null=True, blank=True)
+    file = models.FileField("Handwritten answer file", upload_to=RandomUploadPath("apclasses/frq_submissions"), storage=_public_storage(), null=True, blank=True)
     teacher_comment = models.TextField(blank=True)
     score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)

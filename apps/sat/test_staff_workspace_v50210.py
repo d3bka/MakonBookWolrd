@@ -1,3 +1,4 @@
+from apps.base.css_bundles import bundle_for
 from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -227,6 +228,15 @@ class StaffWorkspaceV50210Tests(TestCase):
         self.assertNotContains(response, ">Start test<", html=False)
 
     def test_assessment_deck_saves_every_included_student_atomically(self):
+        # V61: assessment is only open on a day with a confirmed lesson.
+        from django.utils import timezone
+        from apps.ratings.models import AssessmentSchedule
+
+        today = timezone.localdate()
+        AssessmentSchedule.objects.create(
+            classroom=self.classroom, teacher=self.teacher,
+            starts_on=today, weekdays=[today.isoweekday()], approved_by=self.manager,
+        )
         self.client.force_login(self.teacher)
         payload = {"student_ids": [str(self.student.pk), str(self.student2.pk)]}
         for student in [self.student, self.student2]:
@@ -321,7 +331,7 @@ class StaffWorkspaceV50210Tests(TestCase):
     def test_student_target_cta_and_progress_pages_use_v50210_workspace_styles(self):
         self.client.force_login(self.student)
         dashboard = self.client.get(reverse("student_dashboard_root"))
-        self.assertContains(dashboard, "student-workspace-v50210.css")
+        self.assertContains(dashboard, bundle_for("student-workspace-v50210.css"))  # V69: shipped inside the shell CSS bundle
         self.assertContains(dashboard, "data-goal-modal-open")
 
         self.client.force_login(self.teacher)

@@ -12,9 +12,9 @@ class PublicPlacementHeaderSyncV56123Tests(SimpleTestCase):
         for name in ("list.html", "start.html", "result.html"):
             with self.subTest(template=name):
                 template = self._template(name)
-                self.assertIn('class="mb56-page pp-page', template)
+                self.assertRegex(template, r'<body class="[^"]*mb56-page pp-page')
                 self.assertIn('class="mb56-noise"', template)
-                self.assertIn("{% include 'landing/_public_header.html' with local_nav=False %}", template)
+                self.assertIn("{% include 'landing/_public_header.html' with public_nav=True %}", template)
                 self.assertIn("public-placement-header-sync-v5612-3.css", template)
 
     def test_header_is_not_reimplemented_inside_public_placement_pages(self):

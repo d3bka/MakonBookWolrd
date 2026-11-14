@@ -29,9 +29,13 @@ class PrototypeOnboardingV65Tests(TestCase):
         response = self.client.get(reverse('student_dashboard_root'), follow=True)
         self.assertContains(response, 'data-mb65-onboard')
         self.assertContains(response, 'data-name-required="1"')
-        # Existing gate remains for other student pages and older workflows;
-        # the onboarding CSS suppresses its visual duplication when open.
-        self.assertContains(response, 'data-profile-name-gate')
+        # V69: the wizard's name step replaces the global gate on this page
+        # (it used to ask twice) and the wizard always opens while the name is
+        # missing. Other pages still use the global gate.
+        self.assertNotContains(response, 'data-profile-name-gate')
+        self.assertContains(response, 'data-auto-open="1"')
+        other_page = self.client.get(reverse('student_learn_root'))
+        self.assertContains(other_page, 'data-profile-name-gate')
 
     def test_goal_form_posts_to_existing_authenticated_endpoint(self):
         user = self.User.objects.create_user(

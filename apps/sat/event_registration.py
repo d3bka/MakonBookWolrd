@@ -216,10 +216,9 @@ def normalize_telegram(value: str) -> str:
 
 
 def client_ip(request) -> str | None:
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip() or None
-    return request.META.get("REMOTE_ADDR") or None
+    # Never trust X-Forwarded-For (leftmost entry is client-controlled).
+    from apps.base.client_ip import client_ip as trusted_client_ip
+    return trusted_client_ip(request, default=None)
 
 
 def registration_window(event: GlobalEvent, now=None) -> RegistrationWindow:

@@ -26,7 +26,8 @@ def _digest(value: str) -> str:
 
 
 def _client_ip(request) -> str:
-    return (request.META.get("HTTP_X_REAL_IP") or request.META.get("REMOTE_ADDR") or "unknown").strip()[:128]
+    from apps.base.client_ip import client_ip
+    return client_ip(request)
 
 
 def _env_int(name: str, default: int) -> int:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import secrets
 from collections import Counter
 
@@ -25,6 +26,8 @@ from apps.sat.models import Classroom
 from apps.sat.roles import can_manage_classroom, is_manager, is_platform_admin
 
 from .error_reporting import safe_sync_error_details
+
+logger = logging.getLogger(__name__)
 from .credentials import deliver_new_temporary_access
 from .tasks import (
     manual_full_hollihop_reconciliation,
@@ -357,7 +360,8 @@ def webhook(request):
     if not expected or not secrets.compare_digest(str(expected), str(supplied)):
         return JsonResponse({"Error": "Unauthorized."}, status=403)
 
-    remote_ip = request.META.get("HTTP_X_REAL_IP") or request.META.get("REMOTE_ADDR", "unknown") or "unknown"
+    from apps.base.client_ip import client_ip
+    remote_ip = client_ip(request)
     rate_key = f"hollihop:webhook-rate:{remote_ip}"
     try:
         count = cache.get(rate_key, 0)
@@ -391,5 +395,9 @@ def webhook(request):
     try:
         process_student_webhook.delay(trigger_type, client_id)
     except Exception:
-        process_student_webhook.apply(args=[trigger_type, client_id])
+        # Broker unavailable. Never run the multi-request sync inside a gunicorn
+        # worker (a webhook burst would exhaust the pool), and never answer "ok"
+        # for an event that was not queued: 503 lets Hollihop redeliver it.
+        logger.exception("Hollihop webhook could not be queued (client_id=%s)", client_id)
+        return JsonResponse({"Error": "Temporarily unavailable, retry later."}, status=503)
     return JsonResponse({"ok": True})

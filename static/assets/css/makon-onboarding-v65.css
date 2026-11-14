@@ -2,7 +2,7 @@
    All visual rules stay inside .mb65-onboard; Django data/permissions unchanged. */
 .mb65-onboard.sg-goal-modal.student-goal-dashboard{position:fixed!important;inset:0!important;z-index:10080!important;display:block!important;padding:0!important;width:100%!important;max-width:none!important;color:#16121f!important;background:rgba(18,9,31,.15)!important;overflow:hidden!important;box-sizing:border-box!important}
 .mb65-onboard .sg-goal-modal-backdrop{background:rgba(18,9,31,.50)!important;backdrop-filter:blur(8px)!important}
-.mb65-onboard .mb65-shell.sg-goal-modal-panel{display:grid!important;grid-template-columns:minmax(330px,42%) minmax(0,58%);position:relative;max-width:none!important;width:100%!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important;overflow:hidden!important;background:#fff!important;color:#16121f!important;box-shadow:none!important;transform:none!important;font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif!important;--mb65-purple:#7c3aed;--mb65-line:#eae5f1}
+.mb65-onboard .mb65-shell.sg-goal-modal-panel{display:grid!important;grid-template-columns:minmax(330px,42%) minmax(0,58%);position:relative;max-width:none!important;width:100%!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;overflow:hidden!important;background:#fff!important;color:#16121f!important;box-shadow:none!important;transform:none!important;font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif!important;--mb65-purple:#7c3aed;--mb65-line:#eae5f1}
 .mb65-onboard .mb65-shell.mb65-wide{grid-template-columns:1fr!important}
 .mb65-onboard .mb65-wide .mb65-left{display:none!important}
 .mb65-onboard .mb65-left{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:24px;overflow:hidden;padding:36px 40px;color:white;background:linear-gradient(155deg,#5121a3 0%,#7431d7 52%,#a45cff 100%)}
@@ -206,4 +206,118 @@ body:has(.mb65-onboard.is-open) .profile-name-gate{display:none!important}
     max-height:100%!important;
     margin:auto!important;
   }
+}
+
+/* ===================================================================
+   V69 — QS university list + single-block plan editor
+   =================================================================== */
+
+/* --- University list: QS rank badge, location line, SAT chip --- */
+.mb65-onboard .mb65-university-list button{min-height:56px;border-color:#f1ecf7}
+.mb65-onboard .mb65-university-list button .mb69-qs-rank{width:46px;height:40px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:11px;background:#f4eefe;color:#6d28d9;line-height:1}
+.mb65-onboard .mb65-university-list button .mb69-qs-rank small{font-size:8.5px;font-weight:800;letter-spacing:.12em;color:#9b7fd6;margin-bottom:3px;display:block}
+.mb65-onboard .mb65-university-list button .mb69-qs-rank span{font-size:14px;font-weight:850;letter-spacing:-.02em;flex:none}
+.mb65-onboard .mb65-university-list button small{font-size:11.5px;color:#7c7488;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mb65-onboard .mb65-university-list button em{flex:none;font-style:normal;font-size:11px;font-weight:750;color:#6d28d9;background:#f4eefe;border-radius:999px;padding:4px 8px}
+.mb65-onboard .mb65-university-list button .mb69-picked{flex:none;color:#7c3aed;font-size:18px}
+.mb65-onboard .mb65-university-list button[aria-selected="true"] .mb69-qs-rank{background:#7c3aed;color:#fff}
+.mb65-onboard .mb65-university-list button[aria-selected="true"] .mb69-qs-rank small{color:#e7dbff}
+.mb65-onboard .mb65-count{font-size:11.5px;font-weight:700;color:#8a7f98;letter-spacing:.01em}
+.mb65-onboard .mb65-globe svg{cursor:grab}
+.mb65-onboard .mb65-globe svg:active{cursor:grabbing}
+
+/* --- Dashboard inline edit links --- */
+.mb66-dashboard .mb69-inline-edit{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(124,58,237,.35);text-underline-offset:3px}
+.mb66-dashboard .mb69-inline-edit:hover{color:var(--mb66-purple,#7c3aed);text-decoration-color:currentColor}
+.mb66-dashboard .mb69-inline-edit:focus-visible{outline:2px solid var(--mb66-purple,#7c3aed);outline-offset:2px;border-radius:4px}
+.mb66-dashboard .mb69-target-edit .bi{font-size:.85em;margin-left:3px;opacity:.7}
+
+/* Steps are <section>s: cancel the theme's global `section{padding:60px 0}`
+   that pushed every onboarding step down (wizard and editor alike). */
+.mb65-onboard section.mb65-step{padding:0!important}
+
+/* --- Single-block editor: same frame as "Edit your widgets" --- */
+.mb69-edit-head[hidden],.mb65-onboard .mb69-cancel[hidden],.mb65-onboard .mb69-save[hidden]{display:none!important}
+.mb65-onboard.mb69-is-edit .sg-goal-modal-backdrop{background:rgba(22,13,38,.51)!important;backdrop-filter:blur(3px)!important;-webkit-backdrop-filter:blur(3px)!important}
+.mb65-onboard.mb69-is-edit .mb65-shell.sg-goal-modal-panel{display:flex!important;flex-direction:column;position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(680px,calc(100vw - 32px))!important;height:auto!important;max-height:calc(100dvh - 40px)!important;border:1px solid #eee9f6!important;border-radius:18px!important;box-shadow:0 30px 80px -24px rgba(22,13,38,.45)!important;background:#fff!important;overflow:hidden!important}
+.mb65-onboard.mb69-is-edit .mb65-shell.mb65-wide{width:min(1080px,calc(100vw - 32px))!important}
+.mb65-onboard.mb69-is-edit .mb65-left,
+.mb65-onboard.mb69-is-edit .mb65-top,
+.mb65-onboard.mb69-is-edit .mb65-step>h1,
+.mb65-onboard.mb69-is-edit .mb65-step>.mb65-lead,
+.mb65-onboard.mb69-is-edit .mb65-footer-note{display:none!important}
+.mb65-onboard.mb69-is-edit .mb65-right{padding:0!important;display:block!important;overflow:hidden!important;background:transparent!important}
+.mb65-onboard.mb69-is-edit .mb65-inner,.mb65-onboard.mb69-is-edit .mb65-wide .mb65-inner{width:100%;margin:0;display:flex;flex-direction:column;max-height:calc(100dvh - 42px)}
+.mb65-onboard.mb69-is-edit .mb65-form.sg-goal-modal-form{display:flex!important;flex-direction:column;min-height:0;flex:1}
+.mb65-onboard.mb69-is-edit .mb65-body.sg-goal-modal-body{overflow-y:auto!important;padding:18px 26px 22px!important;flex:1;overscroll-behavior:contain}
+.mb65-onboard .mb69-edit-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:23px 26px 20px;border-bottom:1px solid #eee9f6}
+.mb65-onboard .mb69-edit-kicker{display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:850;letter-spacing:.10em;color:#7c3aed;margin-bottom:9px}
+.mb65-onboard .mb69-edit-head h2{font-size:27px;font-weight:850;line-height:1.1;letter-spacing:-.05em;color:#1b1626;margin:0}
+.mb65-onboard .mb69-edit-head p{font-size:12px;line-height:1.6;color:#7c7488;max-width:470px;margin:7px 0 0}
+.mb65-onboard .mb69-edit-close{width:37px;height:37px;display:grid;place-items:center;border:1px solid #eee8f6;border-radius:11px;background:#faf8ff;color:#6a6177;flex:0 0 auto;cursor:pointer}
+.mb65-onboard .mb69-edit-close:hover{color:#7c3aed;border-color:#d9c8f7}
+.mb65-onboard.mb69-is-edit .mb65-actions.sg-goal-modal-actions{margin:0!important;padding:16px 24px!important;border-top:1px solid #eee9f6!important;justify-content:space-between}
+.mb65-onboard.mb69-is-edit .mb65-actions-spacer{display:none}
+.mb65-onboard.mb69-is-edit .mb65-actions button{min-height:43px;border-radius:11px;padding:8px 15px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
+.mb65-onboard .mb69-cancel{background:#fff;border:1px solid #e8e1f0;color:#4b3d5d}
+.mb65-onboard .mb69-save{--fp-gradient:linear-gradient(135deg,#7c3aed,#c026d3);background:linear-gradient(135deg,#7c3aed,#c026d3)!important;color:#fff!important;border:0!important;margin-left:auto;box-shadow:0 10px 24px -12px rgba(124,58,237,.7)!important}
+.mb65-onboard .mb69-save:hover{filter:brightness(1.06)}
+.mb65-onboard.mb69-is-edit .mb65-target-big{font-size:72px!important;margin:4px 0 10px!important}
+.mb65-onboard.mb69-is-edit .mb65-picker{margin-top:0}
+.mb65-onboard.mb69-is-edit .mb65-university-list{max-height:min(390px,calc(100dvh - 380px))}
+
+/* dark theme — mirrors the widget editor palette */
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-shell.sg-goal-modal-panel{background:#201a2a!important;border-color:#453655!important;color:#f7f2ff!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb69-edit-head,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-actions.sg-goal-modal-actions{border-color:#453655!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb69-edit-head h2{color:#f7f2ff}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-actions.sg-goal-modal-actions,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-wide .mb65-actions{background:#201a2a!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-regions button,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-globe-zoom button{background:#292136!important;border-color:#453655!important;color:#e7def3!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-regions button.on{background:#7c3aed!important;border-color:#7c3aed!important;color:#fff!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb69-edit-head p{color:#b3a8c4}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb69-edit-kicker{color:#b794ff}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb69-edit-close{background:#292136;border-color:#453655;color:#cfc3e0}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb69-cancel{background:#32283d;color:#f7f2ff;border-color:#4b3c5a}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-target-big{color:#b794ff!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-presets button,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-dates button,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-university-list button,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-selected-university,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-pace{background:#292136!important;border-color:#453655!important;color:#f7f2ff!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-presets button small,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-dates button small,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-university-list button small,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-selected-university small,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-selected-university span,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-count,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-globe-panel>p{color:#b3a8c4!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-presets button.is-active,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-presets button[aria-pressed="true"],
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-dates button.is-active,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-dates button[aria-pressed="true"],
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-university-list button[aria-selected="true"]{background:#3a2a55!important;border-color:#8b5cf6!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-university-list button .mb69-qs-rank,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-university-list button em{background:#3a2a55;color:#d4c2ff}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-globe-panel{background:#1b1524;border-color:#453655}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-picker-search input,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-score-manual input,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-pace input,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-pace select{background:#1b1524!important;border-color:#453655!important;color:#f7f2ff!important}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-picker-search button{background:#292136;border-color:#453655;color:#d4c2ff}
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit label,
+html[data-theme="dark"] .mb65-onboard.mb69-is-edit .mb65-pace summary{color:#e7def3!important}
+
+@media (max-width:767px){
+  .mb65-onboard.mb69-is-edit .mb65-shell.sg-goal-modal-panel,
+  .mb65-onboard.mb69-is-edit .mb65-shell.mb65-wide{top:auto!important;bottom:0!important;transform:translateX(-50%)!important;width:100vw!important;max-height:92dvh!important;border-radius:18px 18px 0 0!important}
+  .mb65-onboard.mb69-is-edit .mb65-inner,.mb65-onboard.mb69-is-edit .mb65-wide .mb65-inner{max-height:92dvh}
+  .mb65-onboard .mb69-edit-head{padding:18px 18px 14px}
+  .mb65-onboard .mb69-edit-head h2{font-size:23px}
+  .mb65-onboard.mb69-is-edit .mb65-body.sg-goal-modal-body{padding:14px 18px 18px!important}
+  .mb65-onboard.mb69-is-edit .mb65-actions.sg-goal-modal-actions{padding:12px 18px calc(12px + env(safe-area-inset-bottom))!important}
+  .mb65-onboard.mb69-is-edit .mb65-picker{grid-template-columns:1fr}
+  .mb65-onboard.mb69-is-edit .mb65-globe-panel{display:none}
+  .mb65-onboard.mb69-is-edit .mb65-university-list{max-height:none}
 }

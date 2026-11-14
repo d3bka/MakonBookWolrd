@@ -36,6 +36,8 @@ ENV/
 # =========================
 .env
 .env.*
+# Any env/credentials dump, e.g. doc_2026-11-13_19-58-52.env exported from a chat
+*.env
 !.env.example
 !.env.production.example
 *.pem

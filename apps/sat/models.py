@@ -1,7 +1,10 @@
 from django.db import models
+
+from apps.base.upload_paths import RandomUploadPath
 from django.contrib.auth.models import User, Group
 from datetime import timedelta
 import datetime
+import os
 import random
 import string
 import uuid
@@ -635,6 +638,31 @@ class TestReview(BaseModel):
         indexes = [
             models.Index(fields=['user', 'test', 'attempt_id', 'created_at'], name='sat_tr_u_t_att_cr'),
             models.Index(fields=['user', 'test', 'created_at'], name='sat_tr_u_t_cr'),
+        ]
+        # One review per attempt (and classroom scope). NULLs are distinct in a
+        # unique index, so classroom/no-classroom scopes need separate partial
+        # constraints. Existing duplicates are merged by migration 0064.
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'test', 'attempt_id', 'classroom'],
+                condition=models.Q(test__isnull=False, classroom__isnull=False),
+                name='sat_tr_unique_attempt_classroom',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'test', 'attempt_id'],
+                condition=models.Q(test__isnull=False, classroom__isnull=True),
+                name='sat_tr_unique_attempt_solo',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'makeup_test', 'attempt_id', 'classroom'],
+                condition=models.Q(makeup_test__isnull=False, classroom__isnull=False),
+                name='sat_tr_unique_makeup_attempt_classroom',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'makeup_test', 'attempt_id'],
+                condition=models.Q(makeup_test__isnull=False, classroom__isnull=True),
+                name='sat_tr_unique_makeup_attempt_solo',
+            ),
         ]
 
 # Test stages for user progress
@@ -1994,6 +2022,32 @@ class DreamUniversity(BaseModel):
         return f"{self.name} ({self.country})" if self.country else self.name
 
 
+class OfficialSatDate(models.Model):
+    """An official College Board SAT administration students can plan for.
+
+    Managed in Django admin so the goal form never runs out of dates (the old
+    hard-coded tuple ended in June 2027). ``is_confirmed=False`` marks dates
+    College Board has only announced as anticipated; students see them labelled
+    "provisional".
+    """
+    date = models.DateField(unique=True)
+    is_confirmed = models.BooleanField(
+        default=True,
+        help_text="Untick for anticipated dates College Board has not confirmed yet.",
+    )
+    is_active = models.BooleanField(default=True, help_text="Hide a date without deleting it.")
+    note = models.CharField(max_length=160, blank=True, help_text="Optional, e.g. 'US only'.")
+
+    class Meta:
+        ordering = ["date"]
+        verbose_name = "Official SAT date"
+        verbose_name_plural = "Official SAT dates"
+
+    def __str__(self):
+        suffix = "" if self.is_confirmed else " (provisional)"
+        return f"{self.date:%B %d, %Y}{suffix}"
+
+
 class StudentGoalProfile(BaseModel):
     """A student's SAT destination, exam date, and sustainable study target."""
     user = models.OneToOneField(
@@ -2233,7 +2287,7 @@ class ClassroomLessonResource(models.Model):
     lesson = models.ForeignKey(ClassroomLesson, on_delete=models.CASCADE, related_name='resources')
     title = models.CharField(max_length=220)
     resource_type = models.CharField(max_length=20, choices=RESOURCE_CHOICES, default=RESOURCE_FILE)
-    file = models.FileField(upload_to='classroom_lessons/%Y/%m/', blank=True, null=True, storage=PublicStorage())
+    file = models.FileField(upload_to=RandomUploadPath('classroom_lessons'), blank=True, null=True, storage=PublicStorage())
     url = models.URLField(blank=True)
     test = models.ForeignKey('Test', on_delete=models.SET_NULL, null=True, blank=True, related_name='classroom_lesson_resources')
     vocabulary_unit = models.ForeignKey('VocabularyUnit', on_delete=models.SET_NULL, null=True, blank=True, related_name='classroom_lesson_resources')
@@ -2716,7 +2770,10 @@ class ChatMessage(models.Model):
         related_name='sent_classroom_messages'
     )
     message = models.TextField(blank=True, null=True)
-    file = models.FileField(upload_to='classroom_chat_files/', blank=True, null=True)
+    file = models.FileField(upload_to=RandomUploadPath('classroom_chat_files'), blank=True, null=True)
+    # The storage key is random (see apps.base.upload_paths); keep the name the
+    # sender chose for display only.
+    file_original_name = models.CharField(max_length=255, blank=True, default='')
     sticker = models.ForeignKey(
         UserChatSticker,
         on_delete=models.SET_NULL,
@@ -2732,6 +2789,18 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"{self.sender.username} - {self.classroom.name} - {self.created_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def file_display_name(self):
+        if not self.file:
+            return ''
+        return self.file_original_name or str(self.file.name).rsplit('/', 1)[-1]
+
+    def save(self, *args, **kwargs):
+        upload = self.file
+        if upload and not getattr(upload, '_committed', True) and not self.file_original_name:
+            self.file_original_name = os.path.basename(str(upload.name).replace(chr(92), '/'))[:255]
+        super().save(*args, **kwargs)
     
 
 

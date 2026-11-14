@@ -590,6 +590,13 @@ HOLLIHOP_CHECKPOINT_OVERLAP_SECONDS = max(0, min(600, int(os.getenv("HOLLIHOP_CH
 HOLLIHOP_MAX_AUTOMATIC_MEMBERSHIP_REMOVALS = max(1, int(os.getenv("HOLLIHOP_MAX_AUTOMATIC_MEMBERSHIP_REMOVALS", "500")))
 HOLLIHOP_MAX_AUTOMATIC_MEMBERSHIP_REMOVAL_RATIO = max(0.01, min(1.0, float(os.getenv("HOLLIHOP_MAX_AUTOMATIC_MEMBERSHIP_REMOVAL_RATIO", "0.35"))))
 HOLLIHOP_MEMBERSHIP_REMOVAL_GUARD_MIN_POPULATION = max(1, int(os.getenv("HOLLIHOP_MEMBERSHIP_REMOVAL_GUARD_MIN_POPULATION", "50")))
+# A student row failing this many smart-sync cycles in a row stops blocking the
+# delta cursor and becomes a "student_sync" conflict on the Hollihop dashboard.
+HOLLIHOP_DELTA_ROW_MAX_FAILURES = max(1, int(os.getenv("HOLLIHOP_DELTA_ROW_MAX_FAILURES", "3")))
+# Same protection for bulk classroom deactivation after a catalog read.
+HOLLIHOP_MAX_AUTOMATIC_CLASSROOM_DEACTIVATIONS = max(1, int(os.getenv("HOLLIHOP_MAX_AUTOMATIC_CLASSROOM_DEACTIVATIONS", "100")))
+HOLLIHOP_MAX_AUTOMATIC_CLASSROOM_DEACTIVATION_RATIO = max(0.01, min(1.0, float(os.getenv("HOLLIHOP_MAX_AUTOMATIC_CLASSROOM_DEACTIVATION_RATIO", "0.35"))))
+HOLLIHOP_CLASSROOM_DEACTIVATION_GUARD_MIN_POPULATION = max(1, int(os.getenv("HOLLIHOP_CLASSROOM_DEACTIVATION_GUARD_MIN_POPULATION", "10")))
 
 # Data synchronization and credential delivery are intentionally separated.
 # Keep the automatic gate false while Eskiz is in test mode.
@@ -709,6 +716,15 @@ ESKIZ_TOKEN_CACHE_SECONDS = max(60, int(os.getenv("ESKIZ_TOKEN_CACHE_SECONDS", "
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://127.0.0.1:6379/1")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2")
 CELERY_TASK_TRACK_STARTED = True
+# No task may run forever: a hung HTTP read or loop would otherwise keep its
+# lease alive (heartbeat) and silently stop every later beat run. The soft limit
+# raises SoftTimeLimitExceeded inside the task so it can release locks; the hard
+# limit kills the worker child. Long jobs set their own limits on the task.
+CELERY_TASK_SOFT_TIME_LIMIT = max(30, int(os.getenv("CELERY_TASK_SOFT_TIME_LIMIT", "600")))
+CELERY_TASK_TIME_LIMIT = max(
+    CELERY_TASK_SOFT_TIME_LIMIT + 30,
+    int(os.getenv("CELERY_TASK_TIME_LIMIT", str(CELERY_TASK_SOFT_TIME_LIMIT + 120))),
+)
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_RESULT_EXPIRES = int(os.getenv("CELERY_RESULT_EXPIRES", "86400"))

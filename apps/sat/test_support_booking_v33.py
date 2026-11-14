@@ -211,7 +211,7 @@ class SupportBookingV33Tests(TestCase):
 
         manager_response = self.client.get(reverse('manager_dashboard_root'))
         self.assertEqual(manager_response.status_code, 200)
-        self.assertContains(manager_response, 'Manager home')
+        self.assertContains(manager_response, 'Center at a glance')
 
     def test_manager_panel_is_in_account_menu_and_replaces_admin_panel_label(self):
         multi_role = User.objects.create_user(
@@ -238,7 +238,7 @@ class SupportBookingV33Tests(TestCase):
         self.client.force_login(manager)
         response = self.client.get(reverse('manager_dashboard_root'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Manager home')
+        self.assertContains(response, 'Center at a glance')
         self.assertContains(response, 'Main teachers')
         self.assertContains(response, 'Support teachers')
         self.assertContains(response, reverse('manager_teacher_list_root'))

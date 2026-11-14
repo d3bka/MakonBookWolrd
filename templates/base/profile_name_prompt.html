@@ -1,4 +1,4 @@
-{% if request.user.is_authenticated %}
+{% if request.user.is_authenticated and not goal_modal_handles_name %}{# the goal wizard asks for the name itself #}
   {% if not request.user.first_name or not request.user.last_name %}
     <div
       class="profile-name-gate"

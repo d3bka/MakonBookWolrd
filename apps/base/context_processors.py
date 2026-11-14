@@ -59,11 +59,16 @@ def test_import_meta(request):
         # Deleted-homework notices were noisy and are no longer part of the product.
         # Remove historical copies as users encounter the workspace so the panel
         # immediately reflects the new notification policy.
-        MakonNotification.objects.filter(
-            user=request.user,
-            type=MakonNotification.TYPE_HOMEWORK,
-            title__startswith='Homework removed:',
-        ).delete()
+        # One-time legacy cleanup: once per session, not a DELETE on every render.
+        session = getattr(request, "session", None)
+        if session is None or not session.get("_mb_removed_hw_notices_cleaned"):
+            MakonNotification.objects.filter(
+                user=request.user,
+                type=MakonNotification.TYPE_HOMEWORK,
+                title__startswith='Homework removed:',
+            ).delete()
+            if session is not None:
+                session["_mb_removed_hw_notices_cleaned"] = True
 
         # Deadline notices are generated lazily on normal authenticated page loads.
         # This keeps them accurate without requiring Celery/cron and avoids noisy

@@ -1,0 +1,18 @@
+/* MakonBook V69 — workspace <section> reset (student + staff shells).
+ *
+ * Legacy static/assets/css/main.css (landing theme) applies to EVERY section:
+ *     section { padding: 60px 0; overflow: clip; }
+ *
+ * Inside the workspaces <section> is a plain layout wrapper (grids, stacks,
+ * chat threads), so that rule added 60–120px empty bands between blocks on
+ * ~15 pages. student-workspace-spacing-v5266.css fixed a whitelist of classes,
+ * and every new component slipped past it.
+ *
+ * :where() keeps this at the specificity of the bare `section` selector:
+ * it beats main.css (which loads earlier) but loses to ANY class rule, so
+ * components that set their own padding (cards, dialogs, heroes) keep it.
+ */
+:where(.mb50-main) section {
+  padding-top: 0;
+  padding-bottom: 0;
+}

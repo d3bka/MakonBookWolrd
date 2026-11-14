@@ -3,25 +3,13 @@
 
 {% block style %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v50.css' %}?v=524">
-  <link rel="stylesheet" href="{% static 'assets/css/gamification-v52.css' %}?v=50213">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v523.css' %}?v=50212">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v524.css' %}?v=524">
+  {# Student shell styles are bundled (apps/base/css_bundles.py; rebuild with `manage.py build_css_bundles`). #}
+  <link rel="stylesheet" href="{% static 'assets/css/student-shell-base.bundle.css' %}?v=6900">
   {% block student_workspace_style %}{% endblock student_workspace_style %}
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v525.css' %}?v=525">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5261.css' %}?v=5261">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5262.css' %}?v=5262">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5263.css' %}?v=5263">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5264.css' %}?v=5264">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v5265.css' %}?v=5265">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-v50210.css' %}?v=50210">
-  <link rel="stylesheet" href="{% static 'assets/css/student-workspace-spacing-v5266.css' %}?v=5266">
-  <link rel="stylesheet" href="{% static 'assets/css/student-speed-v554.css' %}?v=5544">
-  <link rel="stylesheet" href="{% static 'assets/css/student-world-upcoming-v5571.css' %}?v=5571">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-prototype-merge-v60.css' %}?v=6001">
+  <link rel="stylesheet" href="{% static 'assets/css/student-shell-layers.bundle.css' %}?v=6901">
 
 {% endblock style %}
-{% block workspace_final_styles %}<link rel="stylesheet" href="{% static 'assets/css/makon-ui-v62.css' %}?v=6202"><link rel="stylesheet" href="{% static 'assets/css/makon-dashboard-prototype-v66.css' %}?v=6601"><link rel="stylesheet" href="{% static 'assets/css/makon-unified-workspace-v661.css' %}?v=6611"><link rel="stylesheet" href="{% static 'assets/css/makon-workspace-search-v67.css' %}?v=6701"><link rel="stylesheet" href="{% static 'assets/css/makon-dashboard-readability-v662.css' %}?v=6622">{% endblock workspace_final_styles %}
+{% block workspace_final_styles %}<link rel="stylesheet" href="{% static 'assets/css/student-shell-final.bundle.css' %}?v=6900">{% endblock workspace_final_styles %}
 
 {% block body %}
 <div class="mb50-shell{% if student_workspace_active == 'home' %} mb66-shell{% endif %}" data-student-workspace data-workspace-storage-scope="student" data-workspace-search-url="{% url 'workspace_search_root' %}">

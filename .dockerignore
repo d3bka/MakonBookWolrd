@@ -23,6 +23,7 @@ docker-compose*.yml
 .dockerignore
 Dockerfile
 .env*
+*.env
 *.backup
 *.dump
 *.sql

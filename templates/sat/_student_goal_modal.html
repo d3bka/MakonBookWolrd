@@ -5,6 +5,7 @@
      data-mb653-landmask="{% static 'assets/img/world/gshhg_land_mask_2048.png' %}"
      data-auto-open="{% if open_goal_modal %}1{% else %}0{% endif %}"
      data-first-goal="{% if first_goal_setup %}1{% else %}0{% endif %}"
+     data-goal-configured="{% if goal.is_configured %}1{% else %}0{% endif %}"
      data-name-required="{% if not request.user.first_name or not request.user.last_name %}1{% else %}0{% endif %}"
      data-profile-endpoint="{% url 'complete_profile_name' %}"
      data-practice-url="{% url 'student_practice' %}"
@@ -32,6 +33,12 @@
     <div class="mb65-right"><div class="mb65-inner">
       <div class="mb65-top"><div class="mb65-top-info"><span class="mb65-top-kicker">MAKONBOOK · YOUR SAT PLAN</span><div class="mb65-progress" data-mb65-progress></div><div class="mb65-step-label" data-mb65-step-label></div></div>
         <button type="button" class="mb65-close" data-goal-modal-close aria-label="Close goal setup">×</button></div>
+      {# V69 single-block editor header (shown only when editing one part of a saved plan) #}
+      <div class="mb69-edit-head" data-mb69-edit-head hidden>
+        <div><span class="mb69-edit-kicker"><i class="bi" data-mb69-edit-icon aria-hidden="true"></i> <span>EDIT YOUR SAT PLAN</span></span>
+          <h2 id="mb69EditTitle" data-mb69-edit-title></h2><p data-mb69-edit-sub></p></div>
+        <button type="button" class="mb69-edit-close" data-goal-modal-close aria-label="Close editor"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      </div>
       <form method="post" action="{% url 'student_goal_settings_root' %}" class="sg-goal-modal-form mb65-form" data-goal-form novalidate>
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ goal_form_next }}">
@@ -73,7 +80,7 @@
               </div>
               <div class="mb65-picker-side">
                 <div class="mb65-selected-university" data-mb65-selected-university><strong>Choose your university</strong></div>
-                <div class="mb65-picker-search"><input type="search" data-university-search placeholder="Search universities or countries" autocomplete="off" aria-label="Search universities"><button type="button" data-mb65-wall>★ Makon</button></div>
+                <div class="mb65-picker-search"><input type="search" data-university-search placeholder="Search universities or countries" autocomplete="off" aria-label="Search universities"></div>
                 <div class="mb65-count" data-university-search-result></div>
                 <div class="mb65-university-list" data-mb65-university-list role="listbox" aria-label="Universities"></div>
               </div>
@@ -110,8 +117,10 @@
           </section>
         </div>
         <div class="sg-goal-modal-actions mb65-actions"><button class="mb65-back" type="button" data-mb65-back>← Back</button>
+          <button class="mb69-cancel" type="button" data-goal-modal-close hidden><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Cancel</button>
           <span class="mb65-footer-note">You can update your plan later.</span><span class="mb65-actions-spacer"></span><button class="mb65-next" type="button" data-mb65-next>Continue →</button>
           <button class="sg-btn mb65-submit" type="submit" data-goal-submit hidden>Open my dashboard →</button>
+          <button class="mb69-save" type="submit" data-mb69-save hidden><i class="bi bi-check2" aria-hidden="true"></i> Save changes</button>
         </div>
       </form>
     </div></div>

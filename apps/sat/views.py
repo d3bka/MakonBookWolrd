@@ -37,6 +37,7 @@ import json
 import logging
 import random
 import re
+import string
 import uuid
 from django.db.models import Count
 from django.db import transaction, IntegrityError
@@ -1121,7 +1122,35 @@ def _section_submission_status(required_modules, missing_modules):
     }
 
 
-def _score_from_counts(test_mode, correct_counts):
+def _module_totals_for_run(test_obj, required_modules):
+    """Question counts per module, only for the modules this attempt actually ran.
+
+    Modules outside the run (e.g. M2 in a single-module practice) count as
+    absent, so the calculator projects the section from what was taken instead
+    of scoring the missing module as 0 correct.
+    """
+    from .guest_views import get_event_question_totals
+
+    totals = get_event_question_totals(test_obj)
+    taken = {(section, module) for section, module in required_modules}
+    for section in ('english', 'math'):
+        for module in ('m1', 'm2'):
+            if (section, module) not in taken:
+                totals[section][module] = 0
+    return totals
+
+
+def _score_from_counts(test_mode, correct_counts, totals=None):
+    """One SAT scoring engine for practice, homework, events and placement.
+
+    With ``totals`` the counts are normalised to the calculator's 27/27/22/22
+    module sizes exactly like Guest/Event attempts, so the same answers always
+    give the same score. Standard 27/22 tests are unchanged by normalisation.
+    """
+    if totals is not None:
+        from .guest_views import regular_score_from_counts
+
+        return regular_score_from_counts(test_mode, correct_counts, totals)
     if test_mode == 'full':
         return calculator.get_total(
             correct_counts['english']['m1'],
@@ -1235,6 +1264,33 @@ def _classroom_scope_filter(classroom):
     in one teacher's classroom from blocking the same test in another classroom.
     """
     return {'classroom_id': _classroom_id_value(classroom)}
+
+
+def _get_or_create_attempt_review(user, test_obj, attempt_id, classroom):
+    """Return (review, created) for one attempt, safe under concurrent requests.
+
+    The DB enforces one TestReview per (user, test, attempt_id, classroom scope)
+    (migration 0065). When two requests race, the loser's insert fails inside a
+    savepoint and it reuses the winner's row instead of creating a duplicate.
+    """
+    lookup = dict(user=user, test=test_obj, attempt_id=attempt_id, **_classroom_scope_filter(classroom))
+    review = TestReview.objects.filter(**lookup).order_by('created_at', 'pk').first()
+    if review:
+        return review, False
+    try:
+        with transaction.atomic():
+            # Set the share key on insert: ``key`` is unique, so two concurrent
+            # inserts with the default '' would collide even across users.
+            review = TestReview.objects.create(
+                user=user, test=test_obj, classroom=classroom, attempt_id=attempt_id,
+                key=''.join(random.choices(string.ascii_letters, k=100)),
+            )
+    except IntegrityError:
+        review = TestReview.objects.filter(**lookup).order_by('created_at', 'pk').first()
+        if review is None:
+            raise
+        return review, False
+    return review, True
 
 
 def _get_classroom_context_from_id(user, classroom_id, test_obj=None):
@@ -1500,7 +1556,10 @@ def _calculate_attempt_score(user, test_obj, attempt_id, classroom=None):
             if is_correct:
                 correct_counts[sec][mod] += 1
 
-    return _score_from_counts(_score_mode_for_run_mode(test_obj, mode), correct_counts)
+    return _score_from_counts(
+        _score_mode_for_run_mode(test_obj, mode), correct_counts,
+        _module_totals_for_run(test_obj, required_modules),
+    )
 
 
 def _completed_attempt_ids_from_modules(user, test_obj, classroom=None):
@@ -1589,22 +1648,8 @@ def _ensure_scored_review_for_attempt(user, test_obj, attempt_id, classroom=None
     if not score:
         return None
 
-    review = TestReview.objects.filter(
-        user=user,
-        test=test_obj,
-        attempt_id=attempt_id,
-        **_classroom_scope_filter(classroom),
-    ).order_by('-created_at').first()
-
-    if not review:
-        review = TestReview.objects.create(
-            user=user,
-            test=test_obj,
-            classroom=classroom,
-            attempt_id=attempt_id,
-        )
-        review.update_key()
-    elif not review.key:
+    review, _created = _get_or_create_attempt_review(user, test_obj, attempt_id, classroom)
+    if not review.key:
         review.update_key()
 
     latest_module = TestModule.objects.filter(
@@ -3529,7 +3574,7 @@ def results(request, test):
             except Exception:
                 continue
 
-    score = _score_from_counts(test_mode, correct_counts)
+    score = _score_from_counts(test_mode, correct_counts, _module_totals_for_run(test_obj, required_modules))
 
     current_stage = _latest_regular_test_stage(user, test_obj, classroom=attempt_scope_classroom)
     current_attempt_id = attempt_id or (current_stage.attempt_id if current_stage else None)
@@ -3537,30 +3582,23 @@ def results(request, test):
     if selected_review and selected_review.attempt_id:
         testreview = selected_review
     else:
-        testreview = None
-        if current_attempt_id:
-            testreview = TestReview.objects.filter(
-                user=user,
-                test=test_obj,
-                attempt_id=current_attempt_id,
-                **_classroom_scope_filter(attempt_scope_classroom),
-            ).order_by('-created_at').first()
-
-        if not testreview:
-            testreview = TestReview.objects.create(
-                user=user,
-                test=test_obj,
-                classroom=attempt_scope_classroom,
-                attempt_id=current_attempt_id or uuid.uuid4()
-            )
-            testreview.update_key()
+        testreview, created = _get_or_create_attempt_review(
+            user, test_obj, current_attempt_id or uuid.uuid4(), attempt_scope_classroom,
+        )
+        if created:
             if user.groups.filter(name='OFFLINE').exists():
                 testreview.duration = timedelta(days=3)
                 testreview.save(update_fields=['duration'])
+        elif not testreview.key:
+            testreview.update_key()
 
     if not review_key:
-        testreview.score = score['total'] if isinstance(score, dict) else 0
-        testreview.save(update_fields=['score'])
+        # A stored score is history: set it once. Re-scoring on every view let a
+        # later answer-key edit silently rewrite past results. Deliberate
+        # re-scoring goes through `manage.py rescore_sat_reviews`.
+        if testreview.score is None:
+            testreview.score = score['total'] if isinstance(score, dict) else 0
+            testreview.save(update_fields=['score'])
         _snapshot_review_attempt_metadata(
             testreview,
             user,
@@ -4673,8 +4711,14 @@ def module_test(request, pk, attempt_id=None):
 
     return HttpResponse("You dont have permission")
 
+@login_required(login_url='login')
 def rankings(request, pk):
-    results = TestReview.objects.filter(test__name=pk).order_by('-score', 'user')[:50]
+    # Student names and SAT scores are not public data.
+    results = (
+        TestReview.objects.filter(test__name=pk, score__isnull=False)
+        .select_related('user')
+        .order_by('-score', 'user')[:50]
+    )
     return render(request, 'test/features/rankings.html', {'results': results})
 
 
@@ -4792,7 +4836,7 @@ def results_by_user(request, test, username):
             except Exception:
                 continue
 
-    score = _score_from_counts(test_mode, correct_counts)
+    score = _score_from_counts(test_mode, correct_counts, _module_totals_for_run(test_obj, required_modules))
 
     english_total_correct = correct_counts['english']['m1'] + correct_counts['english']['m2']
     math_total_correct = correct_counts['math']['m1'] + correct_counts['math']['m2']
@@ -4915,7 +4959,7 @@ def _generate_certificate_response(user, test_obj, testreview):
             except Exception:
                 continue
 
-    score = _score_from_counts(test_mode, correct_counts)
+    score = _score_from_counts(test_mode, correct_counts, _module_totals_for_run(test_obj, required_modules))
 
     counts = [7, 7, 7, 7, 7, 7, 7, 7]
     wrongs = [questions['wrongs'].get(name, 0) for name in domain_names]
@@ -9231,10 +9275,9 @@ def is_student(user):
 
 
 def get_client_ip(request):
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR', 'unknown')
+    # Never trust X-Forwarded-For (leftmost entry is client-controlled).
+    from apps.base.client_ip import client_ip
+    return client_ip(request)
 
 
 def is_join_code_rate_limited(request):
@@ -9841,7 +9884,11 @@ def student_classroom_home(request, classroom_id):
     # accessible from the Goal button and can be resumed on next login.
     first_goal_setup = not context['goal'].is_configured
     auto_goal = first_goal_setup and not request.session.get('mb_goal_prompted')
-    context['open_goal_modal'] = request.GET.get('goal') == '1' or auto_goal
+    # The wizard's own first step asks for a missing name, so it replaces the
+    # global name gate here (otherwise the name was asked twice) and must open.
+    name_missing = not (request.user.first_name and request.user.last_name)
+    context['open_goal_modal'] = request.GET.get('goal') == '1' or auto_goal or name_missing
+    context['goal_modal_handles_name'] = True
     context['first_goal_setup'] = first_goal_setup
     if auto_goal:
         request.session['mb_goal_prompted'] = True
@@ -10901,7 +10948,7 @@ def _build_test_results_context_for_user(test_obj, user, review_key=None, classr
             except Exception:
                 continue
 
-    score = _score_from_counts(test_mode, correct_counts)
+    score = _score_from_counts(test_mode, correct_counts, _module_totals_for_run(test_obj, required_modules))
 
     testreview = selected_review
     if not testreview:
@@ -11652,7 +11699,7 @@ def send_classroom_message(request, classroom_id):
                 'created_at': chat_message.created_at.strftime('%Y-%m-%d %H:%M'),
                 'text': chat_message.message or '',
                 'file_url': chat_message.file.url if chat_message.file else '',
-                'file_name': chat_message.file.name.split('/')[-1] if chat_message.file else '',
+                'file_name': chat_message.file_display_name,
                 'sticker_url': chat_message.sticker.image.url if chat_message.sticker_id else '',
                 'sticker_title': chat_message.sticker.title if chat_message.sticker_id else '',
                 'delete_message_url': reverse('delete_classroom_message_root', args=[classroom.id, chat_message.id]),
@@ -11881,7 +11928,7 @@ def fetch_classroom_messages(request, classroom_id):
             'created_at': item.created_at.strftime('%Y-%m-%d %H:%M'),
             'text': item.message or '',
             'file_url': item.file.url if item.file else '',
-            'file_name': item.file.name.split('/')[-1] if item.file else '',
+            'file_name': item.file_display_name,
             'sticker_url': item.sticker.image.url if item.sticker_id else '',
             'sticker_title': item.sticker.title if item.sticker_id else '',
             'delete_message_url': reverse('delete_classroom_message_root', args=[classroom.id, item.id]),
@@ -14628,6 +14675,7 @@ def classroom_entry(request):
             'meta': (assignment.due_at.strftime('%b %d · %H:%M') if assignment.due_at else assignment.classroom.name),
             'url': reverse('student_homework_launch_root', args=[assignment.id]),
             'icon': 'bi-clipboard-check' if assignment.assignment_type == ClassroomHomeworkAssignment.TYPE_TEST else 'bi-journal-bookmark',
+            'due_at': assignment.due_at,
         })
     context = {
         'approved_memberships': approved,
@@ -14652,10 +14700,24 @@ def classroom_entry(request):
     # accessible from the Goal button and can be resumed on next login.
     first_goal_setup = not context['goal'].is_configured
     auto_goal = first_goal_setup and not request.session.get('mb_goal_prompted')
-    context['open_goal_modal'] = request.GET.get('goal') == '1' or auto_goal
+    # The wizard's own first step asks for a missing name, so it replaces the
+    # global name gate here (otherwise the name was asked twice) and must open.
+    name_missing = not (request.user.first_name and request.user.last_name)
+    context['open_goal_modal'] = request.GET.get('goal') == '1' or auto_goal or name_missing
+    context['goal_modal_handles_name'] = True
     context['first_goal_setup'] = first_goal_setup
     if auto_goal:
         request.session['mb_goal_prompted'] = True
+    # V50.5 Mako: derived from the context above, no extra queries.
+    from apps.gamification.mako import mako_state
+    context['mako'] = mako_state(
+        gamification=context.get('gamification'),
+        due_items=due_items,
+        weak_topics=context['dashboard_weak_topics'],
+        vocabulary=context['dashboard_vocabulary'],
+        goal=context.get('goal'),
+        has_classroom=bool(primary),
+    )
     return render(request, 'sat/classroom_join.html', context)
 
 

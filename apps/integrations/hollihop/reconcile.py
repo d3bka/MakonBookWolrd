@@ -13,10 +13,25 @@ from apps.base.models import UserProfile
 from apps.integrations.models import HollihopSyncLog, HollihopSyncState
 from apps.sat.models import Classroom
 
+from .client import HollihopError
+from .error_reporting import safe_sync_error_from_exception
 from .normalization import normalize_email, normalize_phone, safe_text
-from .sync import HollihopSyncAlreadyRunning, HollihopSyncEngine, hollihop_bool
+from .sync import (
+    HollihopSyncAlreadyRunning,
+    HollihopSyncEngine,
+    guard_classroom_deactivation,
+    hollihop_bool,
+    reraise_fatal,
+)
 
 User = get_user_model()
+
+# Per-ClientId consecutive failure counts for the student delta (stored in the
+# sync cursor). After HOLLIHOP_DELTA_ROW_MAX_FAILURES a row stops blocking the
+# cursor and becomes a manager-visible conflict instead.
+DELTA_FAILURES_KEY = "student_delta_failures"
+DELTA_FAILURES_LIMIT = 500
+QUARANTINE_CONFLICT_TYPE = "student_sync"
 
 
 @dataclass
@@ -213,9 +228,58 @@ class HollihopSmartReconciler:
         since = since - timedelta(seconds=settings.HOLLIHOP_CHECKPOINT_OVERLAP_SECONDS)
         rows = self.client.get_students(last_updated_from=_cursor_iso(since))
         self.report.student_delta_rows = len(rows)
+        failures = {str(k): int(v) for k, v in (cursor.get(DELTA_FAILURES_KEY) or {}).items()}
+        max_failures = max(1, int(getattr(settings, "HOLLIHOP_DELTA_ROW_MAX_FAILURES", 3)))
+        blocking = 0
         for data in rows:
-            self._sync_one_student_row(data)
-        cursor["students_delta_at"] = _cursor_iso(cycle_started)
+            client_key = str(data.get("ClientId") or "")
+            # One bad row (constraint conflict, odd payload) must not stall every
+            # later student and every later sweep in this cycle.
+            try:
+                self._sync_one_student_row(data)
+            except (HollihopSyncAlreadyRunning, HollihopError):
+                # Transport/API failures affect every row; abort the cycle instead
+                # of hammering a failing API once per row.
+                raise
+            except Exception as exc:
+                reraise_fatal(exc)
+                self.engine.summary.errors += 1
+                self.engine._log(
+                    "sync_error", entity_type="student", external_id=client_key,
+                    details=safe_sync_error_from_exception(exc),
+                )
+                count = failures.get(client_key, 0) + 1
+                failures[client_key] = count
+                if count < max_failures:
+                    blocking += 1  # retry this window next cycle
+                elif count == max_failures:
+                    # Quarantine: stop holding the cursor back for a row that keeps
+                    # failing, and hand it to a manager. It is still retried whenever
+                    # Hollihop reports it changed again, and by the profile sweeps.
+                    self.engine._conflict(
+                        external_type=QUARANTINE_CONFLICT_TYPE,
+                        external_id=client_key,
+                        display_name=f"Hollihop student {client_key}",
+                        reason=(
+                            f"Student update failed {count} cycles in a row "
+                            f"({safe_sync_error_from_exception(exc).get('reason', type(exc).__name__)}). "
+                            "Smart sync skipped it so other students keep syncing. Fix the data, then Ignore."
+                        ),
+                    )
+                    self.report.notes.append(f"Student {client_key} quarantined after {count} failed cycles.")
+            else:
+                failures.pop(client_key, None)
+        # Keep the failure ledger bounded.
+        if len(failures) > DELTA_FAILURES_LIMIT:
+            failures = dict(sorted(failures.items(), key=lambda item: -item[1])[:DELTA_FAILURES_LIMIT])
+        if failures:
+            cursor[DELTA_FAILURES_KEY] = failures
+        else:
+            cursor.pop(DELTA_FAILURES_KEY, None)
+        if blocking == 0:
+            cursor["students_delta_at"] = _cursor_iso(cycle_started)
+        else:
+            self.report.notes.append("Student delta had row errors; it will retry on the next cycle.")
 
     def _edunit_delta(self, state, cursor, cycle_started):
         fallback = state.initial_sync_completed_at or state.last_successful_sync or cycle_started
@@ -359,6 +423,13 @@ class HollihopSmartReconciler:
         # Hollihop-managed classes that no longer exist in the allowed catalog inactive.
         missing_ids = local_ids - set(remote)
         if missing_ids:
+            active_ids = set(
+                local_qs.filter(is_active=True).values_list("hollihop_edunit_id", flat=True)
+            )
+            guard_classroom_deactivation(
+                deactivate_count=len(missing_ids & active_ids),
+                total_count=len(active_ids),
+            )
             Classroom.objects.filter(hollihop_edunit_id__in=missing_ids, is_active=True).update(
                 is_active=False,
                 hollihop_last_synced_at=now,
@@ -456,7 +527,7 @@ class HollihopSmartReconciler:
             return self.report, self.engine.summary
         except Exception as exc:
             self.engine.summary.errors += 1
-            self.engine._log("sync_error", entity_type="smart_sync", details={"error": type(exc).__name__})
+            self.engine._log("sync_error", entity_type="smart_sync", details=safe_sync_error_from_exception(exc))
             self.engine.release_lock(success=False, error=type(exc).__name__)
             raise
 

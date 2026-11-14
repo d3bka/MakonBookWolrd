@@ -67,10 +67,9 @@ GUEST_SUBMIT_GRACE_SECONDS = 300
 
 
 def get_client_ip(request):
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+    # Never trust X-Forwarded-For (leftmost entry is client-controlled).
+    from apps.base.client_ip import client_ip
+    return client_ip(request, default=None)
 
 
 def get_guest_from_session(request):

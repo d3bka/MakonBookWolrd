@@ -24,7 +24,6 @@
   let current = nameRequired ? 'name' : 'target';
   let searchQuery = '';
   let region = 'all';
-  let wallOnly = false;
   let globe = null;
   const order = ['name','target','uni','date','ready'];
   const steps = nameRequired ? order : order.slice(1);
@@ -51,19 +50,28 @@
       return Object.values(geos).find(x => x[2] && (host === x[2] || host.endsWith('.'+x[2]))) || null;
     } catch (_) {return null;}
   };
-  const regionOf = u => {
-    const c=(u.country||'').toLowerCase();const geo=getGeo(u);
-    if(c.includes('united states')||c.includes('usa'))return 'us';
-    if(c.includes('united kingdom')||c==='uk')return 'uk';
-    if(c.includes('australia')||c.includes('new zealand'))return 'oc';
-    if(c.includes('canada')||c.includes('mexico')||c.includes('brazil')||c.includes('argentina')||c.includes('chile'))return 'am';
-    if(c.includes('uzbek')||c.includes('saudi')||c.includes('qatar')||c.includes('emirates'))return 'me';
-    if(c.includes('japan')||c.includes('china')||c.includes('korea')||c.includes('india')||c.includes('malaysia')||c.includes('hong kong')||c.includes('singapore')||c.includes('taiwan'))return 'asia';
-    return geo ? 'eu' : 'all';
+  const REGION_BY_COUNTRY = {
+    'united states':'us','united kingdom':'uk',
+    'australia':'oc','new zealand':'oc',
+    'canada':'am','mexico':'am','brazil':'am','argentina':'am','chile':'am','colombia':'am',
+    'china (mainland)':'asia','china':'asia','hong kong sar':'asia','japan':'asia','south korea':'asia','taiwan':'asia',
+    'singapore':'asia','malaysia':'asia','india':'asia','indonesia':'asia','thailand':'asia','macau sar':'asia',
+    'saudi arabia':'me','qatar':'me','united arab emirates':'me','kazakhstan':'me','uzbekistan':'me','turkey':'me',
+    'south africa':'af','egypt':'af',
   };
+  const regionOf = u => {
+    const c=(u.country||'').toLowerCase().trim();
+    if(Object.prototype.hasOwnProperty.call(REGION_BY_COUNTRY,c))return REGION_BY_COUNTRY[c];
+    return 'eu';
+  };
+  // QS publishes ties as "=8"; show them the same way.
+  const rankCounts = new Map();
+  universityData.forEach(u=>{if(u.qs_rank)rankCounts.set(u.qs_rank,(rankCounts.get(u.qs_rank)||0)+1);});
+  // QS publishes exact ranks to 500 and bands (601-610, ...) beyond; show bands as "601+".
+  const qsLabel = rank => !rank ? '–' : rank>500 ? rank+'+' : ((rankCounts.get(rank)||0)>1?'='+rank:String(rank));
   const visibleUnis = () => universityData.filter(u => {
     const hay=(u.name+' '+u.country+' '+(u.city||'')).toLowerCase();
-    return (!searchQuery||hay.includes(searchQuery))&&(!wallOnly || (getGeo(u)&&getGeo(u)[3]))&&(region==='all'||regionOf(u)===region);
+    return (!searchQuery||hay.includes(searchQuery))&&(region==='all'||regionOf(u)===region);
   });
   function chosen() {return byId.get(uni.value) || null;}
   function selectedName(){return chosen()?.name || (uni.value==='other' ? (form.elements.custom_university_name?.value || 'Other university') : 'Choose your university');}
@@ -158,7 +166,35 @@
     if(key==='uni'){drawList();if(!globe)globe=createGlobe();if(globe){globe.activate();globe.refresh();}}
     if(key==='date')renderDates();
     if(ready){updatePreview();}
+    // V69 single-block editor: Save/Cancel replace the wizard navigation.
+    const editing=!!editMode;
+    sel('[data-mb69-save]').hidden=!editing;
+    sel('.mb69-cancel').hidden=!editing;
+    if(editing){sel('[data-mb65-back]').hidden=true;sel('[data-mb65-next]').hidden=true;sel('[data-goal-submit]').hidden=true;}
     updatePreview();
+  }
+  // V69: once a plan exists, each dashboard "Edit" opens just its own block in
+  // the same dialog style as the other workspace editors.
+  const goalConfigured = root.dataset.goalConfigured === '1';
+  let editMode = null;
+  const EDIT_COPY = {
+    target:{icon:'bi-bullseye',title:'Target score',sub:'The SAT score you are working towards. Your dashboard progress is measured against it.'},
+    uni:{icon:'bi-mortarboard',title:'Dream university',sub:'Choose from the QS World University Rankings list, or enter a university that is not listed.'},
+    date:{icon:'bi-calendar-event',title:'SAT exam date',sub:'Pick an official SAT date. Your countdown and weekly plan follow it.'},
+  };
+  function setEditMode(step){
+    editMode = EDIT_COPY[step] ? step : null;
+    root.classList.toggle('mb69-is-edit',!!editMode);
+    sel('[data-mb69-edit-head]').hidden=!editMode;
+    shell.setAttribute('aria-labelledby',editMode?'mb69EditTitle':'mb65Title');
+    if(editMode){const copy=EDIT_COPY[editMode];text('[data-mb69-edit-title]',copy.title);text('[data-mb69-edit-sub]',copy.sub);
+      sel('[data-mb69-edit-icon]').className='bi '+copy.icon;}
+  }
+  function openEditor(step){
+    // A half-finished plan cannot be saved one field at a time (all three are
+    // required), so it continues the wizard at the requested step instead.
+    if(!goalConfigured||!nameComplete){setEditMode(null);showStep(nameComplete?step:'name');return;}
+    setEditMode(step);showStep(step);
   }
   function getCookie(name){try{return document.cookie.split(';').map(x=>x.trim()).find(x=>x.startsWith(name+'='))?.split('=').slice(1).join('=') || '';}catch(_){return '';}}
   async function saveName(){
@@ -192,7 +228,8 @@
       if(sat&&scoreValue()<sat){showError(`Your target must be at least the university SAT reference (${sat}).`,score);return false;}
     }
     if(step==='date'){
-      if(!exam.value){showError('Choose an official SAT administration date.');return false;}
+      const hasDates=[...exam.options].some(o=>o.value);
+      if(!exam.value&&hasDates){showError('Choose an official SAT administration date.');return false;}
       const minutes=Number(form.elements.daily_study_minutes_goal?.value),days=Number(form.elements.weekly_study_days_goal?.value);
       if(minutes<15||minutes>360||days<1||days>7){showError('Choose 15–360 study minutes and 1–7 days per week.');return false;}
     }
@@ -213,12 +250,13 @@
     if(close && !nameComplete){event.preventDefault();event.stopImmediatePropagation();showStep('name');showError('Please save your name first.');}
   },true);
   form.addEventListener('submit',event=>{
-    if(current!=='ready'||!nameComplete){event.preventDefault();event.stopImmediatePropagation();return;}
+    if((!editMode&&current!=='ready')||!nameComplete){event.preventDefault();event.stopImmediatePropagation();return;}
     // Validate all steps, opening the actual invalid step for correction.
     for(const step of ['target','uni','date']){
       if(!validStep(step)){
         const message=formAlert?.textContent || 'Please review this step.';
-        event.preventDefault();event.stopImmediatePropagation();showStep(step);showError(message);return;
+        event.preventDefault();event.stopImmediatePropagation();
+        if(editMode)setEditMode(step);showStep(step);showError(message);return;
       }
     }
     // The real Django POST persists the goal; no local demo account is created.
@@ -232,42 +270,49 @@
     text('[data-mb65-next]','Continue →');});
   [form.elements.custom_university_name,exam].filter(Boolean).forEach(el=>el.addEventListener('change',updatePreview));
 
-  const regionOptions=[['all','World'],['us','USA'],['uk','UK'],['eu','Europe'],['asia','Asia'],['oc','Oceania'],['am','Americas'],['me','Middle East & Central Asia']];
+  const regionOptions=[['all','World'],['us','USA'],['uk','UK'],['eu','Europe'],['asia','Asia'],['oc','Oceania'],['am','Americas'],['me','Middle East & Central Asia'],['af','Africa']];
   const regionEl=sel('[data-mb65-regions]');
   for(const [key,title] of regionOptions){const b=document.createElement('button');b.type='button';b.dataset.region=key;b.textContent=title;
     b.addEventListener('click',()=>{region=key;drawList();if(globe)globe.region(key);});regionEl.appendChild(b);}
   function pickUniversity(value){uni.value=value;emitChange(uni);updatePreview();drawList();if(globe)globe.focus(chosen());}
   function drawList(){
     regionEl.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.region===region));
-    const values=visibleUnis();text('[data-university-search-result]',`${values.length} universities · catalogue choices are official MakonBook data.`);
+    const values=visibleUnis();
+    const year=(universityData.find(u=>u.ranking_year)||{}).ranking_year;
+    text('[data-university-search-result]',`QS World University Rankings${year?' '+year:''} · ${values.length} of ${universityData.length} shown`);
     list.replaceChildren();
-    const append=(value,name,country,rank,sat)=>{
+    const append=(value,name,meta,rank,sat)=>{
       const btn=document.createElement('button');btn.type='button';btn.dataset.uni=value;btn.setAttribute('role','option');btn.setAttribute('aria-selected',String(uni.value===value));
-      const r=document.createElement('b');r.className='rank';r.textContent=rank?'#'+rank:'–';
-      const txt=document.createElement('span');const st=document.createElement('strong');st.textContent=name;const sm=document.createElement('small');sm.textContent=country||'';txt.append(st,sm);
-      btn.append(r,txt);if(sat){const em=document.createElement('em');em.textContent='≈'+sat;btn.appendChild(em);}
+      const r=document.createElement('b');r.className='rank mb69-qs-rank';
+      if(rank){const k=document.createElement('small');k.textContent='QS';const v=document.createElement('span');v.textContent=qsLabel(rank);r.append(k,v);r.title='QS World University Rankings'+(year?' '+year:'')+': '+qsLabel(rank);}
+      else{r.textContent='+';}
+      const txt=document.createElement('span');const st=document.createElement('strong');st.textContent=name;const sm=document.createElement('small');sm.textContent=meta||'';txt.append(st,sm);
+      btn.append(r,txt);if(sat){const em=document.createElement('em');em.textContent='SAT ≈'+sat;btn.appendChild(em);}
+      if(uni.value===value){const ok=document.createElement('i');ok.className='bi bi-check2-circle mb69-picked';ok.setAttribute('aria-hidden','true');btn.appendChild(ok);}
       btn.addEventListener('click',()=>pickUniversity(value));list.appendChild(btn);
     };
-    values.forEach(u=>append(u.value,u.name,u.country,u.qs_rank,u.average_sat_score));
-    if(region==='all'&&!searchQuery&&!wallOnly)append('other','Others — university not listed','Manual entry','',null);
+    values.forEach(u=>append(u.value,u.name,[u.city,u.country].filter(Boolean).join(' · '),u.qs_rank,u.average_sat_score));
+    if(region==='all'&&!searchQuery)append('other','My university is not listed','Enter it manually','',null);
     if(!list.children.length){const msg=document.createElement('p');msg.textContent='No matching universities. Try another country or name.';list.appendChild(msg);}
     const data=chosen();const card=sel('[data-mb65-selected-university]');card.replaceChildren();
     const st=document.createElement('strong');st.textContent=selectedName();card.appendChild(st);
-    if(data){const meta=document.createElement('small');meta.textContent=(data.qs_rank?'#'+data.qs_rank+' · ':'')+data.country;card.appendChild(meta);
-      const d=document.createElement('span');d.textContent=data.average_sat_score?'SAT reference: '+data.average_sat_score:'SAT reference not published';card.appendChild(d);
+    if(data){const meta=document.createElement('small');meta.textContent=(data.qs_rank?'QS '+qsLabel(data.qs_rank)+' · ':'')+[data.city,data.country].filter(Boolean).join(', ');card.appendChild(meta);
+      // Only show an SAT reference an admin has actually verified; no placeholder text.
+      if(data.average_sat_score){const d=document.createElement('span');d.textContent='Average SAT (verified): '+data.average_sat_score;card.appendChild(d);}
       const location=getGeo(data);if(location&&location[4]==='city'){const hint=document.createElement('span');hint.className='mb653-location-hint';hint.textContent='Map marker: approximate city location, not the exact campus';card.appendChild(hint);}}
   }
   search.addEventListener('input',()=>{searchQuery=search.value.trim().toLowerCase();if(searchQuery)region='all';drawList();if(globe)globe.refresh();});
-  sel('[data-mb65-wall]').addEventListener('click',()=>{wallOnly=!wallOnly;sel('[data-mb65-wall]').classList.toggle('is-selected',wallOnly);drawList();if(globe)globe.refresh();});
   function renderDates(){const host=sel('[data-mb65-dates]');host.replaceChildren();
     [...exam.options].filter(o=>o.value).forEach(option=>{
       const b=document.createElement('button');b.type='button';b.classList.toggle('is-selected',exam.value===option.value);
       const txt=document.createElement('span');const st=document.createElement('strong');st.textContent=prettyDate(option.value);
-      const sm=document.createElement('small');sm.textContent=`${daysUntil(option.value)} days to prepare`;txt.append(st,sm);
+      const provisional=/\(provisional\)/i.test(option.textContent);
+      const sm=document.createElement('small');sm.textContent=`${daysUntil(option.value)} days to prepare`+(provisional?' · provisional date':'');txt.append(st,sm);
+      if(provisional)b.classList.add('is-provisional');
       const dot=document.createElement('span');dot.className='radio';b.append(txt,dot);
       b.addEventListener('click',()=>{exam.value=option.value;emitChange(exam);renderDates();updatePreview();});host.appendChild(b);
     });
-    if(!host.children.length){const p=document.createElement('p');p.textContent='No future SAT dates currently configured. Please contact the administrator.';host.appendChild(p);}
+    if(!host.children.length){const p=document.createElement('p');p.textContent='The next SAT dates have not been announced yet. You can save your plan now and add the date later.';host.appendChild(p);}
   }
 
   // V65.3 — accurate orthographic surface and university markers.
@@ -313,6 +358,9 @@
 
     let centerLon=20,centerLat=22,zoom=1,active=false,drag=false,start=null;
     let pointerId=null,lastDragMove=0,dragSpeed=0,raf=0,nowLast=0,paintLast=0,motion=null,dirty=true;
+    // V69: always-on slow spin that eases to a stop while the cursor is over
+    // the globe and eases back up when it leaves (deg per ms).
+    const SPIN=.0024;let spin=0,hovering=false,holdUntil=0;
     let mask=null,maskWidth=0,maskHeight=0;
     const image = new Image();
     image.decoding = 'async';
@@ -456,10 +504,13 @@
         centerLat=motion.startLat+(motion.targetLat-motion.startLat)*v;
         zoom=motion.startZoom+(motion.targetZoom-motion.startZoom)*v;
         moving=true;if(t>=1)motion=null;
-      }else if(!drag&&!prefersReduced.matches&&!uni.value){
-        centerLon=normalize(centerLon+dt*.0043);moving=true;
       }
-      const interval=window.innerWidth<600?65:50;
+      const spinTarget=(drag||hovering||prefersReduced.matches||now<holdUntil)?0:SPIN;
+      // exponential approach: ~0.9s to stop on hover, ~1.4s to spin back up
+      spin+=(spinTarget-spin)*(1-Math.exp(-dt/(spinTarget?1400:350)));
+      if(!spinTarget&&spin<.00012)spin=0;  // settle fully (~1s) instead of creeping forever
+      if(!motion&&!drag&&spin>0){centerLon=normalize(centerLon+dt*spin);moving=true;}
+      const interval=window.innerWidth<600?50:33;
       if((moving||dirty)&&(now-paintLast>=interval||dirty)){draw();paintLast=now;}
     }
     function activate(){if(active)return;active=true;nowLast=0;paintLast=0;raf=requestAnimationFrame(frame);}
@@ -482,6 +533,8 @@
     function release(){if(!drag)return;drag=false;pointerId=null;
       if(!prefersReduced.matches&&Math.abs(dragSpeed)>.2)flyTo(centerLon-clamp(dragSpeed*25,-26,26),centerLat,zoom,350);
     }
+    svg.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse'||e.pointerType==='pen'){hovering=true;activate();}});
+    svg.addEventListener('pointerleave',()=>{hovering=false;activate();});
     svg.addEventListener('pointerup',release);svg.addEventListener('pointercancel',release);
     svg.addEventListener('lostpointercapture',release);
     svg.addEventListener('wheel',e=>{e.preventDefault();flyTo(centerLon,centerLat,zoom*(e.deltaY<0?1.12:.89),320);},{passive:false});
@@ -489,14 +542,18 @@
     sel('[data-mb65-zoom="out"]').addEventListener('click',()=>flyTo(centerLon,centerLat,zoom*.82,340));
     return {
       refresh,activate,pause,
-      focus(u){const geo=getGeo(u);if(geo)flyTo(geo[1],geo[0],Math.max(1.55,zoom),1100);else refresh();},
+      focus(u){holdUntil=performance.now()+6000;const geo=getGeo(u);if(geo)flyTo(geo[1],geo[0],Math.max(1.55,zoom),1100);else refresh();},
       region(k){const views={all:[20,22,1],us:[-98,36,1.8],uk:[-1,53,2.1],eu:[17,50,1.8],
-        asia:[105,29,1.5],oc:[144,-23,1.65],am:[-78,-8,1.2],me:[54,30,1.7]};
+        asia:[105,29,1.5],oc:[144,-23,1.65],am:[-78,-8,1.2],me:[58,36,1.6],af:[22,-8,1.35]};
         const v=views[k]||views.all;flyTo(v[0],v[1],v[2],950);}
     };
   }
   root.querySelectorAll('[data-goal-modal-open]');
-  document.querySelectorAll('[data-goal-modal-open]').forEach(button=>button.addEventListener('click',()=>{showStep(nameComplete?'target':'name');}));
+  document.querySelectorAll('[data-goal-modal-open]').forEach(button=>button.addEventListener('click',()=>{
+    const block=button.dataset.goalEdit;
+    if(block){openEditor(block);return;}
+    setEditMode(null);showStep(nameComplete?'target':'name');
+  }));
   // Keep first login tied to verified Django account, no browser localStorage.
   syncScore(false);showStep(current);
 })();

@@ -139,8 +139,8 @@ class StaffWorkspaceV527Tests(TestCase):
         self.client.force_login(self.manager)
         response = self.client.get(reverse("manager_dashboard"))
         self.assert_staff_shell(response, "manager")
-        self.assertContains(response, "Manager home")
-        self.assertContains(response, "Management tools")
+        self.assertContains(response, "Center at a glance")
+        self.assertContains(response, 'mb50-nav-label">Management')
         self.assertNotContains(response, "Teaching</span>")
         self.assertNotContains(response, "Mentor profile")
 

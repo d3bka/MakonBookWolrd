@@ -1,3 +1,4 @@
+from apps.base.css_bundles import bundle_for
 from django.contrib.auth.models import Group, User
 from django.conf import settings
 from django.test import TestCase
@@ -48,7 +49,7 @@ class StudentDashboardV50Tests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-student-workspace')
-        self.assertContains(response, 'STUDENT DASHBOARD')
+        self.assertContains(response, 'Welcome back')
         for label in (
             "Home", "Learn", "Practice", "Homework", "Tests", "MakonBook World",
             "Classrooms", "Vocabulary", "AP Classes", "Progress", "Support sessions",
@@ -63,15 +64,19 @@ class StudentDashboardV50Tests(TestCase):
         self.client.force_login(self.student)
         response = self.client.get(reverse("student_dashboard_root"))
 
-        self.assertContains(response, "Target university")
+        self.assertContains(response, "Choose your dream university")
         self.assertContains(response, "Continue")
-        self.assertContains(response, "Due work")
+        self.assertContains(response, "Deadlines")
         self.assertContains(response, "Weak topics")
         self.assertContains(response, "Roadmap")
         self.assertContains(response, "data-goal-modal-open")
-        self.assertContains(response, "Set your dream university")
-        self.assertNotContains(response, "Continue learning")
-        self.assertNotContains(response, "Today")
+        self.assertContains(response, "Find your dream university.")
+        # V66 home restores the roadmap's V50.1 order: Continue learning and
+        # Today outrank the SAT goal widget.
+        html = response.content.decode()
+        self.assertIn("Continue learning", html)
+        self.assertIn("Today", html)
+        self.assertLess(html.index("Continue learning"), html.index("Choose your dream university"))
 
     def test_home_no_longer_dumps_world_or_mako_preview_cards(self):
         self.client.force_login(self.student)
@@ -520,7 +525,7 @@ class StudentDashboardV50Tests(TestCase):
         response = self.client.get(reverse("student_dashboard_root"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-v50-gamification')
+        self.assertContains(response, 'data-gamification-panel')
         self.assertContains(response, 'Daily quests')
         self.assertContains(response, 'Weekly quests')
         self.assertContains(response, 'Your consistency, measured.')
@@ -778,7 +783,7 @@ class StudentDashboardV50Tests(TestCase):
         workspace_css = (settings.BASE_DIR / "static/assets/css/student-workspace-v525.css").read_text(encoding="utf-8")
         self.assertNotIn("data-up", dashboard_js)
         self.assertNotIn("data-down", dashboard_js)
-        self.assertIn("Drag inside this list to reorder", dashboard_js)
+        self.assertIn("Drag to reorder", dashboard_js)
         self.assertIn(".v524-optional-widget", workspace_css)
         self.assertIn("grid-column:span 3", workspace_css)
 
@@ -891,7 +896,7 @@ class StudentDashboardV50Tests(TestCase):
         self.client.force_login(self.student)
         response = self.client.get(reverse("student_dashboard_root"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "student-workspace-v5261.css")
+        self.assertContains(response, bundle_for("student-workspace-v5261.css"))  # V69: shipped inside the shell CSS bundle
         self.assertContains(response, "student-workspace-v50.js?v=5261")
 
         js = (settings.BASE_DIR / "static" / "assets" / "js" / "student-workspace-v50.js").read_text(encoding="utf-8")
@@ -1011,7 +1016,7 @@ class StudentDashboardV50Tests(TestCase):
         self.client.force_login(self.student)
         response = self.client.get(reverse("student_messages_root"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "student-workspace-v5262.css?v=5262")
+        self.assertContains(response, bundle_for("student-workspace-v5262.css"))  # V69: shipped inside the shell CSS bundle
         self.assertContains(response, "makon-theme.css?v=5262")
 
         css = (settings.BASE_DIR / "static" / "assets" / "css" / "student-workspace-v5262.css").read_text(encoding="utf-8")
@@ -1029,7 +1034,7 @@ class StudentDashboardV50Tests(TestCase):
         self.client.force_login(self.student)
         response = self.client.get(reverse("student_messages_root"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "student-workspace-v5263.css?v=5263")
+        self.assertContains(response, bundle_for("student-workspace-v5263.css"))  # V69: shipped inside the shell CSS bundle
 
         css = (settings.BASE_DIR / "static" / "assets" / "css" / "student-workspace-v5263.css").read_text(encoding="utf-8")
         compact = css.replace(" ", "").replace("\n", "")
@@ -1048,7 +1053,7 @@ class StudentDashboardV50Tests(TestCase):
         self.client.force_login(self.student)
         response = self.client.get(reverse("student_messages_root") + f"?classroom={self.classroom.id}")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "student-workspace-v5264.css?v=5264")
+        self.assertContains(response, bundle_for("student-workspace-v5264.css"))  # V69: shipped inside the shell CSS bundle
         self.assertContains(response, 'class="v5264-chat-room-head"')
         self.assertContains(response, 'class="v5264-chat-canvas"')
 
@@ -1066,7 +1071,7 @@ class StudentDashboardV50Tests(TestCase):
         self.client.force_login(self.student)
         response = self.client.get(reverse("student_messages_root") + f"?classroom={self.classroom.id}")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "student-workspace-v5265.css?v=5265")
+        self.assertContains(response, bundle_for("student-workspace-v5265.css"))  # V69: shipped inside the shell CSS bundle
         self.assertContains(response, "student-messages-v525.js?v=5265")
         self.assertContains(response, 'v5265-chat-has-room')
         self.assertContains(response, 'class="v523-chat-thread v5265-chat-thread-has-room"')

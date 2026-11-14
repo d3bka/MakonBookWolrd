@@ -26,7 +26,7 @@ class ParentLanguageV334Tests(TestCase):
         self.assertContains(response, "Ro‘yxatdan o‘tgan telefon raqami")
         self.assertContains(response, "Statistikani ochish")
         self.assertContains(response, "O‘quvchining ro‘yxatdan o‘tgan telefon raqamidan foydalaning")
-        self.assertContains(response, "Yordam: ")
+        self.assertContains(response, "Yordam</span>: ")
         self.assertNotContains(response, "Use the student's registered phone number")
 
     def test_browser_language_is_used_on_first_visit(self):

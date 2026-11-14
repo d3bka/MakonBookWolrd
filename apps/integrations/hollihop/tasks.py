@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.base.models import UserProfile
 from apps.integrations.models import HollihopSyncLog, HollihopSyncState
 
+from .client import HollihopAPIError
 from .reconcile import HollihopSmartReconciler, mark_initial_sync_completed
 from .sync import HollihopSyncAlreadyRunning, HollihopSyncEngine, full_stage_set
 
@@ -30,7 +31,7 @@ def _new_engine(*, send_credentials=None):
     return HollihopSyncEngine(send_credentials=bool(send_credentials))
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.smart_reconcile_hollihop")
+@shared_task(name="apps.integrations.hollihop.tasks.smart_reconcile_hollihop", soft_time_limit=1500, time_limit=1800)
 def smart_reconcile_hollihop():
     """Five-minute low-load reconciliation.
 
@@ -47,17 +48,17 @@ def smart_reconcile_hollihop():
 
 # Backwards-compatible task names from earlier patches. They now point to the
 # same safe smart reconciliation instead of running a full account export.
-@shared_task(name="apps.integrations.hollihop.tasks.reconcile_hollihop_core")
+@shared_task(name="apps.integrations.hollihop.tasks.reconcile_hollihop_core", soft_time_limit=7200, time_limit=7500)
 def reconcile_hollihop_core():
     return smart_reconcile_hollihop()
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.reconcile_hollihop")
+@shared_task(name="apps.integrations.hollihop.tasks.reconcile_hollihop", soft_time_limit=7200, time_limit=7500)
 def reconcile_hollihop():
     return smart_reconcile_hollihop()
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.manual_hollihop_sync")
+@shared_task(name="apps.integrations.hollihop.tasks.manual_hollihop_sync", soft_time_limit=7200, time_limit=7500)
 def manual_hollihop_sync(
     stages=None,
     date_from=None,
@@ -89,7 +90,7 @@ def manual_hollihop_sync(
     return {"status": "ok" if summary.errors == 0 else "partial", **summary.as_dict()}
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.manual_initial_hollihop_sync")
+@shared_task(name="apps.integrations.hollihop.tasks.manual_initial_hollihop_sync", soft_time_limit=21600, time_limit=22200)
 def manual_initial_hollihop_sync():
     """One explicit initial import; no credential delivery."""
     try:
@@ -105,7 +106,7 @@ def manual_initial_hollihop_sync():
             pass
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.manual_full_hollihop_reconciliation")
+@shared_task(name="apps.integrations.hollihop.tasks.manual_full_hollihop_reconciliation", soft_time_limit=7200, time_limit=7500)
 def manual_full_hollihop_reconciliation():
     """Explicit safety reconciliation after initial setup; never automatic."""
     if not _initial_sync_ready():
@@ -117,7 +118,7 @@ def manual_full_hollihop_reconciliation():
     )
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.manual_smart_hollihop_sync")
+@shared_task(name="apps.integrations.hollihop.tasks.manual_smart_hollihop_sync", soft_time_limit=1500, time_limit=1800)
 def manual_smart_hollihop_sync():
     if not _integration_enabled():
         return {"status": "disabled"}
@@ -126,7 +127,7 @@ def manual_smart_hollihop_sync():
     return {**report.as_dict(), **summary.as_dict()}
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.manual_membership_hollihop_sync")
+@shared_task(name="apps.integrations.hollihop.tasks.manual_membership_hollihop_sync", soft_time_limit=3600, time_limit=3900)
 def manual_membership_hollihop_sync():
     """Explicit relation-only membership sweep (no Days/payments)."""
     if not _integration_enabled():
@@ -154,7 +155,7 @@ def manual_membership_hollihop_sync():
 
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.sync_resolved_classroom_mapping")
+@shared_task(name="apps.integrations.hollihop.tasks.sync_resolved_classroom_mapping", soft_time_limit=900, time_limit=1020)
 def sync_resolved_classroom_mapping(edunit_id):
     """Apply one manager-resolved Classroom -> Teacher mapping immediately."""
     if not _integration_enabled():
@@ -179,7 +180,7 @@ def sync_resolved_classroom_mapping(edunit_id):
         raise
 
 
-@shared_task(name="apps.integrations.hollihop.tasks.process_student_webhook")
+@shared_task(name="apps.integrations.hollihop.tasks.process_student_webhook", soft_time_limit=300, time_limit=360)
 def process_student_webhook(trigger_type, client_id, attempt=0):
     if not _integration_enabled():
         return {"status": "disabled"}
@@ -242,4 +243,13 @@ def process_student_webhook(trigger_type, client_id, attempt=0):
     except Exception as exc:
         engine._log("sync_error", entity_type="sync_task", details={"error": type(exc).__name__})
         engine.release_lock(success=False, error=type(exc).__name__)
+        # A transient Hollihop/API failure must not lose the event: Hollihop has
+        # already been told "ok" and will not resend. Retry with bounded backoff.
+        attempt = int(attempt or 0)
+        if isinstance(exc, HollihopAPIError) and attempt < 5:
+            process_student_webhook.apply_async(
+                args=[trigger_type, client_id, attempt + 1],
+                countdown=min(600, 60 * 2 ** attempt),
+            )
+            return {"status": "retry_queued", "attempt": attempt + 1, "error": type(exc).__name__}
         raise

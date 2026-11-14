@@ -226,6 +226,11 @@ def sync_practice(tests: list[PublishedTest], mirror, *, dry_run: bool = False, 
 
     # A synced test the API no longer has: hide it (results stay).
     gone = Test.objects.filter(source=Test.SOURCE_MAKONBOOK_API, is_available=True).exclude(name__in=names)
+    if not names:
+        # Never withdraw the whole library because of an empty read (wrong
+        # schema/search_path, replica mid-restore, bad URL) — same rule as
+        # sync_vocabulary. Withdrawing everything needs an explicit decision.
+        gone = Test.objects.none()
     for test in gone:
         summary.withdrawn.append(test.name)
         if not dry_run:

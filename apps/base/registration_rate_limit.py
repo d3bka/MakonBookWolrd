@@ -27,7 +27,8 @@ def _client_ip(request) -> str:
     # nginx overwrites X-Real-IP with the actual peer address before proxying to
     # Django. Unlike trusting the first X-Forwarded-For value, this cannot be
     # bypassed merely by sending a forged X-Forwarded-For header.
-    return (request.META.get("HTTP_X_REAL_IP") or request.META.get("REMOTE_ADDR") or "unknown").strip()[:128]
+    from apps.base.client_ip import client_ip
+    return client_ip(request)
 
 
 def _consume(scope: str, raw_key: str, *, limit: int, window_seconds: int) -> RateLimitResult:
