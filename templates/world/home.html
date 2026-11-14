@@ -78,11 +78,23 @@
 
             <section class="mw503-config-section mw504-compact-section">
               <div class="mw503-config-label"><span>02</span><div><strong>Battle</strong></div></div>
-              <div class="mw503-mode-row mw504-option-row mw504-ruleset-row" data-mp-ruleset>
-                <label class="mw503-mode is-active"><input type="radio" name="game_mode" value="ffa" checked><i class="bi bi-grid-3x3-gap-fill"></i><span><strong>FFA</strong></span></label>
-                <label class="mw503-mode"><input type="radio" name="game_mode" value="team_2v2"><i class="bi bi-people-fill"></i><span><strong>2v2</strong></span></label>
+              <div class="mw503-mode-row mw504-option-row mw504-ruleset-row mw504-ruleset-grid" data-mp-ruleset>
+                <label class="mw503-mode is-active"><input type="radio" name="game_mode" value="ffa" checked><i class="bi bi-grid-3x3-gap-fill"></i><span><strong>FFA</strong><small>Most points wins</small></span></label>
+                <label class="mw503-mode"><input type="radio" name="game_mode" value="team_2v2"><i class="bi bi-people-fill"></i><span><strong>2v2</strong><small>Team points</small></span></label>
+                <label class="mw503-mode"><input type="radio" name="game_mode" value="survival"><i class="bi bi-heart-pulse-fill"></i><span><strong>Survival</strong><small>3 lives · last one standing</small></span></label>
+                <label class="mw503-mode{% if not world_my_classrooms %} is-disabled{% endif %}" {% if not world_my_classrooms %}title="Join a classroom first"{% endif %}><input type="radio" name="game_mode" value="classroom" {% if not world_my_classrooms %}disabled{% endif %}><i class="bi bi-mortarboard-fill"></i><span><strong>Classroom</strong><small>Only your classmates</small></span></label>
               </div>
+              <p class="mw504-mode-hint" data-mp-mode-hint>Everyone answers the same questions on one server clock. Most points wins.</p>
             </section>
+
+            {% if world_my_classrooms %}
+            <section class="mw503-config-section mw504-compact-section" data-mp-classroom-pick hidden>
+              <div class="mw503-config-label"><span>02b</span><div><strong>Classroom</strong></div></div>
+              <select class="mw504-classroom-select" name="classroom_id" aria-label="Classroom for the battle" disabled>
+                {% for c in world_my_classrooms %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+              </select>
+            </section>
+            {% endif %}
 
             <section class="mw503-config-section mw504-compact-section">
               <div class="mw503-config-label"><span>03</span><div><strong>Players</strong></div></div>
@@ -102,7 +114,7 @@
               </div>
             </section>
 
-            <section class="mw503-config-section mw504-compact-section">
+            <section class="mw503-config-section mw504-compact-section" data-mp-access-section>
               <div class="mw503-config-label"><span>05</span><div><strong>Room type</strong></div></div>
               <div class="mw503-mode-row mw504-option-row">
                 <label class="mw503-mode is-active"><input type="radio" name="access_type" value="private" checked><i class="bi bi-lock-fill"></i><span><strong>Private</strong></span></label>
@@ -115,6 +127,19 @@
           </form>
 
           <div class="mw504-mp-stack">
+            {% if world_classroom_battles %}
+            <section class="mw504-mp-card mw504-rounded-card mw504-class-battles">
+              <div class="mw504-card-head"><span class="mw504-mp-icon"><i class="bi bi-mortarboard-fill"></i></span><div><small>YOUR CLASSROOMS</small><h2>Classroom battles</h2></div></div>
+              <ul>
+                {% for b in world_classroom_battles %}
+                <li>
+                  <div><strong>{{ b.classroom }}</strong><small>{{ b.subject }} · hosted by {{ b.host }} · {{ b.occupied }}/{{ b.capacity }} players</small></div>
+                  <form data-mp-join action="{% url 'world_multiplayer_join' %}" method="post">{% csrf_token %}<input type="hidden" name="join_code" value="{{ b.room.join_code }}"><button class="mw503-primary" type="submit">Join <i class="bi bi-box-arrow-in-right"></i></button><p class="mw503-form-status" data-mp-status></p></form>
+                </li>
+                {% endfor %}
+              </ul>
+            </section>
+            {% endif %}
             <form class="mw504-mp-card mw504-public-card mw504-rounded-card" data-mp-public action="{% url 'world_multiplayer_public_join' %}" method="post">{% csrf_token %}
               <div class="mw504-card-head"><span class="mw504-mp-icon"><i class="bi bi-globe2"></i></span><div><small>PUBLIC</small><h2>Join public game</h2></div></div>
 
@@ -128,9 +153,10 @@
 
               <section class="mw503-config-section mw504-compact-section">
                 <div class="mw503-config-label"><span>02</span><div><strong>Battle</strong></div></div>
-                <div class="mw503-mode-row mw504-option-row mw504-ruleset-row" data-mp-ruleset>
+                <div class="mw503-mode-row mw504-option-row mw504-ruleset-row mw504-ruleset-three" data-mp-ruleset>
                   <label class="mw503-mode is-active"><input type="radio" name="game_mode" value="ffa" checked><i class="bi bi-grid-3x3-gap-fill"></i><span><strong>FFA</strong></span></label>
                   <label class="mw503-mode"><input type="radio" name="game_mode" value="team_2v2"><i class="bi bi-people-fill"></i><span><strong>2v2</strong></span></label>
+                  <label class="mw503-mode"><input type="radio" name="game_mode" value="survival"><i class="bi bi-heart-pulse-fill"></i><span><strong>Survival</strong></span></label>
                 </div>
               </section>
 

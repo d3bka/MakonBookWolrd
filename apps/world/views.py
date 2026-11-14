@@ -30,6 +30,8 @@ from .services import (
     cancel_waiting_match,
     create_rematch_invite,
     create_friend_challenge,
+    approved_classrooms,
+    classroom_battles_for,
     is_friend_challenge,
     decline_rematch_invite,
     expire_waiting_match,
@@ -127,6 +129,8 @@ def world_home(request):
         "world_initial_mode": "duel",
         "world_active_match": active_match,
         "world_multiplayer_room": multiplayer_room_for_user(request.user),
+        "world_classroom_battles": classroom_battles_for(request.user),
+        "world_my_classrooms": list(approved_classrooms(request.user)),
         "world_recent_matches": list(
             WorldMatch.objects.filter(status=WorldMatch.STATUS_COMPLETED)
             .filter(Q(player1=request.user) | Q(player2=request.user))
@@ -648,6 +652,8 @@ def world_multiplayer_home(request):
         "world_initial_mode": "multiplayer",
         "world_active_match": active_match,
         "world_multiplayer_room": multiplayer_room,
+        "world_classroom_battles": classroom_battles_for(request.user),
+        "world_my_classrooms": list(approved_classrooms(request.user)),
         "world_recent_matches": list(
             WorldMatch.objects.filter(status=WorldMatch.STATUS_COMPLETED)
             .filter(Q(player1=request.user) | Q(player2=request.user))
@@ -674,6 +680,7 @@ def world_multiplayer_create(request):
             question_count=request.POST.get("question_count", 5),
             access_type=access_type,
             game_mode=request.POST.get("game_mode") or WorldMultiplayerRoom.GAME_MODE_FFA,
+            classroom_id=request.POST.get("classroom_id") or None,
         )
     except (ValueError, RuntimeError) as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)
@@ -1025,7 +1032,8 @@ def world_multiplayer_play(request, room_id):
         "world_multiplayer_room": room,
         "world_multiplayer_payload": payload,
         "world_multiplayer_seats": payload["seats"],
-        "world_multiplayer_ranked_seats": sorted([seat for seat in payload["seats"] if seat.get("occupied")], key=lambda seat: (-seat.get("score", 0), seat.get("seat_number", 99))),
+        # completed battles: stored placements (ties share a place); live: by score
+        "world_multiplayer_ranked_seats": payload.get("final_standings") or sorted([seat for seat in payload["seats"] if seat.get("occupied")], key=lambda seat: (-seat.get("score", 0), seat.get("seat_number", 99))),
         "world_multiplayer_question": question,
     })
     return render(request, "world/multiplayer_play.html", context)

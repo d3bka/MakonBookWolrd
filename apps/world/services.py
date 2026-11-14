@@ -912,6 +912,105 @@ MULTIPLAYER_QUESTION_COUNTS = {5, 10, 15, 20}
 MULTIPLAYER_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 MULTIPLAYER_PRESENCE_STALE_SECONDS = 30
 MULTIPLAYER_RECONNECT_GRACE_SECONDS = 120
+# V50.4.20
+SURVIVAL_LIVES = 3
+# A lobby seat whose browser has been silent this long is a ghost (closed tab):
+# it is freed so public matchmaking never parks players in a dead room.
+LOBBY_GHOST_SECONDS = 150
+MULTIPLAYER_XP_BY_PLACE = {1: 50, 2: 30, 3: 20, 4: 15}
+TEAM_XP = {"win": 40, "draw": 25, "loss": 15}
+
+
+def _is_survival(room) -> bool:
+    return room.game_mode == WorldMultiplayerRoom.GAME_MODE_SURVIVAL
+
+
+def _contender_seats(room):
+    """Seats that still have to answer: active, and in Survival not yet eliminated."""
+    seats = WorldMultiplayerSeat.objects.filter(room=room, is_active=True)
+    if _is_survival(room):
+        seats = seats.filter(eliminated_at_index__isnull=True)
+    return seats
+
+
+def _battle_decided_locked(room) -> bool:
+    """True once a live battle can no longer be contested (opponents left / survivors gone)."""
+    if room.status != WorldMultiplayerRoom.STATUS_ACTIVE:
+        return False
+    if room.game_mode == WorldMultiplayerRoom.GAME_MODE_TEAM_2V2:
+        teams = set(
+            WorldMultiplayerSeat.objects.filter(room=room, is_active=True).values_list("team", flat=True)
+        )
+        return not {WorldMultiplayerSeat.TEAM_A, WorldMultiplayerSeat.TEAM_B} <= teams
+    return _contender_seats(room).count() < 2
+
+
+def approved_classrooms(user):
+    from apps.sat.models import Classroom
+
+    return Classroom.objects.filter(
+        memberships__user=user, memberships__role="student", memberships__status="approved", is_active=True,
+    ).distinct().order_by("name")
+
+
+def _is_classroom_member(user, classroom) -> bool:
+    return bool(classroom) and approved_classrooms(user).filter(pk=classroom.pk).exists()
+
+
+def classroom_battles_for(user, limit: int = 6):
+    """Open Classroom Battle lobbies in the student's own classrooms."""
+    rooms = (
+        WorldMultiplayerRoom.objects.filter(
+            status=WorldMultiplayerRoom.STATUS_LOBBY,
+            game_mode=WorldMultiplayerRoom.GAME_MODE_CLASSROOM,
+            classroom__in=approved_classrooms(user),
+        )
+        .select_related("classroom", "host")
+        .prefetch_related("seats")
+        .order_by("-created_at")[: limit * 2]
+    )
+    rows = []
+    for room in rooms:
+        occupied = room.occupied_seats
+        if occupied >= room.capacity:
+            continue
+        rows.append({
+            "room": room,
+            "classroom": room.classroom.name,
+            "host": room.host.get_full_name() or room.host.username,
+            "occupied": occupied,
+            "capacity": room.capacity,
+            "subject": room.get_subject_display(),
+        })
+    return rows[:limit]
+
+
+def _prune_lobby_ghosts_locked(room, now) -> bool:
+    """Free lobby seats whose browsers went silent. Returns True if anything changed."""
+    if room.status != WorldMultiplayerRoom.STATUS_LOBBY:
+        return False
+    cutoff = now - timedelta(seconds=LOBBY_GHOST_SECONDS)
+    ghosts = list(
+        WorldMultiplayerSeat.objects.select_for_update().filter(room=room, is_active=True, last_seen_at__lt=cutoff)
+    )
+    if not ghosts:
+        return False
+    ghost_ids = [seat.user_id for seat in ghosts]
+    WorldMultiplayerSeatSwapRequest.objects.filter(
+        room=room, status=WorldMultiplayerSeatSwapRequest.STATUS_PENDING
+    ).filter(Q(requester_id__in=ghost_ids) | Q(target_id__in=ghost_ids)).update(
+        status=WorldMultiplayerSeatSwapRequest.STATUS_CANCELLED, responded_at=now
+    )
+    WorldMultiplayerSeat.objects.filter(pk__in=[seat.pk for seat in ghosts]).delete()
+    remaining = WorldMultiplayerSeat.objects.filter(room=room, is_active=True).order_by("seat_number")
+    if not remaining.exists():
+        room.status = WorldMultiplayerRoom.STATUS_CANCELLED
+        room.save(update_fields=["status"])
+    elif room.host_id in ghost_ids:
+        room.host_id = remaining.first().user_id
+        room.save(update_fields=["host"])
+    _bump_multiplayer_state_locked(room)
+    return True
 
 
 def _new_multiplayer_join_code(length: int = 6) -> str:
@@ -975,6 +1074,7 @@ def create_multiplayer_room(
     question_count: int = 5,
     access_type: str = WorldMultiplayerRoom.ACCESS_PRIVATE,
     game_mode: str = WorldMultiplayerRoom.GAME_MODE_FFA,
+    classroom_id=None,
 ) -> WorldMultiplayerRoom:
     if subject not in {WorldRating.SUBJECT_MATH, WorldRating.SUBJECT_RW}:
         raise ValueError("Invalid subject")
@@ -998,6 +1098,12 @@ def create_multiplayer_room(
         raise ValueError("Invalid multiplayer game mode.")
     if game_mode == WorldMultiplayerRoom.GAME_MODE_TEAM_2V2 and capacity != 4:
         raise ValueError("2v2 rooms require exactly 4 seats.")
+    classroom = None
+    if game_mode == WorldMultiplayerRoom.GAME_MODE_CLASSROOM:
+        classroom = approved_classrooms(user).filter(pk=classroom_id).first() if classroom_id else None
+        if classroom is None:
+            raise ValueError("Choose one of your classrooms for a Classroom Battle.")
+        access_type = WorldMultiplayerRoom.ACCESS_PRIVATE  # only classmates can join
     existing = multiplayer_room_for_user(user)
     if existing:
         return existing
@@ -1010,6 +1116,7 @@ def create_multiplayer_room(
             question_count=question_count,
             access_type=access_type,
             game_mode=game_mode,
+            classroom=classroom,
             join_code=_new_multiplayer_join_code(),
         )
         WorldMultiplayerSeat.objects.create(
@@ -1034,6 +1141,10 @@ def join_multiplayer_room(user, *, join_code: str) -> tuple[WorldMultiplayerRoom
         existing = WorldMultiplayerSeat.objects.filter(room=room, user=user, is_active=True).first()
         if existing:
             return room, existing, False
+        if room.game_mode == WorldMultiplayerRoom.GAME_MODE_CLASSROOM and not _is_classroom_member(user, room.classroom):
+            name = room.classroom.name if room.classroom else "this classroom"
+            raise ValueError(f"This Classroom Battle is only for students of {name}.")
+        _prune_lobby_ghosts_locked(room, timezone.now())
         other_room = multiplayer_room_for_user(user)
         if other_room and other_room.pk != room.pk:
             raise ValueError("Leave your current multiplayer room first.")
@@ -1083,6 +1194,8 @@ def join_public_multiplayer_room(
         raise ValueError("Invalid multiplayer game mode.")
     if game_mode == WorldMultiplayerRoom.GAME_MODE_TEAM_2V2 and capacity != 4:
         raise ValueError("2v2 rooms require exactly 4 seats.")
+    if game_mode == WorldMultiplayerRoom.GAME_MODE_CLASSROOM:
+        raise ValueError("Classroom Battles are joined from your classroom list, not public matchmaking.")
 
     current = multiplayer_room_for_user(user)
     if current:
@@ -1111,7 +1224,11 @@ def join_public_multiplayer_room(
         )
         .order_by("created_at", "id")
     )
+    now = timezone.now()
     for room in rooms:
+        _prune_lobby_ghosts_locked(room, now)
+        if room.status != WorldMultiplayerRoom.STATUS_LOBBY:
+            continue  # the whole lobby had gone silent and was closed
         occupied = set(
             WorldMultiplayerSeat.objects.filter(room=room, is_active=True).values_list("seat_number", flat=True)
         )
@@ -1153,6 +1270,8 @@ def set_multiplayer_access_type(room: WorldMultiplayerRoom, host, access_type: s
             raise ValueError("Only the host can change room access.")
         if locked.status != WorldMultiplayerRoom.STATUS_LOBBY:
             raise ValueError("Room access can only change before the battle starts.")
+        if locked.game_mode == WorldMultiplayerRoom.GAME_MODE_CLASSROOM and access_type != WorldMultiplayerRoom.ACCESS_PRIVATE:
+            raise ValueError("Classroom Battles stay inside the classroom.")
         if locked.access_type != access_type:
             locked.access_type = access_type
             locked.state_version = int(locked.state_version or 0) + 1
@@ -1245,6 +1364,8 @@ def reconcile_multiplayer_presence(room: WorldMultiplayerRoom, *, now=None) -> W
         locked = WorldMultiplayerRoom.objects.select_for_update().get(pk=room.pk)
         if locked.status not in {WorldMultiplayerRoom.STATUS_LOBBY, WorldMultiplayerRoom.STATUS_ACTIVE}:
             return locked
+        if _prune_lobby_ghosts_locked(locked, now) and locked.status != WorldMultiplayerRoom.STATUS_LOBBY:
+            return locked
         seats = list(
             WorldMultiplayerSeat.objects.select_for_update()
             .filter(room=locked, is_active=True)
@@ -1303,12 +1424,8 @@ def start_multiplayer_room(room: WorldMultiplayerRoom, user) -> WorldMultiplayer
             raise ValueError("Only the host can start this room.")
         if locked.status != WorldMultiplayerRoom.STATUS_LOBBY:
             return locked
-        live_modes = {
-            WorldMultiplayerRoom.GAME_MODE_FFA,
-            WorldMultiplayerRoom.GAME_MODE_TEAM_2V2,
-        }
-        if locked.game_mode not in live_modes:
-            raise ValueError("This multiplayer ruleset is prepared but not live yet.")
+        if locked.game_mode == WorldMultiplayerRoom.GAME_MODE_CLASSROOM and not locked.classroom_id:
+            raise ValueError("This Classroom Battle lost its classroom. Create a new room.")
         seats = list(
             WorldMultiplayerSeat.objects.select_for_update()
             .filter(room=locked, is_active=True)
@@ -1356,6 +1473,11 @@ def start_multiplayer_room(room: WorldMultiplayerRoom, user) -> WorldMultiplayer
             disconnected_at=None,
             last_seen_at=activation_time,
             arena_ready_at=None,
+            lives=SURVIVAL_LIVES,
+            eliminated_at_index=None,
+            placement=None,
+            xp_awarded=0,
+            score=0,
         )
         WorldMultiplayerSeatSwapRequest.objects.filter(
             room=locked, status=WorldMultiplayerSeatSwapRequest.STATUS_PENDING
@@ -1673,6 +1795,11 @@ def multiplayer_room_payload(room: WorldMultiplayerRoom, *, viewer=None) -> dict
             "presence": presence,
             "is_host": seat.user_id == room.host_id,
             "is_me": bool(viewer and viewer.id == seat.user_id),
+            "lives": int(seat.lives or 0),
+            "lives_range": list(range(SURVIVAL_LIVES)),
+            "eliminated": seat.eliminated_at_index is not None,
+            "placement": seat.placement,
+            "xp_awarded": int(seat.xp_awarded or 0),
         })
     is_team_mode = room.game_mode == WorldMultiplayerRoom.GAME_MODE_TEAM_2V2
     team_standings = _multiplayer_team_rows(room, viewer=viewer) if is_team_mode else []
@@ -1685,6 +1812,14 @@ def multiplayer_room_payload(room: WorldMultiplayerRoom, *, viewer=None) -> dict
             if is_team_mode:
                 my_team = my_seat.team
     swap_incoming, swap_outgoing = _multiplayer_swap_payload(room, viewer)
+    is_survival = _is_survival(room)
+    my_seat_row = next((seat for seat in payload_seats if seat.get("is_me")), None)
+    final_standings = []
+    if room.status == WorldMultiplayerRoom.STATUS_COMPLETED:
+        final_standings = sorted(
+            (seat for seat in payload_seats if seat.get("occupied")),
+            key=lambda seat: (seat.get("placement") or 99, -seat.get("score", 0), seat["seat_number"]),
+        )
     return {
         "id": str(room.id),
         "join_code": room.join_code,
@@ -1713,7 +1848,28 @@ def multiplayer_room_payload(room: WorldMultiplayerRoom, *, viewer=None) -> dict
         "seats": payload_seats,
         "question_count": int(room.question_count or 5),
         "live_question_count": len(room.question_pool_ids or []),
+        "is_survival": is_survival,
+        "is_classroom": room.game_mode == WorldMultiplayerRoom.GAME_MODE_CLASSROOM,
+        "classroom_name": room.classroom.name if room.classroom_id and room.classroom else "",
+        "survival_lives": SURVIVAL_LIVES,
+        "alive": sum(1 for seat in active_seats if seat.eliminated_at_index is None) if is_survival else len(active_seats),
+        "my_eliminated": bool(is_survival and my_seat_row and my_seat_row["eliminated"]),
+        "my_lives": my_seat_row["lives"] if my_seat_row else 0,
+        "my_placement": my_seat_row["placement"] if my_seat_row else None,
+        "my_xp": my_seat_row["xp_awarded"] if my_seat_row else 0,
+        "final_standings": final_standings,
+        "mode_title": multiplayer_mode_title(room),
     }
+
+
+def multiplayer_mode_title(room) -> str:
+    if room.game_mode == WorldMultiplayerRoom.GAME_MODE_TEAM_2V2:
+        return "2v2 Team Battle"
+    if room.game_mode == WorldMultiplayerRoom.GAME_MODE_SURVIVAL:
+        return "Survival"
+    if room.game_mode == WorldMultiplayerRoom.GAME_MODE_CLASSROOM:
+        return "Classroom Battle"
+    return "3 Player Sprint" if room.capacity == 3 else "4 Player Arena"
 
 def get_multiplayer_pool_entry(room: WorldMultiplayerRoom, index: int):
     ids = room.question_pool_ids or []
@@ -1738,7 +1894,7 @@ def multiplayer_question_time_limit(room: WorldMultiplayerRoom, index: int) -> i
 
 
 def multiplayer_answered_user_ids(room: WorldMultiplayerRoom, index: int) -> set[int]:
-    active_user_ids = WorldMultiplayerSeat.objects.filter(room=room, is_active=True).values_list("user_id", flat=True)
+    active_user_ids = _contender_seats(room).values_list("user_id", flat=True)
     return set(
         WorldMultiplayerAnswer.objects.filter(
             room=room,
@@ -1756,6 +1912,8 @@ def issue_multiplayer_question_ticket(room: WorldMultiplayerRoom, user) -> World
         raise ValueError("There is no current question.")
     if WorldMultiplayerAnswer.objects.filter(room=room, user=user, question_index=index).exists():
         raise ValueError("This question was already submitted.")
+    if _is_survival(room) and not _contender_seats(room).filter(user=user).exists():
+        raise ValueError("You're out of lives — you can watch the rest of the battle.")
     now = timezone.now()
     started = room.question_started_at
     if started is None:
@@ -1779,20 +1937,121 @@ def _complete_multiplayer_locked(room: WorldMultiplayerRoom, now=None):
     room.question_started_at = None
     room.state_version = int(room.state_version or 0) + 1
     room.save(update_fields=["status", "completed_at", "question_started_at", "state_version"])
+    _finalize_multiplayer_results_locked(room)
+
+
+def _competition_places(seats, key):
+    """1,1,3 ranking: equal keys share a place."""
+    ordered = sorted(seats, key=key, reverse=True)
+    places, previous, place = {}, None, 0
+    for position, seat in enumerate(ordered, 1):
+        value = key(seat)
+        if value != previous:
+            place, previous = position, value
+        places[seat.pk] = place
+    return places
+
+
+def _survival_key(seat):
+    alive = seat.eliminated_at_index is None
+    return (alive, int(seat.lives or 0), seat.eliminated_at_index if seat.eliminated_at_index is not None else 999, int(seat.score or 0))
+
+
+def _finalize_multiplayer_results_locked(room: WorldMultiplayerRoom) -> None:
+    """Store each seat's place and pay placement XP once (idempotent ledger keys).
+
+    Players who left mid-battle are placed last and earn nothing; so does
+    anyone who never answered a single question in time (no AFK farming).
+    """
+    seats = list(WorldMultiplayerSeat.objects.select_for_update().filter(room=room).select_related("user"))
+    if not seats:
+        return
+    finished = [seat for seat in seats if seat.is_active]
+    quitters = [seat for seat in seats if not seat.is_active]
+    team_result = {}
+    if room.game_mode == WorldMultiplayerRoom.GAME_MODE_TEAM_2V2:
+        teams = (WorldMultiplayerSeat.TEAM_A, WorldMultiplayerSeat.TEAM_B)
+        present = {seat.team for seat in finished}
+        totals = {team: sum(int(s.score or 0) for s in seats if s.team == team) for team in teams}
+        keys = {team: (team in present, totals[team]) for team in teams}
+        if keys[teams[0]] == keys[teams[1]]:
+            team_result = {team: "draw" for team in teams}
+        else:
+            winner = max(teams, key=lambda t: keys[t])
+            team_result = {team: ("win" if team == winner else "loss") for team in teams}
+        places = {seat.pk: (2 if team_result.get(seat.team) == "loss" else 1) for seat in seats}
+    else:
+        key = _survival_key if _is_survival(room) else (lambda seat: (int(seat.score or 0),))
+        places = _competition_places(finished, key)
+        for seat in quitters:
+            places[seat.pk] = len(finished) + 1
+    answered_ids = set(
+        WorldMultiplayerAnswer.objects.filter(room=room)
+        .exclude(integrity_flag=WorldMultiplayerAnswer.INTEGRITY_TIMEOUT)
+        .values_list("user_id", flat=True)
+    )
+    label = room.get_game_mode_display()
+    for seat in seats:
+        place = places.get(seat.pk)
+        xp = 0
+        if seat.is_active and seat.user_id in answered_ids:
+            if team_result:
+                xp = TEAM_XP[team_result.get(seat.team, "loss")]
+            else:
+                xp = MULTIPLAYER_XP_BY_PLACE.get(place, 10)
+        if xp:
+            award_xp(
+                seat.user,
+                amount=xp,
+                source_key=f"world-mp:{room.pk}:{seat.user_id}",
+                title=f"World {label} · #{place}",
+                metadata={"room_id": str(room.pk), "mode": room.game_mode, "place": place},
+            )
+        seat.placement = place
+        seat.xp_awarded = xp
+        seat.save(update_fields=["placement", "xp_awarded"])
+
+
+def _apply_survival_round_locked(room: WorldMultiplayerRoom, index: int, contender_ids: list[int]) -> None:
+    """A miss (wrong or timeout) costs one life; at zero the player is out.
+
+    If every surviving player misses the same question nobody loses a life —
+    the arena forgives — so a battle can never end with zero survivors.
+    """
+    correct_ids = set(
+        WorldMultiplayerAnswer.objects.filter(
+            room=room, question_index=index, user_id__in=contender_ids, is_correct=True
+        ).values_list("user_id", flat=True)
+    )
+    if not correct_ids:
+        return
+    for seat in WorldMultiplayerSeat.objects.select_for_update().filter(room=room, user_id__in=contender_ids):
+        if seat.user_id in correct_ids:
+            continue
+        seat.lives = max(0, int(seat.lives or 0) - 1)
+        if seat.lives == 0:
+            seat.eliminated_at_index = index
+        seat.save(update_fields=["lives", "eliminated_at_index"])
 
 
 def _advance_multiplayer_locked(room: WorldMultiplayerRoom, *, now=None) -> bool:
     now = now or timezone.now()
+    if _battle_decided_locked(room):
+        _complete_multiplayer_locked(room, now)
+        return True
     index = int(room.current_question_index or 0)
-    seat_ids = list(
-        WorldMultiplayerSeat.objects.filter(room=room, is_active=True).values_list("user_id", flat=True)
-    )
+    seat_ids = list(_contender_seats(room).values_list("user_id", flat=True))
     if not seat_ids:
         _complete_multiplayer_locked(room, now)
         return True
     answered = WorldMultiplayerAnswer.objects.filter(room=room, question_index=index, user_id__in=seat_ids).count()
     if answered < len(seat_ids):
         return False
+    if _is_survival(room):
+        _apply_survival_round_locked(room, index, seat_ids)
+        if _battle_decided_locked(room):
+            _complete_multiplayer_locked(room, now)
+            return True
     next_index = index + 1
     if next_index >= len(room.question_pool_ids or []):
         _complete_multiplayer_locked(room, now)
@@ -1824,11 +2083,7 @@ def expire_multiplayer_question_if_needed(room: WorldMultiplayerRoom) -> WorldMu
         locked = WorldMultiplayerRoom.objects.select_for_update().get(pk=room.pk)
         if locked.status != WorldMultiplayerRoom.STATUS_ACTIVE or locked.current_question_index != index:
             return locked
-        seats = list(
-            WorldMultiplayerSeat.objects.select_for_update()
-            .filter(room=locked, is_active=True)
-            .select_related("user")
-        )
+        seats = list(_contender_seats(locked).select_for_update().select_related("user"))
         answered = multiplayer_answered_user_ids(locked, index)
         pool = get_multiplayer_pool_entry(locked, index)
         for seat in seats:
@@ -1895,6 +2150,8 @@ def submit_multiplayer_answer(room: WorldMultiplayerRoom, user, token: str, sele
             raise ValueError("Question is no longer current.")
         if not active_seat:
             raise ValueError("You are no longer an active player in this room.")
+        if _is_survival(locked) and active_seat.eliminated_at_index is not None:
+            raise ValueError("You're out of lives — you can watch the rest of the battle.")
         if locked_ticket.consumed_at:
             raise ValueError("This question was already submitted.")
         answer = WorldMultiplayerAnswer.objects.create(
@@ -1949,12 +2206,34 @@ def _multiplayer_reveal_ranking(room: WorldMultiplayerRoom, completed_index: int
             "last_points": last_points,
             "is_correct": bool(answer and answer.is_correct),
             "previous_score": max(0, int(seat.score) - last_points),
+            "lives": int(seat.lives or 0),
+            "lives_range": list(range(SURVIVAL_LIVES)),
+            "eliminated": seat.eliminated_at_index is not None,
+            "eliminated_now": seat.eliminated_at_index == completed_index,
+            # a miss cost a life unless the whole arena missed (forgiven) or the player was already out
+            "lost_life": bool(answer and not answer.is_correct and (seat.eliminated_at_index is None or seat.eliminated_at_index >= completed_index)),
+            "was_playing": seat.eliminated_at_index is None or seat.eliminated_at_index >= completed_index,
         }
         current_rows.append(row)
         previous_rows.append(row)
+    if _is_survival(room):
+        playing = [row for row in current_rows if row["was_playing"]]
+        if playing and not any(row["is_correct"] for row in playing):
+            for row in current_rows:
+                row["lost_life"] = False  # the whole arena missed: forgiven
+                row["forgiven"] = True
+        survival_rank = {s.user_id: _survival_key(s) for s in seats}
+
+        def sort_key(row):
+            # survivors first, then more lives, then the later elimination, then points
+            alive, lives, eliminated_at, _ = survival_rank[row["user_id"]]
+            return (not alive, -lives, -eliminated_at, -row["score"], row["user_id"])
+    else:
+        def sort_key(row):
+            return (-row["score"], row["user_id"])
     previous_sorted = sorted(previous_rows, key=lambda row: (-row["previous_score"], row["user_id"]))
     previous_rank = {row["user_id"]: i + 1 for i, row in enumerate(previous_sorted)}
-    ranked = sorted(current_rows, key=lambda row: (-row["score"], row["user_id"]))
+    ranked = sorted(current_rows, key=sort_key)
     for index, row in enumerate(ranked, 1):
         row["rank"] = index
         row["previous_rank"] = previous_rank.get(row["user_id"], index)
@@ -2099,7 +2378,7 @@ def multiplayer_play_payload(room: WorldMultiplayerRoom, *, viewer=None, include
         payload["answered"] = 0
         payload["waiting_for_others"] = False
         payload["seconds_remaining"] = 0
-    if include_question and room.status == WorldMultiplayerRoom.STATUS_ACTIVE and viewer and not launch_waiting and not round_reveal and not opening_countdown:
+    if include_question and room.status == WorldMultiplayerRoom.STATUS_ACTIVE and viewer and not payload.get("my_eliminated") and not launch_waiting and not round_reveal and not opening_countdown:
         question = get_multiplayer_question(room, index)
         pool = get_multiplayer_pool_entry(room, index)
         if question and viewer.id not in multiplayer_answered_user_ids(room, index):

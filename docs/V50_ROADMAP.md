@@ -108,7 +108,7 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
 - Home dashboard and student sidebar expose the live level/XP/streak/quest state.
 
 ## Status (2026-11-14)
-- V50.1–V50.4 are live in the V64–V68 releases (student shell, gamification, World 1v1 Quick/Ranked, multiplayer FFA/2v2/Survival/Classroom).
+- V50.1–V50.4 are live in the V64–V68 releases (student shell, gamification, World 1v1 Quick/Ranked, multiplayer FFA/2v2). Survival and Classroom Battles were modelled but refused at start until V73 (V50.4.20, below).
 - V50.5 Mako: first iteration shipped (below). V50.6 MakonRoom shipped in V71, V50.7 Friends + World Events in V72 (below). The V50 roadmap is complete.
 
 ## V50.5.1 — Mako companion (first iteration)
@@ -176,3 +176,25 @@ Desktop: persistent collapsible sidebar. Mobile: off-canvas navigation opened fr
 - Seasonal cups (Qish / Navro'z / Yoz / Kuz Cup) are created automatically. The hourly Celery task
   `apps.world.tasks.settle_world_events` (or `manage.py settle_world_events`) pays ended events.
 - Tests: `apps/gamification/test_friends_v507.py`, `apps/world/test_social_events_v507.py`.
+
+## V50.4.20 — Multiplayer audit and completion (V73, 2026-11-15)
+The audit found that Survival and Classroom Battle were modelled but the server refused to start them and the UI
+never offered them. Multiplayer paid no XP, battles kept running after opponents left, closed tabs left ghost
+seats in lobbies, and ties got different places.
+- **Survival**: 3 lives each. A wrong answer or timeout costs one. At zero the player is out and watches
+  (no question tickets). If every survivor misses the same question nobody loses a life. The battle ends when one
+  player is left or the questions run out. Ranking is survivors first, then lives, then the later elimination,
+  then points.
+- **Classroom Battle**: tied to one of the host's approved classrooms; always private. Only approved students of
+  that classroom can join; it is never in public matchmaking. Classmates see open battles on their World page.
+- **Early finish**: FFA, Survival and Classroom end when fewer than 2 contenders remain; 2v2 ends when a whole
+  team leaves.
+- **Results**: stored placements with shared places for ties (1, 1, 3). Placement XP is 50/30/20/15, and 2v2 pays
+  40 for a win, 25 for a draw and 15 for a loss. XP is idempotent (`world-mp:<room>:<user>`). Leavers and players
+  who never answered in time earn nothing.
+- **Lobby ghosts**: seats silent for 150 s are freed and the host moves on; dead public lobbies are closed
+  before matchmaking.
+- **Design**: four-mode picker with explanations, classroom picker, hearts and an OUT tag in standings, a
+  spectator screen, survival round messages, and a podium with an XP pill. The light theme is fixed for answers,
+  round reveals, results and secondary buttons, and answer text grows from 9 px to 14 px (1v1 too).
+- Tests: `apps/world/test_multiplayer_v50420.py`.

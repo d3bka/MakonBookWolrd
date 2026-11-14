@@ -46,6 +46,12 @@ wireChoices();
 
 function wireMultiplayerRulesets(){
   qsa('[data-mp-create],[data-mp-public]').forEach(form=>{
+    const hints={
+      ffa:'Everyone answers the same questions on one server clock. Most points wins.',
+      team_2v2:'Seats 1 & 3 vs 2 & 4. Your points add to your team — the higher team total wins.',
+      survival:'Everyone starts with 3 lives. A wrong answer or timeout costs one; the last player standing wins.',
+      classroom:'A private battle for students of one of your classrooms. They can join from their World page.',
+    };
     const sync=()=>{
       const mode=qs('input[name="game_mode"]:checked',form)?.value||'ffa';
       const team=mode==='team_2v2';
@@ -53,6 +59,10 @@ function wireMultiplayerRulesets(){
       const cap4=qs('input[name="capacity"][value="4"]',form);
       if(cap3){cap3.disabled=team;cap3.closest('.mw503-mode')?.classList.toggle('is-disabled',team);}
       if(team&&cap4){cap4.checked=true;cap4.dispatchEvent(new Event('change',{bubbles:true}));}
+      const hint=qs('[data-mp-mode-hint]',form);if(hint)hint.textContent=hints[mode]||hints.ffa;
+      const classPick=qs('[data-mp-classroom-pick]',form);
+      if(classPick){classPick.hidden=mode!=='classroom';const sel=qs('select',classPick);if(sel)sel.disabled=mode!=='classroom';}
+      const access=qs('[data-mp-access-section]',form);if(access)access.hidden=mode==='classroom';
     };
     qsa('input[name="game_mode"]',form).forEach(input=>input.addEventListener('change',sync));
     sync();
@@ -104,7 +114,7 @@ if(room){
     const isPublic=accessType==='public';
     qsa('[data-mp-private-only]',room).forEach(el=>{el.hidden=isPublic;});
     qsa('[data-mp-public-only]',room).forEach(el=>{el.hidden=!isPublic;});
-    const accessLabel=qs('[data-mp-access-label]',room);if(accessLabel)accessLabel.textContent=`${isPublic?'PUBLIC':'PRIVATE'} ARENA`;
+    const accessLabel=qs('[data-mp-access-label]',room);if(accessLabel)accessLabel.textContent=room.dataset.isClassroom==='1'?'CLASSROOM ARENA':`${isPublic?'PUBLIC':'PRIVATE'} ARENA`;
   }
   function renderTeamBoard(p){
     const board=qs('[data-mp-team-board]',room);if(!board||!p.is_team_mode)return;

@@ -297,6 +297,10 @@ class WorldMultiplayerRoom(models.Model):
     current_question_index = models.PositiveSmallIntegerField(default=0)
     question_started_at = models.DateTimeField(null=True, blank=True)
     state_version = models.PositiveBigIntegerField(default=1)
+    # V50.4.20: Classroom Battles are limited to approved students of one classroom.
+    classroom = models.ForeignKey(
+        "sat.Classroom", on_delete=models.SET_NULL, null=True, blank=True, related_name="world_battles"
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -350,6 +354,12 @@ class WorldMultiplayerSeat(models.Model):
     joined_at = models.DateTimeField(default=timezone.now)
     last_seen_at = models.DateTimeField(default=timezone.now)
     arena_ready_at = models.DateTimeField(null=True, blank=True)
+    # V50.4.20 Survival: a miss costs a life; at zero the player is out and watches.
+    lives = models.PositiveSmallIntegerField(default=3)
+    eliminated_at_index = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Final result (all modes): shared place for ties, XP actually paid.
+    placement = models.PositiveSmallIntegerField(null=True, blank=True)
+    xp_awarded = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["seat_number"]

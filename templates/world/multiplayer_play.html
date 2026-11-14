@@ -2,7 +2,7 @@
 {% block world_content %}
 <div class="mw504-play" data-mp-play data-status-url="{% url 'world_multiplayer_status' world_multiplayer_room.id %}" data-heartbeat-url="{% url 'world_multiplayer_heartbeat' world_multiplayer_room.id %}" data-answer-url="{% url 'world_multiplayer_answer' world_multiplayer_room.id %}" data-play-url="{% url 'world_multiplayer_play' world_multiplayer_room.id %}" data-room-status="{{ world_multiplayer_payload.status }}" data-state-version="{{ world_multiplayer_payload.state_version|default:0 }}" data-question-index="{{ world_multiplayer_payload.current_question_index }}" data-launch-waiting="{% if world_multiplayer_payload.launch_waiting %}1{% else %}0{% endif %}" data-opening-countdown="{% if world_multiplayer_payload.opening_countdown %}1{% else %}0{% endif %}" data-round-reveal="{% if world_multiplayer_payload.round_reveal %}1{% else %}0{% endif %}" data-game-mode="{{ world_multiplayer_room.game_mode }}">
   <header class="mw504-play-head">
-    <div><span class="mw503-live-dot"></span><strong>{{ world_multiplayer_room.get_subject_display }} · {% if world_multiplayer_payload.is_team_mode %}2v2 Team Battle{% else %}{{ world_multiplayer_room.capacity }} Player Battle{% endif %}</strong><small>Room {{ world_multiplayer_room.join_code }} · {{ world_multiplayer_room.question_count }} questions</small></div>
+    <div><span class="mw503-live-dot"></span><strong>{{ world_multiplayer_room.get_subject_display }} · {{ world_multiplayer_payload.mode_title }}{% if world_multiplayer_payload.is_classroom %} · {{ world_multiplayer_payload.classroom_name }}{% endif %}</strong><small>Room {{ world_multiplayer_room.join_code }} · {{ world_multiplayer_room.question_count }} questions</small></div>
     {% if world_multiplayer_payload.status == 'active' %}<span class="mw504-question-counter">QUESTION {{ world_multiplayer_payload.question_number }} / {{ world_multiplayer_payload.total_questions }}</span>{% else %}<span class="mw504-question-counter">FINAL RESULTS</span>{% endif %}
   </header>
 
@@ -20,7 +20,7 @@
 
   <section class="mw504-live-standings{% if world_multiplayer_payload.is_team_mode %} is-team-mode{% endif %}">
     {% for seat in world_multiplayer_seats %}{% if seat.occupied %}
-    <article class="{% if seat.is_me %}is-me{% endif %}{% if world_multiplayer_payload.is_team_mode and seat.team %} is-team-{{ seat.team }}{% endif %}"><span class="mw503-avatar">{{ seat.initials }}</span><div><strong>{{ seat.name }}</strong><small>{% if world_multiplayer_payload.is_team_mode %}TEAM {{ seat.team|upper }} · {% endif %}{% if seat.is_me %}YOU{% elif seat.is_host %}HOST{% else %}PLAYER {{ seat.seat_number }}{% endif %}</small></div><b data-mp-score-user="{{ seat.user_id }}">{{ seat.score }}</b></article>
+    <article class="{% if seat.is_me %}is-me{% endif %}{% if world_multiplayer_payload.is_team_mode and seat.team %} is-team-{{ seat.team }}{% endif %}{% if world_multiplayer_payload.is_survival and seat.eliminated %} is-out{% endif %}"><span class="mw503-avatar">{{ seat.initials }}</span><div><strong>{{ seat.name }}</strong><small>{% if world_multiplayer_payload.is_team_mode %}TEAM {{ seat.team|upper }} · {% endif %}{% if seat.is_me %}YOU{% elif seat.is_host %}HOST{% else %}PLAYER {{ seat.seat_number }}{% endif %}</small>{% if world_multiplayer_payload.is_survival %}<span class="mw504-lives" aria-label="{{ seat.lives }} of {{ world_multiplayer_payload.survival_lives }} lives">{% if seat.eliminated %}<em>OUT</em>{% else %}{% for i in seat.lives_range %}<i class="bi {% if i < seat.lives %}bi-heart-fill{% else %}bi-heart{% endif %}"></i>{% endfor %}{% endif %}</span>{% endif %}</div><b data-mp-score-user="{{ seat.user_id }}">{{ seat.score }}</b></article>
     {% endif %}{% endfor %}
   </section>
 
@@ -52,9 +52,22 @@
       </div>
       <div class="mw504-final-ranking mw504-team-contrib">{% for seat in world_multiplayer_ranked_seats %}<div><span>TEAM {{ seat.team|upper }}</span><strong>{{ seat.name }}</strong><b>{{ seat.score }}</b></div>{% endfor %}</div>
     {% else %}
-      <h1>Final standings</h1><p>All {{ world_multiplayer_payload.total_questions }} shared questions are complete.</p>
-      <div class="mw504-final-ranking">{% for seat in world_multiplayer_ranked_seats %}<div><span>#{{ forloop.counter }}</span><strong>{{ seat.name }}</strong><b>{{ seat.score }}</b></div>{% endfor %}</div>
+      {% with winner=world_multiplayer_ranked_seats.0 %}
+      {% if world_multiplayer_payload.is_survival %}<h1>{% if winner.is_me %}You survived!{% else %}{{ winner.name }} survives.{% endif %}</h1><p>Last one standing{% if winner.lives %} with {{ winner.lives }} {{ winner.lives|pluralize:"life,lives" }} left{% endif %}.</p>
+      {% elif world_multiplayer_payload.is_classroom %}<h1>{% if winner.is_me %}You won the classroom battle!{% else %}{{ winner.name }} wins.{% endif %}</h1><p>{{ world_multiplayer_payload.classroom_name }} · {{ world_multiplayer_payload.total_questions }} questions.</p>
+      {% else %}<h1>{% if winner.is_me %}You win!{% else %}Final standings{% endif %}</h1><p>All {{ world_multiplayer_payload.total_questions }} shared questions are complete.</p>{% endif %}
+      {% endwith %}
+      <div class="mw504-podium">
+        {% for seat in world_multiplayer_ranked_seats %}{% if forloop.counter <= 3 %}
+        <div class="mw504-podium-step is-place-{{ seat.placement|default:forloop.counter }}{% if seat.is_me %} is-me{% endif %}">
+          <span class="mw503-avatar">{{ seat.initials }}</span><strong>{{ seat.name }}</strong><b>{{ seat.score }}</b>
+          <i>{{ seat.placement|default:forloop.counter }}</i>
+        </div>
+        {% endif %}{% endfor %}
+      </div>
+      <div class="mw504-final-ranking">{% for seat in world_multiplayer_ranked_seats %}<div class="{% if seat.is_me %}is-me{% endif %}"><span>#{{ seat.placement|default:forloop.counter }}</span><strong>{{ seat.name }}{% if not seat.is_active %} <small>left</small>{% elif world_multiplayer_payload.is_survival %} <small>{% if seat.eliminated %}out{% else %}{{ seat.lives }} ♥{% endif %}</small>{% endif %}</strong><b>{{ seat.score }}</b></div>{% endfor %}</div>
     {% endif %}
+    {% if world_multiplayer_payload.my_xp %}<p class="mw504-xp-earned"><i class="bi bi-stars"></i> +{{ world_multiplayer_payload.my_xp }} XP earned{% if world_multiplayer_payload.my_placement %} · place #{{ world_multiplayer_payload.my_placement }}{% endif %}</p>{% elif world_multiplayer_payload.my_placement %}<p class="mw504-xp-earned is-none">No XP this time — answer at least one question to earn placement XP.</p>{% endif %}
     <div class="mw504-finish-actions"><a class="mw503-result-action mw503-result-action-primary" href="{% url 'world_multiplayer_home' %}"><i class="bi bi-arrow-repeat"></i> New multiplayer room</a><a class="mw503-result-action mw503-result-action-secondary" href="{% url 'world_home' %}">Back to World</a></div>
   </section>
   {% elif world_multiplayer_payload.round_reveal and world_multiplayer_payload.is_team_mode %}
@@ -75,7 +88,7 @@
       <span class="mw504-reveal-icon"><i class="bi bi-bar-chart-fill"></i></span>
       <div class="mw504-reveal-copy">
         <small>ROUND {{ world_multiplayer_payload.current_question_index }} COMPLETE</small>
-        <h1>Standings changed.</h1>
+        <h1>{% if world_multiplayer_payload.is_survival %}{{ world_multiplayer_payload.alive }} still standing.{% else %}Standings changed.{% endif %}</h1>
         <p>Next question in <strong data-mp-reveal-count>{{ world_multiplayer_payload.reveal_seconds_remaining }}</strong>s</p>
       </div>
       <span class="mw504-reveal-live"><i class="bi bi-stars"></i> LIVE RANKING</span>
@@ -99,8 +112,14 @@
           <div class="mw504-rank-player">
             <strong>{{ row.name }}{% if row.is_me %}<em>YOU</em>{% endif %}</strong>
             <small class="{% if row.is_correct %}is-correct{% else %}is-wrong{% endif %}">
-              {% if row.is_correct %}<i class="bi bi-check-circle-fill"></i> Correct{% else %}<i class="bi bi-x-circle-fill"></i> No points{% endif %}
+              {% if world_multiplayer_payload.is_survival and not row.was_playing %}<i class="bi bi-eye"></i> Watching
+              {% elif row.is_correct %}<i class="bi bi-check-circle-fill"></i> Correct
+              {% elif world_multiplayer_payload.is_survival and row.eliminated_now %}<i class="bi bi-heartbreak-fill"></i> Out of lives!
+              {% elif world_multiplayer_payload.is_survival and row.lost_life %}<i class="bi bi-heartbreak"></i> Lost a life
+              {% elif row.forgiven %}<i class="bi bi-shield-check"></i> Everyone missed — no life lost
+              {% else %}<i class="bi bi-x-circle-fill"></i> No points{% endif %}
             </small>
+            {% if world_multiplayer_payload.is_survival %}<span class="mw504-lives">{% if row.eliminated %}<em>OUT</em>{% else %}{% for i in row.lives_range %}<i class="bi {% if i < row.lives %}bi-heart-fill{% else %}bi-heart{% endif %}"></i>{% endfor %}{% endif %}</span>{% endif %}
           </div>
           <div class="mw504-rank-move">
             {% if row.movement > 0 %}<span class="is-up"><i class="bi bi-caret-up-fill"></i>{{ row.movement }}</span>
@@ -118,6 +137,8 @@
     </div>
     <div class="mw504-reveal-progress"><span data-mp-reveal-progress></span></div>
   </section>
+  {% elif world_multiplayer_payload.my_eliminated %}
+  <section class="mw504-wait-answer mw504-spectate"><span class="mw504-spectate-icon"><i class="bi bi-heartbreak-fill"></i></span><small>OUT OF LIVES</small><h2>You're watching now</h2><p><strong>{{ world_multiplayer_payload.alive }}</strong> player{{ world_multiplayer_payload.alive|pluralize }} still standing. Stay to see who survives — your place is saved.</p></section>
   {% elif world_multiplayer_payload.waiting_for_others %}
   <section class="mw504-wait-answer"><span class="mw503-radar" data-world-radar><i></i><b></b><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em><em class="mw503-radar-blip"></em></span><small>ANSWER LOCKED</small><h2>Waiting for the room</h2><p><strong>{{ world_multiplayer_payload.answered }}/{{ world_multiplayer_payload.occupied }}</strong> players have answered. {% if world_multiplayer_payload.is_team_mode %}The team score reveal starts when the room is locked.{% else %}The ranking reveal starts when everyone locks an answer or the server timer expires.{% endif %}</p></section>
   {% elif world_multiplayer_question %}
