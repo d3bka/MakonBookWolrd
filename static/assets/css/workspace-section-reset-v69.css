@@ -16,3 +16,9 @@
   padding-top: 0;
   padding-bottom: 0;
 }
+
+/* V73: Approve + Reject side by side on pending classroom requests */
+.sf210-student-list .sf29-row { flex-wrap: wrap; }
+.sf210-student-list .sf29-row > .grow { flex: 1 1 140px; }
+.sf210-request-actions { display: flex; gap: 6px; margin-left: auto; }
+.sf210-request-actions .sf28-btn-ghost { background: transparent; color: var(--mb50-muted, #6b6578); border: 1px solid var(--mb50-border, #e8e2f2); box-shadow: none; }

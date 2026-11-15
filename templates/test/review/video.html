@@ -42,7 +42,7 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             var video = document.getElementById('video');
-            var videoSrc = "{{path}}";
+            var videoSrc = "{{ path|escapejs }}";
 
             if (Hls.isSupported()) {
                 var hls = new Hls();

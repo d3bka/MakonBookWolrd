@@ -51,9 +51,9 @@
     </div>
 
     <script>
-        const testName = "{{test}}"; // Replace with your test name
-        const moduleName = "{{module}}"; // Replace with your module name
-        const sectionName = "{{section}}"; // Replace with your section name
+        const testName = "{{ test|escapejs }}"; // Replace with your test name
+        const moduleName = "{{ module|escapejs }}"; // Replace with your module name
+        const sectionName = "{{ section|escapejs }}"; // Replace with your section name
         
         function clearProgress() {
             const key = `${testName}_${moduleName}_${sectionName}`;

@@ -273,7 +273,15 @@ def loginUser(request):
                 return redirect("student_dashboard_root")
             messages.error(request, "Your account is not active. Please contact support.")
         else:
-            messages.error(request, "Username, email, phone, or password is incorrect.")
+            # V73: the backend refuses inactive users before we can tell them why.
+            # Like Django's AuthenticationForm, say "not active" only when the
+            # password is right, so the message never reveals that an account exists.
+            from .auth_backends import EmailOrPhoneModelBackend
+            candidate = EmailOrPhoneModelBackend.resolve_credential(credential)
+            if candidate is not None and not candidate.is_active and candidate.check_password(password):
+                messages.error(request, "Your account is not active. Please contact support.")
+            else:
+                messages.error(request, "Username, email, phone, or password is incorrect.")
     context = {}
     return render(request, 'base/login.html', context)
 

@@ -40,6 +40,7 @@ import re
 import string
 import uuid
 from django.db.models import Count
+from django.db.models.deletion import ProtectedError
 from django.db import transaction, IntegrityError
 from decimal import Decimal
 from collections import defaultdict
@@ -76,44 +77,6 @@ except Exception:  # keeps SAT views import-safe if AP app is unavailable
     APExamEvent = None
 
 
-def home(request):
-
-    if request.user.is_authenticated:
-        return redirect('student_dashboard_root')
-
-    return render(request, "landing/home.html")
-
-
-
-def loginPage(request):
-
-    if request.user.is_authenticated:
-        return redirect('student_dashboard_root')
-
-    if request.method == "POST":
-
-        username = request.POST.get("username")
-        password = request.POST.get("password")
-
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-
-            login(request, user)
-
-            return redirect("student_dashboard_root")
-
-    return render(request, "login.html")
-
-
-
-
-
-def logoutUser(request):
-
-    logout(request)
-
-    return redirect("home")
 
 def custom_round(number, base=0.4):
     if number % 1 >= base:
@@ -228,11 +191,6 @@ def _normalize_written_token(value):
 def check_written(response, answer):
     return check_written_answer(response, answer)
 
-
-@allowed_users(['Admin', 'Tester'])
-def tester_view(request):
-    tests = Test.objects.all()
-    return render(request, 'test/dashboard.html', {'tests': tests})
 
 
 def is_member(user, names):
@@ -2881,6 +2839,8 @@ def save_test_module_draft(request):
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
     except (TypeError, ValueError, json.JSONDecodeError):
         return JsonResponse({'ok': False, 'error': 'Invalid JSON payload.'}, status=400)
+    if not isinstance(payload, dict):  # V73
+        return JsonResponse({'ok': False, 'error': 'Invalid JSON payload.'}, status=400)
 
     test_name = payload.get('test')
     section = _normalize_test_section(payload.get('section'))
@@ -3418,6 +3378,7 @@ def check_the_answers(request):
     })
 
 @login_required(login_url='login')
+@require_POST  # V73 security: a GET that writes could be fired cross-site (<img src>) to flag any student
 def punishment(request, pk):
     user = request.user
     # Remove redundant .save() call - create() already saves the object
@@ -3428,7 +3389,7 @@ def punishment(request, pk):
 @login_required(login_url='login')
 def results(request, test):
     user = request.user
-    test_obj = Test.objects.get(name=test)
+    test_obj = get_object_or_404(Test, name=test)
     # V55 Unified Tests: the URL/UI is always canonical and classroom-free.
     # A selected historical review may still point at legacy classroom-scoped
     # TestModule rows; that scope is internal only and never appears in the URL.
@@ -4724,8 +4685,8 @@ def rankings(request, pk):
 
 @allowed_users(['Admin'])
 def results_by_user(request, test, username):
-    test_obj = Test.objects.get(name=test)
-    user = User.objects.get(username=username)
+    test_obj = get_object_or_404(Test, name=test)
+    user = get_object_or_404(User, username=username)
     classroom = None
 
     review_key = request.GET.get('review_key')
@@ -5286,6 +5247,21 @@ def vocabulary(request):
 
 
 
+def _id_or_none(value):
+    """V73: a posted id as int, or None for junk ("abc", "", None) so lookups 404 instead of 500."""
+    text = str(value if value is not None else '').strip()
+    return int(text) if text.isdigit() else None
+
+
+def _json_payload_or_post(request):
+    """V73: JSON object body, else form data. A JSON list/string body is not a payload."""
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return request.POST
+    return payload if isinstance(payload, dict) else None
+
+
 def _personal_vocabulary_access_response(request):
     """Vocabulary is account-owned and no longer depends on classroom section access.
 
@@ -5421,7 +5397,7 @@ def vocabulary_deck_detail(request, deck_id):
                 deck.save(update_fields=['updated_at'])
                 messages.success(request, f'Added “{word}”.')
         elif action == 'delete_word':
-            word_obj = get_object_or_404(VocabularyDeckWord, id=request.POST.get('word_id'), deck=deck)
+            word_obj = get_object_or_404(VocabularyDeckWord, id=_id_or_none(request.POST.get('word_id')), deck=deck)
             label = word_obj.word
             word_obj.delete()
             deck.save(update_fields=['updated_at'])
@@ -5702,10 +5678,9 @@ def vocabulary_deck_mark(request, deck_id):
     if denied:
         return JsonResponse({'ok': False, 'error': 'Vocabulary access denied.'}, status=403)
     deck = get_object_or_404(VocabularyDeck, id=deck_id, owner=request.user)
-    try:
-        payload = json.loads(request.body.decode('utf-8') or '{}')
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        payload = request.POST
+    payload = _json_payload_or_post(request)
+    if payload is None:
+        return JsonResponse({'ok': False, 'error': 'Send a JSON object.'}, status=400)
 
     outcome = str(payload.get('outcome') or '').strip().lower()
     if outcome not in {'again', 'learning', 'known'}:
@@ -5719,7 +5694,7 @@ def vocabulary_deck_mark(request, deck_id):
         except (TypeError, ValueError):
             return JsonResponse({'ok': False, 'error': 'Invalid expected_times_seen.'}, status=400)
 
-    word = get_object_or_404(VocabularyDeckWord, id=payload.get('word_id'), deck=deck)
+    word = get_object_or_404(VocabularyDeckWord, id=_id_or_none(payload.get('word_id')), deck=deck)
     ensure_gamification_profile(request.user)
 
     duplicate = False
@@ -5847,12 +5822,11 @@ def _mark_vocabulary_flashcard(request, classroom=None):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'POST required.'}, status=405)
 
-    try:
-        payload = json.loads(request.body.decode('utf-8') or '{}')
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        payload = request.POST
+    payload = _json_payload_or_post(request)
+    if payload is None:
+        return JsonResponse({'ok': False, 'error': 'Send a JSON object.'}, status=400)
 
-    word_id = payload.get('word_id')
+    word_id = _id_or_none(payload.get('word_id'))
     outcome = str(payload.get('outcome') or '').strip().lower()
     if outcome not in {'again', 'learning', 'known'}:
         return JsonResponse({'ok': False, 'error': 'Invalid review outcome.'}, status=400)
@@ -6377,11 +6351,6 @@ def vocabulary_practice_quiz_result(request):
     return _finish_vocabulary_quiz(request)
 
 
-@login_required(login_url='/login/')
-def vocabulary_flashcards(request):
-    return render(request, 'sat/vocabulary_flashcards.html', _get_vocabulary_flashcards_context(request))
-
-
 
 SUPPORT_LESSON_LOOKAHEAD_DAYS = 28
 SUPPORT_LESSON_LIST_LOOKAHEAD_DAYS = 14
@@ -6679,7 +6648,8 @@ def _validated_support_url(value):
 
 def _support_safe_next_url(request, fallback='support_teacher_planner'):
     next_url = request.POST.get('next', '').strip()
-    if next_url and url_has_allowed_host_and_scheme(
+    # V73: only site paths. redirect('zz-nope') treats a bare word as a view name -> 500.
+    if next_url.startswith('/') and not next_url.startswith('//') and url_has_allowed_host_and_scheme(
         url=next_url,
         allowed_hosts={request.get_host()},
         require_https=request.is_secure(),
@@ -7377,7 +7347,7 @@ def schedule_support_topic_session(request):
         return HttpResponseForbidden('Only support teachers can schedule topic sessions.')
 
     if is_admin and request.POST.get('teacher_id'):
-        profile = get_object_or_404(SupportTeacherProfile, id=request.POST.get('teacher_id'))
+        profile = get_object_or_404(SupportTeacherProfile, id=_id_or_none(request.POST.get('teacher_id')))
     if not profile:
         return HttpResponseForbidden('No support teacher profile selected.')
 
@@ -7564,7 +7534,7 @@ def support_teacher_planner(request):
 
     teacher_id = request.GET.get('teacher')
     if is_admin and teacher_id:
-        profile = get_object_or_404(SupportTeacherProfile, id=teacher_id)
+        profile = get_object_or_404(SupportTeacherProfile, id=_id_or_none(teacher_id))
     if not profile:
         profile = SupportTeacherProfile.objects.select_related('user').first()
         if not profile:
@@ -8671,7 +8641,7 @@ def teacher_homework_hub(request):
             return redirect('teacher_homework_root')
         assignment = None
         if action == 'edit':
-            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=request.POST.get('assignment_id'), classroom=classroom)
+            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=_id_or_none(request.POST.get('assignment_id')), classroom=classroom)
         else:
             token = (request.POST.get('submission_token') or '').strip()
             if token and not _cache_add_fail_open(f'homework-submit:{request.user.pk}:{token}', 1, timeout=600):
@@ -8708,41 +8678,6 @@ def teacher_homework_hub(request):
         'submission_token': uuid.uuid4().hex,
         'now_value': timezone.now(),
         **filter_state,
-    })
-
-
-@login_required(login_url='/login/')
-@require_POST
-def teacher_homework_delete_api(request, assignment_id):
-    """Delete one teacher-owned homework item and always answer with JSON.
-
-    This endpoint exists separately from the HTML homework hub so the browser
-    never has to POST an AJAX delete to a page endpoint that can be redirected,
-    decorated, or replaced by an HTML 404 handler.  The assignment id comes from
-    the URL; the client does not need to trust a hidden classroom id.
-    """
-    if not is_teacher(request.user):
-        return JsonResponse({'ok': False, 'error': 'Teacher access required.'}, status=403)
-
-    assignment = (
-        ClassroomHomeworkAssignment.objects
-        .select_related('classroom')
-        .filter(
-            pk=assignment_id,
-            classroom_id__in=_teacher_managed_classrooms(request.user).values('pk'),
-        )
-        .first()
-    )
-    if assignment is None:
-        return JsonResponse({'ok': False, 'error': 'Homework item not found or already deleted.'}, status=404)
-
-    title = assignment.title
-    deleted_id = assignment.pk
-    assignment.delete()
-    return JsonResponse({
-        'ok': True,
-        'assignment_id': deleted_id,
-        'message': f'Homework “{title}” deleted.',
     })
 
 
@@ -9149,14 +9084,14 @@ def teacher_classroom_homework(request, classroom_id):
     if request.method == 'POST':
         action = (request.POST.get('action') or 'create').strip()
         if action == 'delete':
-            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=request.POST.get('assignment_id'), classroom=classroom)
+            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=_id_or_none(request.POST.get('assignment_id')), classroom=classroom)
             title = assignment.title
             assignment.delete()
             messages.success(request, 'Homework assignment removed.')
             return redirect('teacher_classroom_homework_root', classroom_id=classroom.id)
         assignment = None
         if action == 'edit':
-            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=request.POST.get('assignment_id'), classroom=classroom)
+            assignment = get_object_or_404(ClassroomHomeworkAssignment, pk=_id_or_none(request.POST.get('assignment_id')), classroom=classroom)
         else:
             token = (request.POST.get('submission_token') or '').strip()
             if token and not _cache_add_fail_open(f'homework-submit:{request.user.pk}:{token}', 1, timeout=600):
@@ -9576,22 +9511,13 @@ def classroom_join_requests(request, classroom_id):
 
     if not can_manage_classroom(request.user, classroom):
         return HttpResponseForbidden("You can manage only your own classrooms.")
+    if request.method != 'GET':
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
-    requests_qs = ClassroomMembership.objects.filter(
-        classroom=classroom,
-        role='student',
-        status='pending'
-    ).select_related('user').order_by('-requested_at')
-
-    return render(request, 'sat/teacher_classroom_dashboard.html', {
-        'classroom': classroom,
-        'students': ClassroomMembership.objects.filter(
-            classroom=classroom,
-            role='student'
-        ).exclude(status__in=['left', 'removed']).select_related('user').order_by('-requested_at'),
-        'join_code': getattr(classroom, 'join_code', None),
-        'pending_requests': requests_qs,
-    })
+    # V73: this rendered the classroom dashboard template without lessons or
+    # counters ("No units yet" on a full course). Show the real dashboard; the
+    # pending students sit at the top of its Students list with Approve/Reject.
+    return teacher_classroom_dashboard(request, classroom_id)
 
 @login_required(login_url='/login/')
 @require_POST
@@ -9990,7 +9916,7 @@ def student_lesson_vocabulary_quiz(request, classroom_id, resource_id):
 
 def _student_goal_redirect_url(request):
     candidate = (request.POST.get('next') or '').strip()
-    if candidate and url_has_allowed_host_and_scheme(
+    if candidate.startswith('/') and not candidate.startswith('//') and url_has_allowed_host_and_scheme(  # V73: bare words are view names to redirect()
         candidate,
         allowed_hosts={request.get_host()},
         require_https=request.is_secure(),
@@ -10668,40 +10594,6 @@ def classroom_admissions(request, classroom_id):
     })
 
 
-@login_required(login_url='/login/')
-def classroom_admissions_section(request, classroom_id, slug):
-    classroom, role, membership, redirect_response = resolve_classroom_and_role(request, classroom_id)
-
-    if redirect_response:
-        return redirect_response
-
-    if role is None:
-        return classroom_access_denied(
-            request,
-            classroom=classroom,
-            message="You do not have access to this classroom."
-        )
-
-    if role == 'student':
-        access_map = get_membership_section_access_map(membership)
-        if not access_map.get('admissions'):
-            return classroom_access_denied(
-                request,
-                classroom=classroom,
-                message="You do not have access to Admissions."
-            )
-
-    section = ADMISSIONS_SECTIONS.get(slug)
-    if not section:
-        raise Http404("Admissions section not found")
-
-    return render(request, 'sat/admissions_section.html', {
-        'slug': slug,
-        'section': section,
-        'classroom': classroom,
-        'role': role,
-        'membership': membership,
-    })
 
 def _can_manage_classroom_progress(user, classroom):
     return can_manage_classroom(user, classroom)
@@ -11654,7 +11546,8 @@ def send_classroom_message(request, classroom_id):
 
     if uploaded_file:
         max_bytes = 12 * 1024 * 1024
-        blocked_extensions = {'.html', '.htm', '.svg', '.js', '.mjs', '.exe', '.bat', '.cmd', '.ps1', '.sh', '.php'}
+        blocked_extensions = {'.html', '.htm', '.xhtml', '.xht', '.shtml', '.mhtml', '.xml', '.svg', '.svgz', '.js', '.mjs',
+                              '.exe', '.bat', '.cmd', '.ps1', '.sh', '.php'}
         suffix = ('.' + uploaded_file.name.rsplit('.', 1)[-1].lower()) if '.' in uploaded_file.name else ''
         if uploaded_file.size > max_bytes:
             error = 'Attachments must be 12 MB or smaller.'
@@ -11771,7 +11664,15 @@ def delete_classroom(request, classroom_id):
         return redirect('teacher_classroom_root', classroom_id=classroom.id)
 
     classroom_name = classroom.name
-    classroom.delete()
+    try:
+        classroom.delete()
+    except ProtectedError:
+        # V73: assessment schedules/obligations protect the classroom so salary
+        # and compliance history is never lost. Archive it instead of crashing.
+        classroom.is_active = False
+        classroom.save(update_fields=['is_active'])
+        messages.info(request, f'Classroom "{classroom_name}" has assessment history, so it was archived instead of deleted.')
+        return redirect('teacher_dashboard_root')
 
     messages.success(request, f'Classroom "{classroom_name}" was deleted.')
     return redirect('teacher_dashboard_root')
@@ -11977,6 +11878,9 @@ def create_vocabulary_unit(request):
         except (TypeError, ValueError):
             messages.error(request, "Unit order must be a valid integer.")
             return redirect('create_vocabulary_unit')
+        if not 0 <= order <= 1_000_000:  # V73: negative order broke the DB CHECK constraint (500)
+            messages.error(request, "Unit order must be between 0 and 1,000,000.")
+            return redirect('create_vocabulary_unit')
 
         if VocabularyUnit.objects.filter(order=order).exists():
             messages.error(request, "A vocabulary unit with this order already exists.")
@@ -12146,11 +12050,19 @@ def bulk_import_vocabulary_words(request):
             # Гарантируем наличие Unit 1..50
             units_by_order = {u.order: u for u in VocabularyUnit.objects.all()}
 
+            taken_titles = set(VocabularyUnit.objects.values_list('title', flat=True))
             for i in range(1, 51):
                 if i not in units_by_order:
+                    # V73: titles are unique; "Unit 3" may already exist at another order.
+                    title = f"Unit {i}"
+                    suffix = 2
+                    while title in taken_titles:
+                        title = f"Unit {i} ({suffix})"
+                        suffix += 1
+                    taken_titles.add(title)
                     units_by_order[i] = VocabularyUnit.objects.create(
                         order=i,
-                        title=f"Unit {i}",
+                        title=title,
                         description=f"Vocabulary Unit {i}",
                         is_active=True,
                     )
@@ -12264,13 +12176,18 @@ def create_vocabulary_question(request, unit_id):
             messages.error(request, "Correct answer must be A, B, C, or D.")
             return redirect('create_vocabulary_question', unit_id=unit.id)
 
+        if any(len(option) > 255 for option in (option_a, option_b, option_c, option_d)):
+            messages.error(request, "Each answer option must be 255 characters or fewer.")
+            return redirect('create_vocabulary_question', unit_id=unit.id)
+
+        # V73: the model fields are choice_a..choice_d; option_a.. raised TypeError (500) on every save.
         VocabularyQuestion.objects.create(
             unit=unit,
             question=question_text,
-            option_a=option_a,
-            option_b=option_b,
-            option_c=option_c,
-            option_d=option_d,
+            choice_a=option_a,
+            choice_b=option_b,
+            choice_c=option_c,
+            choice_d=option_d,
             correct_answer=correct_answer,
         )
 
@@ -13435,7 +13352,7 @@ def student_topic_check(request):
         section = str(payload.get('section') or '').lower()
         question_id = int(payload.get('question_id'))
         response = payload.get('answer')
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except (TypeError, ValueError, AttributeError, json.JSONDecodeError):  # V73: AttributeError = JSON list body
         return JsonResponse({'ok': False, 'error': 'Invalid answer payload.'}, status=400)
     if section not in {'english', 'math'}:
         return JsonResponse({'ok': False, 'error': 'Invalid section.'}, status=400)
@@ -14328,6 +14245,9 @@ def student_chat_sticker_upload(request):
     if dimensions[0] > 2048 or dimensions[1] > 2048:
         return JsonResponse({'ok': False, 'error': 'Sticker dimensions must be 2048×2048 or smaller.'}, status=400)
     title = (request.POST.get('title') or uploaded.name.rsplit('.', 1)[0])[:80].strip()
+    from apps.base.upload_safety import rename_verified_image
+    if not rename_verified_image(uploaded):  # V73: stored name/extension now follow the real image format
+        return JsonResponse({'ok': False, 'error': 'That file is not a valid image.'}, status=400)
     pack = None
     pack_id = (request.POST.get('pack_id') or '').strip()
     if pack_id:

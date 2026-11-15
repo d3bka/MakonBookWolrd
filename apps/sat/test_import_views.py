@@ -721,7 +721,7 @@ def test_import_audit_batch(request, job_id):
     now = timezone.now()
 
     with transaction.atomic():
-        job = TestImportJob.objects.select_for_update().get(pk=job_id)
+        job = get_object_or_404(TestImportJob.objects.select_for_update(), pk=job_id)
         if job.status in {TestImportJob.STATUS_PUBLISHED, TestImportJob.STATUS_PUBLISHING}:
             return JsonResponse({"detail": "Published staging imports cannot be audited."}, status=409)
         if job.status == TestImportJob.STATUS_PROCESSING:

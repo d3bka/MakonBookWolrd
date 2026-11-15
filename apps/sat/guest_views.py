@@ -1561,6 +1561,8 @@ def save_global_event_answer_view(request, guest_token):
         payload = json.loads(request.body.decode("utf-8")) if request.body else {}
     except (TypeError, ValueError, json.JSONDecodeError):
         return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+    if not isinstance(payload, dict):  # V73: a JSON list/string is not an answer payload
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
 
     section = str(payload.get("section") or "").strip().lower()
     module = normalize_module_name(payload.get("module"))
@@ -1639,6 +1641,8 @@ def submit_global_event_view(request, guest_token):
     try:
         payload = json.loads(request.body.decode("utf-8")) if request.body else {}
     except (TypeError, ValueError, json.JSONDecodeError):
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+    if not isinstance(payload, dict):  # V73: a JSON list/string is not an answer payload
         return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
 
     with transaction.atomic():

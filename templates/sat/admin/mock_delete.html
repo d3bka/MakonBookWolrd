@@ -14,7 +14,8 @@
     <p>This will also delete:</p>
     <ul>
         <li>The related group: <strong>{{ group.name }}</strong></li>
-        <li>All users inside that group</li>
+        <li>The <strong>{{ users_count }}</strong> account(s) this mock generated</li>
+        {% if kept_count %}<li>Kept: <strong>{{ kept_count }}</strong> other account(s) in the group (for example students who joined with the secret code)</li>{% endif %}
         <li>Any credentials associated with this mock</li>
     </ul>
 

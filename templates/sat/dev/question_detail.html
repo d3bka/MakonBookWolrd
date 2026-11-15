@@ -1,0 +1,86 @@
+{% extends 'template.html' %}
+{% load static %}
+
+{% block title-main %}{{ page_title }}{% endblock title-main %}
+{% block title %}{{ page_title }}{% endblock title %}
+
+{% block style %}
+<style>
+  .dev-container { max-width: 960px; margin: 30px auto; padding: 20px; background-color: #f8f9fa; border-radius: 8px; }
+  .dev-header { color: #343a40; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-bottom: 20px;
+                display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline; }
+  .dev-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .dev-chip { background: #e9ecef; border-radius: 999px; padding: 4px 12px; font-size: 13px; color: #495057; }
+  .dev-block { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .dev-block h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; margin: 0 0 8px; }
+  .dev-text { white-space: pre-wrap; word-break: break-word; margin: 0; font-family: inherit; }
+  .dev-choices { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  .dev-choices li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #dee2e6; border-radius: 6px; }
+  .dev-choices li.is-correct { border-color: #2f9e44; background: #ebfbee; }
+  .dev-choices b { min-width: 18px; }
+  .dev-choices img { max-width: 220px; height: auto; display: block; }
+  .dev-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; }
+  .dev-header a, .dev-nav a, .dev-nav span { color: #324dc7; font-weight: 600; text-decoration: none; }
+  .dev-nav span { color: #adb5bd; }
+  html[data-theme="dark"] .dev-container { background-color: #1f2129; }
+  html[data-theme="dark"] .dev-header { color: #e9ecef; border-color: #343a40; }
+  html[data-theme="dark"] .dev-block, html[data-theme="dark"] .dev-choices li { background: #262833; border-color: #343a40; color: #e9ecef; }
+  html[data-theme="dark"] .dev-chip { background: #343a40; color: #dee2e6; }
+  html[data-theme="dark"] .dev-choices li.is-correct { background: #1e3a26; border-color: #2f9e44; }
+  html[data-theme="dark"] .dev-header a, html[data-theme="dark"] .dev-nav a { color: #a5b4fc !important; }
+</style>
+{% endblock style %}
+
+{% block content %}
+<div class="dev-container">
+  <div class="dev-header">
+    <h1 style="margin:0; font-size:22px;">{{ section|title }} question {{ question.number|default:"?" }}</h1>
+    <a href="{% url 'dev_search_questions' %}" style="font-weight:600;">← Back to search</a>
+  </div>
+
+  <div class="dev-meta">
+    <span class="dev-chip">Test: {{ question.test.name|default:"N/A" }}</span>
+    <span class="dev-chip">Module: {{ question.module|default:"N/A" }}</span>
+    <span class="dev-chip">Domain: {{ question.domain.name|default:"N/A" }}</span>
+    <span class="dev-chip">Type: {{ question.type.name|default:"N/A" }}</span>
+    <span class="dev-chip">{{ position }} of {{ total }} in this module</span>
+  </div>
+
+  {% if question.passage %}
+  <div class="dev-block">
+    <h3>Passage</h3>
+    <pre class="dev-text">{{ question.passage }}</pre>
+  </div>
+  {% endif %}
+
+  <div class="dev-block">
+    <h3>Question</h3>
+    <pre class="dev-text">{{ question.question|default:"(No text)" }}</pre>
+  </div>
+
+  <div class="dev-block">
+    <h3>Choices</h3>
+    <ul class="dev-choices">
+      {% for letter, text, image in choices %}
+      <li{% if letter == question.answer %} class="is-correct"{% endif %}>
+        <b>{{ letter }}</b>
+        <div>
+          {% if image %}<img src="{{ image.url }}" alt="Choice {{ letter }}">{% endif %}
+          {% if text %}<pre class="dev-text">{{ text }}</pre>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="dev-block">
+    <h3>Answer</h3>
+    <pre class="dev-text">{{ question.answer|default:"N/A" }}</pre>
+  </div>
+
+  <div class="dev-nav">
+    {% if prev_pk %}<a href="{% url 'dev_question_detail' section prev_pk %}">← Previous</a>{% else %}<span>← Previous</span>{% endif %}
+    {% if next_pk %}<a href="{% url 'dev_question_detail' section next_pk %}">Next →</a>{% else %}<span>Next →</span>{% endif %}
+  </div>
+</div>
+{% endblock content %}

@@ -614,6 +614,10 @@ def upload_frq_submission_view(request, token):
         if (getattr(image, "content_type", "") or "").lower() not in allowed_image_types:
             messages.error(request, "Upload a JPG, PNG, or WEBP image for the FRQ answer.")
             return redirect(_ap_part_url(attempt, "frq", page_number))
+        from apps.base.upload_safety import rename_verified_image
+        if not rename_verified_image(image, allowed=("PNG", "JPEG", "WEBP")):  # V73: real format, server-chosen name
+            messages.error(request, "Upload a JPG, PNG, or WEBP image for the FRQ answer.")
+            return redirect(_ap_part_url(attempt, "frq", page_number))
     if file:
         if int(getattr(file, "size", 0) or 0) > max_upload_bytes:
             messages.error(request, "FRQ file is too large. Maximum size is 15 MB.")
@@ -623,6 +627,11 @@ def upload_frq_submission_view(request, token):
         if content_type != "application/pdf" or not filename.endswith(".pdf"):
             messages.error(request, "Only PDF files are allowed for FRQ file uploads.")
             return redirect(_ap_part_url(attempt, "frq", page_number))
+        file.seek(0)
+        if not file.read(5).startswith(b"%PDF-"):  # V73: the bytes must be a PDF too, not only the name
+            messages.error(request, "Only PDF files are allowed for FRQ file uploads.")
+            return redirect(_ap_part_url(attempt, "frq", page_number))
+        file.seek(0)
 
     submission, _created = APFRQSubmission.objects.update_or_create(
         attempt=attempt,

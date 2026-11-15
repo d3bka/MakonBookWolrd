@@ -802,6 +802,12 @@ html[data-theme="dark"] .v525-chat.v5265-chat-has-room>.v5264-chat-room-head{
   padding-bottom: 0;
 }
 
+/* V73: Approve + Reject side by side on pending classroom requests */
+.sf210-student-list .sf29-row { flex-wrap: wrap; }
+.sf210-student-list .sf29-row > .grow { flex: 1 1 140px; }
+.sf210-request-actions { display: flex; gap: 6px; margin-left: auto; }
+.sf210-request-actions .sf28-btn-ghost { background: transparent; color: var(--mb50-muted, #6b6578); border: 1px solid var(--mb50-border, #e8e2f2); box-shadow: none; }
+
 /* ==== student-speed-v554.css ==== */
 
 .mb554-homework-badge{margin-left:auto!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:2px;min-width:27px!important;height:24px!important;padding:0 7px!important;border-radius:999px!important;background:linear-gradient(135deg,#8b5cf6,#6d28d9)!important;color:#fff!important;font-size:.7rem!important;box-shadow:0 5px 14px rgba(109,40,217,.28)}.mb554-homework-badge i{font-size:.72rem!important}.mb50-sidebar.is-collapsed .mb554-homework-badge{position:absolute;right:4px;top:4px;min-width:18px!important;width:18px;height:18px!important;padding:0!important}.mb50-sidebar.is-collapsed .mb554-homework-badge span{display:none}

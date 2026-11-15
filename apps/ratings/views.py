@@ -744,7 +744,7 @@ def assess_student(request, classroom_id, student_id):
             assessment.save()
             messages.success(request, f"Rating saved for {student.get_full_name() or student.username}.")
             next_id = request.POST.get("next_student_id")
-            if next_id:
+            if next_id and str(next_id).isdigit():  # V73: junk next id was a NoReverseMatch 500
                 return redirect("rating_assess_student", classroom_id=classroom.id, student_id=next_id)
             return redirect("rating_teacher_classroom", classroom_id=classroom.id)
     else:

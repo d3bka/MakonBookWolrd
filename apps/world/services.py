@@ -598,17 +598,26 @@ def accept_rematch_invite(match: WorldMatch, user):
 def decline_rematch_invite(match: WorldMatch, user):
     if not match or match.status != WorldMatch.STATUS_WAITING or match.invitee_id != user.id:
         return False
-    match.status = WorldMatch.STATUS_CANCELLED
-    match.save(update_fields=["status"])
-    return True
+    # V73: conditional UPDATE so a decline never overwrites an invite that was just accepted.
+    declined = WorldMatch.objects.filter(
+        pk=match.pk, invitee_id=user.id, status=WorldMatch.STATUS_WAITING,
+    ).update(status=WorldMatch.STATUS_CANCELLED)
+    if declined:
+        match.status = WorldMatch.STATUS_CANCELLED
+    return bool(declined)
 
 
 def cancel_waiting_match(match: WorldMatch, user):
     if match.player1_id != user.id or match.status != WorldMatch.STATUS_WAITING:
         return False
-    match.status = WorldMatch.STATUS_CANCELLED
-    match.save(update_fields=["status"])
-    return True
+    # V73: one conditional UPDATE. Reading then saving could overwrite a match an
+    # opponent activated in between (cancel + join at the same moment).
+    cancelled = WorldMatch.objects.filter(
+        pk=match.pk, player1_id=user.id, status=WorldMatch.STATUS_WAITING,
+    ).update(status=WorldMatch.STATUS_CANCELLED)
+    if cancelled:
+        match.status = WorldMatch.STATUS_CANCELLED
+    return bool(cancelled)
 
 
 def get_pool_entry(match: WorldMatch, index: int):

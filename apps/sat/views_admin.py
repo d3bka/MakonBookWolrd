@@ -8,6 +8,7 @@ from django.contrib.auth.models import Group, User
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q, Count, Avg
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.core.paginator import Paginator
@@ -17,7 +18,7 @@ from .models import (
     PlacementTelegramNotification,
 )
 from .forms_admin import UserFilterForm, UserGroupEditForm, GroupCreateForm, MockCreateForm, GroupAssignedTestsForm, SupportTeacherProfileForm, SupportTeacherAvailabilityForm
-from .roles import SUPPORT_TEACHER_GROUP, TEACHER_GROUP, in_group
+from .roles import SUPPORT_TEACHER_GROUP, TEACHER_GROUP, in_group, is_role_group_name
 
 
 def generate_password(length=12):
@@ -58,6 +59,56 @@ def is_admin_user(user):
 
 
 admin_panel_required = user_passes_test(is_admin_user, login_url='/login/')
+
+
+# V73: role groups hold every teacher / manager / admin account. "Delete group"
+# used to delete all of its users too, so one confirmation could wipe the staff.
+def _is_protected_group(group):
+    return is_role_group_name(group.name)
+
+
+def _mock_generated_usernames(mocks):
+    """Usernames a mock created itself (first column of its credentials CSV)."""
+    names = set()
+    for mock in mocks:
+        for line in (mock.credentials or "").splitlines()[1:]:
+            username = line.split(",", 1)[0].strip()
+            if username:
+                names.add(username)
+    return names
+
+
+def _split_group_members(group, acting_user):
+    """Return (accounts to delete, accounts only detached from the group).
+
+    Only throw-away accounts are deleted. Kept: the admin doing it, staff and
+    superusers, anyone in another group (a role or a second mock), and, for a
+    mock group, real students who joined it with the mock's secret code.
+    """
+    mocks = list(Mock.objects.filter(group=group))
+    generated = _mock_generated_usernames(mocks) if mocks else None
+    delete, keep = [], []
+    for user in group.user_set.all().prefetch_related("groups"):
+        disposable = (
+            user.pk != acting_user.pk
+            and not user.is_staff
+            and not user.is_superuser
+            and all(g.pk == group.pk for g in user.groups.all())
+            and (generated is None or user.username in generated)
+        )
+        (delete if disposable else keep).append(user)
+    return delete, keep
+
+
+def _delete_or_deactivate(user):
+    """Delete an account; one with protected history (assessments) is deactivated instead."""
+    try:
+        with transaction.atomic():
+            user.delete()
+        return True
+    except ProtectedError:
+        User.objects.filter(pk=user.pk).update(is_active=False)
+        return False
 
 
 # --- Dashboard ---
@@ -169,18 +220,32 @@ def admin_user_delete(request, user_id):
     if request.method == 'POST':
         target_user = get_object_or_404(User, pk=user_id)
         username = target_user.username
-        target_user.delete()
-        messages.success(request, f"User '{username}' deleted.")
+        if target_user.pk == request.user.pk:
+            messages.error(request, "You cannot delete your own account here.")
+            return redirect('admin_users')
+        if target_user.is_superuser and not request.user.is_superuser:
+            messages.error(request, "Only a superuser can delete a superuser account.")
+            return redirect('admin_users')
+        try:
+            target_user.delete()
+        except ProtectedError:
+            # V73: assessment records protect the account (compliance history).
+            target_user.is_active = False
+            target_user.save(update_fields=["is_active"])
+            messages.warning(request, f"User '{username}' has assessment records, so the account was deactivated instead of deleted.")
+        else:
+            messages.success(request, f"User '{username}' deleted.")
     return redirect('admin_users')
 
 
 @login_required
+@admin_panel_required  # V73 security: this was only login-protected (any student could create an Admin)
 def admin_user_create(request):
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
-        first_name = request.POST.get("first_name")
-        last_name = request.POST.get("last_name")
+        first_name = (request.POST.get("first_name") or "").strip()
+        last_name = (request.POST.get("last_name") or "").strip()
         group_id = request.POST.get("group")
 
         if not username or not password:
@@ -198,8 +263,8 @@ def admin_user_create(request):
             last_name=last_name
         )
 
-        if group_id:
-            group = Group.objects.get(id=group_id)
+        group = Group.objects.filter(id=group_id).first() if str(group_id or "").isdigit() else None
+        if group:
             user.groups.add(group)
 
         messages.success(request, f"User {username} created successfully.")
@@ -266,36 +331,36 @@ def admin_group_detail(request, group_id):
 @admin_panel_required
 def admin_group_delete(request, group_id):
     group = get_object_or_404(Group, pk=group_id)
-    users_to_delete = list(group.user_set.all())
+    if _is_protected_group(group):
+        messages.error(request, f'"{group.name}" is a role group and cannot be deleted. Remove members one by one instead.')
+        return redirect("admin_group_detail", group_id=group.pk)
+    users_to_delete, users_to_keep = _split_group_members(group, request.user)
+    page = {
+        "group": group,
+        "users_count": len(users_to_delete),
+        "kept_count": len(users_to_keep),
+    }
 
     if request.method == "POST":
         confirmation_name = request.POST.get("confirmation_name", "").strip()
 
         if confirmation_name != group.name:
             messages.error(request, "Group name confirmation does not match.")
-            return render(request, "sat/admin/group_delete.html", {
-                "group": group,
-                "users_count": len(users_to_delete),
-            })
+            return render(request, "sat/admin/group_delete.html", page)
 
         group_name = group.name
-        users_count = len(users_to_delete)
-
         with transaction.atomic():
-            for user in users_to_delete:
-                user.delete()
+            deleted = sum(1 for user in users_to_delete if _delete_or_deactivate(user))
             group.delete()
 
-        messages.success(
-            request,
-            f'Group "{group_name}" and {users_count} users were deleted successfully.'
-        )
+        message = f'Group "{group_name}" and {deleted} users were deleted successfully.'
+        kept = len(users_to_keep) + len(users_to_delete) - deleted
+        if kept:
+            message += f" {kept} account(s) were kept (staff, other groups, or protected history)."
+        messages.success(request, message)
         return redirect("admin_groups")
 
-    return render(request, "sat/admin/group_delete.html", {
-        "group": group,
-        "users_count": len(users_to_delete),
-    })
+    return render(request, "sat/admin/group_delete.html", page)
 
 
 @login_required
@@ -466,6 +531,7 @@ def admin_mock_download(request, mock_id):
 
 #--- Group Assigned Tests ---
 @login_required
+@admin_panel_required  # V73 security: was login-only
 def edit_group_tests(request, group_id):
     group = get_object_or_404(Group, id=group_id)
 
@@ -485,54 +551,51 @@ def edit_group_tests(request, group_id):
 
 # Mock Deletion
 @login_required
+@admin_panel_required  # V73 security: was login-only
 def admin_mock_delete(request, mock_id):
     mock = get_object_or_404(Mock, pk=mock_id)
     group = mock.group
     secret_code = mock.secret_code
+
+    # V73: only the accounts this mock generated are deleted. Real students who
+    # joined the mock group with its secret code used to be deleted with it.
+    if group and not _is_protected_group(group):
+        users_to_delete, users_to_keep = _split_group_members(group, request.user)
+    else:
+        users_to_delete, users_to_keep = [], []
+    page = {
+        'mock': mock,
+        'group': group,
+        'users_count': len(users_to_delete),
+        'kept_count': len(users_to_keep),
+    }
 
     if request.method == 'POST':
         confirmation_name = request.POST.get('confirmation_name', '').strip()
 
         if confirmation_name != mock.name:
             messages.error(request, 'Mock name confirmation does not match.')
-            return render(request, 'sat/admin/mock_delete.html', {
-                'mock': mock,
-                'group': group,
-            })
-
-        # Save related users before deleting anything
-        users_to_delete = list(group.user_set.all()) if group else []
+            return render(request, 'sat/admin/mock_delete.html', page)
 
         mock_name = mock.name
         group_name = group.name if group else 'No group'
-        users_count = len(users_to_delete)
 
         with transaction.atomic():
-            # delete secret code if attached
             if secret_code:
                 secret_code.delete()
-
-            # delete the mock itself
             mock.delete()
-
-            # delete generated users
-            for user in users_to_delete:
-                user.delete()
-
-            # delete the group
-            if group:
+            deleted = sum(1 for user in users_to_delete if _delete_or_deactivate(user))
+            # the group goes too, unless another mock still uses it or it is a role group
+            if group and not _is_protected_group(group) and not Mock.objects.filter(group=group).exists():
                 group.delete()
 
-        messages.success(
-            request,
-            f'Mock "{mock_name}" was deleted together with group "{group_name}" and {users_count} users.'
-        )
+        message = f'Mock "{mock_name}" was deleted together with group "{group_name}" and {deleted} generated users.'
+        if users_to_keep:
+            message += f' {len(users_to_keep)} other account(s) in the group were kept.'
+        messages.success(request, message)
         return redirect('admin_mocks')
 
-    return render(request, 'sat/admin/mock_delete.html', {
-        'mock': mock,
-        'group': group,
-    })
+    return render(request, 'sat/admin/mock_delete.html', page)
 
 
 # --- Support Teachers ---

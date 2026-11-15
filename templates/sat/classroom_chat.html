@@ -533,7 +533,7 @@
   const chatInput = document.getElementById('chatInput');
   const chatForm = document.getElementById('chatForm');
   const chatError = document.getElementById('chatError');
-  const role = "{{ role }}";
+  const role = "{{ role|escapejs }}";
   const fetchUrl = "{% url 'fetch_classroom_messages' classroom.id %}";
 
   let pollingTimer = null;

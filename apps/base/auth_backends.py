@@ -15,6 +15,22 @@ class EmailOrPhoneModelBackend(ModelBackend):
         credential = (username or kwargs.get("email") or "").strip()
         if not credential or password is None:
             return None
+        user = self.resolve_credential(credential)
+        if user is None:
+            # Same as Django's ModelBackend: hash anyway so an unknown login
+            # takes as long as a wrong password (no user-enumeration by timing).
+            get_user_model()().set_password(password)
+            return None
+        if user.check_password(password) and self.user_can_authenticate(user):
+            return user
+        return None
+
+    @staticmethod
+    def resolve_credential(credential):
+        """Return the single user a username / email / phone points to, active or not."""
+        credential = (credential or "").strip()
+        if not credential:
+            return None
         User = get_user_model()
         user = None
 
@@ -35,7 +51,4 @@ class EmailOrPhoneModelBackend(ModelBackend):
                 profiles = list(UserProfile.objects.select_related("user").filter(phone_number=phone)[:2])
                 if len(profiles) == 1:
                     user = profiles[0].user
-
-        if user and user.check_password(password) and self.user_can_authenticate(user):
-            return user
-        return None
+        return user

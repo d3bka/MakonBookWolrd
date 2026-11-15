@@ -66,8 +66,12 @@ def manager_assessment_schedules(request):
 def manager_save_schedule(request):
     if not _manager(request.user):
         return HttpResponseForbidden('Manager access required.')
-    classroom = get_object_or_404(Classroom, pk=request.POST.get('classroom_id'), is_active=True)
-    teacher = get_object_or_404(User, pk=request.POST.get('teacher_id'), is_active=True)
+    def posted_id(name):  # V73: junk ids are a 404, not a 500
+        value = str(request.POST.get(name) or '').strip()
+        return int(value) if value.isdigit() else None
+
+    classroom = get_object_or_404(Classroom, pk=posted_id('classroom_id'), is_active=True)
+    teacher = get_object_or_404(User, pk=posted_id('teacher_id'), is_active=True)
     try:
         weekdays = sorted({int(x) for x in request.POST.getlist('weekdays')})
         start = date.fromisoformat(request.POST.get('starts_on', ''))

@@ -13,6 +13,24 @@ MANAGER_GROUP = "Manager"
 ADMIN_GROUP = "Admin"
 SUPPORT_TEACHER_GROUP = "Support Teacher"
 
+# Groups that grant a role. Bulk tools (mocks, dev accounts, group delete)
+# must never create members of these or delete them wholesale.
+ROLE_GROUP_NAMES = frozenset({"admin", "manager", "teacher", "support teacher", "offline", "dev", "tester"})
+
+
+def is_role_group_name(name):
+    return (name or "").strip().lower() in ROLE_GROUP_NAMES
+
+
+def non_role_groups():
+    from django.contrib.auth.models import Group
+    from django.db.models import Q
+
+    blocked = Q()
+    for name in ROLE_GROUP_NAMES:
+        blocked |= Q(name__iexact=name)
+    return Group.objects.exclude(blocked)
+
 
 def _authenticated(user):
     return bool(user and getattr(user, "is_authenticated", False))

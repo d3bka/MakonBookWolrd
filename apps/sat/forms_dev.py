@@ -21,10 +21,16 @@ class GroupCreateForm(forms.Form):
     name = forms.CharField(max_length=150, required=True, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'New group name'}))
 
 class BulkUserCreateForm(forms.Form):
-    group = forms.ModelChoiceField(queryset=Group.objects.all(), required=True, empty_label=None, widget=forms.Select(attrs={'class': 'form-control'}))
+    # V73: never a role group. A dev account could mint Admin accounts and read their passwords.
+    group = forms.ModelChoiceField(queryset=Group.objects.none(), required=True, empty_label=None, widget=forms.Select(attrs={'class': 'form-control'}))
     username_prefix = forms.CharField(max_length=50, required=True, initial='user', help_text="Prefix for generated usernames (e.g., 'student')", widget=forms.TextInput(attrs={'class': 'form-control'}))
     count = forms.IntegerField(min_value=1, max_value=100, required=True, initial=10, help_text="Number of users to create (max 100)", widget=forms.NumberInput(attrs={'class': 'form-control'}))
     password_length = forms.IntegerField(min_value=8, max_value=20, initial=12, label="Password Length", widget=forms.NumberInput(attrs={'class': 'form-control'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .roles import non_role_groups
+        self.fields['group'].queryset = non_role_groups().order_by('name')
 
 class AssignTestForm(forms.Form):
     group = forms.ModelChoiceField(queryset=Group.objects.all(), required=True, empty_label=None, widget=forms.Select(attrs={'class': 'form-control'}))

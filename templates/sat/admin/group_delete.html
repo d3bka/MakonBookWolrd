@@ -13,13 +13,14 @@
 
     <p>This will also delete:</p>
     <ul>
-        <li>All users in this group</li>
+        <li>Accounts that belong only to this group</li>
         <li>Total users to be deleted: <strong>{{ users_count }}</strong></li>
+        {% if kept_count %}<li>Kept and only removed from the group: <strong>{{ kept_count }}</strong> (you, staff, people in other groups, students who joined a mock with its code)</li>{% endif %}
     </ul>
 
     <p style="color:#854d0e; background:#fef3c7; border:1px solid #fcd34d; padding:12px; border-radius:6px; margin-top:15px;">
         <strong>Important:</strong> This group may be linked to mock exam accounts.
-        Deleting it will permanently remove all associated users.
+        Deleting it will permanently remove the generated mock accounts.
     </p>
 
     <p>
