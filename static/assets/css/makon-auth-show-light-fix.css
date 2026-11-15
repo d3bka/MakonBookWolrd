@@ -36,3 +36,7 @@ html[data-theme="light"] body.auth-page .auth-card .form-group.password-wrap > .
     text-shadow: none !important;
   }
 }
+
+/* V76: the brand text above was white in every theme, invisible on the light auth pages */
+html:not([data-theme="dark"]) body.auth-page .auth-brand span { color: #1d1530 !important; }
+@media (prefers-color-scheme: dark) { html:not([data-theme="light"]) body.auth-page .auth-brand span { color: #fff !important; } }

@@ -14,6 +14,10 @@
   <link rel="stylesheet" href="{% static 'assets/css/makon-responsive.css' %}">
   <link rel="stylesheet" href="{% static 'assets/css/makon-auth-header-hotfix.css' %}">
   <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
+  {# V76: same header layer as the other auth pages: one row on phones instead of a stretched second row #}
+  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-nav-password-final.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-final-fix.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-show-light-fix.css' %}?v=7601">
   {% include 'base/responsive_css.html' %}
 </head>
 <body class="auth-page auth-guest">
@@ -25,8 +29,7 @@
       </a>
       <div class="auth-nav-actions">
         {% include 'base/theme_toggle.html' %}
-        <a href="{% url 'login' %}" class="auth-link-pill muted-pill">Sign in</a>
-        <a href="{% url 'login' %}" class="auth-link-pill">Login</a>
+        <a href="{% url 'login' %}" class="auth-link-pill">Sign in</a>
       </div>
     </nav>
 
@@ -103,8 +106,8 @@
         <div class="auth-divider"><span>want saved progress?</span></div>
 
         <div class="auth-card-footer compact-footer">
-          <a href="{% url 'login' %}">Back to sign in</a>
-          <a href="{% url 'login' %}">Sign in</a>
+          <a href="{% url 'login' %}">Sign in to MakonBook</a>
+          <a href="{% url 'global_event_list' %}">Mock exam registration</a>
         </div>
       </section>
     </div>
