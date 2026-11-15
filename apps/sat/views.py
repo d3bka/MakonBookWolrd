@@ -58,7 +58,9 @@ from .support_forms import SupportTeacherSelfAvailabilityForm, SupportTeacherSel
 from .student_goal_forms import StudentGoalProfileForm
 from .test_icon_service import ensure_default_test_icon
 from .student_workspace import student_workspace_context, should_use_student_workspace
-from .student_access import classroom_join_codes_enabled, free_practice_test_limit, is_active_satmakon_student
+from .student_access import (
+    classroom_join_codes_enabled, free_practice_test_limit, is_active_satmakon_student, practice_library_url,
+)
 from apps.gamification.services import gamification_context, ensure_gamification_profile, record_vocabulary_review
 from .roles import (
     can_manage_classroom,
@@ -8702,6 +8704,32 @@ def teacher_homework_hub(request):
 def teacher_practice_tests(request):
     if not is_teacher(request.user):
         return HttpResponseForbidden('Teacher access required.')
+    return _staff_practice_library(request)
+
+
+@login_required(login_url='/login/')
+def manager_practice_tests(request):
+    if not role_is_manager(request.user):
+        return HttpResponseForbidden('Manager access required.')
+    return _staff_practice_library(request)
+
+
+@login_required(login_url='/login/')
+def support_teacher_practice_tests(request):
+    if not is_support_teacher(request.user):
+        return HttpResponseForbidden('Support teacher access required.')
+    return _staff_practice_library(request)
+
+
+@login_required(login_url='/login/')
+def admin_practice_tests(request):
+    if not role_is_platform_admin(request.user):
+        return HttpResponseForbidden('Admin access required.')
+    return _staff_practice_library(request)
+
+
+def _staff_practice_library(request):
+    """V78: the same staff library page for teachers, managers, support teachers and admins."""
     tests = _sorted_tests(Test.objects.filter(is_available=True, test_type=Test.TYPE_REGULAR).distinct(), only_available=True)
     # The page template lists available_tests / in_progress_tests /
     # history_attempts (V55); build them the same way /tests/ does.
@@ -13261,37 +13289,18 @@ def _build_unified_tests_stage2(user, tests):
 
 
 @login_required(login_url='/login/')
+def practice_tests_legacy(request):
+    """V78: /tests/ was the shared library address; send each role to its own one."""
+    return redirect(practice_library_url(request.user))
+
+
+@login_required(login_url='/login/')
 def practice_tests(request):
     # V55 Stage 2 — access library, live attempts, and immutable attempt history
     # are intentionally three separate concepts.
+    # V78: staff have their own library (/teacher/, /manager/, ... practice-tests/).
     if not should_use_student_workspace(request.user):
-        tests = _sorted_tests(Test.objects.filter(test_type=Test.TYPE_REGULAR).distinct())
-        tests = [test for test in tests if user_has_test_access(request.user, test)]
-        workspace = _build_unified_tests_stage2(request.user, tests)
-        _decorate_pretest_config_metadata_batch(
-            workspace['available_tests'], request.user, classroom=None
-        )
-
-        history = workspace['history_attempts']
-        scores = [item['score'] for item in history if item['score'] is not None]
-        context = student_workspace_context(request.user, active='tests')
-        context.update({
-            **workspace,
-            'practice_summary': {
-                'available': len(workspace['available_tests']),
-                'in_progress': len(workspace['in_progress_tests']),
-                'history': len(history),
-                'best_score': max(scores) if scores else None,
-                # Compatibility counters during the V55 transition.
-                'active': len(workspace['available_tests']),
-                'past': len(history),
-                'resumable': len(workspace['in_progress_tests']),
-            },
-            'show_lessons': False,
-            'unified_tests': True,
-            'attempt_history_v55': True,
-        })
-        return render(request, 'sat/practice_tests.html', context)
+        return redirect(practice_library_url(request.user))
 
     memberships = _v523_student_memberships(request.user, with_access=True)
     tests, locked_tests, _explicit = _v77_practice_access(request.user, memberships=memberships)

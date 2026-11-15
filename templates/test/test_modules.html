@@ -27,7 +27,7 @@
 
   <header class="sat531-header">
     <div class="sat531-header-inner">
-      <a class="sat531-brand" href="{% url 'practice_tests_root' %}">
+      <a class="sat531-brand" href="{{ practice_library_url }}">
         <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="">
         <div><strong>MakonBook</strong><span>Digital SAT practice</span></div>
       </a>
@@ -39,7 +39,7 @@
 
       <div class="sat531-header-actions">
         {% include 'base/theme_toggle.html' %}
-        <a class="sat531-icon-btn" aria-label="Close test overview" href="{% url 'practice_tests_root' %}">
+        <a class="sat531-icon-btn" aria-label="Close test overview" href="{{ practice_library_url }}">
           <i class="fa fa-times" aria-hidden="true"></i>
         </a>
       </div>
@@ -140,7 +140,7 @@
       </div>
 
       <div class="sat531-footer-actions">
-        <a class="sat531-btn secondary" href="{% url 'practice_tests_root' %}">Back</a>
+        <a class="sat531-btn secondary" href="{{ practice_library_url }}">Back</a>
 
         {% if integrity_retake_blocked %}
         {% elif blocked_active_attempt %}

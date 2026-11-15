@@ -209,9 +209,9 @@
         </div>
         <footer class="footer">
             {% if classroom %}
-            <a href="{% url 'practice_tests_root' %}" class="btn">Back</a>
+            <a href="{{ practice_library_url }}" class="btn">Back</a>
             {% else %}
-            <a href="{% url 'practice_tests_root' %}" class="btn">Back</a>
+            <a href="{{ practice_library_url }}" class="btn">Back</a>
             {% endif %}
             
             <a class="btn" href="{% url 'makeup_test_module_root' pk=makeup_test.name %}">Next</a>

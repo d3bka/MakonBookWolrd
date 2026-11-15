@@ -62,6 +62,8 @@ urlpatterns = [
     path('teacher/classrooms/<int:classroom_id>/students/<int:user_id>/practice-access/', sat_views.update_student_practice_test_access, name='teacher_student_practice_access_root'),
     path('teacher/homework/', sat_views.teacher_homework_hub, name='teacher_homework_root'),
     path('teacher/practice-tests/', sat_views.teacher_practice_tests, name='teacher_practice_tests_root'),
+    path('manager/practice-tests/', sat_views.manager_practice_tests, name='manager_practice_tests_root'),
+    path('support-teacher/practice-tests/', sat_views.support_teacher_practice_tests, name='support_teacher_practice_tests_root'),
     path('teacher/practice-tests/<str:pk>/start/', sat_views.start_Practise, name='teacher_practice_test_start_root'),
     path('teacher/lessons/', sat_views.teacher_lessons_hub, name='teacher_lessons_root'),
     path('teacher/progress/', sat_views.teacher_progress_hub, name='teacher_progress_root'),
@@ -161,7 +163,8 @@ urlpatterns = [
     path('messages/classrooms/<int:classroom_id>/fetch/', sat_views.fetch_classroom_messages, name='fetch_classroom_messages_root'),
     path('messages/classrooms/<int:classroom_id>/messages/<int:message_id>/delete/', sat_views.delete_classroom_message, name='delete_classroom_message_root'),
     path('messages/classrooms/<int:classroom_id>/messages/<int:message_id>/delete-file/', sat_views.delete_classroom_message_file, name='delete_classroom_message_file_root'),
-    path('tests/', sat_views.practice_tests, name='practice_tests_root'),
+    path('student/practice-tests/', sat_views.practice_tests, name='practice_tests_root'),
+    path('tests/', sat_views.practice_tests_legacy, name='practice_tests_legacy_root'),  # V78: old shared address
     # Canonical SAT runner aliases. Legacy /sat/practise/... and /sat/results/...
     # remain valid for old bookmarks, but normal workspace navigation stays clean.
     path('tests/<str:pk>/start/', sat_views.start_Practise, name='practice_test_start_root'),

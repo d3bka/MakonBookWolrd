@@ -328,8 +328,9 @@ class StudentDashboardV50Tests(TestCase):
         self.assertContains(flashcards_response, 'data-student-workspace')
 
         self.client.force_login(self.teacher)
-        teacher_tests = self.client.get(reverse("practice_tests"))
+        teacher_tests = self.client.get(reverse("practice_tests"), follow=True)  # V78: -> /teacher/practice-tests/
         self.assertEqual(teacher_tests.status_code, 200)
+        self.assertEqual(teacher_tests.request["PATH_INFO"], reverse("teacher_practice_tests_root"))
         self.assertNotContains(teacher_tests, 'data-student-workspace')
 
     def test_v524_teacher_lessons_are_visible_in_student_classroom(self):

@@ -95,8 +95,9 @@ class TestTypeV5560Tests(TestCase):
 
     def test_staff_regular_library_excludes_placement_and_event_only_tests(self):
         self.client.force_login(self.staff)
-        response = self.client.get(reverse('practice_tests_root'))
+        response = self.client.get(reverse('practice_tests_root'), follow=True)  # V78: staff -> own library
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse('admin_practice_tests'))
         self.assertContains(response, 'TYPE DAY1')
         self.assertNotContains(response, 'Diagnostic Alpha')
         self.assertNotContains(response, 'Autumn Cup Bank')
@@ -198,7 +199,7 @@ class TestTypeV5560Tests(TestCase):
         self.assertEqual(regular_source.test_type, Test.TYPE_REGULAR)
 
         self.client.force_login(self.staff)
-        tests_page = self.client.get(reverse('practice_tests_root'))
+        tests_page = self.client.get(reverse('practice_tests_root'), follow=True)  # V78: staff -> own library
         self.assertEqual(tests_page.status_code, 200)
         self.assertContains(tests_page, regular_source.name)
 

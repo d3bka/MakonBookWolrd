@@ -390,7 +390,7 @@
         {% if is_teacher_review %}<span class="mr527-chip"><i class="bi bi-person-check"></i>Teacher review</span>{% endif %}
       </div>
       <div class="mr530-hero-actions">
-        <a class="mr530-hero-link" href="{% if is_teacher_review %}{% url 'classroom_student_practice_progress' classroom.id review_student.id %}{% else %}{% url 'practice_tests_root' %}{% endif %}">
+        <a class="mr530-hero-link" href="{% if is_teacher_review %}{% url 'classroom_student_practice_progress' classroom.id review_student.id %}{% else %}{{ practice_library_url }}{% endif %}">
           <i class="bi bi-arrow-left"></i><span>Back to tests</span>
         </a>
         {% if not is_teacher_review %}

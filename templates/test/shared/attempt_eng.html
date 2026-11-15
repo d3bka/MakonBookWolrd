@@ -12,10 +12,10 @@
     {% url 'practice_test_check_answers_root' as form_action %}
     {% if is_makeup %}
         {% url 'makeup_test_module_root' pk=test.name as next_url %}
-        {% url 'practice_tests_root' as home_url %}
+        {% firstof practice_library_url as home_url %}
     {% else %}
         {% url 'practice_test_module_root' pk=test.name as next_url %}
-        {% url 'practice_tests_root' as home_url %}
+        {% firstof practice_library_url as home_url %}
     {% endif %}
 {% endif %}
 <!DOCTYPE html>

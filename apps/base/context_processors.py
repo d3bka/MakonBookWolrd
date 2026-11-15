@@ -16,6 +16,10 @@ def site_meta(request):
     """
     world_enabled = getattr(settings, "MAKONBOOK_WORLD_ENABLED", False)
 
+    def practice_library_url_for_request():
+        from apps.sat.student_access import practice_library_url
+        return practice_library_url(getattr(request, "user", None))
+
     def world_challenges_enabled():
         # V74: the duel-challenge toast polls a student-only endpoint. Staff opening a
         # student page got a 403 every few seconds. Evaluated only when a template asks.
@@ -30,6 +34,8 @@ def site_meta(request):
         "world_challenges_enabled": world_challenges_enabled,
         # V77: classroom memberships come from Hollihop; join-code UI only when re-enabled.
         "classroom_join_codes_enabled": getattr(settings, "MAKONBOOK_CLASSROOM_JOIN_CODES", False),
+        # V78: Back / Close / "Back to tests" go to the library of the user's own role.
+        "practice_library_url": practice_library_url_for_request,
     }
 
 
@@ -170,6 +176,9 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "teacher_classroom_dashboard": "classrooms",
     "teacher_homework_root": "homework",
     "teacher_practice_tests_root": "practice-tests",
+    "manager_practice_tests_root": "practice-tests",
+    "support_teacher_practice_tests_root": "practice-tests",
+    "admin_practice_tests": "practice-tests",
     "teacher_lessons_root": "lessons",
     "teacher_progress_root": "progress",
     "teacher_assessments_root": "ratings",

@@ -1,3 +1,4 @@
+from . import views as sat_views_for_admin
 from django.urls import path
 from . import views_admin
 
@@ -18,6 +19,7 @@ urlpatterns = [
 
     # Tests
     path('tests/', views_admin.admin_tests, name='admin_tests'),
+    path('practice-tests/', sat_views_for_admin.admin_practice_tests, name='admin_practice_tests'),
     path('tests/<str:test_name>/', views_admin.admin_test_detail, name='admin_test_detail'),
 
 

@@ -60,3 +60,37 @@ def free_practice_test_limit():
 
 def classroom_join_codes_enabled():
     return bool(getattr(settings, "MAKONBOOK_CLASSROOM_JOIN_CODES", False))
+
+
+# V78: every role has its own practice-test library address (/<role>/practice-tests/).
+PRACTICE_LIBRARY_ROUTES = {
+    "student": "practice_tests_root",
+    "teacher": "teacher_practice_tests_root",
+    "manager": "manager_practice_tests_root",
+    "support": "support_teacher_practice_tests_root",
+    "admin": "admin_practice_tests",
+}
+
+
+def practice_library_role(user):
+    """The workspace a user's practice-test library belongs to."""
+    from apps.sat.roles import is_manager, is_platform_admin, is_support_teacher, is_teacher
+    from apps.sat.student_workspace import should_use_student_workspace
+
+    if not getattr(user, "is_authenticated", False) or should_use_student_workspace(user):
+        return "student"
+    if is_teacher(user):
+        return "teacher"
+    if is_manager(user):
+        return "manager"
+    if is_support_teacher(user):
+        return "support"
+    if is_platform_admin(user):
+        return "admin"
+    return "student"
+
+
+def practice_library_url(user):
+    from django.urls import reverse
+
+    return reverse(PRACTICE_LIBRARY_ROUTES[practice_library_role(user)])
