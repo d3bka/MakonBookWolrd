@@ -3,7 +3,7 @@ import uuid
 from datetime import timedelta
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import override_settings, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -90,6 +90,7 @@ class AttemptHistoryV551Tests(TestCase):
         self.assertEqual([item['score'] for item in history], [620, 540])
         self.assertEqual([item['attempt_number'] for item in history], [2, 1])
 
+    @override_settings(MAKONBOOK_FREE_PRACTICE_TESTS=0)  # V77: no free tier, so classroom grants are the only access
     def test_history_survives_when_current_test_access_is_removed(self):
         self._review(self.day1, 610)
         StudentPracticeTestAccess.objects.filter(membership=self.membership, test=self.day1).update(has_access=False)

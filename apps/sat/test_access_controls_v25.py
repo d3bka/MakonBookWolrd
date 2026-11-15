@@ -3,7 +3,7 @@ import re
 
 from django.conf import settings
 from django.contrib.auth.models import Group, User
-from django.test import Client, SimpleTestCase, TestCase
+from django.test import override_settings, Client, SimpleTestCase, TestCase
 from django.urls import NoReverseMatch, reverse
 
 from .models import Classroom, ClassroomJoinCode, ClassroomMembership, SupportTeacherProfile
@@ -24,6 +24,7 @@ class ClassroomJoinCodeV25Tests(TestCase):
         )
         self.client.force_login(self.teacher)
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_dashboard_uses_post_form_for_join_code_generation(self):
         response = self.client.get(
             reverse("teacher_classroom_dashboard", args=[self.classroom.pk])
@@ -34,6 +35,7 @@ class ClassroomJoinCodeV25Tests(TestCase):
         self.assertContains(response, 'method="post"')
         self.assertContains(response, "csrfmiddlewaretoken")
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_post_generates_and_displays_a_six_digit_code(self):
         response = self.client.post(
             reverse("generate_classroom_join_code", args=[self.classroom.pk]),

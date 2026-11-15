@@ -1,0 +1,26 @@
+{% load static %}
+{# V77: a library test this account cannot open yet (not a current SATMakon student). #}
+<article
+  class="practice-test-card state-closed is-membership-locked"
+  data-practice-card
+  data-search="{{ test.name|lower }} locked satmakon"
+  aria-label="{{ test.name }}: available only to current SATMakon students"
+>
+  <div class="practice-card-media">
+    <img src="{% if test.icon %}{{ test.icon.url }}{% else %}{% static 'assets/img/tests/default.png' %}{% endif %}" alt="" loading="lazy" onerror="this.onerror=null;this.src='{% static 'assets/img/tests/default.png' %}'">
+    <span class="practice-state-pill"><i class="bi bi-lock-fill" aria-hidden="true"></i> Locked</span>
+    <div class="practice-card-media-shade"></div>
+  </div>
+  <div class="practice-card-body">
+    <div class="practice-card-heading">
+      <div>
+        <span class="practice-test-type">SATMakon students</span>
+        <h3>{{ test.name }}</h3>
+      </div>
+    </div>
+    <div class="practice-progress-note is-closed">
+      <i class="bi bi-lock-fill" aria-hidden="true"></i>
+      <span>Available only to current SATMakon students.</span>
+    </div>
+  </div>
+</article>

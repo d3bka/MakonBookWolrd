@@ -19,7 +19,7 @@
     <div class="practice-hero-copy">
       <span class="practice-eyebrow"><i aria-hidden="true"></i>Your SAT workspace</span>
       <h2>Practice, continue, and review every attempt in one place</h2>
-      <p>Available tests come from all of your approved classes. Attempts and results belong to you, not to a classroom.</p>
+      <p>{% if is_current_satmakon_student %}Your full SATMakon test library. {% endif %}Attempts and results belong to your account, not to a classroom.</p>
     </div>
 
     <div class="practice-summary-grid" aria-label="Practice test summary">
@@ -30,10 +30,10 @@
     </div>
   </section>
 
-  {% if tests_locked %}
+  {% if locked_practice_tests and not is_current_satmakon_student %}
     <section class="practice-info-banner v523-test-lock" data-practice-reveal>
-      <span class="practice-info-icon"><i class="bi bi-lock"></i></span>
-      <div><strong>Tests unlock after you join a classroom.</strong><p>Your History remains available even when there are no currently assigned tests.</p><a class="mb50-primary-btn" href="{% url 'events' %}">Enter classroom code <i class="bi bi-arrow-right"></i></a></div>
+      <span class="practice-info-icon"><i class="bi bi-stars"></i></span>
+      <div><strong>The first {{ free_practice_test_limit }} practice tests are open for you.</strong><p>The full library ({{ locked_practice_tests|length }} more test{{ locked_practice_tests|length|pluralize }}) is available only to current SATMakon students.</p></div>
     </section>
   {% elif tests_unassigned %}
     <section class="practice-info-banner v523-test-lock" data-practice-reveal>
@@ -88,6 +88,9 @@
               <h3>No available tests</h3>
               <p>Your teachers have not currently assigned any SAT tests.</p>
             </div>
+          {% endfor %}
+          {% for test in locked_practice_tests %}
+            {% include 'sat/_practice_test_locked_card_v77.html' with test=test %}
           {% endfor %}
         </div>
         <div class="practice-empty-state practice-search-empty" data-practice-search-empty hidden>

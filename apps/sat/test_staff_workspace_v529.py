@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth.models import Group, User
-from django.test import TestCase
+from django.test import override_settings, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -57,6 +57,7 @@ class StaffWorkspaceV529Tests(TestCase):
         self.assertEqual(html.count(">AP events<"), 1)
         self.assertIn("data-v50210-access-open", html)
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_classroom_dashboard_restores_join_code_expiry_copy(self):
         ClassroomJoinCode.objects.create(
             classroom=self.sat,

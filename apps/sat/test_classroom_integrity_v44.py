@@ -82,6 +82,7 @@ class ClassroomIntegrityV44Tests(TestCase):
         response = self.client.get(reverse("teacher_classroom_list"))
         self.assertContains(response, classroom.name)
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_student_can_submit_valid_join_request(self):
         classroom = self._create_classroom()
         self._join_code(classroom)
@@ -92,6 +93,7 @@ class ClassroomIntegrityV44Tests(TestCase):
         self.assertEqual(membership.status, "pending")
         self.assertEqual(membership.role, "student")
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_repeated_join_request_does_not_create_duplicate(self):
         classroom = self._create_classroom()
         self._join_code(classroom)
@@ -111,6 +113,7 @@ class ClassroomIntegrityV44Tests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(ClassroomMembership.objects.filter(classroom=classroom, user=manager).exists())
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_redis_cache_failure_does_not_turn_join_into_500(self):
         classroom = self._create_classroom()
         self._join_code(classroom)

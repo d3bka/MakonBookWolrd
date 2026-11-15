@@ -162,7 +162,7 @@
     </section>
 
     <aside class="mb5561-code-card" id="event-access-code">
-      <span class="mb5561-section-kicker">Access code</span><h2>Have a code?</h2><p>Enter a six-character event or classroom code.</p>
+      <span class="mb5561-section-kicker">Access code</span><h2>Have a code?</h2><p>Enter a six-character {% if classroom_join_codes_enabled %}event or classroom{% else %}event or test{% endif %} code.</p>
       <form method="post" class="mb5561-code-form">{% csrf_token %}<input name="code" maxlength="6" autocomplete="one-time-code" placeholder="ABC123" required><button type="submit">Continue <i class="bi bi-arrow-right"></i></button></form>
     </aside>
   </div>

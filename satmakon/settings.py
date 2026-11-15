@@ -73,6 +73,12 @@ MAKONBOOK_WORLD_ENABLED = env_bool("MAKONBOOK_WORLD_ENABLED", False)
 # V5581: anonymous guest signup is replaced by verified event registration.
 MAKONBOOK_GUEST_MODE_ENABLED = env_bool("MAKONBOOK_GUEST_MODE_ENABLED", False)
 
+# V77: classroom membership comes from Hollihop. Manual 6-digit join codes stay off
+# unless re-enabled here (students cannot request a classroom, teachers cannot issue codes).
+MAKONBOOK_CLASSROOM_JOIN_CODES = env_bool("MAKONBOOK_CLASSROOM_JOIN_CODES", False)
+# Practice tests open to students who are not current SATMakon students: the first N of the library.
+MAKONBOOK_FREE_PRACTICE_TESTS = int(env_str("MAKONBOOK_FREE_PRACTICE_TESTS", "5") or 5)
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",

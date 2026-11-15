@@ -58,6 +58,7 @@ from .support_forms import SupportTeacherSelfAvailabilityForm, SupportTeacherSel
 from .student_goal_forms import StudentGoalProfileForm
 from .test_icon_service import ensure_default_test_icon
 from .student_workspace import student_workspace_context, should_use_student_workspace
+from .student_access import classroom_join_codes_enabled, free_practice_test_limit, is_active_satmakon_student
 from apps.gamification.services import gamification_context, ensure_gamification_profile, record_vocabulary_review
 from .roles import (
     can_manage_classroom,
@@ -3820,6 +3821,13 @@ def start_Practise(request, pk):
         return _redirect_closed_test(request, test)
 
     if not user_has_test_access(user, test) and not _lesson_test_any_session_authorized(request, test):
+        if (
+            getattr(test, 'test_type', Test.TYPE_REGULAR) == Test.TYPE_REGULAR
+            and should_use_student_workspace(user)
+            and not is_active_satmakon_student(user)
+        ):
+            messages.info(request, f'{test.name} is available only to current SATMakon students.')
+            return redirect('practice_tests_root')
         return HttpResponse(f"Test '{pk}' is not assigned to your account.", status=403)
 
     homework_assignment = _homework_assignment_for_test_request(request, test)
@@ -9155,6 +9163,9 @@ def generate_classroom_join_code(request, classroom_id):
 
     if not can_manage_classroom(request.user, classroom):
         return HttpResponseForbidden("You can manage only your own classrooms.")
+    if not classroom_join_codes_enabled():  # V77: memberships come from Hollihop
+        messages.info(request, "Classroom join codes are turned off: students are added from Hollihop groups.")
+        return redirect('teacher_classroom_root', classroom_id=classroom.id)
     if not classroom.is_active:
         messages.error(request, "Join codes cannot be generated for an inactive classroom.")
         return redirect('teacher_classroom_root', classroom_id=classroom.id)
@@ -9400,6 +9411,10 @@ def submit_classroom_join_request(request):
         or is_support_teacher(request.user)
     ):
         return HttpResponseForbidden("Staff accounts cannot submit classroom join requests.")
+
+    if not classroom_join_codes_enabled():  # V77: memberships come from Hollihop
+        messages.info(request, 'Classrooms are assigned automatically from your SATMakon groups. Classroom codes are no longer used.')
+        return redirect('student_classrooms_root')
 
     if is_join_code_rate_limited(request):
         messages.error(request, "Too many code attempts. Please wait and try again later.")
@@ -12716,22 +12731,18 @@ def _v523_student_memberships(user, *, with_access=False):
     return list(queryset)
 
 
-def _v523_test_assignments(user, *, memberships=None):
-    """Return one concrete classroom assignment per accessible SAT test.
+def _v523_explicit_test_access(memberships):
+    """Tests a teacher opened for this student in a classroom.
 
-    Tests are intentionally classroom-gated in V50.2.3.  A student without an
-    approved classroom never receives an assignment here, and a test must have
-    both section access and explicit StudentPracticeTestAccess.
+    Returns {test_id: {"membership": first membership, "classrooms": [...]}}.
     """
-    memberships = memberships if memberships is not None else _v523_student_memberships(user, with_access=True)
     eligible = {
         membership.id: membership
         for membership in memberships
         if get_membership_section_access_map(membership).get('practice_tests')
     }
     if not eligible:
-        return []
-
+        return {}
     rows = (
         StudentPracticeTestAccess.objects.filter(
             membership_id__in=eligible.keys(),
@@ -12743,67 +12754,66 @@ def _v523_test_assignments(user, *, memberships=None):
         .select_related('test', 'membership__classroom')
         .order_by('-membership__approved_at', 'test__name')
     )
-    seen = set()
-    assignments = []
+    explicit = {}
     for row in rows:
-        if row.test_id in seen or not _test_in_active_library(row.test):
+        if not _test_in_active_library(row.test):
             continue
-        seen.add(row.test_id)
-        assignments.append((row.test, eligible[row.membership_id]))
-    assignments.sort(key=lambda item: _natural_test_sort_key(item[0]))
-    return assignments
+        entry = explicit.setdefault(row.test_id, {'membership': eligible[row.membership_id], 'classrooms': []})
+        entry['classrooms'].append(row.membership.classroom)
+    return explicit
+
+
+def _practice_test_library():
+    """Every available regular practice test in library order (DAY1..DAY60, then named tests)."""
+    return _sorted_tests(Test.objects.filter(is_available=True, test_type=Test.TYPE_REGULAR).distinct())
+
+
+def _v77_practice_access(user, *, memberships=None):
+    """V77: (open tests, locked tests, explicit classroom access) for one student.
+
+    Current SATMakon students (active in Hollihop) open the whole library. Everyone
+    else opens the first MAKONBOOK_FREE_PRACTICE_TESTS tests plus any test a teacher
+    explicitly opened for them in a classroom; the rest is shown locked.
+    """
+    if not getattr(user, 'is_authenticated', False):
+        return [], [], {}
+    library = _practice_test_library()
+    memberships = memberships if memberships is not None else _v523_student_memberships(user, with_access=True)
+    explicit = _v523_explicit_test_access(memberships)
+    if _test_library_privileged(user) or is_active_satmakon_student(user):
+        open_ids = {test.pk for test in library}
+    else:
+        open_ids = {test.pk for test in library[:free_practice_test_limit()]} | set(explicit)
+    open_tests = [test for test in library if test.pk in open_ids]
+    locked_tests = [test for test in library if test.pk not in open_ids]
+    for test_obj in open_tests:
+        classrooms = explicit.get(test_obj.pk, {}).get('classrooms', [])
+        test_obj.access_classrooms = classrooms
+        test_obj.access_classroom_count = len(classrooms)
+    return open_tests, locked_tests, explicit
+
+
+def _v523_test_assignments(user, *, memberships=None):
+    """One (test, membership-or-None) pair per practice test the student may open."""
+    memberships = memberships if memberships is not None else _v523_student_memberships(user, with_access=True)
+    open_tests, _locked, explicit = _v77_practice_access(user, memberships=memberships)
+    default_membership = memberships[0] if memberships else None
+    return [
+        (test_obj, explicit.get(test_obj.pk, {}).get('membership', default_membership))
+        for test_obj in open_tests
+    ]
 
 
 def _v550_unified_accessible_tests(user, *, memberships=None):
-    """Return the student's unique SAT test library across all approved classes.
-
-    Classroom memberships are only access sources. They no longer define the
-    execution scope of a SAT attempt. If Math and English classes both grant
-    DAY58, the student sees one DAY58 in ``/tests/``.
-    """
+    """The student's practice test library (V77: Hollihop-based, see _v77_practice_access)."""
     if not getattr(user, 'is_authenticated', False):
         return []
-
     if user.is_superuser or user.is_staff or is_member(user, ['Admin', 'Tester']) or is_teacher(user):
         return _sorted_tests(
             Test.objects.filter(is_available=True, test_type=Test.TYPE_REGULAR).distinct()
         )
-
-    memberships = memberships if memberships is not None else _v523_student_memberships(user, with_access=True)
-    eligible_membership_ids = [
-        membership.id
-        for membership in memberships
-        if get_membership_section_access_map(membership).get('practice_tests')
-    ]
-    if not eligible_membership_ids:
-        return []
-
-    rows = (
-        StudentPracticeTestAccess.objects.filter(
-            membership_id__in=eligible_membership_ids,
-            has_access=True,
-            test__isnull=False,
-            test__is_available=True,
-            test__test_type=Test.TYPE_REGULAR,
-        )
-        .select_related('test', 'membership__classroom')
-        .order_by('test__name', 'membership__classroom__name')
-    )
-
-    by_test = {}
-    sources = defaultdict(list)
-    for row in rows:
-        if not _test_in_active_library(row.test):
-            continue
-        by_test.setdefault(row.test_id, row.test)
-        if row.membership and row.membership.classroom_id:
-            sources[row.test_id].append(row.membership.classroom)
-
-    tests = _sorted_tests(by_test.values())
-    for test_obj in tests:
-        test_obj.access_classrooms = sources.get(test_obj.pk, [])
-        test_obj.access_classroom_count = len(test_obj.access_classrooms)
-    return tests
+    open_tests, _locked, _explicit = _v77_practice_access(user, memberships=memberships)
+    return open_tests
 
 
 def _test_library_privileged(user):
@@ -13284,14 +13294,19 @@ def practice_tests(request):
         return render(request, 'sat/practice_tests.html', context)
 
     memberships = _v523_student_memberships(request.user, with_access=True)
-    tests = _v550_unified_accessible_tests(request.user, memberships=memberships)
+    tests, locked_tests, _explicit = _v77_practice_access(request.user, memberships=memberships)
     context = student_workspace_context(
         request.user,
         active='tests',
         approved_memberships=memberships,
     )
-    context['tests_locked'] = not bool(memberships)
-    context['tests_unassigned'] = bool(memberships) and not tests
+    # V77: no "join a classroom first" lock any more; non-students see the free tests
+    # and the rest of the library locked with an explanation.
+    context['tests_locked'] = False
+    context['tests_unassigned'] = not tests
+    context['locked_practice_tests'] = locked_tests
+    context['is_current_satmakon_student'] = is_active_satmakon_student(request.user)
+    context['free_practice_test_limit'] = free_practice_test_limit()
 
     workspace = _build_unified_tests_stage2(request.user, tests)
     # V55.4: build all card mode stats in two grouped question queries instead
@@ -13849,6 +13864,8 @@ def student_join_classroom_request(request):
             return JsonResponse({'ok': ok, 'message': message}, status=status)
         (messages.success if ok else messages.error)(request, message)
         return redirect('student_classrooms_root')
+    if not classroom_join_codes_enabled():  # V77: memberships come from Hollihop
+        return respond(False, 'Classrooms are assigned automatically from your SATMakon groups. Classroom codes are no longer used.', 403)
     if len(code) != 6 or not code.isdigit():
         return respond(False, 'Enter the 6-digit classroom code from your teacher.', 400)
     if is_join_code_rate_limited(request):
@@ -14327,7 +14344,8 @@ def student_events(request):
             return redirect('events')
 
         # Classroom codes stay safe: they create an approval request, not test access.
-        if code.isdigit():
+        # V77: only while manual join codes are enabled.
+        if code.isdigit() and classroom_join_codes_enabled():
             join_code = ClassroomJoinCode.objects.filter(
                 code=code, is_active=True, classroom__is_active=True, classroom__hollihop_managed=False
             ).select_related('classroom').first()
@@ -14525,7 +14543,7 @@ def workspace_search(request):
     test_rows = []
     for test, membership in assignments:
         if needle.casefold() in str(test.name).casefold():
-            test_rows.append({'title': str(test.name), 'subtitle': membership.classroom.name, 'url': reverse('practice_test_start_root', kwargs={'pk': test.name}), 'icon': 'bi-clipboard2-check', 'type': 'TEST'})
+            test_rows.append({'title': str(test.name), 'subtitle': membership.classroom.name if membership else 'Practice test', 'url': reverse('practice_test_start_root', kwargs={'pk': test.name}), 'icon': 'bi-clipboard2-check', 'type': 'TEST'})
     if test_rows:
         groups.append({'label': 'Assessments', 'items': test_rows[:8]})
 
@@ -14704,7 +14722,7 @@ def enter_secret_code(request):
             # classroom-gated in the V50 student workspace. Track a failed
             # numeric attempt once; do not double-count expired join codes.
             join_attempt_recorded = False
-            if code.isdigit():
+            if code.isdigit() and classroom_join_codes_enabled():  # V77
                 if is_join_code_rate_limited(request):
                     messages.error(request, 'Too many classroom-code attempts. Please wait and try again later.')
                     return redirect('enter_secret_code')

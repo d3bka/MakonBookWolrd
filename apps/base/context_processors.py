@@ -28,6 +28,8 @@ def site_meta(request):
         "SITE_URL": settings.SITE_URL,
         "makonbook_world_enabled": world_enabled,
         "world_challenges_enabled": world_challenges_enabled,
+        # V77: classroom memberships come from Hollihop; join-code UI only when re-enabled.
+        "classroom_join_codes_enabled": getattr(settings, "MAKONBOOK_CLASSROOM_JOIN_CODES", False),
     }
 
 

@@ -6,7 +6,7 @@
   <section class="v523-hero v523-code-hero v523-reveal">
     <span class="v523-kicker"><i class="bi bi-key"></i> Enter code</span>
     <h1>One place for MakonBook access codes.</h1>
-    <p>Use a 6-character classroom, SAT or AP code. Classroom codes send an approval request; assigned tests and live AP events open only when your account is eligible.</p>
+    <p>{% if classroom_join_codes_enabled %}Use a 6-character classroom, SAT or AP code. Classroom codes send an approval request; assigned tests and live AP events open only when your account is eligible.{% else %}Use a 6-character SAT, event or AP code. SATMakon classrooms are added to your account automatically.{% endif %}</p>
   </section>
 
   <section class="v523-code-layout">

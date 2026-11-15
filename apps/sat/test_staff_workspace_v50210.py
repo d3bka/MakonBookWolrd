@@ -1,6 +1,6 @@
 from apps.base.css_bundles import bundle_for
 from django.contrib.auth.models import Group, User
-from django.test import Client, TestCase
+from django.test import override_settings, Client, TestCase
 from django.urls import reverse
 
 from apps.ratings.models import RatingAssessment
@@ -152,6 +152,7 @@ class StaffWorkspaceV50210Tests(TestCase):
         self.assertNotIn("DAY61", student_names)
         self.assertIn("ALPHA", student_names)
 
+    @override_settings(MAKONBOOK_FREE_PRACTICE_TESTS=0)  # V77: no free tier, so classroom grants are the only access
     def test_eclass_test_material_authoring_preview_and_password_do_not_grant_global_access(self):
         # One real question is enough to make the material launchable.
         English_Question.objects.create(

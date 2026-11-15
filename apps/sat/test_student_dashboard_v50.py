@@ -1,7 +1,7 @@
 from apps.base.css_bundles import bundle_for
 from django.contrib.auth.models import Group, User
 from django.conf import settings
-from django.test import TestCase
+from django.test import override_settings, TestCase
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
@@ -147,26 +147,30 @@ class StudentDashboardV50Tests(TestCase):
         self.assertContains(settings, 'data-v524-support-toggle="suggestion"')
         self.assertContains(settings, 'data-v524-support-form="suggestion"')
 
+    @override_settings(MAKONBOOK_FREE_PRACTICE_TESTS=0)  # V77: no free tier, so classroom grants are the only access
     def test_v523_tests_are_classroom_gated_and_require_explicit_assignment(self):
         test = Test.objects.create(name="V523 Assigned Test")
         self.client.force_login(self.student)
 
+        start_url = reverse("practice_test_start_root", args=[test.name])
         unassigned = self.client.get(reverse("practice_tests"))
         self.assertEqual(unassigned.status_code, 200)
-        self.assertContains(unassigned, 'assigned')
-        self.assertNotContains(unassigned, 'V523 Assigned Test')
+        # V77: library tests are listed but locked until access is granted
+        self.assertContains(unassigned, 'is-membership-locked')
+        self.assertNotContains(unassigned, start_url)
 
         StudentPracticeTestAccess.objects.create(membership=self.membership, test=test, has_access=True)
         assigned = self.client.get(reverse("practice_tests"))
         self.assertEqual(assigned.status_code, 200)
         self.assertContains(assigned, 'V523 Assigned Test')
+        self.assertNotContains(assigned, 'is-membership-locked')
 
         outsider = User.objects.create_user(username="v523_outsider", password="pass123")
         self.client.force_login(outsider)
         locked = self.client.get(reverse("practice_tests"))
         self.assertEqual(locked.status_code, 200)
-        self.assertContains(locked, 'locked')
-        self.assertNotContains(locked, 'V523 Assigned Test')
+        self.assertContains(locked, 'is-membership-locked')
+        self.assertNotContains(locked, start_url)
 
     def test_v524_sat_homework_grants_the_full_test_gate(self):
         assigned_test = Test.objects.create(name="V524 Homework SAT")
@@ -230,6 +234,7 @@ class StudentDashboardV50Tests(TestCase):
         self.assertTrue(question_groups)
         self.assertEqual(question_groups[0]["items"][0]["type"], "QUESTION")
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_v523_enter_code_accepts_active_classroom_join_code(self):
         second_classroom = Classroom.objects.create(teacher=self.teacher, name="Join Me")
         join_code = ClassroomJoinCode.objects.create(classroom=second_classroom, code="123456", is_active=True, expires_at=timezone.now() + timedelta(hours=2))
@@ -240,6 +245,7 @@ class StudentDashboardV50Tests(TestCase):
         self.assertEqual(membership.status, "pending")
         self.assertContains(response, "Join Me")
 
+    @override_settings(MAKONBOOK_FREE_PRACTICE_TESTS=0)  # V77: no free tier, so classroom grants are the only access
     def test_v523_unassigned_test_code_does_not_grant_legacy_group_access(self):
         gated_test = Test.objects.create(name="V523 Code Gated")
         legacy_group = Group.objects.create(name="V523 Legacy Code Group")
@@ -762,6 +768,7 @@ class StudentDashboardV50Tests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("student_dashboard_root"))
 
+    @override_settings(MAKONBOOK_CLASSROOM_JOIN_CODES=True)  # V77: legacy join codes are off by default
     def test_v525_classroom_join_code_is_digit_only_in_ui_and_backend(self):
         self.client.force_login(self.student)
         page = self.client.get(reverse("student_classrooms_root"))
