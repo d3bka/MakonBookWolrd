@@ -125,3 +125,62 @@ html:not([data-theme="dark"]) .mw504-room .mw503-result-action-secondary {
   border: 1px solid rgba(52, 36, 61, .14) !important; box-shadow: none !important;
 }
 html:not([data-theme="dark"]) .mw504-room .mw503-result-action-secondary:hover { border-color: rgba(124, 58, 237, .4) !important; color: #7c3aed !important; }
+
+/* ---------- V74: leaderboard + profile in light mode, readable labels, phone table ----------
+   Both pages were dark-only: in light mode the rank card read as faint pills, the active
+   subject tab was white-on-lilac, the other tab black, and the profile cards were black
+   with dark text. Their 8-9px labels are raised to 11px. */
+.mw503-my-rank { display: block; }
+.mw503-my-rank span, .mw503-my-rank small,
+.mw503-profile-card small, .mw503-profile-stats-grid article span, .mw503-profile-record-grid span,
+.mw503-profile-stats-grid article small, .mw503-profile-match-row span, .mw503-profile-match-row small,
+.mw503-badge-card small { font-size: 11px !important; }
+.mw503-badge-card strong { font-size: 13px !important; }
+.mw503-rank-tabs a { justify-content: center; font-weight: 800; font-size: 13px; }
+
+html:not([data-theme="dark"]) .mw503-my-rank {
+  background: #ffffff !important; border-color: rgba(124, 58, 237, .18) !important; color: #2a1f35 !important;
+  box-shadow: 0 10px 24px -18px rgba(52, 36, 61, .45);
+}
+html:not([data-theme="dark"]) .mw503-my-rank span, html:not([data-theme="dark"]) .mw503-my-rank small { color: #6f6579 !important; }
+html:not([data-theme="dark"]) .mw503-my-rank strong { color: #5b21b6 !important; }
+html:not([data-theme="dark"]) .mw503-rank-tabs a { background: #ffffff !important; color: #4b3f57 !important; border-color: rgba(52, 36, 61, .12) !important; }
+html:not([data-theme="dark"]) .mw503-rank-tabs a.is-active {
+  background: linear-gradient(135deg, #7c3aed, #c026d3) !important; color: #ffffff !important; border-color: transparent !important;
+}
+html:not([data-theme="dark"]) .mw503-rank-search,
+html:not([data-theme="dark"]) .mw503-table { background: #ffffff !important; border-color: rgba(52, 36, 61, .12) !important; }
+html:not([data-theme="dark"]) .mw503-row-avatar { background: linear-gradient(145deg, #efe6fd, #dccbf7) !important; color: #5b21b6 !important; }
+
+html:not([data-theme="dark"]) .mw503-profile-card,
+html:not([data-theme="dark"]) .mw503-profile-panel,
+html:not([data-theme="dark"]) .mw503-profile-stats-grid article {
+  background: linear-gradient(180deg, #ffffff, #faf7fd) !important; border-color: rgba(124, 58, 237, .12) !important;
+  color: #2a1f35 !important; box-shadow: 0 16px 34px -26px rgba(52, 36, 61, .45) !important;
+}
+html:not([data-theme="dark"]) .mw503-profile-record-grid > div,
+html:not([data-theme="dark"]) .mw503-profile-match-row,
+html:not([data-theme="dark"]) .mw503-badge-card { background: #faf7fd !important; border-color: rgba(52, 36, 61, .1) !important; color: #2a1f35 !important; }
+html:not([data-theme="dark"]) .mw503-profile-card strong,
+html:not([data-theme="dark"]) .mw503-profile-panel h2,
+html:not([data-theme="dark"]) .mw503-profile-stats-grid article strong,
+html:not([data-theme="dark"]) .mw503-profile-record-grid strong,
+html:not([data-theme="dark"]) .mw503-profile-match-row strong,
+html:not([data-theme="dark"]) .mw503-badge-card strong { color: #2a1f35 !important; }
+html:not([data-theme="dark"]) .mw503-profile-card small,
+html:not([data-theme="dark"]) .mw503-profile-stats-grid article span,
+html:not([data-theme="dark"]) .mw503-profile-record-grid span,
+html:not([data-theme="dark"]) .mw503-profile-match-row span,
+html:not([data-theme="dark"]) .mw503-profile-match-row small,
+html:not([data-theme="dark"]) .mw503-badge-card small { color: #6f6579 !important; }
+html:not([data-theme="dark"]) .mw503-profile-stats-grid article small { color: #b7791f !important; }
+
+/* phones: the 5-column rank table needs ~580px and clipped Tier/Rating; drop Tier, keep rating and W/L */
+@media (max-width: 600px) {
+  .mw503-table-head, .mw503-table article { grid-template-columns: 26px minmax(0, 1fr) auto auto !important; gap: 10px !important; min-width: 0 !important; }
+  .mw503-wl { font-size: 12px !important; }
+  .mw503-place { font-size: 12px !important; }
+  .mw503-table-head > span:nth-child(3), .mw503-table article > .mw503-tier { display: none !important; }
+  .mw503-table-head { font-size: 10px !important; }
+  .mw503-player-cell small { display: none; }
+}

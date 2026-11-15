@@ -96,9 +96,9 @@
           <div class="support-stack" style="gap:10px">
             {% for section in custom_sections %}<article class="sf29-row"><div class="grow"><strong>{{ section.title }}</strong>{% if section.body %}<small>{{ section.body|truncatewords:24 }}</small>{% endif %}{% if section.url %}<small>{{ section.url }}</small>{% endif %}</div><button class="sf28-btn" type="submit" name="section_id" value="{{ section.id }}" onclick="this.form.querySelector('[name=profile_action]').value='delete_custom_section'">Remove</button></article>{% empty %}<div class="sf29-empty">No custom sections yet.</div>{% endfor %}
           </div>
-          <div class="support-field" style="margin-top:16px"><label>Section title</label><input class="support-input" name="section_title" maxlength="120" placeholder="Projects, Awards, Portfolio…"></div>
-          <div class="support-field" style="margin-top:12px"><label>Description</label><textarea class="support-input" name="section_body" rows="4" maxlength="2000" placeholder="What should students know?"></textarea></div>
-          <div class="support-field" style="margin-top:12px"><label>Optional link</label><input class="support-input" type="url" name="section_url" placeholder="https://..."></div>
+          <div class="support-field" style="margin-top:16px"><label>Section title</label><input aria-label="Section title" class="support-input" name="section_title" maxlength="120" placeholder="Projects, Awards, Portfolio…"></div>
+          <div class="support-field" style="margin-top:12px"><label>Description</label><textarea aria-label="Description" class="support-input" name="section_body" rows="4" maxlength="2000" placeholder="What should students know?"></textarea></div>
+          <div class="support-field" style="margin-top:12px"><label>Optional link</label><input aria-label="Optional link" class="support-input" type="url" name="section_url" placeholder="https://..."></div>
           <button class="support-btn support-btn-secondary" style="margin-top:14px" type="submit" onclick="this.form.querySelector('[name=profile_action]').value='add_custom_section'"><i class="bi bi-plus-circle"></i> Add profile section</button>
         </section>
         <section class="support-card support-profile-preview-card">

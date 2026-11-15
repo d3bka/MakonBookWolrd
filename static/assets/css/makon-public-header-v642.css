@@ -72,3 +72,6 @@ html[data-theme="dark"] .mb642-public-chrome {
 @media(prefers-reduced-motion:reduce){
  .mb642-public-chrome .mb63-locale-menu,.mb642-public-chrome .mb63-locale-chevron{transition:none!important}
 }
+
+/* V74: "Log in" wrapped onto two lines on 390px phones */
+.mb642-public-chrome .mb56-nav-actions .mb56-btn-login{white-space:nowrap}

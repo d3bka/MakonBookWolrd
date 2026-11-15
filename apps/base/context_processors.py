@@ -14,9 +14,20 @@ def site_meta(request):
     would make every alias advertise itself as a separate copy of the site, so
     templates use this fixed value instead.
     """
+    world_enabled = getattr(settings, "MAKONBOOK_WORLD_ENABLED", False)
+
+    def world_challenges_enabled():
+        # V74: the duel-challenge toast polls a student-only endpoint. Staff opening a
+        # student page got a 403 every few seconds. Evaluated only when a template asks.
+        if not world_enabled:
+            return False
+        from apps.sat.student_workspace import should_use_student_workspace
+        return should_use_student_workspace(getattr(request, "user", None))
+
     return {
         "SITE_URL": settings.SITE_URL,
-        "makonbook_world_enabled": getattr(settings, "MAKONBOOK_WORLD_ENABLED", False),
+        "makonbook_world_enabled": world_enabled,
+        "world_challenges_enabled": world_challenges_enabled,
     }
 
 

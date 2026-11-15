@@ -4674,13 +4674,22 @@ def module_test(request, pk, attempt_id=None):
 
 @login_required(login_url='login')
 def rankings(request, pk):
-    # Student names and SAT scores are not public data.
+    # Student names and SAT scores are not public data. V74: this was open to any
+    # signed-in student; it is an admin/manager report (linked from the admin panel).
+    if not (role_is_platform_admin(request.user) or role_is_manager(request.user)):
+        return HttpResponseForbidden('Rankings are available to admins and managers only.')
+    test_obj = get_object_or_404(Test, name=pk)
     results = (
-        TestReview.objects.filter(test__name=pk, score__isnull=False)
+        TestReview.objects.filter(test=test_obj, score__isnull=False)
         .select_related('user')
         .order_by('-score', 'user')[:50]
     )
-    return render(request, 'test/features/rankings.html', {'results': results})
+    return render(request, 'test/features/rankings.html', {
+        'results': results,
+        'test': test_obj,
+        'page_title': f'Rankings · {test_obj.name}',
+        'active_page': 'tests',
+    })
 
 
 @allowed_users(['Admin'])

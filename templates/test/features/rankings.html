@@ -1,44 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    {% load static %}
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="{% static 'assets/css/rankings.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
-  {% include 'base/responsive_css.html' %}
-</head>
-<body>
-    <main>
-        <div id="header">
-            <h1>Ranking</h1>
-        </div>xzx  s 
-        <div id="leaderboard">
-            <div class="ribbon"></div>
-            <table>
-                {% for result in results %}
-                <tr>
-                    <td class="number">{{ forloop.counter }}</td>
-                    <td class="name">{{ result.user }}</td>
-                    <td class="points">
-                        {{ result.score }} 
-                        {% if forloop.first %}
-                        <img class="gold-medal" src="https://github.com/malunaridev/Challenges-iCodeThis/blob/master/4-leaderboard/assets/gold-medal.png?raw=true" alt="gold medal"/>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </table>
-            <!-- <div id="buttons">
-                <button class="exit">Exit</button>
-                <button class="continue">Continue</button>
-            </div> -->
-        </div>
-    </main>
-  {% include 'base/issue_report_widget.html' %}
-</body>
-</html>
+{% extends 'sat/admin/base_admin.html' %}
+
+{% block admin_content %}
+<style>
+  .rk-table { width: 100%; border-collapse: collapse; }
+  .rk-table th, .rk-table td { padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--mb50-line, #ece7f3); }
+  .rk-table th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--mb50-muted, #7b7287); }
+  .rk-table td.rk-place { width: 56px; font-weight: 800; }
+  .rk-table td.rk-score { font-weight: 800; color: #6d28d9; white-space: nowrap; }
+  .rk-table small { display: block; color: var(--mb50-muted, #7b7287); }
+  .rk-wrap { overflow-x: auto; }
+  .rk-empty { padding: 28px; text-align: center; color: var(--mb50-muted, #7b7287); border: 1px dashed var(--mb50-line, #ddd5ea); border-radius: 14px; }
+  html[data-theme="dark"] .rk-table td.rk-score { color: #c4b5fd; }
+</style>
+<h2><i class="fa fa-trophy"></i> Rankings · {{ test.name }}</h2>
+<p style="margin-top:-4px">Top 50 finished attempts. Names and scores are private: this page is for admins and managers only.</p>
+
+<div class="admin-card">
+  {% if results %}
+  <div class="rk-wrap">
+    <table class="rk-table">
+      <thead><tr><th>#</th><th>Student</th><th>Score</th><th>Finished</th></tr></thead>
+      <tbody>
+        {% for result in results %}
+        <tr>
+          <td class="rk-place">{% if forloop.first %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}</td>
+          <td><strong>{{ result.user.get_full_name|default:result.user.username }}</strong><small>@{{ result.user.username }}</small></td>
+          <td class="rk-score">{{ result.score }}</td>
+          <td>{{ result.created_at|date:"d M Y, H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rk-empty">No finished attempts for {{ test.name }} yet.</div>
+  {% endif %}
+  <p style="margin:16px 0 0"><a href="{% url 'admin_test_detail' test.name %}" class="btn-admin btn-secondary">← Back to test</a></p>
+</div>
+{% endblock admin_content %}

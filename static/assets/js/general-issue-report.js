@@ -15,6 +15,28 @@
       document.querySelector('.scroll-top')
     ].filter(Boolean);
 
+    // V74: also sit above fixed/sticky bottom action bars (test cover "Start test",
+    // runner footers, mobile tab bars). On phones the button covered those CTAs.
+    const bottomBarTop = () => {
+      if(typeof document.elementsFromPoint !== 'function') return null;
+      const x = window.innerWidth - (window.innerWidth <= 560 ? 34 : 50);
+      const y = window.innerHeight - 30;
+      let top = null;
+      for(const el of document.elementsFromPoint(x, y)){
+        if(el === fab || fab.contains(el)) continue;
+        for(let node = el; node && node !== document.body && node !== document.documentElement; node = node.parentElement){
+          const position = window.getComputedStyle(node).position;
+          if(position !== 'fixed' && position !== 'sticky') continue;
+          const rect = node.getBoundingClientRect();
+          if(rect.bottom >= window.innerHeight - 2 && rect.height > 0 && rect.height < window.innerHeight * 0.4 && node.querySelector('a,button,input')){
+            top = top === null ? rect.top : Math.min(top, rect.top);
+          }
+          break;
+        }
+      }
+      return top;
+    };
+
     const updateFabPosition = () => {
       let bottom = window.innerWidth <= 560 ? 12 : 22;
       candidates().forEach((button) => {
@@ -23,10 +45,13 @@
         const stackBottom = Math.max(0, window.innerHeight - rect.top) + 14;
         bottom = Math.max(bottom, stackBottom);
       });
+      const barTop = bottomBarTop();
+      if(barTop !== null) bottom = Math.max(bottom, Math.round(window.innerHeight - barTop) + 12);
       fab.style.bottom = `${bottom}px`;
     };
 
     updateFabPosition();
+    window.addEventListener('load', updateFabPosition);
     window.addEventListener('scroll', updateFabPosition, { passive:true });
     window.addEventListener('resize', updateFabPosition);
     const observer = new MutationObserver(updateFabPosition);

@@ -185,7 +185,7 @@
   <script src="{% static 'assets/js/student-world-upcoming-v5571.js' %}?v=5571"></script>
   <script src="{% static 'assets/js/season-v70.js' %}?v=7000" defer></script>
   <script src="{% static 'assets/js/mascot-v70.js' %}?v=7000" defer></script>
-  {% if makonbook_world_enabled %}{% include 'world/_challenge_toast.html' %}<link rel="stylesheet" href="{% static 'assets/css/friends-v507.css' %}?v=5070"><script src="{% static 'assets/js/challenge-toast-v507.js' %}?v=5070" defer></script>{% endif %}
+  {% if world_challenges_enabled %}{% include 'world/_challenge_toast.html' %}<link rel="stylesheet" href="{% static 'assets/css/friends-v507.css' %}?v=5070"><script src="{% static 'assets/js/challenge-toast-v507.js' %}?v=5070" defer></script>{% endif %}
   {% block student_workspace_scripts %}{% endblock student_workspace_scripts %}
 {% endblock scripts %}
 

@@ -51,9 +51,15 @@ class RankingsRequireLoginTests(TestCase):
             self.assertEqual(response.status_code, 302, url)
             self.assertIn("login", response.url)
 
-    def test_logged_in_user_can_read_rankings(self):
+    def test_only_admins_and_managers_read_rankings(self):
+        # V74: names and SAT scores are private; a signed-in student must not see them.
+        from django.contrib.auth.models import Group
         Test.objects.create(name="DAY 60")
         self.client.force_login(User.objects.create_user("ranker", password="x"))
+        self.assertEqual(self.client.get(reverse("rankings", args=["DAY 60"])).status_code, 403)
+        admin = User.objects.create_user("ranker-admin", password="x")
+        admin.groups.add(Group.objects.get_or_create(name="Admin")[0])
+        self.client.force_login(admin)
         self.assertEqual(self.client.get(reverse("rankings", args=["DAY 60"])).status_code, 200)
 
 

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
+from django.templatetags.static import static
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.views.decorators.cache import cache_control
@@ -8,6 +9,8 @@ from apps.base import error_views
 from apps.base.sitemaps import sitemaps
 
 urlpatterns = [
+    # V74: browsers ask for /favicon.ico on pages without an icon link (allauth, error pages).
+    path("favicon.ico", RedirectView.as_view(url=static("assets/img/icons/original-icon-nobg.png"), permanent=True)),
     path(
         "robots.txt",
         cache_control(max_age=60 * 60 * 24)(

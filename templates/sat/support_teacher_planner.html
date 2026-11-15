@@ -83,9 +83,9 @@
                 {% csrf_token %}
                 <input type="hidden" name="lesson_topic" value="{{ group.lesson_topic.id }}">
                 {% if is_admin %}<input type="hidden" name="teacher_id" value="{{ teacher.id }}">{% endif %}
-                <div class="support-field support-field-grow"><label>Choose group time</label><select class="support-select" name="slot" required><option value="">Choose an available slot</option>{% for day in slot_groups %}{% for slot in day.slots %}<option value="{{ slot.value }}">{{ slot.day_label }}, {{ slot.date_label }} · {{ slot.time_label }}</option>{% endfor %}{% endfor %}</select></div>
-                <div class="support-field support-field-small"><label>Capacity</label><input class="support-input" type="number" name="max_students" min="1" max="100" value="{{ group.lesson_topic.default_capacity }}"></div>
-                <div class="support-field support-field-grow"><label>Meeting link</label><input class="support-input" type="url" name="meeting_link" value="{{ teacher.meeting_link }}" placeholder="https://meet.google.com/..."></div>
+                <div class="support-field support-field-grow"><label>Choose group time</label><select aria-label="Choose group time" class="support-select" name="slot" required><option value="">Choose an available slot</option>{% for day in slot_groups %}{% for slot in day.slots %}<option value="{{ slot.value }}">{{ slot.day_label }}, {{ slot.date_label }} · {{ slot.time_label }}</option>{% endfor %}{% endfor %}</select></div>
+                <div class="support-field support-field-small"><label>Capacity</label><input aria-label="Capacity" class="support-input" type="number" name="max_students" min="1" max="100" value="{{ group.lesson_topic.default_capacity }}"></div>
+                <div class="support-field support-field-grow"><label>Meeting link</label><input aria-label="Meeting link" class="support-input" type="url" name="meeting_link" value="{{ teacher.meeting_link }}" placeholder="https://meet.google.com/..."></div>
                 <label class="support-check"><input type="checkbox" name="is_open_for_requests" checked><span>Keep open for later matching requests</span></label>
                 <button class="support-btn support-btn-primary" type="submit" data-loading-label="Scheduling…"><i class="bi bi-calendar2-plus"></i> Schedule & group {{ group.count }}</button>
               </form>
@@ -103,14 +103,14 @@
         <form method="post" action="{% url 'schedule_support_topic_session_root' %}" data-support-topic-picker data-support-lock-submit>
           {% csrf_token %}{% if is_admin %}<input type="hidden" name="teacher_id" value="{{ teacher.id }}">{% endif %}
           <div class="support-booking-form-grid support-booking-form-grid-2">
-            <div class="support-field"><label>Title</label><select class="support-select" data-support-title-select required><option value="">Choose a title</option>{% for title in lesson_titles %}<option value="{{ title.id }}">{{ title.name }}</option>{% endfor %}</select></div>
-            <div class="support-field"><label>Topic</label><select class="support-select" name="lesson_topic" data-support-topic-select required disabled><option value="">Choose a title first</option>{% for title in lesson_titles %}{% for topic in title.active_topics %}<option value="{{ topic.id }}" data-title-id="{{ title.id }}" data-capacity="{{ topic.default_capacity }}" hidden>{{ topic.name }}</option>{% endfor %}{% endfor %}</select></div>
-            <div class="support-field"><label>Time</label><select class="support-select" name="slot" required><option value="">Choose an available slot</option>{% for day in slot_groups %}{% for slot in day.slots %}<option value="{{ slot.value }}">{{ slot.day_label }}, {{ slot.date_label }} · {{ slot.time_label }}</option>{% endfor %}{% endfor %}</select></div>
-            <div class="support-field"><label>Capacity</label><input class="support-input" type="number" name="max_students" min="1" max="100" value="20" data-support-capacity-input></div>
+            <div class="support-field"><label>Title</label><select aria-label="Title" class="support-select" data-support-title-select required><option value="">Choose a title</option>{% for title in lesson_titles %}<option value="{{ title.id }}">{{ title.name }}</option>{% endfor %}</select></div>
+            <div class="support-field"><label>Topic</label><select aria-label="Topic" class="support-select" name="lesson_topic" data-support-topic-select required disabled><option value="">Choose a title first</option>{% for title in lesson_titles %}{% for topic in title.active_topics %}<option value="{{ topic.id }}" data-title-id="{{ title.id }}" data-capacity="{{ topic.default_capacity }}" hidden>{{ topic.name }}</option>{% endfor %}{% endfor %}</select></div>
+            <div class="support-field"><label>Time</label><select aria-label="Time" class="support-select" name="slot" required><option value="">Choose an available slot</option>{% for day in slot_groups %}{% for slot in day.slots %}<option value="{{ slot.value }}">{{ slot.day_label }}, {{ slot.date_label }} · {{ slot.time_label }}</option>{% endfor %}{% endfor %}</select></div>
+            <div class="support-field"><label>Capacity</label><input aria-label="Capacity" class="support-input" type="number" name="max_students" min="1" max="100" value="20" data-support-capacity-input></div>
           </div>
           <div class="support-booking-form-grid support-booking-form-grid-2" style="margin-top:14px;">
-            <div class="support-field"><label>Meeting link</label><input class="support-input" type="url" name="meeting_link" value="{{ teacher.meeting_link }}" placeholder="https://meet.google.com/..."></div>
-            <div class="support-field"><label>Teacher note</label><input class="support-input" type="text" name="teacher_note" maxlength="1200" placeholder="Preparation, room, worksheet, or reminder"></div>
+            <div class="support-field"><label>Meeting link</label><input aria-label="Meeting link" class="support-input" type="url" name="meeting_link" value="{{ teacher.meeting_link }}" placeholder="https://meet.google.com/..."></div>
+            <div class="support-field"><label>Teacher note</label><input aria-label="Teacher note" class="support-input" type="text" name="teacher_note" maxlength="1200" placeholder="Preparation, room, worksheet, or reminder"></div>
           </div>
           <div class="support-form-footer"><label class="support-check"><input type="checkbox" name="is_open_for_requests" checked><span>Allow later same-topic requests to auto-join this session</span></label><button class="support-btn support-btn-primary" type="submit" data-loading-label="Creating…"><i class="bi bi-plus-circle"></i> Create session</button></div>
         </form>
@@ -141,8 +141,8 @@
 
               <form class="support-session-update" method="post" action="{% url 'manage_support_session_root' session.id %}" data-support-lock-submit>
                 {% csrf_token %}<input type="hidden" name="action" value="update">
-                <div class="support-field"><label>Meeting link</label><input class="support-input" type="url" name="meeting_link" value="{{ session.meeting_link }}"></div>
-                <div class="support-field"><label>Teacher note</label><input class="support-input" type="text" name="teacher_note" value="{{ session.teacher_note }}" maxlength="1200"></div>
+                <div class="support-field"><label>Meeting link</label><input aria-label="Meeting link" class="support-input" type="url" name="meeting_link" value="{{ session.meeting_link }}"></div>
+                <div class="support-field"><label>Teacher note</label><input aria-label="Teacher note" class="support-input" type="text" name="teacher_note" value="{{ session.teacher_note }}" maxlength="1200"></div>
                 <label class="support-check"><input type="checkbox" name="is_open_for_requests" {% if session.is_open_for_requests %}checked{% endif %}><span>Auto-join matching requests</span></label>
                 <button class="support-btn support-btn-secondary" type="submit">Save details</button>
               </form>

@@ -1,0 +1,76 @@
+{% load static i18n %}<!doctype html>
+{% comment %}
+V74: allauth pages (Google sign-in confirmation, "Sign Up Closed", sign-in errors,
+password pages) rendered as raw unstyled HTML. They now use the public MakonBook
+shell of /login/. allauth's own entrance/manage layouts extend this file.
+{% endcomment %}
+<html lang="en">
+<head>
+  {% include 'landing/_public_transition_head_v645.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  {% include 'base/theme_init.html' %}
+  <title>{% block head_title %}{% endblock head_title %} | MakonBook</title>
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-header-v642.css' %}?v=7401">
+  <style>
+    .mb74-allauth h1 { margin: 6px 0 10px; font: 800 clamp(26px, 5vw, 36px)/1.1 "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -.02em; color: var(--pub-text); }
+    .mb74-allauth h2 { margin: 22px 0 8px; font-size: 18px; color: var(--pub-text); }
+    .mb74-allauth p { color: var(--pub-muted, #6b6578); line-height: 1.6; margin: 0 0 12px; }
+    .mb74-allauth a { color: var(--pub-primary, #7c3aed); font-weight: 700; }
+    .mb74-allauth form { display: grid; gap: 14px; margin: 16px 0 0; }
+    .mb74-allauth form p { margin: 0; display: grid; gap: 6px; }
+    .mb74-allauth label { font-size: 12px; font-weight: 850; color: var(--pub-text); }
+    .mb74-allauth input:not([type=checkbox]):not([type=radio]):not([type=hidden]), .mb74-allauth select, .mb74-allauth textarea {
+      width: 100%; min-height: 50px; border: 1px solid var(--pub-line); border-radius: 15px; padding: 0 15px; font: inherit;
+      background: color-mix(in srgb, var(--pub-card) 88%, var(--pub-bg)); color: var(--pub-text); outline: none; box-sizing: border-box; }
+    .mb74-allauth input:focus { border-color: var(--pub-primary); box-shadow: 0 0 0 4px rgba(124, 58, 237, .09); }
+    .mb74-allauth input[type=checkbox] { width: 18px; height: 18px; accent-color: #7c3aed; }
+    .mb74-allauth button, .mb74-allauth input[type=submit] {
+      min-height: 48px; padding: 0 20px; border: 0; border-radius: 15px; font: inherit; font-weight: 800; cursor: pointer;
+      color: #fff; background: linear-gradient(135deg, var(--pub-primary, #7c3aed), var(--pub-primary-2, #c026d3)); box-shadow: 0 12px 30px rgba(124, 58, 237, .22); }
+    .mb74-allauth ul { padding-left: 18px; color: var(--pub-muted, #6b6578); }
+    .mb74-allauth hr { border: 0; border-top: 1px solid var(--pub-line); margin: 22px 0; }
+    .mb74-allauth .errorlist { list-style: none; padding: 10px 12px; border-radius: 12px; background: var(--pub-danger-soft); color: var(--pub-danger); font-size: 13px; font-weight: 700; }
+    .mb74-allauth-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; font-size: 14px; }
+  </style>
+  {% block extra_head %}{% endblock extra_head %}
+</head>
+<body class="mb642-public-chrome mkp-page auth-page mb56-shared-header-page">
+<div class="mkp-shell">
+  {% include 'landing/_public_header.html' with public_nav=True %}
+  <main class="mkp-auth-main">
+    <div class="mkp-container">
+      <section class="mkp-auth-card mb74-allauth">
+        <span class="mkp-kicker">MakonBook account</span>
+        {% block body %}
+          {% if messages %}
+            <div class="mkp-alert"><ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul></div>
+          {% endif %}
+          {% block content %}{% endblock content %}
+        {% endblock body %}
+        <div class="mb74-allauth-links">
+          {% if user.is_authenticated %}
+            <a href="{% url 'student_dashboard_root' %}">← Back to MakonBook</a>
+          {% else %}
+            <a href="{% url 'login' %}">← Back to sign in</a>
+            <a href="{% url 'forgot_password' %}">Forgot password?</a>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+{% block extra_body %}{% endblock extra_body %}
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
+<script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=6451" defer></script>
+<script src="{% static 'assets/js/makon-public-header-locale-v645.js' %}?v=6451" defer></script>
+</body>
+</html>

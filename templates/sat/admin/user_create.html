@@ -9,26 +9,26 @@
         {% csrf_token %}
         <div class="form-group">
             <label>Username</label>
-            <input class="form-control" type="text" name="username" required>
+            <input aria-label="Username" class="form-control" type="text" name="username" required>
         </div>
         <div class="form-group">
             <label>Password</label>
-            <input class="form-control" type="text" name="password" required>
+            <input aria-label="Password" class="form-control" type="text" name="password" required>
         </div>
         
         <div class="form-group">
             <label>First Name</label>
-            <input class="form-control" type="text" name="first_name">
+            <input aria-label="First Name" class="form-control" type="text" name="first_name">
         </div>
         
         <div class="form-group">
             <label>Last Name</label>
-            <input class="form-control" type="text" name="last_name">
+            <input aria-label="Last Name" class="form-control" type="text" name="last_name">
         </div>
         
         <div class="form-group">
             <label>Group</label>
-            <select class="form-control" name="group">
+            <select aria-label="Group" class="form-control" name="group">
                 <option value="">---</option>
                 {% for group in groups %}
                 <option value="{{ group.id }}">{{ group.name }}</option>

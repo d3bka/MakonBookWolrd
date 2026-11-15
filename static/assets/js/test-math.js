@@ -50,6 +50,11 @@
     }
   }
 
+  // V74: KaTeX now loads in the background; typeset the visible question when it arrives.
+  document.addEventListener('makon:katex-ready', () => {
+    ['passage', 'question-text', 'answers'].forEach((id) => renderMath(document.getElementById(id)));
+  });
+
   function sizeQuestionVisual(img) {
     if (!img) return;
     const apply = () => {

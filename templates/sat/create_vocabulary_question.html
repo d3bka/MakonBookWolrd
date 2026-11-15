@@ -7,7 +7,8 @@
 {% block style %}
 {{ block.super }}
 <!-- TinyMCE -->
-<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+{# V74: Tiny Cloud without an API key shows "A valid API key is required" and makes the editor read-only. TinyMCE 6 is MIT and self-hostable. #}
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.5/tinymce.min.js" referrerpolicy="origin"></script>
 <!-- MathJax -->
 <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -263,13 +264,18 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize TinyMCE for rich text editors
   tinymce.init({
     selector: '.rich-editor textarea',
-    height: 120,
+    height: 200,
+    min_height: 160,
     menubar: false,
     plugins: [
       'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
       'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-      'insertdatetime', 'media', 'table', 'help', 'wordcount', 'paste'
+      'insertdatetime', 'media', 'table', 'help', 'wordcount'
     ],
+    promotion: false,
+    branding: false,
+    skin: document.documentElement.dataset.theme === 'dark' ? 'oxide-dark' : 'oxide',
+    content_css: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default',
     toolbar: 'undo redo | blocks | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
     content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px; }',
     setup: function(editor) {

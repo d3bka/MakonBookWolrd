@@ -19,29 +19,29 @@
   <form method="get" style="display:grid; grid-template-columns:2fr 1fr 1.2fr 1fr 1fr auto; gap:10px; align-items:end;">
     <div class="form-group" style="margin-bottom:0;">
       <label>Search</label>
-      <input class="form-control" type="search" name="q" value="{{ query }}" placeholder="student, teacher, or note">
+      <input aria-label="Search" class="form-control" type="search" name="q" value="{{ query }}" placeholder="student, teacher, or note">
     </div>
     <div class="form-group" style="margin-bottom:0;">
       <label>Status</label>
-      <select class="form-control" name="status">
+      <select aria-label="Status" class="form-control" name="status">
         <option value="">All statuses</option>
         {% for value, label in status_choices %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
     </div>
     <div class="form-group" style="margin-bottom:0;">
       <label>Teacher</label>
-      <select class="form-control" name="teacher">
+      <select aria-label="Teacher" class="form-control" name="teacher">
         <option value="">All teachers</option>
         {% for teacher in teachers %}<option value="{{ teacher.id }}" {% if teacher_id == teacher.id|stringformat:'s' %}selected{% endif %}>{{ teacher.name }}</option>{% endfor %}
       </select>
     </div>
     <div class="form-group" style="margin-bottom:0;">
       <label>From</label>
-      <input class="form-control" type="date" name="date_from" value="{% if date_from %}{{ date_from|date:'Y-m-d' }}{% endif %}">
+      <input aria-label="From" class="form-control" type="date" name="date_from" value="{% if date_from %}{{ date_from|date:'Y-m-d' }}{% endif %}">
     </div>
     <div class="form-group" style="margin-bottom:0;">
       <label>To</label>
-      <input class="form-control" type="date" name="date_to" value="{% if date_to %}{{ date_to|date:'Y-m-d' }}{% endif %}">
+      <input aria-label="To" class="form-control" type="date" name="date_to" value="{% if date_to %}{{ date_to|date:'Y-m-d' }}{% endif %}">
     </div>
     <button class="btn-admin btn-primary" type="submit">Filter</button>
   </form>
