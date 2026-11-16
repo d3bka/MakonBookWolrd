@@ -1,6 +1,6 @@
 from django.urls import path, include
 from django.views.generic.base import RedirectView
-from . import views, guest_views, test_import_views, views_mistakes
+from . import views, guest_views, test_import_views, views_mistakes, views_admissions
 
 urlpatterns = [
     path('', RedirectView.as_view(pattern_name='student_dashboard_root', permanent=False), name='sat_menu'),
@@ -51,7 +51,7 @@ urlpatterns = [
     path('placement-tests/', views.student_placement_tests, name='student_placement_tests'),
     path('practice_tests/', views.practice_tests, name='practice_tests'),
     path('vocabulary/', views.vocabulary, name='vocabulary'),
-    path('admissions/', views.admissions, name='admissions'),
+    path('admissions/', views_admissions.admissions_home, name='admissions'),
 
     # Support teacher planning
     path('lessons/<int:lesson_id>/', views.lesson_detail, name='lesson_detail'),
@@ -107,7 +107,7 @@ urlpatterns = [
     path('vocabulary/flashcards/mark/', views.vocabulary_flashcard_mark, name='vocabulary_flashcard_mark'),
 
     path('vocabulary/<slug:slug>/', views.vocabulary_section, name='vocabulary_section'),
-    path('admissions/<slug:slug>/', views.admissions_section, name='admissions_section'),
+    path('admissions/<slug:slug>/', views_admissions.admissions_lesson, name='admissions_section'),
 
     path('teacher/classrooms/', views.teacher_classroom_list, name='teacher_classroom_list'),
     path('teacher/classrooms/create/', views.create_classroom, name='create_classroom'),

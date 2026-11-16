@@ -1428,3 +1428,57 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     search_fields = ("full_name", "email", "phone", "telegram_username", "user__username")
     readonly_fields = ("registration_token", "verification_code_hash", "verification_sent_at", "verification_expires_at", "verified_at", "created_at", "updated_at")
     autocomplete_fields = ("event", "user")
+
+
+# ---------------------------------------------------------------- V80: Universities and the Admissions course
+
+
+@admin.register(University)
+class UniversityAdmin(admin.ModelAdmin):
+    list_display = ("name", "country", "region", "rank_band", "acceptance_rate", "sat_low", "sat_high",
+                    "test_policy", "tuition_usd", "aid", "data_year", "is_active")
+    list_filter = ("region", "rank_band", "kind", "test_policy", "aid", "platform", "is_active", "country")
+    list_editable = ("is_active",)
+    search_fields = ("name", "country", "city")
+    readonly_fields = ("updated_at",)
+    prepopulated_fields = {"slug": ("name",)}
+    fieldsets = (
+        (None, {"fields": ("name", "slug", "country", "city", "region", "kind", "rank_band", "website", "is_active")}),
+        ("Admission", {"fields": ("acceptance_rate", ("sat_low", "sat_high", "sat_kind"), "test_policy",
+                                  ("ielts_min", "toefl_min"), "platform", "deadlines")}),
+        ("Cost", {"fields": ("tuition_usd", "aid")}),
+        ("Notes", {"fields": ("notes", "data_year", "updated_at")}),
+    )
+
+
+class AdmissionsStepInline(admin.StackedInline):
+    model = AdmissionsStep
+    extra = 0
+
+
+class AdmissionsResourceInline(admin.TabularInline):
+    model = AdmissionsResource
+    extra = 0
+
+
+@admin.register(AdmissionsLesson)
+class AdmissionsLessonAdmin(admin.ModelAdmin):
+    list_display = ("order", "title", "module", "minutes", "has_video", "is_published")
+    list_display_links = ("title",)
+    list_editable = ("order", "is_published")
+    list_filter = ("module", "is_published")
+    search_fields = ("title", "summary", "slug")
+    prepopulated_fields = {"slug": ("title",)}
+    inlines = [AdmissionsStepInline, AdmissionsResourceInline]
+
+    @admin.display(boolean=True, description="Video")
+    def has_video(self, obj):
+        return bool(obj.youtube_embed_url)
+
+
+@admin.register(AdmissionsLessonProgress)
+class AdmissionsLessonProgressAdmin(admin.ModelAdmin):
+    list_display = ("user", "lesson", "completed_at")
+    list_filter = ("lesson",)
+    search_fields = ("user__username", "user__email")
+    raw_id_fields = ("user",)

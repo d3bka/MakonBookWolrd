@@ -1,0 +1,81 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}{{ lesson.title }} · Admissions{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8000">{% endblock %}
+{% block content %}
+<div class="v523-page mk80-page mk80-lesson-page">
+  <a class="mk80-back" href="{% url 'admissions_root' %}"><i class="bi bi-arrow-left"></i> Admissions</a>
+
+  <div class="mk80-lesson-head v523-reveal">
+    <span class="v523-kicker">{{ lesson_module }} · Lesson {{ lesson.number }} of {{ adm_total }}</span>
+    <h1>{{ lesson.title }}</h1>
+    <p>{{ lesson.summary }}</p>
+    <div class="mk80-lesson-facts"><span><i class="bi bi-clock"></i> {{ lesson.minutes }} min</span>{% if not lesson.is_locked %}<span><i class="bi bi-list-ol"></i> {{ lesson_steps|length }} step{{ lesson_steps|length|pluralize }}</span>{% if lesson_resources %}<span><i class="bi bi-link-45deg"></i> {{ lesson_resources|length }} source{{ lesson_resources|length|pluralize }}</span>{% endif %}{% endif %}{% if lesson.is_done %}<span class="is-done"><i class="bi bi-check-circle-fill"></i> Completed</span>{% endif %}</div>
+  </div>
+
+  {% if lesson.is_locked %}
+  <section class="mk80-locked">
+    <span class="mk80-access-icon"><i class="bi bi-lock-fill"></i></span>
+    <h2>Available only to current SATMakon students</h2>
+    <p>You have the first {{ adm_free_limit }} lessons of the Admissions course. The full course, with every video and step-by-step guide, is open to students who study at SATMakon now.</p>
+    <a class="mb50-primary-btn" href="{% url 'admissions_root' %}">Back to the open lessons</a>
+  </section>
+  {% else %}
+  <section class="mk80-video{% if not lesson.youtube_embed_url %} is-empty{% endif %}" aria-label="Lesson video">
+    {% if lesson.youtube_embed_url %}
+      <iframe src="{{ lesson.youtube_embed_url }}?rel=0" title="{{ lesson.title }} — SATMakon video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+    {% else %}
+      <div class="mk80-video-soon"><span><i class="bi bi-youtube"></i></span><strong>Video coming soon</strong><small>This lesson's video will appear here from the SATMakon YouTube channel. The written steps below cover everything in the meantime.</small></div>
+    {% endif %}
+  </section>
+
+  <section class="mk80-steps" aria-label="Steps">
+    {% for step in lesson_steps %}
+    <article class="mk80-step">
+      <span class="mk80-step-num">{{ forloop.counter }}</span>
+      <div>
+        <h2>{{ step.title }}</h2>
+        {% for block in step.blocks %}{% if block.kind == 'list' %}<ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul>{% else %}<p>{{ block.text }}</p>{% endif %}{% endfor %}
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+
+  {% if lesson_links_universities %}
+  <section class="mk80-panel mk80-next">
+    <div><h2>Try it now</h2><p>Set your SAT score in the Universities catalogue and filter by country, price and ranking.</p></div>
+    <a class="mb50-primary-btn" href="{% url 'universities_root' %}"><i class="bi bi-bank"></i> Open Universities</a>
+  </section>
+  {% endif %}
+
+  {% if lesson_resources %}
+  <section class="mk80-resources" aria-labelledby="mk80Sources">
+    <h2 id="mk80Sources">Sources and tools</h2>
+    <div class="mk80-resource-list">
+      {% for res in lesson_resources %}
+      <a href="{{ res.url }}" target="_blank" rel="noopener noreferrer"><span class="mk80-res-kind mk80-res-{{ res.kind }}">{{ res.get_kind_display }}</span><span class="mk80-res-copy"><strong>{{ res.title }}</strong><small>{% if res.note %}{{ res.note }}{% else %}{{ res.url|cut:"https://"|cut:"www."|truncatechars:48 }}{% endif %}</small></span><i class="bi bi-box-arrow-up-right"></i></a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <form class="mk80-complete" method="post" action="{% url 'admissions_lesson_complete_root' lesson.slug %}">
+    {% csrf_token %}
+    {% if lesson.is_done %}
+      <input type="hidden" name="done" value="0">
+      <p><i class="bi bi-check-circle-fill"></i> You completed this lesson.</p>
+      <button class="mk80-link-btn" type="submit">Mark as not done</button>
+    {% else %}
+      <input type="hidden" name="done" value="1">
+      <p>Finished reading? Mark the lesson to track your progress.</p>
+      <button class="mb50-primary-btn" type="submit"><i class="bi bi-check2-circle"></i> Mark as complete</button>
+    {% endif %}
+  </form>
+  {% endif %}
+
+  <nav class="mk80-pager" aria-label="Lessons">
+    {% if lesson_prev %}<a href="{% url 'admissions_section_root' lesson_prev.slug %}"><small><i class="bi bi-arrow-left"></i> Previous</small><strong>{{ lesson_prev.title }}</strong></a>{% else %}<span></span>{% endif %}
+    {% if lesson_next %}<a class="is-next{% if lesson_next.is_locked %} is-locked{% endif %}" href="{% url 'admissions_section_root' lesson_next.slug %}"><small>Next {% if lesson_next.is_locked %}<i class="bi bi-lock-fill"></i>{% else %}<i class="bi bi-arrow-right"></i>{% endif %}</small><strong>{{ lesson_next.title }}</strong></a>{% endif %}
+  </nav>
+</div>
+{% endblock %}

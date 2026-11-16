@@ -14513,7 +14513,8 @@ def workspace_search(request):
         ('Ranking', reverse('rating_home'), 'bi-trophy'),
         ('Events', reverse('events'), 'bi-calendar-event'),
         ('Placement Tests', reverse('placement_tests'), 'bi-ui-checks-grid'),
-        ('Admissions', reverse('admissions_root'), 'bi-buildings'),
+        ('Admissions', reverse('admissions_root'), 'bi-mortarboard'),
+        ('Universities', reverse('universities_root'), 'bi-bank'),
         ('Profile', reverse('edit_profile'), 'bi-person-circle'),
         ('Settings', reverse('settings_page'), 'bi-gear'),
     ]

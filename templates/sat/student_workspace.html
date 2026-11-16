@@ -79,11 +79,12 @@
         <a class="mb50-nav-item{% if student_workspace_active == 'question-bank' %} is-active{% endif %}" href="{% url 'student_question_bank_root' %}" data-nav-key="question-bank" data-sidebar-item data-sidebar-default-group="explore" data-sidebar-default-hidden="1" hidden><i class="bi bi-card-checklist"></i><span>Question Bank</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'ranking' %} is-active{% endif %}" href="{% url 'rating_home' %}" data-nav-key="ranking" data-sidebar-item data-sidebar-default-group="explore" data-sidebar-default-hidden="1" hidden><i class="bi bi-trophy"></i><span>Ranking</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'mentors' %} is-active{% endif %}" href="{% url 'mentors' %}" data-nav-key="mentors" data-sidebar-item data-sidebar-default-group="explore" data-sidebar-default-hidden="1" hidden><i class="bi bi-person-badge"></i><span>Mentors</span></a>
-        <a class="mb50-nav-item{% if student_workspace_active == 'admissions' %} is-active{% endif %}" href="{% url 'admissions_root' %}" data-nav-key="admissions" data-sidebar-item data-sidebar-default-group="explore" data-sidebar-default-hidden="1" hidden><i class="bi bi-buildings"></i><span>Admissions</span></a>
+        <a class="mb50-nav-item{% if student_workspace_active == 'admissions' %} is-active{% endif %}" href="{% url 'admissions_root' %}" data-nav-key="admissions" data-sidebar-item data-sidebar-default-group="explore"><i class="bi bi-mortarboard"></i><span>Admissions</span></a>
       </div>
 
       <div class="mb50-nav-group mb50-nav-secondary">
         <span class="mb50-nav-label">More</span>
+        <a class="mb50-nav-item{% if student_workspace_active == 'universities' %} is-active{% endif %}" href="{% url 'universities_root' %}" data-nav-key="universities"><i class="bi bi-bank"></i><span>Universities</span></a>
         <a class="mb50-nav-item" href="{% url 'settings_page' %}#support"><i class="bi bi-headset"></i><span>Help &amp; Support</span></a>
         <button class="mb50-nav-item" type="button" data-workspace-more-open><i class="bi bi-three-dots"></i><span>More</span><i class="bi bi-chevron-right mb50-nav-end"></i></button>
       </div>
@@ -147,7 +148,8 @@
         <a href="{% url 'student_question_bank_root' %}"><i class="bi bi-card-checklist"></i><span><strong>Question Bank</strong><small>Assigned SAT questions</small></span></a>
         <a href="{% url 'rating_home' %}"><i class="bi bi-trophy"></i><span><strong>Ranking</strong><small>Teacher rating</small></span></a>
         <a href="{% url 'mentors' %}"><i class="bi bi-person-badge"></i><span><strong>Mentors</strong><small>MakonBook teachers</small></span></a>
-        <a href="{% url 'admissions_root' %}"><i class="bi bi-buildings"></i><span><strong>Admissions</strong><small>University preparation</small></span></a>
+        <a href="{% url 'universities_root' %}"><i class="bi bi-bank"></i><span><strong>Universities</strong><small>Requirements, prices, SAT ranges</small></span></a>
+        <a href="{% url 'admissions_root' %}"><i class="bi bi-mortarboard"></i><span><strong>Admissions</strong><small>Step-by-step course</small></span></a>
         <button type="button" disabled><i class="bi bi-stars"></i><span><strong>AI Assistant</strong><small>Planned</small></span></button>
       </div>
       <div class="mb50-more-footer"><button class="mb50-secondary-btn" type="button" data-workspace-more-close>Close</button><button class="mb50-primary-btn" type="button" data-workspace-sidebar-customize-open><i class="bi bi-sliders2"></i> Customize sidebar</button></div>

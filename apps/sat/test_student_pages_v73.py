@@ -34,8 +34,11 @@ class StudentPagesTests(TestCase):
 
     def test_admissions_pages(self):
         self.assertEqual(self.client.get(reverse("admissions_root")).status_code, 200)
+        # V80: the old three sections became a lesson course; their links go to the course index.
         for slug in ("university_guide", "application_help", "scholarships"):
-            self.assertEqual(self.client.get(reverse("admissions_section_root", args=[slug])).status_code, 200, slug)
+            self.assertRedirects(self.client.get(reverse("admissions_section_root", args=[slug])),
+                                 reverse("admissions_root"), fetch_redirect_response=False)
+        self.assertEqual(self.client.get(reverse("admissions_section_root", args=["how-admissions-work"])).status_code, 200)
         self.assertEqual(self.client.get(reverse("admissions_section_root", args=["nope"])).status_code, 404)
 
     def test_topic_practice(self):

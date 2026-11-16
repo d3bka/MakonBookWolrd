@@ -1,0 +1,58 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Admissions · MakonBook{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8000">{% endblock %}
+{% block content %}
+<div class="v523-page mk80-page mk80-adm">
+  <section class="mk80-hero mk80-adm-hero v523-reveal">
+    <div class="mk80-hero-copy">
+      <span class="v523-kicker"><i class="bi bi-mortarboard"></i> Admissions</span>
+      <h1>From SAT score to admission letter.</h1>
+      <p>A step-by-step course on choosing universities, tests, essays, applications and scholarships, with SATMakon videos and links to the official sources.</p>
+      <div class="mk80-hero-actions">
+        {% if adm_next %}<a class="mb50-primary-btn" href="{% url 'admissions_section_root' adm_next.slug %}"><i class="bi bi-play-fill"></i> {% if adm_done %}Continue: {{ adm_next.title|truncatechars:38 }}{% else %}Start the course{% endif %}</a>{% endif %}
+        <a class="mb50-secondary-btn" href="{% url 'universities_root' %}"><i class="bi bi-bank"></i> Find universities</a>
+      </div>
+    </div>
+    <div class="mk80-progress-card" aria-label="Course progress">
+      <div class="mk80-ring" style="--p:{{ adm_percent }}"><strong>{{ adm_percent }}%</strong><small>done</small></div>
+      <ul>
+        <li><b>{{ adm_done }} / {{ adm_total }}</b> lessons</li>
+        <li><b>~{{ adm_minutes }}</b> minutes</li>
+        {% if adm_video_count %}<li><b>{{ adm_video_count }}</b> video{{ adm_video_count|pluralize }}</li>{% endif %}
+      </ul>
+    </div>
+  </section>
+
+  {% if not adm_full_access and adm_locked_count %}
+  <section class="mk80-access" role="note">
+    <span class="mk80-access-icon"><i class="bi bi-lock-fill"></i></span>
+    <div><strong>The first {{ adm_free_limit }} lessons are open to you.</strong><p>The full Admissions course ({{ adm_total }} lessons) is available only to current SATMakon students.</p></div>
+  </section>
+  {% endif %}
+
+  <section class="mk80-tools" aria-label="Tools">
+    <a href="{% url 'universities_root' %}"><i class="bi bi-bank"></i><span><strong>Universities</strong><small>Search by country, price, ranking and SAT</small></span><i class="bi bi-arrow-right"></i></a>
+    <a href="https://satsuite.collegeboard.org/sat/registration" target="_blank" rel="noopener noreferrer"><i class="bi bi-calendar2-check"></i><span><strong>SAT registration</strong><small>Official dates on College Board</small></span><i class="bi bi-box-arrow-up-right"></i></a>
+    <a href="https://www.commonapp.org" target="_blank" rel="noopener noreferrer"><i class="bi bi-file-earmark-person"></i><span><strong>Common App</strong><small>The US application platform</small></span><i class="bi bi-box-arrow-up-right"></i></a>
+    <a href="https://educationusa.state.gov" target="_blank" rel="noopener noreferrer"><i class="bi bi-compass"></i><span><strong>EducationUSA</strong><small>Free official advising</small></span><i class="bi bi-box-arrow-up-right"></i></a>
+  </section>
+
+  {% for module in adm_modules %}
+  <section class="mk80-module" aria-labelledby="mk80-module-{{ module.key }}">
+    <div class="mk80-module-head"><span class="mk80-module-index">{{ forloop.counter }}</span><h2 id="mk80-module-{{ module.key }}">{{ module.label }}</h2><small>{{ module.lessons|length }} lesson{{ module.lessons|length|pluralize }}</small></div>
+    <div class="mk80-lessons">
+      {% for lesson in module.lessons %}
+      <a class="mk80-lesson{% if lesson.is_done %} is-done{% endif %}{% if lesson.is_locked %} is-locked{% endif %}" href="{% url 'admissions_section_root' lesson.slug %}"{% if lesson.is_locked %} aria-label="{{ lesson.title }} — available only to current SATMakon students"{% endif %}>
+        <span class="mk80-lesson-num">{% if lesson.is_locked %}<i class="bi bi-lock-fill"></i>{% elif lesson.is_done %}<i class="bi bi-check-lg"></i>{% else %}{{ lesson.number }}{% endif %}</span>
+        <span class="mk80-lesson-copy"><strong>{{ lesson.title }}</strong><small>{{ lesson.summary }}</small></span>
+        <span class="mk80-lesson-meta">{% if lesson.has_video %}<i class="bi bi-play-circle-fill" title="Video"></i>{% endif %}<span>{{ lesson.minutes }} min</span></span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% empty %}
+  <div class="mk80-empty"><i class="bi bi-journal"></i><h3>Lessons are being prepared.</h3><p>Check back soon.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

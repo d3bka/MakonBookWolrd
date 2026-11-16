@@ -1,0 +1,67 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Universities · MakonBook{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8000">{% endblock %}
+{% block content %}
+<div class="v523-page mk80-page mk80-unis" data-uni-catalogue data-detail-base="{% url 'universities_root' %}">
+  <section class="mk80-hero v523-reveal">
+    <div class="mk80-hero-copy">
+      <span class="v523-kicker"><i class="bi bi-bank"></i> Universities</span>
+      <h1>Find universities that fit your score.</h1>
+      <p>Admission requirements, SAT ranges, prices and aid for {{ uni_total }} universities in {{ uni_country_count }} countries. Set your SAT score to see which ones are a reach, a match or a safety.</p>
+    </div>
+    <div class="mk80-hero-stats" aria-label="Catalogue summary">
+      <span><strong>{{ uni_total }}</strong><small>universities</small></span>
+      <span><strong>{{ uni_country_count }}</strong><small>countries</small></span>
+      <span><strong>{{ uni_data_year|default:"—" }}</strong><small>admissions data</small></span>
+    </div>
+  </section>
+
+  <section class="mk80-search-card" aria-label="Search universities">
+    <div class="mk80-search-row">
+      <label class="mk80-search" for="mk80Search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input id="mk80Search" type="search" placeholder="Search a university, city or country…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="mk80Suggest" aria-autocomplete="list" data-uni-search>
+        <kbd>/</kbd>
+        <div class="mk80-suggest" id="mk80Suggest" role="listbox" data-uni-suggest hidden></div>
+      </label>
+      <label class="mk80-score" title="Used for the Reach / Match / Safety badges">
+        <span>Your SAT</span>
+        <input type="number" min="400" max="1600" step="10" inputmode="numeric" placeholder="1400" value="{{ uni_best_score|default:'' }}" data-uni-score data-best="{{ uni_best_score|default:'' }}">
+      </label>
+      <button class="mb50-secondary-btn mk80-filter-toggle" type="button" data-uni-filter-toggle aria-expanded="false"><i class="bi bi-sliders2"></i> Filters <b data-uni-filter-count hidden></b></button>
+    </div>
+
+    <div class="mk80-regions" role="group" aria-label="Region">
+      <button type="button" class="is-active" data-uni-region="">All</button>
+      {% for key, label in uni_regions %}<button type="button" data-uni-region="{{ key }}">{{ label }}</button>{% endfor %}
+    </div>
+
+    <div class="mk80-filters" data-uni-filters>
+      <label><span>Country</span><select data-uni-filter="country"><option value="">All countries</option>{% for country in uni_countries %}<option value="{{ country.name }}">{{ country.name }}</option>{% endfor %}</select></label>
+      <label><span>World ranking</span><select data-uni-filter="rank"><option value="">Any ranking</option>{% for key, label in uni_ranks %}{% if key != 'other' %}<option value="{{ key }}">{{ label }}</option>{% endif %}{% endfor %}</select></label>
+      <label class="mk80-range"><span>Max tuition / year <output data-uni-tuition-label>Any</output></span><input type="range" min="0" max="70000" step="1000" value="70000" data-uni-filter="tuition" aria-label="Maximum tuition per year"></label>
+      <label><span>Acceptance rate</span><select data-uni-filter="acceptance"><option value="">Any</option><option value="10">Under 10%</option><option value="25">Under 25%</option><option value="50">Under 50%</option><option value="50+">50% and above</option></select></label>
+      <label><span>Financial aid</span><select data-uni-filter="aid"><option value="">Any aid</option><option value="need">Need-based aid</option>{% for key, label in uni_aid %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <label><span>SAT policy</span><select data-uni-filter="policy"><option value="">Any policy</option><option value="uses">Uses the SAT</option>{% for key, label in uni_policies %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <label><span>Apply via</span><select data-uni-filter="platform"><option value="">Any platform</option>{% for key, label in uni_platforms %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <label><span>Type</span><select data-uni-filter="kind"><option value="">Public & private</option><option value="public">Public</option><option value="private">Private</option></select></label>
+      <label><span>My chances</span><select data-uni-filter="fit"><option value="">Any</option><option value="reach">Reach</option><option value="match">Match</option><option value="safety">Safety</option><option value="fits">Match or safety</option></select></label>
+      <label><span>Sort by</span><select data-uni-sort><option value="rank">World ranking</option><option value="acceptance">Most selective</option><option value="acceptance-desc">Easiest to get in</option><option value="tuition">Tuition: low to high</option><option value="tuition-desc">Tuition: high to low</option><option value="sat">SAT: high to low</option><option value="name">Name A–Z</option></select></label>
+    </div>
+  </section>
+
+  <div class="mk80-results-head">
+    <p data-uni-count aria-live="polite">{{ uni_total }} universities</p>
+    <button class="mk80-link-btn" type="button" data-uni-reset hidden><i class="bi bi-x-circle"></i> Clear filters</button>
+  </div>
+
+  <section class="mk80-grid" data-uni-grid aria-label="Universities"></section>
+  <div class="mk80-more"><button class="mb50-secondary-btn" type="button" data-uni-more hidden>Show more</button></div>
+  <div class="mk80-empty" data-uni-empty hidden><i class="bi bi-search"></i><h3>No universities match.</h3><p>Try a higher tuition limit or fewer filters.</p><button class="mb50-primary-btn" type="button" data-uni-reset>Clear filters</button></div>
+
+  <p class="mk80-disclaimer"><i class="bi bi-info-circle"></i> Figures are public data for the {{ uni_data_year|default:"latest" }} admissions cycle, rounded. Requirements, prices and deadlines change every year: always confirm on the university's official website before you apply.</p>
+</div>
+{{ uni_rows|json_script:"mk80-uni-data" }}
+{% endblock %}
+{% block student_workspace_scripts %}<script src="{% static 'assets/js/university-catalogue-v80.js' %}?v=8000"></script>{% endblock %}

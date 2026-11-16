@@ -4,6 +4,7 @@ from . import views
 from apps.sat import views as sat_views
 from apps.sat import test_import_views as sat_test_import_views
 from apps.sat import views_mistakes as sat_mistakes_views
+from apps.sat import views_admissions as sat_admissions_views
 from apps.sat import guest_views as sat_guest_views
 from apps.sat import event_registration_views as event_registration_views
 from apps.sat import public_placement_views as public_placement_views
@@ -201,8 +202,12 @@ urlpatterns = [
     path('vocabulary/practice-quiz/result/', sat_views.vocabulary_practice_quiz_result, name='vocabulary_practice_quiz_result_root'),
     path('vocabulary/flashcards/mark/', sat_views.vocabulary_flashcard_mark, name='vocabulary_flashcard_mark_root'),
     path('vocabulary/<slug:slug>/', sat_views.vocabulary_section, name='vocabulary_section_root'),
-    path('admissions/', sat_views.admissions, name='admissions_root'),
-    path('admissions/<slug:slug>/', sat_views.admissions_section, name='admissions_section_root'),
+    # V80: the Admissions course (lessons, videos, resources) and the Universities catalogue.
+    path('admissions/', sat_admissions_views.admissions_home, name='admissions_root'),
+    path('admissions/<slug:slug>/', sat_admissions_views.admissions_lesson, name='admissions_section_root'),
+    path('admissions/<slug:slug>/complete/', sat_admissions_views.admissions_lesson_complete, name='admissions_lesson_complete_root'),
+    path('student/universities/', sat_admissions_views.universities, name='universities_root'),
+    path('student/universities/<slug:slug>/', sat_admissions_views.university_detail, name='university_detail_root'),
     path('support/', sat_views.support_teacher_list, name='support_teacher_list_root'),
     path('support/<int:teacher_id>/', sat_views.support_teacher_detail, name='support_teacher_detail_root'),
     path('support/<int:teacher_id>/book/', sat_views.book_support_lesson, name='book_support_lesson_root'),

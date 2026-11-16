@@ -1,0 +1,84 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}{{ uni.name }} · Universities{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8000">{% endblock %}
+{% block content %}
+<div class="v523-page mk80-page mk80-uni-detail">
+  <a class="mk80-back" href="{% url 'universities_root' %}"><i class="bi bi-arrow-left"></i> Universities</a>
+
+  <section class="mk80-detail-hero v523-reveal">
+    <div class="mk80-detail-title">
+      <span class="mk80-detail-flag" aria-hidden="true">{{ uni_flag }}</span>
+      <div>
+        <p class="mk80-detail-place">{% if uni.city %}{{ uni.city }} · {% endif %}{{ uni.country }} · {{ uni.get_kind_display }}</p>
+        <h1>{{ uni.name }}</h1>
+        <div class="mk80-chips">
+          {% if uni.rank_band != 'other' %}<span class="mk80-rank mk80-rank-{{ uni.rank_band }}">QS {{ uni.get_rank_band_display }}</span>{% endif %}
+          {% if uni_fit %}<span class="mk80-fit mk80-fit-{{ uni_fit }}">{{ uni_fit_label }}{% if uni_score %} for {{ uni_score }}{% endif %}</span>{% endif %}
+          <span class="mk80-chip mk80-chip-policy-{{ uni.test_policy }}">{{ uni.get_test_policy_display }}</span>
+          <span class="mk80-chip mk80-chip-aid-{{ uni.aid }}">{{ uni.get_aid_display }}</span>
+        </div>
+      </div>
+    </div>
+    {% if uni.website %}<a class="mb50-primary-btn" href="{{ uni.website }}" target="_blank" rel="noopener noreferrer">Official admissions site <i class="bi bi-box-arrow-up-right"></i></a>{% endif %}
+  </section>
+
+  <section class="mk80-facts" aria-label="Key numbers">
+    <article><span><i class="bi bi-door-open"></i> Acceptance rate</span><strong>{% if uni.acceptance_rate is not None %}{{ uni.acceptance_rate|floatformat:"-1" }}%{% else %}—{% endif %}</strong><small>{% if uni.acceptance_rate is not None %}of all applicants{% else %}not published{% endif %}</small></article>
+    <article><span><i class="bi bi-graph-up"></i> {% if uni.sat_kind == 'minimum' %}SAT needed{% else %}SAT range{% endif %}</span><strong>{% if uni.sat_kind == 'none' or not uni.sat_low %}{% if uni.test_policy == 'blind' %}Not used{% else %}—{% endif %}{% elif uni.sat_kind == 'minimum' %}{{ uni.sat_low }}+{% else %}{{ uni.sat_low }}–{{ uni.sat_high|default:uni.sat_low }}{% endif %}</strong><small>{{ uni.get_sat_kind_display }}</small></article>
+    <article><span><i class="bi bi-cash-coin"></i> Tuition / year</span><strong>{% if uni.tuition_usd is None %}—{% elif uni.tuition_usd == 0 %}Free*{% else %}${{ uni.tuition_usd|floatformat:"0g" }}{% endif %}</strong><small>{% if uni.tuition_usd == 0 %}covered by a grant for admitted students{% else %}international undergraduate, USD{% endif %}</small></article>
+    <article><span><i class="bi bi-translate"></i> English</span><strong>{% if uni.ielts_min %}IELTS {{ uni.ielts_min }}{% elif uni.toefl_min %}TOEFL {{ uni.toefl_min }}{% else %}Check site{% endif %}</strong><small>{% if uni.ielts_min and uni.toefl_min %}or TOEFL {{ uni.toefl_min }}{% elif uni.ielts_min or uni.toefl_min %}minimum{% else %}no fixed minimum published{% endif %}</small></article>
+  </section>
+
+  {% if uni_sat_position %}
+  <section class="mk80-panel">
+    <div class="mk80-panel-head"><h2>Your SAT and {{ uni.name }}</h2>{% if not uni_score %}<a class="mk80-link-btn" href="{% url 'practice_tests_root' %}">Take a practice test</a>{% endif %}</div>
+    <div class="mk80-satbar" role="img" aria-label="SAT range {{ uni.sat_low }} to {{ uni.sat_high|default:uni.sat_low }}{% if uni_score %}, your best score {{ uni_score }}{% endif %}">
+      <span class="mk80-satbar-range" style="left:{{ uni_sat_position.low }}%;width:{{ uni_sat_position.width }}%"></span>
+      {% if uni_sat_position.score is not None %}<span class="mk80-satbar-you{% if uni_sat_position.edge %} is-{{ uni_sat_position.edge }}{% endif %}" style="left:{{ uni_sat_position.score }}%"><b>You · {{ uni_score }}</b></span>{% endif %}
+    </div>
+    <div class="mk80-satbar-scale"><span>1000</span><span>1200</span><span>1400</span><span>1600</span></div>
+    <p class="mk80-muted">{% if uni_score %}Based on your best MakonBook practice-test score.{% else %}Finish a practice test to see where your score sits.{% endif %} {% if uni.sat_kind == 'middle50' %}Half of admitted students scored inside the purple range.{% else %}The purple range is the score this university typically expects.{% endif %}</p>
+  </section>
+  {% endif %}
+
+  <section class="mk80-detail-grid">
+    <article class="mk80-panel">
+      <h2>How to apply</h2>
+      <dl class="mk80-def">
+        <div><dt>Apply via</dt><dd>{{ uni.get_platform_display }}</dd></div>
+        <div><dt>Deadlines</dt><dd>{{ uni.deadlines|default:"See the official site" }}</dd></div>
+        <div><dt>SAT policy</dt><dd>{{ uni.get_test_policy_display }}</dd></div>
+        <div><dt>English test</dt><dd>{% if uni.ielts_min %}IELTS {{ uni.ielts_min }}+{% endif %}{% if uni.ielts_min and uni.toefl_min %} · {% endif %}{% if uni.toefl_min %}TOEFL {{ uni.toefl_min }}+{% endif %}{% if not uni.ielts_min and not uni.toefl_min %}See the official site{% endif %}</dd></div>
+      </dl>
+    </article>
+    <article class="mk80-panel">
+      <h2>Money</h2>
+      <dl class="mk80-def">
+        <div><dt>Tuition</dt><dd>{% if uni.tuition_usd is None %}—{% elif uni.tuition_usd == 0 %}Covered for admitted students{% else %}about ${{ uni.tuition_usd|floatformat:"0g" }} per year{% endif %}</dd></div>
+        <div><dt>Financial aid</dt><dd>{{ uni.get_aid_display }}</dd></div>
+        <div><dt>Type</dt><dd>{{ uni.get_kind_display }} university</dd></div>
+      </dl>
+      <p class="mk80-muted">Living costs, housing and insurance come on top of tuition.</p>
+    </article>
+  </section>
+
+  {% if uni.notes %}<section class="mk80-panel mk80-note"><i class="bi bi-lightbulb"></i><p>{{ uni.notes }}</p></section>{% endif %}
+
+  <section class="mk80-panel mk80-next">
+    <div><h2>Getting ready to apply?</h2><p>The Admissions course walks you through the list, the tests, the essays and the forms.</p></div>
+    <a class="mb50-secondary-btn" href="{% url 'admissions_root' %}"><i class="bi bi-mortarboard"></i> Open Admissions</a>
+  </section>
+
+  {% if uni_similar %}
+  <section class="mk80-similar">
+    <h2>Similar universities</h2>
+    <div class="mk80-similar-row">
+      {% for item in uni_similar %}<a href="{% url 'university_detail_root' item.uni.slug %}"><span class="mk80-flag" aria-hidden="true">{{ item.flag }}</span><span><strong>{{ item.uni.name }}</strong><small>{{ item.uni.country }}{% if item.uni.acceptance_rate is not None %} · {{ item.uni.acceptance_rate|floatformat:"-1" }}% admitted{% endif %}</small></span></a>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="mk80-disclaimer"><i class="bi bi-info-circle"></i> Data for the {{ uni.data_year }} admissions cycle, rounded. Always confirm requirements, prices and deadlines on the official website.</p>
+</div>
+{% endblock %}

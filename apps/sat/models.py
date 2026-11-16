@@ -3569,3 +3569,8 @@ class StudentMistakeScan(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['user', 'review'], name='uniq_mistake_scan_review')]
+
+# V80: universities catalogue and the Admissions course.
+from .admissions_models import (  # noqa: E402,F401
+    AdmissionsLesson, AdmissionsLessonProgress, AdmissionsResource, AdmissionsStep, University,
+)
