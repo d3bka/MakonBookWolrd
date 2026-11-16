@@ -29,9 +29,13 @@ services:
       - static_files:/app/staticfiles
       - media_files:/app/media
       - logs:/app/logs
+      # V81: premium SATMakon videos/PDF pages. Private volume, never under /media.
+      - premium_content:/premium
     env_file:
       - .env
     environment:
+      MAKONBOOK_PREMIUM_ROOT: /premium
+      MAKONBOOK_PREMIUM_ACCEL_PREFIX: /_premium/
       DB_ENGINE: django.db.backends.postgresql
       # NOTE: if .env sets DATABASE_URL it takes priority over every DB_* var
       # (settings.py:151-155). The live .env does set it. These remain as the
@@ -156,6 +160,8 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - static_files:/app/staticfiles:ro
       - media_files:/app/media:ro
+      # V81: read only through the `internal` /_premium/ location (X-Accel-Redirect).
+      - premium_content:/premium:ro
       - certbot_conf:/etc/letsencrypt
       - certbot_webroot:/var/www/certbot
     networks:
@@ -181,6 +187,7 @@ volumes:
   redis_data:
   static_files:
   media_files:
+  premium_content:
   logs:
   certbot_conf:
   certbot_webroot:

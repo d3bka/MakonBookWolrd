@@ -3572,5 +3572,6 @@ class StudentMistakeScan(models.Model):
 
 # V80: universities catalogue and the Admissions course.
 from .admissions_models import (  # noqa: E402,F401
-    AdmissionsLesson, AdmissionsLessonProgress, AdmissionsResource, AdmissionsStep, University,
+    AdmissionsDocument, AdmissionsLesson, AdmissionsLessonProgress, AdmissionsResource, AdmissionsStep,
+    AdmissionsVideo, University,
 )

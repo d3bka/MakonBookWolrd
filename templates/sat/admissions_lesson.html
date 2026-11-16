@@ -1,7 +1,9 @@
 {% extends 'sat/student_workspace.html' %}
 {% load static %}
 {% block page_title %}{{ lesson.title }} · Admissions{% endblock %}
-{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8000">{% endblock %}
+{% block student_workspace_scripts %}{% if lesson_video %}<script src="{% static 'assets/vendor/hls.js/hls.min.js' %}?v=1513"></script>
+<script src="{% static 'assets/js/admissions-player-v81.js' %}?v=8100"></script>{% endif %}{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8100">{% endblock %}
 {% block content %}
 <div class="v523-page mk80-page mk80-lesson-page">
   <a class="mk80-back" href="{% url 'admissions_root' %}"><i class="bi bi-arrow-left"></i> Admissions</a>
@@ -21,15 +23,37 @@
     <a class="mb50-primary-btn" href="{% url 'admissions_root' %}">Back to the open lessons</a>
   </section>
   {% else %}
-  <section class="mk80-video{% if not lesson.youtube_embed_url %} is-empty{% endif %}" aria-label="Lesson video">
-    {% if lesson.youtube_embed_url %}
-      <iframe src="{{ lesson.youtube_embed_url }}?rel=0" title="{{ lesson.title }} — SATMakon video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-    {% else %}
-      <div class="mk80-video-soon"><span><i class="bi bi-youtube"></i></span><strong>Video coming soon</strong><small>This lesson's video will appear here from the SATMakon YouTube channel. The written steps below cover everything in the meantime.</small></div>
-    {% endif %}
+  {% if lesson_video %}
+  <section class="mk80-player" data-adm-player data-src="{% url 'admissions_video_playlist_root' lesson.slug %}" aria-label="Lesson video">
+    <video playsinline preload="none" controls controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback oncontextmenu="return false" title="{{ lesson.title }} — SATMakon"></video>
+    <div class="mk80-player-start" data-adm-start><button type="button" aria-label="Play the lesson"><i class="bi bi-play-fill"></i></button><strong>{{ lesson.title }}</strong><small>SATMakon video lesson · {{ lesson.minutes }} min</small></div>
+    <div class="mk80-player-mark" data-adm-mark aria-hidden="true">{{ viewer_label }}</div>
+    <div class="mk80-player-error" data-adm-error hidden><i class="bi bi-exclamation-triangle"></i><span>The video could not load. Refresh the page and try again.</span></div>
   </section>
+  <p class="mk80-premium-note"><i class="bi bi-shield-lock"></i> SATMakon premium lesson. Videos and files are for your personal study only and carry your name.</p>
+  {% elif lesson.youtube_embed_url %}
+  <section class="mk80-video" aria-label="Lesson video">
+    <iframe src="{{ lesson.youtube_embed_url }}?rel=0" title="{{ lesson.title }} — SATMakon video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  </section>
+  {% else %}
+  <section class="mk80-video is-empty" aria-label="Lesson video">
+    <div class="mk80-video-soon"><span><i class="bi bi-camera-video"></i></span><strong>Video coming soon</strong><small>The SATMakon video for this lesson is being prepared.{% if lesson_steps %} The notes below cover the key points.{% endif %}</small></div>
+  </section>
+  {% endif %}
 
-  <section class="mk80-steps" aria-label="Steps">
+  {% if lesson_documents %}
+  <section class="mk80-materials" aria-labelledby="mk80Materials">
+    <h2 id="mk80Materials">Lesson materials</h2>
+    <div class="mk80-material-list">
+      {% for document in lesson_documents %}
+      <a href="{% url 'admissions_document_root' document.slug %}"><span class="mk80-material-icon"><i class="bi bi-file-earmark-richtext"></i></span><span class="mk80-res-copy"><strong>{{ document.title }}</strong><small>{{ document.page_count }} page{{ document.page_count|pluralize }} · read online</small></span><i class="bi bi-arrow-right"></i></a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if lesson_steps %}<h2 class="mk80-notes-title">Lesson notes</h2>{% endif %}
+  <section class="mk80-steps" aria-label="Lesson notes">
     {% for step in lesson_steps %}
     <article class="mk80-step">
       <span class="mk80-step-num">{{ forloop.counter }}</span>

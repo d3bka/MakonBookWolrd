@@ -1,0 +1,46 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}{{ document.title }} · Admissions{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8100">{% endblock %}
+{% block content %}
+<div class="v523-page mk80-page mk80-doc-page" data-adm-doc>
+  <a class="mk80-back" href="{% if document_lessons %}{% url 'admissions_section_root' document_lessons.0.slug %}{% else %}{% url 'admissions_root' %}{% endif %}"><i class="bi bi-arrow-left"></i> {% if document_lessons %}{{ document_lessons.0.title }}{% else %}Admissions{% endif %}</a>
+
+  <div class="mk80-lesson-head">
+    <span class="v523-kicker"><i class="bi bi-shield-lock"></i> SATMakon premium file</span>
+    <h1>{{ document.title }}</h1>
+    {% if document.description %}<p>{{ document.description }}</p>{% endif %}
+    <div class="mk80-lesson-facts"><span><i class="bi bi-file-earmark"></i> {{ document.page_count }} page{{ document.page_count|pluralize }}</span>{% for lesson in document_lessons %}<span><i class="bi bi-play-circle"></i> Lesson {{ lesson.number }}</span>{% endfor %}</div>
+  </div>
+
+  {% if document.is_open %}
+  <p class="mk80-premium-note"><i class="bi bi-shield-lock"></i> For reading on MakonBook only. Every page carries your name ({{ viewer_label }}).</p>
+  <section class="mk80-doc" aria-label="{{ document.title }}">
+    {% for url in document_pages %}
+    <figure class="mk80-doc-page-img"><img src="{{ url }}" alt="Page {{ forloop.counter }}" loading="{% if forloop.counter < 3 %}eager{% else %}lazy{% endif %}" decoding="async" draggable="false"><figcaption>{{ forloop.counter }} / {{ document.page_count }}</figcaption><span class="mk80-doc-shield" aria-hidden="true"></span></figure>
+    {% endfor %}
+  </section>
+  <div class="mk80-doc-print">This file can only be read on MakonBook.</div>
+  {% else %}
+  <section class="mk80-locked">
+    <span class="mk80-access-icon"><i class="bi bi-lock-fill"></i></span>
+    <h2>Available only to current SATMakon students</h2>
+    <p>This file belongs to a lesson of the full Admissions course, which is open to students who study at SATMakon now.</p>
+    <a class="mb50-primary-btn" href="{% url 'admissions_root' %}">Back to Admissions</a>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}<script>
+(function () {
+  var root = document.querySelector('[data-adm-doc]');
+  if (!root) return;
+  ['contextmenu', 'dragstart', 'copy', 'selectstart'].forEach(function (name) {
+    root.addEventListener(name, function (event) { if (event.target.closest('.mk80-doc')) event.preventDefault(); });
+  });
+  document.addEventListener('keydown', function (event) {
+    var key = (event.key || '').toLowerCase();
+    if ((event.ctrlKey || event.metaKey) && (key === 's' || key === 'p')) { event.preventDefault(); }
+  });
+})();
+</script>{% endblock %}

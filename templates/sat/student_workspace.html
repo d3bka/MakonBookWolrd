@@ -55,9 +55,9 @@
         <a class="mb50-nav-item{% if student_workspace_active == 'tests' %} is-active{% endif %}" href="{% url 'practice_tests_root' %}" data-nav-key="tests" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-clipboard2-check"></i><span>Tests</span></a>
         <a class="mb50-nav-item{% if student_workspace_active == 'room' %} is-active{% endif %}" href="{% url 'makon_room' %}" data-nav-key="room" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-house-heart"></i><span>MakonRoom</span></a>
         {% if makonbook_world_enabled %}
-        <a class="mb50-nav-item mb50-world-link{% if student_workspace_active == 'world' %} is-active{% endif %}" href="{% url 'world_home' %}" data-nav-key="world" data-sidebar-item data-sidebar-default-group="study"><i class="bi bi-globe2"></i><span>MakonBook World</span><em>V50.3</em></a>
+        <a class="mb50-nav-item mb50-world-link{% if student_workspace_active == 'world' %} is-active{% endif %}" href="{% url 'world_home' %}" data-nav-key="world" data-sidebar-item data-sidebar-default-group="study" title="MakonBook World"><i class="bi bi-globe2"></i><span>World</span></a>
         {% else %}
-        <a class="mb50-nav-item mb50-world-link mb557-world-upcoming-link" href="{% url 'world_home' %}" data-nav-key="world" data-sidebar-item data-sidebar-default-group="study" data-world-upcoming aria-disabled="true"><i class="bi bi-globe2"></i><span>MakonBook World</span><em>UPCOMING</em></a>
+        <a class="mb50-nav-item mb50-world-link mb557-world-upcoming-link" href="{% url 'world_home' %}" data-nav-key="world" data-sidebar-item data-sidebar-default-group="study" data-world-upcoming aria-disabled="true" title="MakonBook World"><i class="bi bi-globe2"></i><span>World</span><em>UPCOMING</em></a>
         {% endif %}
       </div>
 

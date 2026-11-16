@@ -1,11 +1,13 @@
-"""V80 seed content for the Admissions course.
+"""Seed content for the Admissions course.
 
-Lessons, their steps and their source pages. Every lesson has a YouTube slot that is
-left empty here on purpose: SATMakon adds its own videos in the Django admin
-(sat › Admissions lessons › YouTube URL). Links point to official pages only.
+V81: the course is SATMakon's 28 premium video lessons (folder "Lessons"). Each video
+lesson carries a short written guide (from the V80 text lessons, adapted to Uzbekistan's
+11-year school) and official links. Videos and PDFs are attached by
+`manage.py import_admissions_media <folder>`; nothing premium is stored in this file.
 """
 
-LESSONS = [
+# V80 written guides, reused as the notes under the matching video lessons.
+GUIDES_LIST = [
     {
         "slug": "how-admissions-work",
         "module": "start",
@@ -473,20 +475,141 @@ LESSONS = [
         ],
     },
 ]
+GUIDES = {guide["slug"]: guide for guide in GUIDES_LIST}
+
+# The V80 text-only lessons; replaced by the video course (migration 0073).
+V80_LESSON_SLUGS = [guide["slug"] for guide in GUIDES_LIST]
+
+
+def _video(number, slug, module, title, summary, minutes, guides=(), links=()):
+    steps, resources = [], list(links)
+    for name in guides:
+        steps += GUIDES[name]["steps"]
+        seen = {item[1] for item in resources}
+        resources += [item for item in GUIDES[name]["resources"] if item[1] not in seen]
+    return {"number": number, "slug": slug, "module": module, "title": title, "summary": summary,
+            "minutes": minutes, "steps": steps, "resources": resources}
+
+
+# order == the number in the video file name ("Lesson 7 - Gap Year Essay.mp4" -> 7).
+LESSONS = [
+    _video(1, "introduction", "start", "Introduction",
+           "How the course works and the road from SAT score to an admission letter.", 24,
+           ["how-admissions-work", "your-admissions-timeline"]),
+    _video(2, "common-app", "start", "Common App",
+           "The Common App platform: the account, its sections and how universities receive it.", 20,
+           ["common-app-step-by-step"]),
+    _video(3, "top-universities", "choose", "Top universities",
+           "The leading universities, what makes them different and what they look for.", 31,
+           ["countries-compared"]),
+    _video(4, "reach-match-safety", "choose", "Reach, match and safety",
+           "Sorting your list into reach, match and safety schools.", 21, ["build-your-university-list"]),
+    _video(5, "numbers", "choose", "Numbers",
+           "Acceptance rates, SAT ranges, English scores and the other numbers behind a decision.", 16,
+           ["sat-strategy", "english-tests"]),
+    _video(6, "family-and-education", "profile", "Family and education",
+           "Filling in the Family and Education sections without mistakes.", 15,
+           links=[("Common App — applicant help center", "https://appsupport.commonapp.org", "official", "")]),
+    _video(7, "gap-year-essay", "essays", "Gap year essay",
+           "Explaining a gap year in your application.", 15,
+           links=[("Common App — applicant help center", "https://appsupport.commonapp.org", "official", "")]),
+    _video(8, "activity-types", "profile", "Activity types",
+           "Which activities count and how universities read them.", 18, ["activities-and-awards"]),
+    _video(9, "leadership-skills", "profile", "Leadership skills",
+           "Showing leadership through what you have actually done.", 14,
+           links=[("Common App — applicant help center", "https://appsupport.commonapp.org", "official", "")]),
+    _video(10, "successful-description", "profile", "Successful description",
+           "Writing activity descriptions that stand out.", 18,
+           links=[("Common App — applicant help center", "https://appsupport.commonapp.org", "official", "")]),
+    _video(11, "self-reflection-essay", "essays", "Self-reflection essay",
+           "Writing about yourself honestly and with insight.", 11,
+           links=[("Common App essay prompts", "https://www.commonapp.org/blog", "official", "")]),
+    _video(12, "personal-statement-essay", "essays", "Personal statement essay",
+           "Choosing a topic and building the Common App personal statement.", 20, ["personal-essay"]),
+    _video(13, "examples-of-essays", "essays", "Examples of essays",
+           "Successful essays, read and analysed.", 18,
+           links=[("Common App essay prompts", "https://www.commonapp.org/blog", "official", "")]),
+    _video(14, "supplemental-essays", "essays", "Supplemental essays",
+           "University-specific essays, including \"Why us?\"", 24, ["supplemental-essays"]),
+    _video(15, "activity-essay", "essays", "Activity essay",
+           "Turning one activity into a strong short essay.", 20,
+           links=[("Common App — applicant help center", "https://appsupport.commonapp.org", "official", "")]),
+    _video(16, "merit-scholarship", "money", "Merit scholarships",
+           "Universities that reward strong students with merit scholarships, and how to apply.", 18,
+           ["scholarships"]),
+    _video(17, "css-profile", "money", "CSS Profile",
+           "Filling in the CSS Profile for need-based financial aid.", 48, ["financial-aid"]),
+    _video(18, "school-profile", "apply", "School profile",
+           "The school profile, transcript and the documents your school sends.", 21,
+           ["grades-and-school-documents"]),
+    _video(19, "recommendation-letter", "apply", "Recommendation letters",
+           "Who writes your letters and how to help them write strong ones.", 8, ["recommendation-letters"]),
+    _video(20, "additional-section", "apply", "Additional information section",
+           "What belongs in the Additional Information section and what does not.", 11,
+           links=[("Common App — applicant help center", "https://appsupport.commonapp.org", "official", "")]),
+    _video(21, "united-kingdom", "countries", "United Kingdom",
+           "Studying in the UK: requirements for Uzbek students and the UCAS application.", 23,
+           ["applying-through-ucas"]),
+    _video(22, "ucas-personal-statement", "countries", "UCAS personal statement",
+           "Writing the UCAS personal statement.", 28,
+           links=[("UCAS undergraduate", "https://www.ucas.com/undergraduate", "official", "")]),
+    _video(23, "turkey", "countries", "Turkey",
+           "Studying in Turkey: universities, applications and scholarships.", 21,
+           links=[("Türkiye Bursları", "https://www.turkiyeburslari.gov.tr", "official", "Government scholarship.")]),
+    _video(24, "australia", "countries", "Australia",
+           "Studying in Australia: universities and how to apply.", 22,
+           links=[("Study Australia", "https://www.studyaustralia.gov.au", "official", ""),
+                  ("Australian Student visa", "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/student-500", "official", "")]),
+    _video(25, "post-acceptance-process", "after", "After you are admitted",
+           "Decisions, deposits, documents and the student visa.", 10, ["decisions-and-visa"]),
+    _video(26, "asia", "countries", "Asia",
+           "Studying in Asia: universities and scholarships.", 18,
+           links=[("Study in Korea — GKS", "https://www.studyinkorea.go.kr", "official", ""),
+                  ("Study in Japan — MEXT", "https://www.studyinjapan.go.jp/en/", "official", ""),
+                  ("Campus China — CSC scholarship", "https://www.campuschina.org", "official", "")]),
+    _video(27, "college-interview", "after", "College interview",
+           "Preparing for admissions interviews.", 21,
+           links=[("EducationUSA — official US study advising", "https://educationusa.state.gov", "official", "")]),
+    _video(28, "el-yurt-umidi", "money", "El-Yurt Umidi Foundation",
+           "Support from Uzbekistan's El-Yurt Umidi Foundation for studying abroad.", 13,
+           links=[("El-Yurt Umidi Foundation", "https://eyuf.uz", "official", "Programs and deadlines.")]),
+]
+
+# Premium PDFs from the Lessons folder: shown page by page with the viewer's watermark.
+DOCUMENTS = [
+    {"slug": "university-list", "title": "University list", "source": "University list -1-2.pdf",
+     "description": "SATMakon university list.", "lessons": [3, 4]},
+    {"slug": "why-us", "title": "Why US", "source": "Why US.pdf",
+     "description": "SATMakon guide.", "lessons": [14]},
+    {"slug": "activities-lists", "title": "15 successful activities lists",
+     "source": "15 Successful Activities Lists eBook.pdf",
+     "description": "Activities lists of admitted students.", "lessons": [8, 10]},
+    {"slug": "harvard-essays", "title": "50 successful Harvard application essays",
+     "source": "50_Successful_Harvard_Application_Essays_4th_Edition_With_Analysis.pdf",
+     "description": "Essays with analysis.", "lessons": [13]},
+    {"slug": "full-scholarship-schools", "title": "Schools that offer full scholarships",
+     "source": "A-Schools-That-Offer-Full-Scholarships-2019-01-07-2021-HM.pdf",
+     "description": "Universities with full scholarships for international students.", "lessons": [16]},
+    {"slug": "merit-scholarships", "title": "Merit scholarships", "source": "Merit scholarships.pdf",
+     "description": "Merit scholarship list.", "lessons": [16]},
+    {"slug": "scholarship-sizes", "title": "Size of US university scholarships",
+     "source": "Size of US Universities schoolarships.pdf",
+     "description": "How large scholarships are at US universities.", "lessons": [16, 17]},
+]
 
 
 def load_admissions_course(Lesson, Step, Resource):
     """Create lessons that do not exist yet (by slug), with their steps and resources.
 
-    Existing lessons are left alone so admin edits (videos, texts) survive re-runs.
+    Existing lessons are left alone so admin edits survive re-runs.
     Returns the number of lessons created.
     """
     created = 0
-    for order, data in enumerate(LESSONS, start=1):
+    for data in LESSONS:
         if Lesson.objects.filter(slug=data["slug"]).exists():
             continue
         lesson = Lesson.objects.create(
-            order=order, slug=data["slug"], module=data["module"], title=data["title"],
+            order=data["number"], slug=data["slug"], module=data["module"], title=data["title"],
             summary=data["summary"], minutes=data["minutes"],
         )
         for step_order, (title, body) in enumerate(data["steps"], start=1):
@@ -494,4 +617,19 @@ def load_admissions_course(Lesson, Step, Resource):
         for res_order, (title, url, kind, note) in enumerate(data["resources"], start=1):
             Resource.objects.create(lesson=lesson, order=res_order, title=title, url=url, kind=kind, note=note)
         created += 1
+    return created
+
+
+def load_admissions_documents(Document, Lesson):
+    """Create the premium file records (no pages yet: the import command renders them)."""
+    created = 0
+    for order, data in enumerate(DOCUMENTS, start=1):
+        document, made = Document.objects.get_or_create(slug=data["slug"], defaults={
+            "title": data["title"], "description": data["description"], "order": order,
+            "source_name": data["source"],
+        })
+        if made:
+            slugs = [lesson["slug"] for lesson in LESSONS if lesson["number"] in data["lessons"]]
+            document.lessons.set(Lesson.objects.filter(slug__in=slugs))
+            created += 1
     return created

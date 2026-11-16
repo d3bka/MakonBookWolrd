@@ -1,14 +1,14 @@
 {% extends 'sat/student_workspace.html' %}
 {% load static %}
 {% block page_title %}Admissions · MakonBook{% endblock %}
-{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8000">{% endblock %}
+{% block student_workspace_style %}<link rel="stylesheet" href="{% static 'assets/css/admissions-v80.css' %}?v=8100">{% endblock %}
 {% block content %}
 <div class="v523-page mk80-page mk80-adm">
   <section class="mk80-hero mk80-adm-hero v523-reveal">
     <div class="mk80-hero-copy">
       <span class="v523-kicker"><i class="bi bi-mortarboard"></i> Admissions</span>
       <h1>From SAT score to admission letter.</h1>
-      <p>A step-by-step course on choosing universities, tests, essays, applications and scholarships, with SATMakon videos and links to the official sources.</p>
+      <p>The SATMakon admissions course: {{ adm_total }} video lessons on choosing universities, the Common App, activities, essays, scholarships and other countries, with notes, official links and premium materials.</p>
       <div class="mk80-hero-actions">
         {% if adm_next %}<a class="mb50-primary-btn" href="{% url 'admissions_section_root' adm_next.slug %}"><i class="bi bi-play-fill"></i> {% if adm_done %}Continue: {{ adm_next.title|truncatechars:38 }}{% else %}Start the course{% endif %}</a>{% endif %}
         <a class="mb50-secondary-btn" href="{% url 'universities_root' %}"><i class="bi bi-bank"></i> Find universities</a>
@@ -18,7 +18,7 @@
       <div class="mk80-ring" style="--p:{{ adm_percent }}"><strong>{{ adm_percent }}%</strong><small>done</small></div>
       <ul>
         <li><b>{{ adm_done }} / {{ adm_total }}</b> lessons</li>
-        <li><b>~{{ adm_minutes }}</b> minutes</li>
+        <li><b>{{ adm_duration }}</b> of lessons</li>
         {% if adm_video_count %}<li><b>{{ adm_video_count }}</b> video{{ adm_video_count|pluralize }}</li>{% endif %}
       </ul>
     </div>
@@ -37,6 +37,17 @@
     <a href="https://www.commonapp.org" target="_blank" rel="noopener noreferrer"><i class="bi bi-file-earmark-person"></i><span><strong>Common App</strong><small>The US application platform</small></span><i class="bi bi-box-arrow-up-right"></i></a>
     <a href="https://educationusa.state.gov" target="_blank" rel="noopener noreferrer"><i class="bi bi-compass"></i><span><strong>EducationUSA</strong><small>Free official advising</small></span><i class="bi bi-box-arrow-up-right"></i></a>
   </section>
+
+  {% if adm_documents %}
+  <section class="mk80-library" aria-labelledby="mk80Library">
+    <div class="mk80-module-head"><span class="mk80-module-index"><i class="bi bi-folder2-open"></i></span><h2 id="mk80Library">Materials</h2><small>SATMakon premium files · read online</small></div>
+    <div class="mk80-material-list">
+      {% for document in adm_documents %}
+      <a class="{% if not document.is_open %}is-locked{% endif %}" href="{% url 'admissions_document_root' document.slug %}"><span class="mk80-material-icon">{% if document.is_open %}<i class="bi bi-file-earmark-richtext"></i>{% else %}<i class="bi bi-lock-fill"></i>{% endif %}</span><span class="mk80-res-copy"><strong>{{ document.title }}</strong><small>{{ document.page_count }} page{{ document.page_count|pluralize }}{% if document.lesson_numbers %} · lesson {{ document.lesson_numbers|join:", " }}{% endif %}</small></span><i class="bi bi-arrow-right"></i></a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   {% for module in adm_modules %}
   <section class="mk80-module" aria-labelledby="mk80-module-{{ module.key }}">

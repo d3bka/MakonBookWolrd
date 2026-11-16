@@ -1473,7 +1473,7 @@ class AdmissionsLessonAdmin(admin.ModelAdmin):
 
     @admin.display(boolean=True, description="Video")
     def has_video(self, obj):
-        return bool(obj.youtube_embed_url)
+        return AdmissionsVideo.objects.filter(lesson=obj).exists() or bool(obj.youtube_embed_url)
 
 
 @admin.register(AdmissionsLessonProgress)
@@ -1482,3 +1482,36 @@ class AdmissionsLessonProgressAdmin(admin.ModelAdmin):
     list_filter = ("lesson",)
     search_fields = ("user__username", "user__email")
     raw_id_fields = ("user",)
+
+
+@admin.register(AdmissionsVideo)
+class AdmissionsVideoAdmin(admin.ModelAdmin):
+    """V81: read-only. Videos are added by `manage.py import_admissions_media`; the encryption
+    key is never shown here."""
+    list_display = ("lesson", "minutes", "segment_count", "source_name", "updated_at")
+    fields = ("lesson", "source_name", "duration_seconds", "segment_count", "created_at", "updated_at")
+    readonly_fields = fields
+    search_fields = ("lesson__title", "source_name")
+
+    @admin.display(description="Minutes")
+    def minutes(self, obj):
+        return round(obj.duration_seconds / 60)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AdmissionsDocument)
+class AdmissionsDocumentAdmin(admin.ModelAdmin):
+    """V81: premium PDFs. Pages are rendered by the import command; here admins choose the
+    title and which lessons show the file (that also decides who can read it)."""
+    list_display = ("title", "order", "page_count", "is_published")
+    list_editable = ("order", "is_published")
+    fields = ("title", "slug", "description", "order", "lessons", "is_published", "source_name", "page_count")
+    readonly_fields = ("page_count",)
+    filter_horizontal = ("lessons",)
+    prepopulated_fields = {"slug": ("title",)}
+    search_fields = ("title", "slug")

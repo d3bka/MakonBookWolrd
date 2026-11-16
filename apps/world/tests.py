@@ -173,7 +173,8 @@ class WorldV503Tests(TestCase):
         self.client.force_login(self.u1)
         response = self.client.get(reverse("student_dashboard_root"))
         self.assertContains(response, reverse("world_home"))
-        self.assertContains(response, "V50.3")
+        self.assertContains(response, 'title="MakonBook World"><i class="bi bi-globe2"></i><span>World</span></a>')
+        self.assertNotContains(response, "<em>V50.3</em>")
 
 
     def test_question_pool_is_curated_and_invalid_questions_are_disabled(self):

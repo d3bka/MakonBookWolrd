@@ -1,0 +1,2 @@
+hls.js 1.5.13 (Apache-2.0), https://github.com/video-dev/hls.js
+Self-hosted for the V81 premium Admissions player (no third-party CDN on that page).

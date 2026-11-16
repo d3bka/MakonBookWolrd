@@ -40,4 +40,5 @@ class WorldAccessGateEnabledV5571Tests(TestCase):
         response = self.client.get(reverse("student_dashboard_root"))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'data-world-upcoming aria-disabled="true"')
-        self.assertContains(response, 'V50.3')
+        self.assertContains(response, '<span>World</span></a>')
+        self.assertNotContains(response, '<em>V50.3</em>')

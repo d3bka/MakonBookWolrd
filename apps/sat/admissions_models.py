@@ -90,10 +90,11 @@ class AdmissionsLesson(models.Model):
         ("start", "Start here"),
         ("choose", "Choosing universities"),
         ("tests", "Tests"),
-        ("profile", "Your profile"),
-        ("essays", "Essays & letters"),
-        ("apply", "Applying"),
-        ("money", "Money"),
+        ("profile", "Your profile & activities"),
+        ("essays", "Essays"),
+        ("money", "Scholarships & financial aid"),
+        ("apply", "Documents & letters"),
+        ("countries", "Other countries"),
         ("after", "After you apply"),
     ]
 
@@ -120,6 +121,61 @@ class AdmissionsLesson(models.Model):
 
         match = re.search(r"(?:youtu\.be/|v=|/embed/|/shorts/|/live/)([A-Za-z0-9_-]{11})", self.youtube_url or "")
         return f"https://www.youtube-nocookie.com/embed/{match.group(1)}" if match else ""
+
+
+class AdmissionsVideo(models.Model):
+    """V81: a premium SATMakon lesson video, stored as AES-128 encrypted HLS in the private
+    premium folder (settings.MAKONBOOK_PREMIUM_ROOT), never in /media or R2.
+
+    Created only by `manage.py import_admissions_media`. The key never leaves the server
+    except through the access-checked key endpoint.
+    """
+
+    lesson = models.OneToOneField(AdmissionsLesson, on_delete=models.CASCADE, related_name="premium_video")
+    asset = models.CharField(max_length=40, unique=True, editable=False)
+    key_hex = models.CharField(max_length=32, editable=False)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    segment_count = models.PositiveIntegerField(default=0)
+    source_name = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Admissions video (premium)"
+        verbose_name_plural = "Admissions videos (premium)"
+
+    def __str__(self):
+        return f"Video for {self.lesson}"
+
+
+class AdmissionsDocument(models.Model):
+    """V81: a premium SATMakon PDF. Only page images exist on the server; every page is
+    stamped with the viewer's watermark when it is served. The PDF itself is never served."""
+
+    slug = models.SlugField(max_length=120, unique=True)
+    title = models.CharField(max_length=200)
+    description = models.CharField(max_length=300, blank=True)
+    order = models.PositiveSmallIntegerField(default=1)
+    source_name = models.CharField(max_length=200, blank=True,
+                                   help_text="File name in the Lessons folder used by the import command.")
+    asset = models.CharField(max_length=40, blank=True, editable=False)
+    page_count = models.PositiveSmallIntegerField(default=0, editable=False)
+    lessons = models.ManyToManyField(AdmissionsLesson, related_name="documents", blank=True,
+                                     help_text="Lessons that show this file. Students who can open one of "
+                                               "these lessons can read it.")
+    is_published = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+        verbose_name = "Admissions file (premium)"
+        verbose_name_plural = "Admissions files (premium)"
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_ready(self):
+        return bool(self.asset and self.page_count)
 
 
 class AdmissionsStep(models.Model):

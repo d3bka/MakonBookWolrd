@@ -31,3 +31,12 @@ db_backups/
 apps/telegram_bot/requests/
 .sixth/
 backups/
+
+# V81: premium SATMakon content must never be baked into the image
+private_content/
+Lessons/
+*.mp4
+*.m3u8
+**/*.mp4
+**/*.m3u8
+Lessons/**

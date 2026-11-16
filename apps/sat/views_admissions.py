@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .models import (
-    AdmissionsLesson, AdmissionsLessonProgress, AdmissionsResource, AdmissionsStep, TestReview, University,
+    AdmissionsDocument, AdmissionsLesson, AdmissionsVideo, AdmissionsLessonProgress, AdmissionsResource, AdmissionsStep, TestReview, University,
 )
 from .student_access import is_active_satmakon_student
 from .student_workspace import should_use_student_workspace, student_workspace_context
@@ -162,6 +162,7 @@ def _sat_position(score, uni):
 def _lessons():
     return list(
         AdmissionsLesson.objects.filter(is_published=True)
+        .select_related("premium_video")
         .prefetch_related(Prefetch("steps", queryset=AdmissionsStep.objects.order_by("order", "id")),
                           Prefetch("resources", queryset=AdmissionsResource.objects.order_by("order", "id")))
         .order_by("order", "id")
@@ -180,8 +181,38 @@ def _course_state(user):
         lesson.number = index + 1
         lesson.is_locked = not full and index >= limit
         lesson.is_done = lesson.pk in done_ids
-        lesson.has_video = bool(lesson.youtube_embed_url)
+        lesson.video = _premium_video(lesson)
+        lesson.has_video = bool(lesson.video or lesson.youtube_embed_url)
     return lessons, full, limit, done_ids
+
+
+def _premium_video(lesson):
+    try:
+        return lesson.premium_video
+    except AdmissionsVideo.DoesNotExist:
+        return None
+
+
+def course_documents(lessons, full):
+    """Premium PDFs that have pages, each with .is_open (the viewer may read it) and
+    .lesson_numbers. Current SATMakon students read every file; anyone else only files whose
+    lessons are ALL free, so a file shared with a paid lesson stays paid."""
+    open_ids = {lesson.pk for lesson in lessons if not lesson.is_locked}
+    numbers = {lesson.pk: lesson.number for lesson in lessons}
+    documents = list(
+        AdmissionsDocument.objects.filter(is_published=True, page_count__gt=0).exclude(asset="")
+        .prefetch_related("lessons").order_by("order", "id")
+    )
+    for document in documents:
+        lesson_ids = [lesson.pk for lesson in document.lessons.all()]
+        document.is_open = full or bool(lesson_ids and all(pk in open_ids for pk in lesson_ids))
+        document.lesson_numbers = sorted(numbers[pk] for pk in lesson_ids if pk in numbers)
+    return documents
+
+
+def viewer_label(user):
+    name = user.get_full_name() or user.get_username()
+    return f"{name} · {user.get_username()} · ID {user.pk}" if name != user.get_username() else f"{name} · ID {user.pk}"
 
 
 @login_required(login_url='/login/')
@@ -210,7 +241,9 @@ def admissions_home(request):
         "adm_locked_count": sum(1 for lesson in lessons if lesson.is_locked),
         "adm_next": next_lesson,
         "adm_minutes": sum(lesson.minutes for lesson in lessons),
+        "adm_duration": _duration_label(sum(lesson.minutes for lesson in lessons)),
         "adm_video_count": sum(1 for lesson in lessons if lesson.has_video),
+        "adm_documents": course_documents(lessons, full),
     })
     return render(request, "sat/admissions_home.html", context)
 
@@ -243,8 +276,20 @@ def admissions_lesson(request, slug):
         "adm_full_access": full,
         "adm_free_limit": limit,
         "lesson_links_universities": lesson.module == "choose",
+        "lesson_video": None if lesson.is_locked else lesson.video,
+        "lesson_documents": [] if lesson.is_locked else [
+            document for document in course_documents(lessons, full) if lesson.number in document.lesson_numbers
+        ],
+        "viewer_label": viewer_label(request.user),
     })
     return render(request, "sat/admissions_lesson.html", context)
+
+
+def _duration_label(minutes):
+    hours, rest = divmod(int(minutes or 0), 60)
+    if not hours:
+        return f"{rest} min"
+    return f"{hours} h {rest} min" if rest else f"{hours} h"
 
 
 def _step_blocks(body):

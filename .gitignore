@@ -130,3 +130,13 @@ _backups/
 .hotfix_backups/
 MakonBook_*_patch*/
 MakonBook_*_hotfix*/
+
+# =========================
+# V81: premium SATMakon content (videos, PDFs). NEVER commit or bake into images.
+# =========================
+private_content/
+Lessons/
+*.mp4
+*.m3u8
+*.ts.enc
+**/Lessons/

@@ -311,6 +311,15 @@ if project_static_dir.exists():
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# V81: premium SATMakon Admissions videos (encrypted HLS) and PDF page images.
+# Never inside MEDIA_ROOT (nginx serves /media publicly) and never in R2 (its r2.dev domain is public).
+# Production: a private Docker volume mounted at /premium; nginx reads it only through the
+# internal location named by MAKONBOOK_PREMIUM_ACCEL_PREFIX after Django has checked access.
+MAKONBOOK_PREMIUM_ROOT = Path(env_str("MAKONBOOK_PREMIUM_ROOT", "") or (BASE_DIR / "private_content"))
+MAKONBOOK_PREMIUM_ACCEL_PREFIX = env_str("MAKONBOOK_PREMIUM_ACCEL_PREFIX", "")
+MAKONBOOK_FREE_ADMISSIONS_LESSONS = int(env_str("MAKONBOOK_FREE_ADMISSIONS_LESSONS", "3") or 3)
+
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email settings for verification/password reset codes
