@@ -1,0 +1,90 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}Mistakes · MakonBook{% endblock %}
+{% block content %}
+<div class="v523-page mk79-mistakes">
+  <section class="v523-hero v523-reveal">
+    <span class="v523-kicker"><i class="bi bi-arrow-repeat"></i> Mistakes</span>
+    <h1>Fix what you got wrong.</h1>
+    <p>Every question you missed or skipped in a practice test lands here. Solve it again: one correct answer marks it fixed. "Fix all" also re-checks the ones you fixed once.</p>
+    {% if mistake_total %}
+      <div class="mk79-hero-actions">
+        <a class="mb50-primary-btn" href="{% url 'student_mistakes_drill_root' %}?mode=all"><i class="bi bi-lightning-charge"></i> Fix all mistakes</a>
+        {% if mistake_open_count %}<a class="mb50-secondary-btn" href="{% url 'student_mistakes_drill_root' %}?mode=open">Only the {{ mistake_open_count }} to fix</a>{% endif %}
+      </div>
+    {% endif %}
+  </section>
+
+  {% if not mistake_total %}
+    <section class="v523-card v523-reveal" style="--reveal-index:1">
+      <div class="v523-empty"><i class="bi bi-check2-circle"></i><h3>No mistakes yet.</h3><p>Finish a practice test and every question you miss or skip appears here, ready to retry.</p><a class="mb50-primary-btn" href="{{ practice_library_url }}">Open practice tests</a></div>
+    </section>
+  {% else %}
+    <section class="mk79-stats v523-reveal" style="--reveal-index:1" aria-label="Mistake summary">
+      <article class="v523-card"><span>To fix</span><strong>{{ mistake_open_count }}</strong></article>
+      <article class="v523-card"><span>Fixed</span><strong>{{ mistake_fixed_count }}</strong></article>
+      <article class="v523-card"><span>Reading &amp; Writing</span><strong>{{ mistake_english_count }}</strong></article>
+      <article class="v523-card"><span>Math</span><strong>{{ mistake_math_count }}</strong></article>
+    </section>
+
+    <section class="v523-grid">
+      <aside class="v523-card v523-span-4 v523-reveal" style="--reveal-index:2">
+        <span class="v523-card-label">By topic</span><h2>Where you slip</h2>
+        <div class="v523-list-stack">
+          {% for topic in mistake_topics %}
+            <a class="v523-row-link" href="{% url 'student_mistakes_drill_root' %}?mode=topic&amp;section={{ topic.section }}&amp;type={{ topic.type_id }}">
+              <span class="v523-row-icon"><i class="bi {% if topic.section == 'math' %}bi-calculator{% else %}bi-book{% endif %}"></i></span>
+              <span class="v523-row-copy"><strong>{{ topic.name }}</strong><small>{{ topic.section_label }}</small></span>
+              <span class="v523-chip">{{ topic.count }}</span>
+            </a>
+          {% empty %}
+            <div class="v523-empty"><p>Everything is fixed. Use "Fix all mistakes" to check yourself again.</p></div>
+          {% endfor %}
+        </div>
+      </aside>
+
+      <article class="v523-card v523-span-8 v523-reveal" style="--reveal-index:3">
+        <span class="v523-card-label">To fix</span><h2>{{ mistake_open_count }} question{{ mistake_open_count|pluralize }}</h2>
+        <div class="v523-list-stack">
+          {% for row in mistake_open %}
+            <a class="v523-row-link mk79-row" href="{% url 'student_mistakes_drill_root' %}?mistake={{ row.pk }}">
+              <span class="v523-row-icon"><i class="bi {% if row.section == 'math' %}bi-calculator{% else %}bi-book{% endif %}"></i></span>
+              <span class="v523-row-copy">
+                <strong>{{ row.question.test.name|default:"Practice test" }} · Q{{ row.question.number }}</strong>
+                <small>{{ row.question.type.name|default:row.get_section_display }} · {% if row.last_answer %}your answer {{ row.last_answer|truncatechars:24 }}{% else %}skipped{% endif %}{% if row.wrong_count > 1 %} · missed {{ row.wrong_count }}×{% endif %}</small>
+              </span>
+              <span class="v523-chip">Fix <i class="bi bi-arrow-right"></i></span>
+            </a>
+          {% empty %}
+            <div class="v523-empty"><i class="bi bi-stars"></i><h3>Nothing left to fix.</h3><p>New mistakes appear here after your next practice test.</p></div>
+          {% endfor %}
+        </div>
+      </article>
+
+      {% if mistake_fixed %}
+        <article class="v523-card v523-span-12 v523-reveal" style="--reveal-index:4">
+          <span class="v523-card-label">Fixed</span><h2>Recently fixed</h2>
+          <div class="mk79-fixed">
+            {% for row in mistake_fixed %}
+              <a href="{% url 'student_mistakes_drill_root' %}?mistake={{ row.pk }}"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>{{ row.question.test.name|default:"Practice test" }} · Q{{ row.question.number }}<small>{{ row.question.type.name|default:row.get_section_display }}</small></a>
+            {% endfor %}
+          </div>
+        </article>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>
+<style>
+  .mk79-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .mk79-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+  .mk79-stats article { padding: 16px 18px; }
+  .mk79-stats span { display: block; color: var(--mb50-muted); font-size: 12px; font-weight: 700; }
+  .mk79-stats strong { display: block; margin-top: 6px; font-size: 28px; line-height: 1; }
+  .mk79-row .v523-row-copy small { white-space: normal; }
+  .mk79-fixed { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mk79-fixed a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--mb50-line);
+                  background: var(--mb50-card); color: inherit; text-decoration: none; font-size: 13px; font-weight: 600; }
+  .mk79-fixed a i { color: #16a34a; }
+  .mk79-fixed small { color: var(--mb50-muted); font-weight: 500; }
+  @media (max-width: 720px) { .mk79-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+{% endblock %}

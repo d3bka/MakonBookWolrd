@@ -10,7 +10,7 @@
     <span class="v523-kicker"><i class="bi bi-journal-text"></i> Guided lesson</span>
     <h1>{{ lesson.name }}</h1>
     <p>{{ lesson.package.name }}{% if lesson.subject %} · {{ lesson.subject }}{% endif %}{% if lesson.question_type %} · {{ lesson.question_type.name }}{% endif %}</p>
-    <div class="v524-lesson-page-actions"><a class="mb50-secondary-btn" href="{% url 'student_learn_root' %}"><i class="bi bi-arrow-left"></i> Back to Learn</a><a class="mb50-primary-btn" href="{% url 'practice_tests_root' %}">Assigned tests <i class="bi bi-arrow-right"></i></a></div>
+    <div class="v524-lesson-page-actions"><a class="mb50-secondary-btn" href="{% url 'student_dashboard_root' %}"><i class="bi bi-arrow-left"></i> Back to dashboard</a><a class="mb50-primary-btn" href="{% url 'practice_tests_root' %}">Assigned tests <i class="bi bi-arrow-right"></i></a></div>
   </section>
   <section class="v524-lesson-question-stack">
     {% for question in questions %}

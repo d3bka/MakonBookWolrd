@@ -109,7 +109,7 @@ class ProfileNameGateV338Tests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_template_contains_prompt_for_missing_name(self):
-        response = self.client.get(reverse('student_learn_root'))
+        response = self.client.get(reverse('student_mistakes_root'))  # V79: Learn became Mistakes
         self.assertContains(response, 'data-profile-name-gate')
         # On Home the goal wizard asks for the name itself (V69: no double prompt).
         home = self.client.get(reverse('student_dashboard_root'))

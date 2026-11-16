@@ -717,18 +717,19 @@ class StudentDashboardV50Tests(TestCase):
         self.assertNotEqual(practice_url, tests_url)
         self.assertNotEqual(learn_url, tests_url)
 
-        learn = self.client.get(learn_url)
+        learn = self.client.get(learn_url, follow=True)  # V79: Learn became Mistakes
         practice = self.client.get(practice_url)
         tests = self.client.get(tests_url, follow=True)
         self.assertEqual(learn.status_code, 200)
+        self.assertEqual(learn.request["PATH_INFO"], reverse("student_mistakes_root"))
         self.assertEqual(practice.status_code, 200)
         self.assertEqual(tests.status_code, 200)
-        self.assertContains(learn, "Build the skill before you test it.")
+        self.assertContains(learn, "Fix what you got wrong.")
         self.assertContains(practice, "Short reps. One skill at a time.")
         self.assertContains(tests, 'id="practiceTestsLibrary"')
 
         shell = self.client.get(reverse("student_dashboard_root"))
-        self.assertContains(shell, f'href="{learn_url}" data-nav-key="learn"')
+        self.assertContains(shell, f'href="{reverse("student_mistakes_root")}" data-nav-key="mistakes"')  # V79: Learn became Mistakes
         self.assertContains(shell, f'href="{practice_url}" data-nav-key="practice"')
         self.assertContains(shell, f'href="{tests_url}" data-nav-key="tests"')
 

@@ -3527,3 +3527,45 @@ class MakonNotification(models.Model):
 from .event_registration_models import EventRegistration
 from .public_placement_models import PublicPlacementLead, PlacementTelegramNotification
 
+
+
+class StudentMistake(models.Model):
+    """V79: a practice-test question the student got wrong or skipped (the "Mistakes" page)."""
+
+    STATUS_OPEN = 'open'
+    STATUS_FIXED = 'fixed'
+    STATUS_CHOICES = [(STATUS_OPEN, 'To fix'), (STATUS_FIXED, 'Fixed')]
+    SECTION_CHOICES = [('english', 'Reading and Writing'), ('math', 'Math')]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mistakes')
+    section = models.CharField(max_length=10, choices=SECTION_CHOICES)
+    question_id = models.PositiveIntegerField()
+    test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    review = models.ForeignKey('TestReview', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    status = models.CharField(max_length=8, choices=STATUS_CHOICES, default=STATUS_OPEN, db_index=True)
+    wrong_count = models.PositiveIntegerField(default=1)
+    last_answer = models.CharField(max_length=255, blank=True)
+    first_wrong_at = models.DateTimeField(auto_now_add=True)
+    last_wrong_at = models.DateTimeField(default=timezone.now)
+    fixed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['status', 'first_wrong_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'section', 'question_id'], name='uniq_student_mistake_question'),
+        ]
+        indexes = [models.Index(fields=['user', 'status'], name='mistake_user_status_idx')]
+
+    def __str__(self):
+        return f'{self.user_id} · {self.section} #{self.question_id} · {self.status}'
+
+
+class StudentMistakeScan(models.Model):
+    """V79: a scored practice-test attempt already turned into StudentMistake rows."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='+')
+    review = models.ForeignKey('TestReview', on_delete=models.CASCADE, related_name='+')
+    scanned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'review'], name='uniq_mistake_scan_review')]

@@ -34,7 +34,7 @@ class PrototypeOnboardingV65Tests(TestCase):
         # missing. Other pages still use the global gate.
         self.assertNotContains(response, 'data-profile-name-gate')
         self.assertContains(response, 'data-auto-open="1"')
-        other_page = self.client.get(reverse('student_learn_root'))
+        other_page = self.client.get(reverse('student_mistakes_root'))  # V79: Learn became Mistakes
         self.assertContains(other_page, 'data-profile-name-gate')
 
     def test_goal_form_posts_to_existing_authenticated_endpoint(self):

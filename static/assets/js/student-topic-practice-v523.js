@@ -100,7 +100,7 @@
     fetch(root.dataset.checkUrl, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-      body: JSON.stringify({ section: root.dataset.section, question_id: Number(slide.dataset.questionId), answer: value })
+      body: JSON.stringify({ section: slide.dataset.section || root.dataset.section, question_id: Number(slide.dataset.questionId), answer: value })
     }).then(function (response) {
       return response.json().then(function (payload) { return { ok: response.ok, payload: payload }; });
     }).then(function (result) {

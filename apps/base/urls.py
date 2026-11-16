@@ -3,6 +3,7 @@ from django.urls import path
 from . import views
 from apps.sat import views as sat_views
 from apps.sat import test_import_views as sat_test_import_views
+from apps.sat import views_mistakes as sat_mistakes_views
 from apps.sat import guest_views as sat_guest_views
 from apps.sat import event_registration_views as event_registration_views
 from apps.sat import public_placement_views as public_placement_views
@@ -130,7 +131,10 @@ urlpatterns = [
     path('support-teacher/lessons/<int:booking_id>/manage/', sat_views.manage_support_lesson, name='manage_support_lesson_root'),
     path('dashboard/', sat_views.classroom_entry, name='student_dashboard_root'),
     path('goals/', sat_views.student_goal_settings, name='student_goal_settings_root'),
-    path('learn/', sat_views.student_learn, name='student_learn_root'),
+    path('learn/', sat_mistakes_views.student_learn_redirect, name='student_learn_root'),  # V79: Learn became Mistakes
+    path('student/mistakes/', sat_mistakes_views.student_mistakes, name='student_mistakes_root'),
+    path('student/mistakes/fix/', sat_mistakes_views.student_mistakes_drill, name='student_mistakes_drill_root'),
+    path('student/mistakes/check/', sat_mistakes_views.student_mistake_check, name='student_mistake_check_root'),
     path('practice/', sat_views.student_practice, name='student_practice_root'),
     path('practice/topic/<str:section>/<int:type_id>/', sat_views.student_topic_practice, name='student_topic_practice_root'),
     path('practice/check/', sat_views.student_topic_check, name='student_topic_check_root'),

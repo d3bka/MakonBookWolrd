@@ -2801,22 +2801,6 @@ def _student_hub_decks(user, limit=3):
 
 
 @login_required(login_url='/login/')
-def student_learn(request):
-    """Long-form learning hub: classrooms, lessons, vocabulary and AP.
-
-    This is intentionally separate from Practice and Tests. Learn is about
-    structured material and assigned paths, not mock-exam browsing.
-    """
-    context = student_workspace_context(request.user, active='learn')
-    context.update({
-        'learn_decks': _student_hub_decks(request.user, limit=3),
-        'lesson_package_count': PurchasedLessonPackage.objects.filter(user=request.user).count(),
-        'vocabulary_unit_count': VocabularyUnit.objects.filter(is_active=True).count(),
-    })
-    return render(request, 'sat/student_learn.html', context)
-
-
-@login_required(login_url='/login/')
 def _legacy_v501_vocabulary_practice_hub(request):
     """Deprecated V50.1 vocabulary-centric Practice screen kept for rollback only.
 
@@ -13346,6 +13330,7 @@ def practice_tests(request):
 
 
 @login_required(login_url='/login/')
+@ensure_csrf_cookie  # V79: answer checks use fetch(); without the cookie a fresh session got 403
 def student_topic_practice(request, section, type_id):
     section = str(section).lower()
     if section not in {'english', 'math'}:
@@ -14514,7 +14499,7 @@ def workspace_search(request):
     groups = []
     static_pages = [
         ('Home', reverse('student_dashboard_root'), 'bi-house-door'),
-        ('Learn', reverse('student_learn_root'), 'bi-mortarboard'),
+        ('Mistakes', reverse('student_mistakes_root'), 'bi-arrow-repeat'),
         ('Practice', reverse('student_practice_root'), 'bi-lightning-charge'),
         ('Homework', reverse('student_homework_root'), 'bi-list-check'),
         ('Tests', reverse('practice_tests_root'), 'bi-clipboard2-check'),

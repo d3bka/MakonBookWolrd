@@ -1,6 +1,6 @@
 from django.urls import path, include
 from django.views.generic.base import RedirectView
-from . import views, guest_views, test_import_views
+from . import views, guest_views, test_import_views, views_mistakes
 
 urlpatterns = [
     path('', RedirectView.as_view(pattern_name='student_dashboard_root', permanent=False), name='sat_menu'),
@@ -28,7 +28,7 @@ urlpatterns = [
     path('dev/', include('apps.sat.urls_dev')),
     path('admin-panel/', include('apps.sat.urls_admin')),
 
-    path('learn/', views.student_learn, name='student_learn'),
+    path('learn/', views_mistakes.student_learn_redirect, name='student_learn'),  # V79
     path('practice/', views.student_practice, name='student_practice'),
     path('practice/topic/<str:section>/<int:type_id>/', views.student_topic_practice, name='student_topic_practice'),
     path('practice/check/', views.student_topic_check, name='student_topic_check'),
