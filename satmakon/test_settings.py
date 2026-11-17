@@ -25,3 +25,9 @@ _TEST_DISABLED_MIDDLEWARE = {
 }
 MIDDLEWARE = [item for item in MIDDLEWARE if item not in _TEST_DISABLED_MIDDLEWARE]
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+# V82: tests never talk to the real private premium bucket, even when the local .env has its keys.
+MAKONBOOK_PREMIUM_R2_BUCKET = ""
+MAKONBOOK_PREMIUM_R2_ENDPOINT_URL = ""
+MAKONBOOK_PREMIUM_R2_ACCESS_KEY_ID = ""
+MAKONBOOK_PREMIUM_R2_SECRET_ACCESS_KEY = ""

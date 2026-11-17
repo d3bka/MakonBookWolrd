@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
+from .placement_online_scoring import is_online_placement, online_breakdown
 from .models import (
     English_Question,
     GlobalEvent,
@@ -1137,6 +1138,31 @@ def calculate_attempt_breakdown(attempt):
         else None
     )
 
+    # V83: the online SATMakon placement test uses SATMakon's own tables: a 200-800
+    # score for each subject instead of Level 1-5.
+    online_placement = None
+    scoring_label = get_event_scoring_label(test, test_mode=test_mode, totals=totals)
+    if scoring_type != "empty" and is_online_placement(attempt.event):
+        online_placement = online_breakdown(
+            attempt_sections(attempt),
+            {"english": ebrw_raw, "math": math_raw},
+            {"english": english_total, "math": math_total},
+        )
+        by_section = {item["section"]: item for item in online_placement["sections"]}
+        ebrw_score = by_section["english"]["score"] if "english" in by_section else None
+        math_score = by_section["math"]["score"] if "math" in by_section else None
+        total_score = online_placement["total_score"]
+        range_total = None
+        scoring_type = "online_placement"
+        scoring_label = "SATMakon online placement scale"
+        placement = {
+            "online": True,
+            "label": online_placement["label"],
+            "level_name": online_placement["label"],
+            "level_number": None,
+            "percentage": calculate_level_check_percentage(total_raw, placement_total_questions),
+        }
+
     return {
         "ebrw_raw": ebrw_raw,
         "math_raw": math_raw,
@@ -1147,9 +1173,10 @@ def calculate_attempt_breakdown(attempt):
         "total_score": total_score,
         "range_total": range_total,
         "scoring_type": scoring_type,
-        "scoring_label": get_event_scoring_label(test, test_mode=test_mode, totals=totals),
+        "scoring_label": scoring_label,
         "placement": placement,
         "placement_total_questions": placement_total_questions,
+        "online_placement": online_placement,
     }
 
 
@@ -1868,6 +1895,7 @@ def global_event_result_view(request, guest_token):
         "math_raw": breakdown["math_raw"],
         "elapsed_minutes": elapsed_minutes,
         "level_message": level_messages.get(level_number, "Your result has been recorded and is ready to use as your starting point."),
+        "online_placement": breakdown.get("online_placement"),
         "public_placement_mode": public_placement_mode,
     }
     template_name = "sat/public_placement/result.html" if public_placement_mode else "sat/guest/result.html"

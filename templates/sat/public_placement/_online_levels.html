@@ -1,0 +1,22 @@
+{# V83: online SATMakon placement — a 200-800 score for each subject. #}
+<style>
+  .pp83-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 16px 0 6px; }
+  .pp83-level { display: grid; gap: 4px; padding: 16px 18px; border-radius: 16px;
+    border: 1px solid rgba(124, 58, 237, .22); background: rgba(124, 58, 237, .06); }
+  .pp83-level span { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .72; }
+  .pp83-level strong { font-size: clamp(28px, 4vw, 38px); line-height: 1.05; letter-spacing: -.03em; }
+  .pp83-level strong small { font-size: .42em; font-weight: 700; opacity: .6; }
+  .pp83-level p { margin: 2px 0 0; font-size: 13px; opacity: .75; }
+  .pp83-bar { height: 6px; margin-top: 6px; border-radius: 999px; background: rgba(124, 58, 237, .14); overflow: hidden; }
+  .pp83-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #c026d3); }
+</style>
+<div class="pp83-levels" data-online-placement>
+  {% for item in online_placement.sections %}
+  <div class="pp83-level">
+    <span>{{ item.label }}</span>
+    <strong>{{ item.score }} <small>/ {{ item.max_score }}</small></strong>
+    <div class="pp83-bar" aria-hidden="true"><i style="width: {{ item.percent }}%"></i></div>
+    <p>{{ item.correct }} / {{ item.total }} correct</p>
+  </div>
+  {% endfor %}
+</div>

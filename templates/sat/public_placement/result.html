@@ -39,9 +39,11 @@
       <div class="pp12-result-grid">
         <div class="pp12-result-copy">
           <span class="pp-kicker">YOUR RESULT</span>
-          <h1>{% if lead %}{{ lead.first_name }}, your{% else %}Your{% endif %} current level is ready.</h1>
+          <h1>{% if lead %}{{ lead.first_name }}, your{% else %}Your{% endif %} {% if online_placement %}scores are{% else %}current level is{% endif %} ready.</h1>
 
-          {% if section_result and placement %}
+          {% if online_placement and show_score or online_placement and section_result %}
+            {% include 'sat/public_placement/_online_levels.html' %}
+          {% elif section_result and placement %}
             <div class="pp12-level-title"><span>Your level · Level {{ placement.level_number }}</span><strong>{{ placement.level_name }}</strong></div>
             <div class="pp12-level-title pp-section-score"><span>{{ section_result.label }} score</span><strong>{% if section_result.score is not None %}{{ section_result.score }}{% else %}—{% endif %} <small>/ 800</small></strong></div>
             <p>{{ level_message }}</p>
@@ -63,7 +65,11 @@
         </div>
 
         <div class="pp12-score-panel">
-          {% if section_result %}
+          {% if online_placement and show_score or online_placement and section_result %}
+            <div class="pp12-score-ring pp12-score-ring-number" style="--score: {{ placement_percentage|default:0 }}">
+              <div><strong>{{ online_placement.total_score }}</strong><span>out of {{ online_placement.max_total }}</span></div>
+            </div>
+          {% elif section_result %}
             <div class="pp12-score-ring pp12-score-ring-number" style="--score: {{ placement_percentage|default:0 }}">
               <div><strong>{% if section_result.score is not None %}{{ section_result.score }}{% else %}—{% endif %}</strong><span>out of 800</span></div>
             </div>
@@ -99,7 +105,7 @@
       </div>
       <div class="pp12-result-tools">
         {% if can_review %}<a href="{% url 'global_event_review_root' attempt.guest_token %}">Review answers <span>↗</span></a>{% endif %}
-        <button type="button" data-pp-share data-share-text="{% if section_result %}My SAT {{ section_result.label }} level on MakonBook: {{ placement.label }}, {{ section_result.score }}/800.{% else %}I completed {{ event.title }} on MakonBook{% if placement %} — {{ placement.label }} ({{ placement_percentage }}%){% endif %}.{% endif %}">Share result <span>↗</span></button>
+        <button type="button" data-pp-share data-share-text="{% if online_placement %}My SATMakon placement on MakonBook: {{ online_placement.label }}.{% elif section_result %}My SAT {{ section_result.label }} level on MakonBook: {{ placement.label }}, {{ section_result.score }}/800.{% else %}I completed {{ event.title }} on MakonBook{% if placement %} — {{ placement.label }} ({{ placement_percentage }}%){% endif %}.{% endif %}">Share result <span>↗</span></button>
       </div>
     </section>
   </main>
