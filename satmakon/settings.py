@@ -720,6 +720,16 @@ HOLLIHOP_INACTIVE_STUDENT_STATUSES = {
 # operator-approved templates are ready. Supported: disabled, generic_http,
 # eskiz, playmobile.
 MAKONBOOK_SMS_PROVIDER = env_str("MAKONBOOK_SMS_PROVIDER", "disabled").lower()
+# V84: SMS that proves a self-registered student owns the phone of a SATMakon account.
+# Must match the text approved at the SMS provider (PlayMobile) exactly; {code} is the
+# 6-digit code. With PlayMobile templates, set PLAYMOBILE_VERIFICATION_TEMPLATE_ID (and the
+# name of its code variable) instead: the gateway then sends its registered text.
+MAKONBOOK_SATMAKON_LINK_SMS_TEXT = env_str(
+    "MAKONBOOK_SATMAKON_LINK_SMS_TEXT",
+    "MakonBook: Your verification code for MakonBook is {code}",
+)
+# Only for local testing while SMS is off: show the link code on screen. Never in production.
+MAKONBOOK_SATMAKON_LINK_TEST_CODES = env_bool("MAKONBOOK_SATMAKON_LINK_TEST_CODES", False)
 MAKONBOOK_SMS_API_URL = env_str("MAKONBOOK_SMS_API_URL", "")
 MAKONBOOK_SMS_API_TOKEN = env_str("MAKONBOOK_SMS_API_TOKEN", "")
 MAKONBOOK_SMS_SENDER = env_str("MAKONBOOK_SMS_SENDER", "MakonBook")
@@ -733,6 +743,9 @@ PLAYMOBILE_LOGIN = env_str("PLAYMOBILE_LOGIN", "")
 PLAYMOBILE_PASSWORD = env_str("PLAYMOBILE_PASSWORD", "")
 PLAYMOBILE_ORIGINATOR = env_str("PLAYMOBILE_ORIGINATOR", "SATMAKON")
 PLAYMOBILE_TEMPLATE_ID = env_str("PLAYMOBILE_TEMPLATE_ID", "")
+# V84: the separate approved template for the verification-code SMS.
+PLAYMOBILE_VERIFICATION_TEMPLATE_ID = env_str("PLAYMOBILE_VERIFICATION_TEMPLATE_ID", "")
+PLAYMOBILE_VERIFICATION_TEMPLATE_VARIABLE = env_str("PLAYMOBILE_VERIFICATION_TEMPLATE_VARIABLE", "code")
 
 # Native Eskiz.uz adapter. Credentials stay in environment variables only.
 ESKIZ_API_BASE_URL = env_str("ESKIZ_API_BASE_URL", "https://notify.eskiz.uz/api").rstrip("/")

@@ -33,6 +33,64 @@ class EmailVerification(models.Model):
         return f"{self.user.username} - {self.token}"
 
 
+def registration_code_expiry():
+    return timezone.now() + timedelta(minutes=15)
+
+
+def satmakon_link_code_expiry():
+    return timezone.now() + timedelta(minutes=10)
+
+
+class PendingRegistration(models.Model):
+    """V84: a sign-up waiting for its email code. The User is created only after the
+    code is confirmed, so an unconfirmed address never blocks the real owner."""
+
+    email = models.EmailField(db_index=True)
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    password_hash = models.CharField(max_length=128)
+    code_hash = models.CharField(max_length=128)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    sends = models.PositiveSmallIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=registration_code_expiry)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Sign-up {self.email}"
+
+    @property
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+
+class SatmakonLinkCode(models.Model):
+    """V84: an SMS code that proves a self-registered student owns the phone of a
+    SATMakon (Hollihop) student account before that account is joined to theirs."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="satmakon_link_codes")
+    phone = models.CharField(max_length=32)
+    code_hash = models.CharField(max_length=128)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=satmakon_link_code_expiry)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"SATMakon link for {self.user_id}"
+
+    @property
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+
 class PasswordResetCode(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_reset_codes")
     email = models.EmailField()
@@ -78,6 +136,11 @@ class UserProfile(models.Model):
     credentials_delivery_status = models.CharField(max_length=30, default="not_applicable", db_index=True)
     credentials_last_sent_at = models.DateTimeField(null=True, blank=True)
     hollihop_last_synced_at = models.DateTimeField(null=True, blank=True)
+    # V84: public self-registration. A self-registered account proved its email with a
+    # code; Hollihop sync never overwrites a verified email and never links an
+    # unverified self-registered account by contact data.
+    self_registered = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

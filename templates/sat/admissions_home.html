@@ -27,7 +27,7 @@
   {% if not adm_full_access and adm_locked_count %}
   <section class="mk80-access" role="note">
     <span class="mk80-access-icon"><i class="bi bi-lock-fill"></i></span>
-    <div><strong>The first {{ adm_free_limit }} lessons are open to you.</strong><p>The full Admissions course ({{ adm_total }} lessons) is available only to current SATMakon students.</p></div>
+    <div><strong>The first {{ adm_free_limit }} lessons are open to you.</strong><p>The full Admissions course ({{ adm_total }} lessons) is available only to current SATMakon students.{% if request.user.profile.self_registered and not request.user.profile.hollihop_client_id %} <a href="{% url 'satmakon_link' %}" class="mk84-connect">Study at SATMakon? Connect your account →</a>{% endif %}</p></div>
   </section>
   {% endif %}
 

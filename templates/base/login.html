@@ -26,7 +26,7 @@
       <section class="mkp-auth-copy">
         <span class="mkp-kicker">MakonBook workspace</span>
         <h1>Continue exactly where you left off.</h1>
-        <p>Your tests, classrooms, vocabulary, homework, progress, and MakonBook tools stay under one account. Public account creation is disabled; SATMakon student access is provisioned by the school.</p>
+        <p>Your tests, classrooms, vocabulary, homework, progress, and MakonBook tools stay under one account. New here? Create a free account with your email in a minute.</p>
         <div class="mkp-auth-points">
           <div class="mkp-auth-point"><strong>Practice & review</strong><span>Timed tests, resumable attempts, review, and analytics.</span></div>
           <div class="mkp-auth-point"><strong>Classroom work</strong><span>Lessons, homework, materials, teacher updates.</span></div>
@@ -37,7 +37,7 @@
       <section class="mkp-auth-card">
         <span class="mkp-kicker">Secure sign in</span>
         <h2>Welcome back.</h2>
-        <p>Use the credentials connected to your MakonBook account.</p>
+        <p>Use the credentials connected to your MakonBook account. New to MakonBook? <a href="{% url 'register' %}">Create a free account</a></p>
 
         {% if messages %}
           <div class="mkp-alert"><ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul></div>
@@ -65,6 +65,7 @@
         </form>
 
         <div class="mkp-login-links">
+          <a class="mkp-login-link" href="{% url 'register' %}"><strong>Create a free account →</strong><span>Sign up with your email; SATMakon students then connect their account.</span></a>
           <a class="mkp-login-link" href="{% url 'global_event_list' %}"><strong>Mock exam registration →</strong><span>Reserve a verified seat without public account signup.</span></a>
           <a class="mkp-login-link" href="{% url 'rating_parent_lookup' %}"><strong>Parent portal →</strong><span>Open student statistics with the registered phone number.</span></a>
         </div>

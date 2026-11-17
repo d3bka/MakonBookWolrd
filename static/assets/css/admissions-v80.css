@@ -372,3 +372,5 @@ html[data-theme] .mb50-shell .mk80-search input, html[data-theme] .mb50-shell .m
 .mk80-player.is-pseudo-fullscreen { position: fixed; inset: 0; z-index: 3000; margin: 0; width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto; border-radius: 0; }
 .mk80-player.is-pseudo-fullscreen .mk80-player-exit { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; z-index: 5; display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 12px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 18px; }
 html.mk80-player-lock, html.mk80-player-lock body { overflow: hidden; }
+
+.mk84-connect { display: inline-block; margin-left: 6px; color: var(--mb50-accent, #7c3aed) !important; font-weight: 800; }

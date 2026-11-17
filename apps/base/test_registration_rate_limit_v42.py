@@ -1,25 +1,24 @@
 from django.contrib.auth import get_user_model
+from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
 
 class RegistrationRateLimitTests(TestCase):
-    """V5580 supersedes public registration: the endpoint is now closed."""
+    """V84: sign-up is open again and rate limited per network and per email."""
 
-    def test_registration_posts_are_rejected_before_any_user_creation(self):
-        User = get_user_model()
-        before = User.objects.count()
-        for suffix in (1, 2, 3):
-            response = self.client.post(
-                reverse("register"),
-                {
-                    "username": f"rateuser{suffix}",
-                    "email": f"rate{suffix}@example.com",
-                    "password": "short",
-                    "confirm_password": "short",
-                },
-                REMOTE_ADDR="203.0.113.10",
-            )
-            self.assertEqual(response.status_code, 302)
-            self.assertEqual(response.url, reverse("login"))
-        self.assertEqual(User.objects.count(), before)
+    def setUp(self):
+        cache.clear()
+
+    def test_repeated_sign_ups_for_one_email_are_limited(self):
+        codes = []
+        for _ in range(6):
+            response = self.client.post(reverse("register"), {
+                "first_name": "Rate", "last_name": "Limit", "email": "rate@example.com",
+                "password": "Makon-Strong-2026", "password2": "Makon-Strong-2026", "agree": "1",
+            }, REMOTE_ADDR="203.0.113.10")
+            codes.append(response.status_code)
+        self.assertIn(429, codes)
+        self.assertLessEqual(len(mail.outbox), 4)
+        self.assertFalse(get_user_model().objects.filter(email="rate@example.com").exists())

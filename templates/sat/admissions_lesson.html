@@ -20,7 +20,7 @@
     <span class="mk80-access-icon"><i class="bi bi-lock-fill"></i></span>
     <h2>Available only to current SATMakon students</h2>
     <p>You have the first {{ adm_free_limit }} lessons of the Admissions course. The full course, with every video and step-by-step guide, is open to students who study at SATMakon now.</p>
-    <a class="mb50-primary-btn" href="{% url 'admissions_root' %}">Back to the open lessons</a>
+    {% if request.user.profile.self_registered and not request.user.profile.hollihop_client_id %}<a class="mb50-primary-btn" href="{% url 'satmakon_link' %}">I study at SATMakon — connect</a> {% endif %}<a class="mb50-secondary-btn" href="{% url 'admissions_root' %}">Back to the open lessons</a>
   </section>
   {% else %}
   {% if lesson_video %}

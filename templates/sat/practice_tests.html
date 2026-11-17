@@ -33,7 +33,7 @@
   {% if locked_practice_tests and not is_current_satmakon_student %}
     <section class="practice-info-banner v523-test-lock" data-practice-reveal>
       <span class="practice-info-icon"><i class="bi bi-stars"></i></span>
-      <div><strong>The first {{ free_practice_test_limit }} practice tests are open for you.</strong><p>The full library ({{ locked_practice_tests|length }} more test{{ locked_practice_tests|length|pluralize }}) is available only to current SATMakon students.</p></div>
+      <div><strong>The first {{ free_practice_test_limit }} practice tests are open for you.</strong><p>The full library ({{ locked_practice_tests|length }} more test{{ locked_practice_tests|length|pluralize }}) is available only to current SATMakon students.{% if request.user.profile.self_registered and not request.user.profile.hollihop_client_id %} <a href="{% url 'satmakon_link' %}" class="mk84-connect">Study at SATMakon? Connect your account →</a>{% endif %}</p></div>
     </section>
   {% elif tests_unassigned %}
     <section class="practice-info-banner v523-test-lock" data-practice-reveal>

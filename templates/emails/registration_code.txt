@@ -1,0 +1,16 @@
+Your MakonBook sign-up code
+
+Hi {{ first_name }},
+
+Welcome to MakonBook! Your sign-up code is: {{ code }}
+
+Enter it on the sign-up page to open your account. The code expires in {{ expires_minutes }} minutes.
+
+Never share this code with anyone. MakonBook staff will never ask you for it.
+
+If you did not sign up for MakonBook, you can ignore this email: no account will be created.
+
+Need help? Contact {{ support_email }}
+
+MakonBook by SATMakon
+© {{ current_year }} MakonBook

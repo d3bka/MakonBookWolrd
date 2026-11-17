@@ -46,8 +46,8 @@ class SessionAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'english_time_minutes', 'math_time_minutes', 'is_offline_user', 'created_at', 'updated_at']
-    list_filter = ['created_at', 'updated_at']
+    list_display = ['user', 'self_registered', 'email_verified_at', 'hollihop_client_id', 'is_offline_user', 'created_at']
+    list_filter = ['self_registered', 'created_at', 'updated_at']
     search_fields = ['user__username', 'user__first_name', 'user__last_name']
     readonly_fields = ['created_at', 'updated_at']
     
@@ -88,3 +88,27 @@ class GeneralIssueReportAdmin(admin.ModelAdmin):
 admin.site.site_header = "MakonBook administration"
 admin.site.site_title = "MakonBook admin"
 admin.site.index_title = "Site administration"
+
+
+@admin.register(PendingRegistration)
+class PendingRegistrationAdmin(admin.ModelAdmin):
+    """V84: sign-ups waiting for their email code (read-only; codes are never shown)."""
+    list_display = ("email", "first_name", "last_name", "created_at", "expires_at", "attempts", "sends", "completed_at")
+    search_fields = ("email", "first_name", "last_name")
+    fields = ("email", "first_name", "last_name", "created_at", "expires_at", "attempts", "sends", "completed_at")
+    readonly_fields = fields
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(SatmakonLinkCode)
+class SatmakonLinkCodeAdmin(admin.ModelAdmin):
+    """V84: SMS codes sent to join a self-registered account to its SATMakon account."""
+    list_display = ("user", "phone", "created_at", "verified_at", "used_at", "attempts")
+    search_fields = ("user__username", "user__email", "phone")
+    fields = ("user", "phone", "created_at", "expires_at", "verified_at", "used_at", "attempts")
+    readonly_fields = fields
+
+    def has_add_permission(self, request):
+        return False

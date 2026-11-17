@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Your MakonBook sign-up code</title>
+</head>
+<body style="margin:0; padding:0; background:#f4f3f9; color:#201b33; font-family:Arial,Helvetica,sans-serif; -webkit-text-size-adjust:100%;">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+    Your MakonBook code is {{ code }}. It expires in {{ expires_minutes }} minutes.
+  </div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; background:#f4f3f9;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; max-width:600px; background:#ffffff; border:1px solid #e5e1ef; border-radius:20px; overflow:hidden; box-shadow:0 16px 40px rgba(39,25,78,0.10);">
+          <tr>
+            <td style="padding:26px 32px; background:#241747;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="52" valign="middle">
+                    <div style="width:44px; height:44px; line-height:44px; text-align:center; border-radius:13px; background:#7c4dff; color:#ffffff; font-size:24px; font-weight:800;">M</div>
+                  </td>
+                  <td valign="middle" style="padding-left:12px;">
+                    <div style="font-size:21px; line-height:26px; font-weight:800; color:#ffffff; letter-spacing:-0.3px;">MakonBook</div>
+                    <div style="font-size:12px; line-height:18px; color:#cfc6eb; text-transform:uppercase; letter-spacing:1.2px;">Create your account</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 14px; font-size:17px; line-height:26px;">Hi {{ first_name }},</p>
+              <p style="margin:0 0 22px; font-size:15px; line-height:24px; color:#4b4462;">Welcome to MakonBook! Enter this code on the sign-up page to open your account.</p>
+              <div style="margin:0 0 22px; padding:20px; border-radius:16px; background:#f1ecff; text-align:center;">
+                <div style="font-size:12px; line-height:18px; color:#6b5fa0; text-transform:uppercase; letter-spacing:1.4px; font-weight:700;">Your code</div>
+                <div style="margin-top:6px; font-size:36px; line-height:44px; font-weight:800; letter-spacing:8px; color:#241747;">{{ code }}</div>
+                <div style="margin-top:6px; font-size:13px; line-height:20px; color:#6b5fa0;">Expires in {{ expires_minutes }} minutes</div>
+              </div>
+              <p style="margin:0 0 10px; font-size:13px; line-height:21px; color:#6d6683;">Never share this code with anyone. MakonBook staff will never ask you for it.</p>
+              <p style="margin:0; font-size:13px; line-height:21px; color:#6d6683;">If you did not sign up for MakonBook, ignore this email: no account will be created.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 32px; background:#faf9fc; border-top:1px solid #eeeaf5; font-size:12px; line-height:19px; color:#8a849b;">
+              Need help? <a href="mailto:{{ support_email }}" style="color:#6d3df5;">{{ support_email }}</a><br>
+              MakonBook by SATMakon · © {{ current_year }}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

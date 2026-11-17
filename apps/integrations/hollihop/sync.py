@@ -580,6 +580,14 @@ class HollihopSyncEngine:
         # silently merged into one MakonBook user. Teacher <-> Manager multi-role
         # remains allowed. Explicit external-ID links still win above this block.
         if candidate_ids:
+            # V84: a self-registered account joins its SATMakon account only through
+            # the SMS-code flow (apps/base/satmakon_link.py), never by contact data:
+            # anyone can type any email at sign-up.
+            self_registered_ids = UserProfile.objects.filter(
+                user_id__in=candidate_ids, self_registered=True
+            ).values_list("user_id", flat=True)
+            candidate_ids.difference_update(self_registered_ids)
+        if candidate_ids:
             linked_profiles = UserProfile.objects.filter(user_id__in=candidate_ids)
             if external_kind == "student":
                 staff_linked_ids = linked_profiles.filter(
@@ -642,6 +650,10 @@ class HollihopSyncEngine:
         changed = []
         email = normalize_email(email)
         phone = normalize_phone(phone)
+        # V84: an email the student confirmed with a code is their login; Hollihop
+        # contact data must not replace it.
+        if getattr(profile, "email_verified_at", None):
+            email = ""
         if email and email != normalize_email(user.email):
             other = User.objects.filter(email__iexact=email).exclude(id=user.id)
             other_ids = list(other.values_list("id", flat=True))

@@ -1,0 +1,74 @@
+{% extends 'sat/student_workspace.html' %}
+{% load static %}
+{% block page_title %}Connect SATMakon · MakonBook{% endblock %}
+{% block content %}
+<style>
+  .mk84-link { max-width: 720px; }
+  .mk84-card { padding: clamp(20px, 3vw, 30px); border: 1px solid var(--mb50-border); border-radius: 22px; background: var(--mb50-panel); }
+  .mk84-card h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.03em; }
+  .mk84-card p { margin: 0 0 16px; color: var(--mb50-muted); font-size: 14px; line-height: 1.6; }
+  .mk84-steps { display: flex; gap: 8px; margin: 18px 0 14px; }
+  .mk84-steps span { flex: 1; height: 5px; border-radius: 999px; background: var(--mb50-panel-strong); }
+  .mk84-steps span.is-on { background: linear-gradient(90deg, #7c3aed, #c026d3); }
+  .mk84-field { display: grid; gap: 6px; margin-bottom: 14px; }
+  .mk84-field label { font-size: 13px; font-weight: 700; }
+  .mk84-field input { min-height: 48px; padding: 0 14px; border: 1px solid var(--mb50-border-strong); border-radius: 14px; background: var(--mb50-panel-soft); color: var(--mb50-text); font: inherit; font-size: 16px; }
+  .mk84-code { letter-spacing: .5em; text-align: center; font-size: 24px !important; font-weight: 800; }
+  .mk84-error { padding: 10px 12px; margin-bottom: 14px; border-radius: 12px; background: color-mix(in srgb, var(--mb50-red) 12%, transparent); color: var(--mb50-red); font-size: 13px; font-weight: 600; }
+  .mk84-test { padding: 10px 12px; margin-bottom: 14px; border-radius: 12px; background: color-mix(in srgb, var(--mb50-amber) 14%, transparent); font-size: 13px; }
+  .mk84-students { display: grid; gap: 8px; margin-bottom: 14px; }
+  .mk84-students label { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--mb50-border); border-radius: 14px; cursor: pointer; }
+  .mk84-students input { accent-color: #7c3aed; width: 18px; height: 18px; }
+  .mk84-perks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 16px 0 0; }
+  .mk84-perks div { padding: 12px; border-radius: 14px; background: var(--mb50-panel-soft); font-size: 12.5px; color: var(--mb50-muted); }
+  .mk84-perks strong { display: block; color: var(--mb50-text); font-size: 13.5px; margin-bottom: 2px; }
+  .mk84-skip { display: inline-block; margin-top: 12px; font-size: 13px; color: var(--mb50-muted) !important; }
+  @media (max-width: 620px) { .mk84-perks { grid-template-columns: 1fr; } }
+</style>
+<div class="v523-page mk84-link">
+  <section class="mk84-card">
+    <span class="v523-kicker"><i class="bi bi-patch-check"></i> SATMakon students</span>
+    <div class="mk84-steps" aria-hidden="true"><span class="is-on"></span><span class="{% if step != 'phone' %}is-on{% endif %}"></span><span class="{% if step == 'choose' %}is-on{% endif %}"></span></div>
+
+    {% if messages %}{% for message in messages %}<div class="mk84-{% if message.tags == 'error' %}error{% else %}test{% endif %}">{{ message }}</div>{% endfor %}{% endif %}
+    {% if error %}<div class="mk84-error">{{ error }}</div>{% endif %}
+
+    {% if step == 'phone' %}
+      <h2>Do you study at SATMakon?</h2>
+      <p>Enter the phone number SATMakon has for you (the one in your contract). We send an SMS code to it and connect your SATMakon account: full MakonBook access, your classrooms, homework and results.</p>
+      <form method="post" action="{% url 'satmakon_link' %}" data-submit-once data-busy-text="Sending the SMS…">
+        {% csrf_token %}
+        <div class="mk84-field"><label for="mk84-phone">Phone number</label><input id="mk84-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" value="{{ phone }}" required></div>
+        <button class="mb50-primary-btn" type="submit">Send SMS code</button>
+      </form>
+      <div class="mk84-perks">
+        <div><strong>Full library</strong>Every practice test, not just the first five.</div>
+        <div><strong>Your classrooms</strong>Homework, lessons and teacher updates.</div>
+        <div><strong>Admissions</strong>The whole video course and materials.</div>
+      </div>
+      <a class="mk84-skip" href="{% url 'student_dashboard_root' %}">I am not a SATMakon student — continue with the free account →</a>
+    {% elif step == 'code' %}
+      <h2>Enter the SMS code.</h2>
+      <p>We sent a 6-digit code to {{ phone|default:"your phone" }}. It expires in 10 minutes.</p>
+      {% if test_code %}<div class="mk84-test">Test mode (SMS is off): your code is <strong>{{ test_code }}</strong>.</div>{% endif %}
+      <form method="post" action="{% url 'satmakon_link_verify' %}" data-submit-once data-busy-text="Checking…">
+        {% csrf_token %}
+        <div class="mk84-field"><label for="mk84-code">SMS code</label><input id="mk84-code" class="mk84-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus></div>
+        <button class="mb50-primary-btn" type="submit">Connect my account</button>
+      </form>
+      <a class="mk84-skip" href="{% url 'satmakon_link' %}">Send a new code or change the number</a>
+    {% elif step == 'choose' %}
+      <h2>Who are you?</h2>
+      <p>This number belongs to more than one SATMakon student. Choose your name.</p>
+      <form method="post" action="{% url 'satmakon_link_choose' %}" data-submit-once data-busy-text="Connecting…">
+        {% csrf_token %}
+        <div class="mk84-students">
+          {% for student in students %}<label><input type="radio" name="student" value="{{ student.pk }}" required> <span>{{ student.get_full_name|default:student.username }}</span></label>{% endfor %}
+        </div>
+        <button class="mb50-primary-btn" type="submit">Connect my account</button>
+      </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+{% block student_workspace_scripts %}<script src="{% static 'assets/js/makon-submit-once.js' %}"></script>{% endblock %}

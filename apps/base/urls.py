@@ -1,6 +1,7 @@
 # base/urls.py
 from django.urls import path
 from . import views
+from . import views_register
 from apps.sat import views as sat_views
 from apps.sat import test_import_views as sat_test_import_views
 from apps.sat import views_mistakes as sat_mistakes_views
@@ -26,7 +27,13 @@ urlpatterns = [
     path('logout/', views.logoutUser, name='logout'),
     path('change-temporary-password/', views.change_temporary_password, name='change_temporary_password'),
     path('change-temporary-password/rules/', views.temporary_password_rules, name='temporary_password_rules'),
-    path('register/', views.register, name='register'),
+    # V84: public sign-up with an email code, and joining a SATMakon account by SMS code.
+    path('register/', views_register.register, name='register'),
+    path('register/verify/', views_register.register_verify, name='register_verify'),
+    path('register/resend/', views_register.register_resend, name='register_resend'),
+    path('account/satmakon/', views_register.satmakon_link, name='satmakon_link'),
+    path('account/satmakon/verify/', views_register.satmakon_link_verify, name='satmakon_link_verify'),
+    path('account/satmakon/choose/', views_register.satmakon_link_choose, name='satmakon_link_choose'),
     path('forgot-password/', views.forgot_password, name='forgot_password'),
     path('reset-password/', views.password_reset_confirm, name='password_reset_confirm'),
     path('activate/<uuid:token>/', views.activate, name='activate'),

@@ -281,12 +281,18 @@ def _playmobile_basic_auth(login: str, password: str) -> str:
     return f"Basic {token}"
 
 
-def _send_playmobile(phone: str, message: str, *, template_variables: dict[str, str] | None = None) -> SmsSendResult:
+def _send_playmobile(
+    phone: str, message: str, *, template_variables: dict[str, str] | None = None, template_id: str | None = None,
+) -> SmsSendResult:
     api_url = str(getattr(settings, "PLAYMOBILE_API_URL", "") or "").strip()
     login = str(getattr(settings, "PLAYMOBILE_LOGIN", "") or "").strip()
     password = str(getattr(settings, "PLAYMOBILE_PASSWORD", "") or "")
     originator = str(getattr(settings, "PLAYMOBILE_ORIGINATOR", "SATMAKON") or "").strip()
-    template_id = str(getattr(settings, "PLAYMOBILE_TEMPLATE_ID", "") or "").strip()
+    # V84: callers may name their own approved template (the verification-code SMS has
+    # its own); None keeps the credentials template from PLAYMOBILE_TEMPLATE_ID.
+    if template_id is None:
+        template_id = str(getattr(settings, "PLAYMOBILE_TEMPLATE_ID", "") or "").strip()
+    template_id = str(template_id or "").strip()
     text = str(message or "").strip()
 
     if not api_url:
@@ -406,7 +412,9 @@ def validate_sms_configuration() -> tuple[bool, str]:
     return False, f"Unsupported SMS provider: {provider}."
 
 
-def send_sms(phone: str, message: str, *, template_variables: dict[str, str] | None = None) -> SmsSendResult:
+def send_sms(
+    phone: str, message: str, *, template_variables: dict[str, str] | None = None, template_id: str | None = None,
+) -> SmsSendResult:
     """Send SMS through the configured provider.
 
     Supported providers:
@@ -423,5 +431,5 @@ def send_sms(phone: str, message: str, *, template_variables: dict[str, str] | N
     if provider == "eskiz":
         return _send_eskiz(phone, message)
     if provider == "playmobile":
-        return _send_playmobile(phone, message, template_variables=template_variables)
+        return _send_playmobile(phone, message, template_variables=template_variables, template_id=template_id)
     raise SmsDeliveryError(f"Unsupported SMS provider: {provider}")

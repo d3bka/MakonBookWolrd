@@ -76,6 +76,23 @@ def check_auth_rate_limit(request, *, action: str, identifier: str = "") -> Auth
             ("reset_ip", ip, _env_int("AUTH_RESET_IP_MAX", 30), _env_int("AUTH_RESET_WINDOW_SECONDS", 900)),
             ("reset_identifier", identifier, _env_int("AUTH_RESET_IDENTIFIER_MAX", 10), _env_int("AUTH_RESET_WINDOW_SECONDS", 900)),
         ),
+        # V84: public sign-up (email code) and SATMakon account linking (SMS code).
+        "register": (
+            ("register_ip", ip, _env_int("AUTH_REGISTER_IP_MAX", 10), _env_int("AUTH_REGISTER_WINDOW_SECONDS", 3600)),
+            ("register_identifier", identifier, _env_int("AUTH_REGISTER_IDENTIFIER_MAX", 4), _env_int("AUTH_REGISTER_WINDOW_SECONDS", 3600)),
+        ),
+        "register_code": (
+            ("register_code_ip", ip, _env_int("AUTH_REGISTER_CODE_IP_MAX", 30), _env_int("AUTH_REGISTER_CODE_WINDOW_SECONDS", 900)),
+            ("register_code_identifier", identifier, _env_int("AUTH_REGISTER_CODE_IDENTIFIER_MAX", 10), _env_int("AUTH_REGISTER_CODE_WINDOW_SECONDS", 900)),
+        ),
+        "satmakon_link_send": (
+            ("link_send_ip", ip, _env_int("AUTH_LINK_SEND_IP_MAX", 10), _env_int("AUTH_LINK_SEND_WINDOW_SECONDS", 3600)),
+            ("link_send_identifier", identifier, _env_int("AUTH_LINK_SEND_IDENTIFIER_MAX", 3), _env_int("AUTH_LINK_SEND_WINDOW_SECONDS", 3600)),
+        ),
+        "satmakon_link_verify": (
+            ("link_verify_ip", ip, _env_int("AUTH_LINK_VERIFY_IP_MAX", 30), _env_int("AUTH_LINK_VERIFY_WINDOW_SECONDS", 900)),
+            ("link_verify_identifier", identifier, _env_int("AUTH_LINK_VERIFY_IDENTIFIER_MAX", 10), _env_int("AUTH_LINK_VERIFY_WINDOW_SECONDS", 900)),
+        ),
         "temporary_password": (
             ("temp_ip", ip, _env_int("AUTH_TEMP_PASSWORD_IP_MAX", 20), _env_int("AUTH_TEMP_PASSWORD_WINDOW_SECONDS", 900)),
             ("temp_user", identifier, _env_int("AUTH_TEMP_PASSWORD_USER_MAX", 5), _env_int("AUTH_TEMP_PASSWORD_WINDOW_SECONDS", 900)),

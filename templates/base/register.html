@@ -1,152 +1,95 @@
 {% load static %}
-{% load socialaccount %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% include 'landing/_public_transition_head_v645.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   {% include 'base/theme_init.html' %}
-  <title>SAT Makon - Register</title>
+  <title>Create your MakonBook account</title>
   <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-style.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-theme.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-responsive.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-header-hotfix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-small-device.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-nav-password-final.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-final-fix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-show-clean-fix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-show-raise-fix.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-auth-show-light-fix.css' %}?v=7601">
-  {% include 'base/responsive_css.html' %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-header-v642.css' %}?v=7401">
+  <style>
+    .mk84-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mk84-error { margin-top: 6px; color: #e11d48; font-size: 13px; font-weight: 600; }
+    .mk84-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; }
+    .mk84-check input { margin-top: 3px; width: 18px; height: 18px; accent-color: #7c3aed; }
+    @media (max-width: 520px) { .mk84-two { grid-template-columns: 1fr; } }
+  </style>
 </head>
-<body class="auth-page auth-register">
-  <div class="auth-shell">
-    <nav class="auth-nav" data-auth-reveal>
-      <a href="/" class="auth-brand">
-        <img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt="SAT Makon logo">
-        <span>SAT Makon</span>
-      </a>
-      <div class="auth-nav-actions">
-        {% include 'base/theme_toggle.html' %}
-        <a href="{% url 'login' %}" class="auth-link-pill">Login</a>
-      </div>
-    </nav>
-
-    <div class="auth-grid">
-      <section class="auth-visual" data-auth-reveal>
-        <span class="eyebrow">New account</span>
-        <h1>Start with a clean SAT prep system.</h1>
-        <p>Create an account for practice tests, vocabulary work, classroom join codes, and score-growth style analytics.</p>
-
-        <div class="auth-metrics">
-          <div class="auth-metric"><strong>Full</strong><span>digital SAT flow</span></div>
-          <div class="auth-metric"><strong>Smart</strong><span>review workflow</span></div>
-          <div class="auth-metric"><strong>Class</strong><span>teacher tools</span></div>
-        </div>
-
-        <div class="auth-note-list">
-          <div class="auth-note-item"><i>✓</i><div><strong>Timed modules</strong><span>Practice under realistic pressure.</span></div></div>
-          <div class="auth-note-item"><i>✓</i><div><strong>Vocabulary</strong><span>Word lists, quizzes, and flashcards.</span></div></div>
-          <div class="auth-note-item"><i>✓</i><div><strong>Progress pages</strong><span>Track active and completed work.</span></div></div>
-        </div>
-
-        <div class="auth-dashboard-card" data-tilt>
-          <div class="mini-row"><span>Setup progress</span><span>2 steps</span></div>
-          <div class="score-big">Ready</div>
-          <div class="progress-line"><span></span></div>
-          <div class="mini-row"><span>Create profile</span><strong>01</strong></div>
-          <div class="mini-row"><span>Join classroom</span><strong>02</strong></div>
+<body class="mb642-public-chrome mkp-page auth-page mb56-shared-header-page">
+<div class="mkp-shell">
+  {% include 'landing/_public_header.html' with public_nav=True %}
+  <main class="mkp-auth-main">
+    <div class="mkp-container mkp-auth-grid">
+      <section class="mkp-auth-copy">
+        <span class="mkp-kicker">Free MakonBook account</span>
+        <h1>Start your SAT preparation today.</h1>
+        <p>Create a free account with your email. You get practice tests, Mistakes review, vocabulary, the Universities catalogue and the first Admissions lessons right away.</p>
+        <div class="mkp-auth-points">
+          <div class="mkp-auth-point"><strong>1. Your details</strong><span>Name, email and a password.</span></div>
+          <div class="mkp-auth-point"><strong>2. Email code</strong><span>We send a 6-digit code to confirm your email.</span></div>
+          <div class="mkp-auth-point"><strong>3. SATMakon students</strong><span>Connect your SATMakon account with an SMS code to open everything and your classrooms.</span></div>
         </div>
       </section>
 
-      <section class="auth-card auth-register-card" data-auth-reveal>
-        <div class="auth-card-header">
-          <span class="eyebrow">Register</span>
-          <h2>Create account</h2>
-          <p>Keep the username simple. You will use it every time you log in.</p>
-        </div>
+      <section class="mkp-auth-card">
+        <span class="mkp-kicker">Create account</span>
+        <h2>Join MakonBook.</h2>
+        <p>Already have an account? <a href="{% url 'login' %}">Log in</a></p>
 
-        {% if messages %}
-          <div class="alert-box">
-            <ul class="messages">
-              {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-        {% endif %}
+        {% if messages %}<div class="mkp-alert"><ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul></div>{% endif %}
 
-        <form action="" method="POST" class="signin-form auth-form" data-registration-form>
+        <form method="post" class="mkp-form" data-submit-once data-busy-text="Sending the code…" novalidate>
           {% csrf_token %}
-          {% if referral_code %}<input type="hidden" name="referral_code" value="{{ referral_code }}">{% endif %}
-
-          <div class="form-group">
-            <label class="form-label" for="username-field">Username</label>
-            <input id="username-field" type="text" name="username" placeholder="Choose username" value="{{ form.username.value|default_if_none:'' }}" autocomplete="username" required>
+          <div class="mk84-two">
+            <div class="mkp-field">
+              <label for="reg-first">First name</label>
+              <input id="reg-first" name="first_name" value="{{ values.first_name }}" autocomplete="given-name" required maxlength="150">
+              {% if errors.first_name %}<div class="mk84-error">{{ errors.first_name }}</div>{% endif %}
+            </div>
+            <div class="mkp-field">
+              <label for="reg-last">Last name</label>
+              <input id="reg-last" name="last_name" value="{{ values.last_name }}" autocomplete="family-name" required maxlength="150">
+              {% if errors.last_name %}<div class="mk84-error">{{ errors.last_name }}</div>{% endif %}
+            </div>
           </div>
-
-          <div class="form-group">
-            <label class="form-label" for="email-field">Email</label>
-            <input id="email-field" type="email" name="email" placeholder="you@example.com" value="{{ form.email.value|default_if_none:'' }}" autocomplete="email" required>
+          <div class="mkp-field">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" type="email" name="email" value="{{ values.email }}" autocomplete="email" inputmode="email" required>
+            {% if errors.email %}<div class="mk84-error">{{ errors.email }}</div>{% endif %}
           </div>
-
-          <div class="form-group password-wrap">
-            <label class="form-label" for="password1-field">Password</label>
-            <input id="password1-field" type="password" name="password" placeholder="Minimum 8 characters" autocomplete="new-password" required>
-            <button type="button" class="password-toggle" data-target="#password1-field" aria-label="Show password">Show</button>
+          <div class="mkp-field mkp-password">
+            <label for="reg-password">Password</label>
+            <input id="reg-password" type="password" name="password" autocomplete="new-password" required minlength="8">
+            <button type="button" data-target="#reg-password" class="password-toggle" aria-label="Show password">Show</button>
+            {% if errors.password %}<div class="mk84-error">{{ errors.password }}</div>{% endif %}
           </div>
-
-          <div class="form-group password-wrap">
-            <label class="form-label" for="password2-field">Confirm password</label>
-            <input id="password2-field" type="password" name="confirm_password" placeholder="Repeat password" autocomplete="new-password" required>
-            <button type="button" class="password-toggle" data-target="#password2-field" aria-label="Show password">Show</button>
+          <div class="mkp-field mkp-password">
+            <label for="reg-password2">Repeat password</label>
+            <input id="reg-password2" type="password" name="password2" autocomplete="new-password" required minlength="8">
+            <button type="button" data-target="#reg-password2" class="password-toggle" aria-label="Show password">Show</button>
+            {% if errors.password2 %}<div class="mk84-error">{{ errors.password2 }}</div>{% endif %}
           </div>
-
-          <div class="form-group">
-            <button type="submit" class="primary-btn" data-registration-submit>Create account</button>
-          </div>
+          <label class="mk84-check"><input type="checkbox" name="agree" value="1" {% if request.POST.agree %}checked{% endif %}><span>I agree that MakonBook stores my name and email to run my account.</span></label>
+          {% if errors.agree %}<div class="mk84-error">{{ errors.agree }}</div>{% endif %}
+          <button class="mkp-btn wide" type="submit">Send the code</button>
         </form>
-
-        <div class="auth-divider"><span>or sign up with Google</span></div>
-
-        <form method="post" action="{% provider_login_url 'google' %}" class="signin-form auth-form">
-          {% csrf_token %}
-          <div class="form-group">
-            <button type="submit" class="primary-btn">Sign up with Google</button>
-          </div>
-        </form>
-
-        <div class="auth-divider"><span>already have access?</span></div>
-
-        <div class="auth-card-footer compact-footer">
-          <a href="/software/">Download app</a>
-          <a href="{% url 'login' %}">Sign in instead</a>
-        </div>
       </section>
     </div>
-  </div>
-
-  <script src="{% static 'assets/js/login-main.js' %}"></script>
-  <script src="{% static 'assets/js/makon-theme-switcher.js' %}"></script>
-  <script>
-    (() => {
-      const form = document.querySelector('[data-registration-form]');
-      const submit = form?.querySelector('[data-registration-submit]');
-      if (!form || !submit) return;
-      form.addEventListener('submit', (event) => {
-        if (form.dataset.submitting === '1') {
-          event.preventDefault();
-          return;
-        }
-        form.dataset.submitting = '1';
-        submit.disabled = true;
-        submit.setAttribute('aria-busy', 'true');
-        submit.textContent = 'Creating account…';
-      });
-    })();
-  </script>
+  </main>
+</div>
+<script src="{% static 'assets/js/login-main.js' %}"></script>
+<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
+<script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>
+<script src="{% static 'assets/js/makon-submit-once.js' %}"></script>
+<script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=6451" defer></script>
+<script src="{% static 'assets/js/makon-public-header-locale-v645.js' %}?v=6451" defer></script>
 </body>
 </html>
