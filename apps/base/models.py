@@ -266,3 +266,59 @@ class SeasonalTheme(models.Model):
 
     def __str__(self):
         return f"Seasonal theme: {self.get_mode_display()}"
+
+
+class HolidayTheme(models.Model):
+    """V85: holiday decor and greetings on the public pages (and the workspace).
+
+    Rows hold concrete dates per year so holidays with moving dates (Ramazon and
+    Qurbon Hayit) can be corrected by a manager once they are officially announced.
+    When several holidays overlap, the shortest window wins.
+    """
+
+    KEY_CHOICES = (
+        ("new-year", "New Year"),
+        ("navruz", "Navruz"),
+        ("ramazon-hayit", "Ramazon Hayit (Eid al-Fitr)"),
+        ("qurbon-hayit", "Qurbon Hayit (Eid al-Adha)"),
+        ("womens-day", "8 March"),
+        ("independence", "Independence Day"),
+        ("teachers-day", "Teachers' Day"),
+        ("constitution", "Constitution Day"),
+    )
+
+    key = models.CharField(max_length=20, choices=KEY_CHOICES)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+    note = models.CharField(max_length=200, blank=True, help_text="For example: date confirmed by decree.")
+
+    class Meta:
+        ordering = ["start_date"]
+        verbose_name = "Holiday theme"
+        verbose_name_plural = "Holiday themes"
+
+    def __str__(self):
+        return f"{self.get_key_display()} {self.start_date:%Y-%m-%d} – {self.end_date:%Y-%m-%d}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.start_date and self.end_date:
+            if self.end_date < self.start_date:
+                raise ValidationError({"end_date": "The last day cannot be before the first day."})
+            if (self.end_date - self.start_date).days > 31:
+                raise ValidationError({"end_date": "A holiday theme can last at most a month."})
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from apps.base.seasons import clear_holiday_cache
+
+        clear_holiday_cache()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        from apps.base.seasons import clear_holiday_cache
+
+        clear_holiday_cache()
+        return result

@@ -1,0 +1,30 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>{% block title %}MakonBook — SAT preparation by SATMakon{% endblock %}</title>
+  <meta name="description" content="{% block description %}MakonBook by SATMakon: Digital SAT practice, mistakes review, admissions course, universities catalogue and progress in one place.{% endblock %}">
+  {% block canonical %}{% endblock %}
+  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
+  {% include 'base/theme_init.html' %}
+  <script>document.documentElement.classList.add('mbp-js');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'assets/vendor/bootstrap-icons/bootstrap-icons.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v85.css' %}?v=8500">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-festive-v85.css' %}?v=8500">
+  {% block head %}{% endblock %}
+</head>
+<body class="mbp-body {% block body_class %}{% endblock %}" data-season="{{ season.key|default:'' }}"{% if season.holiday %} data-festive="{{ season.holiday.key }}"{% endif %}>
+  <a class="mbp-skip" href="#main" data-i18n="nav.skip">Skip to content</a>
+  {% block header %}{% include 'public/_header.html' %}{% endblock %}
+  <main id="main">{% block content %}{% endblock %}</main>
+  {% block footer %}{% include 'public/_footer.html' %}{% endblock %}
+  <script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
+  <script src="{% static 'assets/js/makon-public-v85.js' %}?v=8500"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

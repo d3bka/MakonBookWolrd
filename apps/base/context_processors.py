@@ -365,7 +365,18 @@ def staff_workspace_meta(request):
 
 def season_meta(request):
     """V70: the platform-wide seasonal theme (cached; see apps.base.seasons)."""
-    from apps.base.seasons import current_season
+    from django.conf import settings
+
+    from apps.base.seasons import HOLIDAY_GREETINGS, SEASON_KEYS, SEASONS, _holiday, current_season
 
     state = current_season()
-    return {"season": {"key": state.key, "mode": state.mode, "holiday": state.holiday, **state.meta}}
+    season = {"key": state.key, "mode": state.mode, "holiday": state.holiday, **state.meta}
+    # V85: staff (or DEBUG) can preview any decor: ?festive=navruz / ?festive=winter.
+    preview = (request.GET.get("festive") or "").strip().lower() if request is not None else ""
+    user = getattr(request, "user", None)
+    if preview and (settings.DEBUG or getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
+        if preview in HOLIDAY_GREETINGS:
+            season["holiday"] = _holiday(preview)
+        elif preview in SEASON_KEYS:
+            season.update({**SEASONS[preview], "key": preview, "holiday": None})
+    return {"season": season}

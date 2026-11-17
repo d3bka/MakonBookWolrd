@@ -147,7 +147,7 @@
     </div>
   </main>
 
-  <footer class="mkp-footer"><div class="mkp-container mkp-footer-inner"><span>© {% now "Y" %} SAT Makon · MakonBook</span><div class="mkp-footer-links"><a href="/"><span data-mb644-key="home">{{ parent_t.home }}</span></a><a href="{% url 'global_event_list' %}" data-mb644-key="mock_exams">Mock exams</a><a href="{% url 'login' %}" data-mb644-key="login">Login</a></div></div></footer>
+  {% include 'public/_footer.html' %}
 </div>
 <script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6431"></script>
 <script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>

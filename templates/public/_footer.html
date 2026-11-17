@@ -1,0 +1,43 @@
+{% load static %}{# V85 public footer. #}
+<footer class="mbp-footer">
+  <div class="mbp-wrap">
+    <div class="mbp-footer-grid">
+      <div>
+        <a class="mbp-brand" href="/"><span class="mbp-brand-mark"><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""></span><span class="mbp-brand-copy"><strong>MakonBook</strong><small>by SATMakon</small></span></a>
+        <p data-i18n="footer.about">The SAT platform of SATMakon: practice, mistakes review, admissions and progress in one place.</p>
+        <div class="mbp-social">
+          <a href="https://t.me/sat_makon" target="_blank" rel="noopener" aria-label="SATMakon on Telegram"><i class="bi bi-telegram"></i></a>
+          <a href="https://www.instagram.com/sat_makon_uz/" target="_blank" rel="noopener" aria-label="SATMakon on Instagram"><i class="bi bi-instagram"></i></a>
+          <a href="mailto:support@makonbook.uz" aria-label="Email support"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+      <div>
+        <h4 data-i18n="footer.students">Students</h4>
+        <ul>
+          <li><a href="{% url 'register' %}" data-i18n="nav.signup">Sign up free</a></li>
+          <li><a href="{% url 'login' %}" data-i18n="nav.login">Log in</a></li>
+          <li><a href="{% url 'public_placement_list' %}" data-i18n="nav.level">Check your level</a></li>
+          <li><a href="{% url 'global_event_list' %}" data-i18n="nav.mocks">Mock exams</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="footer.platform">Platform</h4>
+        <ul>
+          <li><a href="/#platform" data-i18n="footer.features">Features</a></li>
+          <li><a href="/#courses" data-i18n="nav.courses">Courses</a></li>
+          <li><a href="/#results" data-i18n="nav.results">Results</a></li>
+          <li><a href="/#faq" data-i18n="nav.faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="footer.help">Parents & help</h4>
+        <ul>
+          <li><a href="{% url 'rating_parent_lookup' %}" data-i18n="footer.parent_portal">Parent portal</a></li>
+          <li><a href="https://t.me/sat_makon" target="_blank" rel="noopener">Telegram · @sat_makon</a></li>
+          <li><a href="mailto:support@makonbook.uz">support@makonbook.uz</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="mbp-footer-bottom"><span>© {% now "Y" %} SATMakon · MakonBook</span><span data-i18n="footer.city">Tashkent, Uzbekistan</span></div>
+  </div>
+</footer>

@@ -1,0 +1,64 @@
+{% load static %}{# V85 public header: every public page (landing, auth, parents, level check, mock exams). #}
+{% with home=request.path|stringformat:"s" %}
+<div class="mbp-festive" aria-hidden="true" data-festive-layer></div>
+{% if season.holiday %}
+<div class="mbp-greeting" role="note" data-greeting
+     data-en="{{ season.holiday.greetings.en }}" data-ru="{{ season.holiday.greetings.ru }}" data-uz="{{ season.holiday.greetings.uz }}">
+  <span class="mbp-greeting-icon mbp-holiday-icon" aria-hidden="true"></span><span data-greeting-text>{{ season.holiday.greetings.en }}</span>
+</div>
+{% endif %}
+<header class="mbp-header" data-mbp-header data-season="{{ season.key|default:'' }}" data-festive="{% if season.holiday %}{{ season.holiday.key }}{% endif %}">
+  <span class="mbp-garland" aria-hidden="true"></span>
+  <div class="mbp-wrap mbp-nav">
+    <a class="mbp-brand" href="/" aria-label="MakonBook home">
+      <span class="mbp-brand-mark"><img src="{% static 'assets/img/icons/original-icon-nobg.png' %}" alt=""></span>
+      <span class="mbp-brand-copy"><strong>MakonBook</strong><small>by SATMakon</small></span>
+    </a>
+    <nav class="mbp-links" aria-label="Main">
+      <a href="{% if local_nav %}#platform{% else %}/#platform{% endif %}" data-i18n="nav.platform">Platform</a>
+      <a href="{% if local_nav %}#courses{% else %}/#courses{% endif %}" data-i18n="nav.courses">Courses</a>
+      <a href="{% if local_nav %}#results{% else %}/#results{% endif %}" data-i18n="nav.results">Results</a>
+      <a href="{% url 'rating_parent_lookup' %}" data-mb642-parent-link data-i18n="nav.parents">Parents</a>
+      <a href="{% url 'global_event_list' %}" data-i18n="nav.mocks">Mock exams</a>
+      <a class="mbp-link-faq" href="{% if local_nav %}#faq{% else %}/#faq{% endif %}" data-i18n="nav.faq">FAQ</a>
+    </nav>
+    <div class="mbp-actions">
+      <div class="mbp-locale mb63-locale" {% if parent_nav %}data-mb642-parent-locale{% else %}data-mbp-locale{% endif %}>
+        <button class="mb63-locale-trigger" type="button" data-mb63-lang-trigger aria-expanded="false" aria-haspopup="listbox" aria-label="Choose language">
+          <i class="bi bi-globe2" aria-hidden="true"></i><span data-mb63-lang-current>{% if parent_nav %}{{ parent_lang|upper }}{% else %}EN{% endif %}</span>
+        </button>
+        <div class="mb63-locale-menu" role="listbox" aria-label="Language">
+          <button type="button" role="option" data-mb63-lang-option="en" aria-selected="{% if parent_nav and parent_lang != 'en' %}false{% else %}true{% endif %}"><span>English</span><b>EN</b></button>
+          <button type="button" role="option" data-mb63-lang-option="ru" aria-selected="{% if parent_nav and parent_lang == 'ru' %}true{% else %}false{% endif %}"><span>Русский</span><b>RU</b></button>
+          <button type="button" role="option" data-mb63-lang-option="uz" aria-selected="{% if parent_nav and parent_lang == 'uz' %}true{% else %}false{% endif %}"><span>O‘zbekcha</span><b>UZ</b></button>
+        </div>
+      </div>
+      {% include 'base/theme_toggle.html' %}
+      {% if request.user.is_authenticated %}
+        <a class="mbp-btn mbp-btn-primary mbp-btn-sm" href="{% url 'student_dashboard_root' %}" data-i18n="nav.open">Open MakonBook</a>
+      {% else %}
+        <a class="mbp-btn mbp-btn-ghost mbp-btn-sm mbp-login-btn" href="{% url 'login' %}" data-i18n="nav.login">Log in</a>
+        <a class="mbp-btn mbp-btn-primary mbp-btn-sm mbp-desktop" href="{% url 'register' %}" data-i18n="nav.signup">Sign up free</a>
+      {% endif %}
+      <button class="mbp-icon-btn mbp-burger" type="button" aria-label="Open menu" aria-expanded="false" data-mbp-burger><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+<div class="mbp-mobile" data-mbp-mobile>
+  <nav aria-label="Mobile">
+    <a href="{% if local_nav %}#platform{% else %}/#platform{% endif %}" data-i18n="nav.platform">Platform</a>
+    <a href="{% if local_nav %}#courses{% else %}/#courses{% endif %}" data-i18n="nav.courses">Courses</a>
+    <a href="{% if local_nav %}#results{% else %}/#results{% endif %}" data-i18n="nav.results">Results</a>
+    <a href="{% url 'rating_parent_lookup' %}" data-i18n="nav.parents">Parents</a>
+    <a href="{% url 'global_event_list' %}" data-i18n="nav.mocks">Mock exams</a>
+    <a href="{% url 'public_placement_list' %}" data-i18n="nav.level">Check your level</a>
+    <a href="{% if local_nav %}#faq{% else %}/#faq{% endif %}" data-i18n="nav.faq">FAQ</a>
+  </nav>
+  {% if not request.user.is_authenticated %}
+  <div class="mbp-mobile-cta">
+    <a class="mbp-btn mbp-btn-ghost" href="{% url 'login' %}" data-i18n="nav.login">Log in</a>
+    <a class="mbp-btn mbp-btn-primary" href="{% url 'register' %}" data-i18n="nav.signup">Sign up free</a>
+  </div>
+  {% endif %}
+</div>
+{% endwith %}

@@ -102,6 +102,16 @@ class PendingRegistrationAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(HolidayTheme)
+class HolidayThemeAdmin(admin.ModelAdmin):
+    """V85: holiday decor on the public pages. Correct Ramazon/Qurbon Hayit dates once announced."""
+    list_display = ("key", "start_date", "end_date", "is_active", "note")
+    list_editable = ("start_date", "end_date", "is_active")
+    list_filter = ("key", "is_active")
+    date_hierarchy = "start_date"
+    search_fields = ("note",)
+
+
 @admin.register(SatmakonLinkCode)
 class SatmakonLinkCodeAdmin(admin.ModelAdmin):
     """V84: SMS codes sent to join a self-registered account to its SATMakon account."""

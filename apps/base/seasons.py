@@ -72,11 +72,61 @@ def season_for_date(day: date) -> str:
     return "autumn"
 
 
+# V85: greetings for every holiday theme, in the three site languages.
+HOLIDAY_GREETINGS = {
+    "new-year": {"uz": "Yangi yil muborak!", "ru": "С Новым годом!", "en": "Happy New Year!"},
+    "navruz": {"uz": "Navro'z muborak!", "ru": "С праздником Навруз!", "en": "Happy Navruz!"},
+    "ramazon-hayit": {"uz": "Ramazon hayiti muborak!", "ru": "С праздником Рамазан Хайит!", "en": "Eid Mubarak!"},
+    "qurbon-hayit": {"uz": "Qurbon hayiti muborak!", "ru": "С праздником Курбан Хайит!", "en": "Eid al-Adha Mubarak!"},
+    "womens-day": {"uz": "8-mart bayramingiz muborak!", "ru": "С 8 Марта!", "en": "Happy Women's Day!"},
+    "independence": {"uz": "Mustaqillik kuni muborak!", "ru": "С Днём независимости!", "en": "Happy Independence Day!"},
+    "teachers-day": {"uz": "O'qituvchilar kuni muborak!", "ru": "С Днём учителя!", "en": "Happy Teachers' Day!"},
+    "constitution": {"uz": "Konstitutsiya kuni muborak!", "ru": "С Днём Конституции!", "en": "Happy Constitution Day!"},
+}
+HOLIDAY_CACHE_SECONDS = 600
+HOLIDAY_GENERATION_KEY = "makon:holiday:v85:generation"
+
+
+def clear_holiday_cache():
+    """Called when a manager edits the holiday calendar: every cached day is dropped."""
+    try:
+        cache.incr(HOLIDAY_GENERATION_KEY)
+    except ValueError:
+        cache.set(HOLIDAY_GENERATION_KEY, 1, None)
+
+
+def _holiday(key):
+    greetings = HOLIDAY_GREETINGS.get(key, {})
+    return {"key": key, "label": greetings.get("uz", ""), "greetings": greetings}
+
+
+def _holiday_from_calendar(day: date):
+    """The admin-managed calendar (base.HolidayTheme). None = no row covers the day;
+    raises LookupError when the calendar is empty, so the built-in list is used."""
+    generation = cache.get(HOLIDAY_GENERATION_KEY, 0)
+    cache_key = f"makon:holiday:v85:{generation}:{day.isoformat()}"
+    cached = cache.get(cache_key)
+    if cached is None:
+        from apps.base.models import HolidayTheme
+
+        if not HolidayTheme.objects.exists():
+            raise LookupError("empty holiday calendar")
+        rows = list(HolidayTheme.objects.filter(is_active=True, start_date__lte=day, end_date__gte=day))
+        rows.sort(key=lambda row: (row.end_date - row.start_date, row.pk))  # the most specific wins
+        cached = rows[0].key if rows else ""
+        cache.set(cache_key, cached, HOLIDAY_CACHE_SECONDS)
+    return _holiday(cached) if cached else None
+
+
 def holiday_for_date(day: date):
+    try:
+        return _holiday_from_calendar(day)
+    except Exception:  # noqa: BLE001 - empty table, not migrated yet, DB hiccup: fall back
+        pass
     md = (day.month, day.day)
     for holiday in HOLIDAYS:
         if holiday["start"] <= md <= holiday["end"]:
-            return {"key": holiday["key"], "label": holiday["label"]}
+            return _holiday(holiday["key"])
     return None
 
 

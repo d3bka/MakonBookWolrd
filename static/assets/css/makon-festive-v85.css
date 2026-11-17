@@ -1,0 +1,84 @@
+/* MakonBook V85 seasonal + holiday decor for the public pages.
+   body[data-season] (winter/spring/summer/autumn) always; body[data-festive] (a holiday
+   from the admin calendar) overrides it. Decor never takes clicks and respects
+   prefers-reduced-motion. */
+
+/* ---------------------------------------------------------------- palettes */
+body[data-festive="new-year"] { --p-festive-1: #4f46e5; --p-festive-2: #db2777; --p-festive-3: #fbbf24; }
+body[data-festive="navruz"] { --p-festive-1: #16a34a; --p-festive-2: #65a30d; --p-festive-3: #f472b6; }
+body[data-festive="ramazon-hayit"], body[data-festive="qurbon-hayit"] { --p-festive-1: #0f766e; --p-festive-2: #b45309; --p-festive-3: #fbbf24; }
+body[data-festive="womens-day"] { --p-festive-1: #db2777; --p-festive-2: #e879f9; --p-festive-3: #fb7185; }
+body[data-festive="independence"], body[data-festive="constitution"] { --p-festive-1: #0284c7; --p-festive-2: #16a34a; --p-festive-3: #ffffff; }
+body[data-festive="teachers-day"] { --p-festive-1: #ea580c; --p-festive-2: #c026d3; --p-festive-3: #fbbf24; }
+
+/* ---------------------------------------------------------------- falling layer */
+.mbp-festive { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.mbp-festive i { position: absolute; top: -40px; left: var(--x, 50%); font-style: normal; font-size: var(--s, 16px); opacity: var(--o, .7); line-height: 1;
+  animation: mbpFall var(--d, 14s) linear var(--delay, 0s) infinite; will-change: transform; }
+.mbp-festive i::before { display: block; }
+@keyframes mbpFall {
+  0% { transform: translate3d(0, -40px, 0) rotate(0deg); }
+  50% { transform: translate3d(var(--sway, 30px), 50vh, 0) rotate(180deg); }
+  100% { transform: translate3d(0, 105vh, 0) rotate(360deg); }
+}
+/* Fewer particles on phones. */
+@media (max-width: 620px) { .mbp-festive i:nth-child(n+11) { display: none; } }
+
+/* seasons (no holiday) — quiet */
+body[data-season="winter"]:not([data-festive]) .mbp-festive i::before { content: "❄"; color: #9cc8ff; }
+body[data-season="spring"]:not([data-festive]) .mbp-festive i::before { content: "✿"; color: #f9a8d4; }
+body[data-season="summer"]:not([data-festive]) .mbp-festive i::before { content: "✦"; color: #fcd34d; }
+body[data-season="summer"]:not([data-festive]) .mbp-festive i { --o: .45; }
+body[data-season="autumn"]:not([data-festive]) .mbp-festive i::before { content: "🍂"; }
+body[data-season="autumn"]:not([data-festive]) .mbp-festive i:nth-child(3n)::before { content: "🍁"; }
+body:not([data-festive]) .mbp-festive i:nth-child(n+13) { display: none; }  /* seasons: lighter */
+
+/* holidays */
+body[data-festive="new-year"] .mbp-festive i::before { content: "❄"; color: #bfdbfe; }
+body[data-festive="new-year"] .mbp-festive i:nth-child(4n)::before { content: "✦"; color: #fbbf24; }
+body[data-festive="navruz"] .mbp-festive i::before { content: "✿"; color: #f472b6; }
+body[data-festive="navruz"] .mbp-festive i:nth-child(3n)::before { content: "❀"; color: #86efac; }
+body[data-festive="navruz"] .mbp-festive i:nth-child(5n)::before { content: "🌷"; }
+body[data-festive="ramazon-hayit"] .mbp-festive i::before, body[data-festive="qurbon-hayit"] .mbp-festive i::before { content: "✦"; color: #fbbf24; }
+body[data-festive="ramazon-hayit"] .mbp-festive i:nth-child(4n)::before, body[data-festive="qurbon-hayit"] .mbp-festive i:nth-child(4n)::before { content: "☾"; color: #fde68a; }
+body[data-festive="womens-day"] .mbp-festive i::before { content: "🌷"; }
+body[data-festive="womens-day"] .mbp-festive i:nth-child(2n)::before { content: "✿"; color: #f9a8d4; }
+body[data-festive="independence"] .mbp-festive i::before, body[data-festive="constitution"] .mbp-festive i::before { content: "■"; color: #0ea5e9; }
+body[data-festive="independence"] .mbp-festive i:nth-child(3n)::before, body[data-festive="constitution"] .mbp-festive i:nth-child(3n)::before { content: "■"; color: #22c55e; }
+body[data-festive="independence"] .mbp-festive i:nth-child(3n+1)::before, body[data-festive="constitution"] .mbp-festive i:nth-child(3n+1)::before { content: "■"; color: #e5e7eb; }
+body[data-festive="independence"] .mbp-festive i, body[data-festive="constitution"] .mbp-festive i { --s: 9px !important; }
+body[data-festive="teachers-day"] .mbp-festive i::before { content: "🍂"; }
+body[data-festive="teachers-day"] .mbp-festive i:nth-child(3n)::before { content: "✦"; color: #fbbf24; }
+
+/* ---------------------------------------------------------------- garland & ornaments */
+.mbp-garland { display: none; }
+body[data-festive="new-year"] .mbp-garland { display: block; position: absolute; left: 0; right: 0; top: 0; height: 18px; pointer-events: none; z-index: 3;
+  background: radial-gradient(circle at 10px 10px, #f43f5e 4px, transparent 5px) 0 0 / 60px 18px,
+              radial-gradient(circle at 30px 12px, #fbbf24 4px, transparent 5px) 0 0 / 60px 18px,
+              radial-gradient(circle at 50px 9px, #22d3ee 4px, transparent 5px) 0 0 / 60px 18px;
+  animation: mbpTwinkle 2.4s steps(2) infinite; }
+@keyframes mbpTwinkle { 50% { filter: brightness(1.6) saturate(1.4); } }
+body[data-festive="ramazon-hayit"] .mbp-garland, body[data-festive="qurbon-hayit"] .mbp-garland {
+  display: block; position: absolute; left: 0; right: 0; top: 0; height: 26px; pointer-events: none; z-index: 3;
+  background: radial-gradient(ellipse 7px 10px at 30px 16px, #fbbf24 70%, transparent 72%) 0 0 / 120px 26px,
+              linear-gradient(#fbbf24, #fbbf24) 30px 0 / 1px 8px no-repeat; opacity: .85; }
+body[data-festive="independence"] .mbp-garland, body[data-festive="constitution"] .mbp-garland {
+  display: block; position: absolute; left: 0; right: 0; top: 0; height: 6px; pointer-events: none; z-index: 3;
+  background: linear-gradient(90deg, #0ea5e9 0 33%, #ffffff 33% 34%, #ef4444 34% 35%, #ffffff 35% 66%, #ef4444 66% 67%, #ffffff 67% 68%, #22c55e 68%); }
+body[data-festive="navruz"] .mbp-garland { display: block; position: absolute; left: 0; right: 0; top: 0; height: 5px; pointer-events: none; z-index: 3;
+  background: linear-gradient(90deg, #16a34a, #84cc16, #f472b6, #16a34a); }
+
+/* hero badge icon per holiday */
+.mbp-holiday-icon::before { content: "✦"; }
+body[data-festive="new-year"] .mbp-holiday-icon::before { content: "🎄"; }
+body[data-festive="navruz"] .mbp-holiday-icon::before { content: "🌷"; }
+body[data-festive="ramazon-hayit"] .mbp-holiday-icon::before, body[data-festive="qurbon-hayit"] .mbp-holiday-icon::before { content: "☪"; }
+body[data-festive="womens-day"] .mbp-holiday-icon::before { content: "💐"; }
+/* Flag emoji do not render on Windows: use the star from the Uzbek emblem instead. */
+body[data-festive="independence"] .mbp-holiday-icon::before, body[data-festive="constitution"] .mbp-holiday-icon::before { content: "★"; color: #38bdf8; }
+body[data-festive="teachers-day"] .mbp-holiday-icon::before { content: "📚"; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mbp-festive { display: none; }
+  .mbp-garland { animation: none !important; }
+}

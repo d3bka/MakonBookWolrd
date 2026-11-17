@@ -1,61 +1,37 @@
+{% extends 'public/base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="en">
-<head>
-  {% include 'landing/_public_transition_head_v645.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  {% include 'base/theme_init.html' %}
-  <title>Confirm your email · MakonBook</title>
-  <link href="{% static 'assets/img/icons/original-icon-nobg.png' %}" rel="icon">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-landing-v5597.css' %}?v=5601">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v5597.css' %}?v=5601">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-public-header-v642.css' %}?v=7401">
-  <style>
-    .mk84-code { letter-spacing: .5em; text-align: center; font-size: 26px !important; font-weight: 800; }
-    .mk84-error { margin-top: 6px; color: #e11d48; font-size: 13px; font-weight: 600; }
-    .mk84-resend { margin-top: 14px; display: flex; gap: 8px; align-items: center; font-size: 13px; }
-    .mk84-resend button { border: 0; background: none; color: #7c3aed; font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
-  </style>
-</head>
-<body class="mb642-public-chrome mkp-page auth-page mb56-shared-header-page">
-<div class="mkp-shell">
-  {% include 'landing/_public_header.html' with public_nav=True %}
-  <main class="mkp-auth-main">
-    <div class="mkp-container mkp-auth-grid">
-      <section class="mkp-auth-copy">
-        <span class="mkp-kicker">Almost done</span>
-        <h1>Check your email.</h1>
-        <p>We sent a 6-digit code to <strong>{{ pending.email }}</strong>. It expires in 15 minutes. If you cannot find it, look in Spam or Promotions.</p>
-      </section>
-      <section class="mkp-auth-card">
-        <span class="mkp-kicker">Step 2 of 2</span>
-        <h2>Enter the code.</h2>
-        {% if messages %}<div class="mkp-alert"><ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul></div>{% endif %}
-        <form method="post" class="mkp-form" data-submit-once data-busy-text="Checking…">
-          {% csrf_token %}
-          <div class="mkp-field">
-            <label for="reg-code">6-digit code</label>
-            <input id="reg-code" class="mk84-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus>
-            {% if error %}<div class="mk84-error">{{ error }}</div>{% endif %}
-          </div>
-          <button class="mkp-btn wide" type="submit">Create my account</button>
-        </form>
-        <form method="post" action="{% url 'register_resend' %}" class="mk84-resend">
-          {% csrf_token %}<span>No email?</span><button type="submit">Send a new code</button>
-          <span>·</span><a href="{% url 'register' %}">Change email</a>
-        </form>
-      </section>
+{% block title %}Confirm your email · MakonBook{% endblock %}
+{% block body_class %}mbp-auth-page{% endblock %}
+{% block content %}
+<section class="mbp-auth">
+  <div class="mbp-wrap mbp-auth-grid">
+    <div class="mbp-auth-copy">
+      <span class="mbp-kicker" data-i18n="ver.kicker">Almost done</span>
+      <h1 class="mbp-h1" data-i18n="ver.title">Check your email.</h1>
+      <p class="mbp-lead"><span data-i18n="ver.lead">We sent a 6-digit code to</span> <strong>{{ pending.email }}</strong></p>
+      <p class="mbp-lead mbp-lead-sm" data-i18n="ver.lead2">It expires in 15 minutes. If you cannot find it, look in Spam or Promotions.</p>
     </div>
-  </main>
-</div>
-<script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
-<script src="{% static 'assets/js/makon-landing-v5597.js' %}?v=5601"></script>
-<script src="{% static 'assets/js/makon-submit-once.js' %}"></script>
-<script src="{% static 'assets/js/makon-public-header-locale-v645.js' %}?v=6451" defer></script>
-</body>
-</html>
+    <div class="mbp-card">
+      <div class="mbp-progress" aria-hidden="true"><i class="is-on"></i><i class="is-on"></i></div>
+      <span class="mbp-kicker" data-i18n="ver.step">Step 2 of 2</span>
+      <h2 class="mbp-card-title" data-i18n="ver.card">Enter the code.</h2>
+      {% include 'public/_messages.html' %}
+      <form method="post" class="mbp-form" data-submit-once data-busy-text="Checking…">
+        {% csrf_token %}
+        <div class="mbp-field">
+          <label for="reg-code" data-i18n="ver.code">6-digit code</label>
+          <input class="mbp-input mbp-code-input{% if error %} has-error{% endif %}" id="reg-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" data-mbp-code required autofocus>
+          {% if error %}<div class="mbp-err">{{ error }}</div>{% endif %}
+        </div>
+        <button class="mbp-btn mbp-btn-primary mbp-btn-block mbp-btn-lg" type="submit" data-i18n="ver.btn">Create my account</button>
+      </form>
+      <form method="post" action="{% url 'register_resend' %}" class="mbp-resend">
+        {% csrf_token %}<span data-i18n="ver.no">No email?</span><button type="submit" data-i18n="ver.resend">Send a new code</button>
+        <span aria-hidden="true">·</span><a href="{% url 'register' %}" data-i18n="ver.change">Change email</a>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}
+{% block scripts %}<script src="{% static 'assets/js/makon-submit-once.js' %}"></script>{% endblock %}
