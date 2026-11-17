@@ -131,9 +131,17 @@ class AdmissionsVideo(models.Model):
     except through the access-checked key endpoint.
     """
 
+    STORAGE_LOCAL = "local"
+    STORAGE_R2 = "r2"
+    STORAGE_CHOICES = [(STORAGE_LOCAL, "Server private volume"), (STORAGE_R2, "Private R2 bucket")]
+
     lesson = models.OneToOneField(AdmissionsLesson, on_delete=models.CASCADE, related_name="premium_video")
     asset = models.CharField(max_length=40, unique=True, editable=False)
     key_hex = models.CharField(max_length=32, editable=False)
+    # V82: where the encrypted segments live. The playlist text is kept here, so the
+    # player never needs a playlist file from storage.
+    storage = models.CharField(max_length=8, choices=STORAGE_CHOICES, default=STORAGE_LOCAL, editable=False)
+    playlist_text = models.TextField(blank=True, editable=False)
     duration_seconds = models.PositiveIntegerField(default=0)
     segment_count = models.PositiveIntegerField(default=0)
     source_name = models.CharField(max_length=200, blank=True)
@@ -221,3 +229,43 @@ class AdmissionsLessonProgress(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["user", "lesson"], name="uniq_admissions_progress")]
+
+
+class AdmissionsMediaSession(models.Model):
+    """V82: a browser session that watched premium content. Only the newest
+    MAKONBOOK_PREMIUM_MAX_DEVICES sessions per student may play videos or read files;
+    opening premium content on another device switches off the oldest one."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    session_tag = models.CharField(max_length=32, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Admissions device session"
+        verbose_name_plural = "Admissions device sessions"
+        constraints = [models.UniqueConstraint(fields=["user", "session_tag"], name="uniq_admissions_media_session")]
+
+    def __str__(self):
+        return f"{self.user} · {self.session_tag[:6]}"
+
+
+class AdmissionsKeyLog(models.Model):
+    """V82: every time a decryption key was handed out (or refused by a limit)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    video = models.ForeignKey(AdmissionsVideo, on_delete=models.CASCADE, related_name="+")
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    session_tag = models.CharField(max_length=32, blank=True)
+    allowed = models.BooleanField(default=True)
+    note = models.CharField(max_length=120, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Admissions key log"
+        verbose_name_plural = "Admissions key log"

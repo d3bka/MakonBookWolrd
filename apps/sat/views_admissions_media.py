@@ -8,7 +8,7 @@ and private no-store responses. See apps/sat/admissions_media.py.
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
@@ -37,6 +37,13 @@ def _open_lesson(request, slug):
     return lesson
 
 
+def _other_device():
+    """This browser session was replaced by a newer device of the same student."""
+    response = _denied(409)
+    response["X-Makon-Reason"] = "device"
+    return response
+
+
 def _guard(request, bucket):
     if not media.same_origin(request):
         log.warning("premium %s refused: cross-site request by user %s", bucket, request.user.pk)
@@ -61,11 +68,14 @@ def video_playlist(request, slug):
     if lesson is None:
         return _denied(404)
     video = lesson.video
-    try:
-        text = (media.video_dir(video.asset) / "index.m3u8").read_text(encoding="utf-8")
-    except (OSError, ValueError):
-        log.error("premium playlist missing for lesson %s", lesson.pk)
-        return _denied(404)
+    text = video.playlist_text
+    if not text:
+        try:
+            text = (media.video_dir(video.asset) / "index.m3u8").read_text(encoding="utf-8")
+        except (OSError, ValueError):
+            log.error("premium playlist missing for lesson %s", lesson.pk)
+            return _denied(404)
+    media.register_device(request)  # this device becomes the newest; the oldest beyond the limit stops
     token = media.make_token(request, "video", video.pk)
     key_url = reverse("admissions_video_key_root", args=[slug]) + f"?t={token}"
     segment_base = reverse("admissions_video_segment_root", args=[slug, "NAME"])
@@ -84,6 +94,10 @@ def video_key(request, slug):
     lesson = _open_lesson(request, slug)  # access is re-checked: a student who left loses the key
     if lesson is None or not media.token_ok(request, request.GET.get("t"), "video", lesson.video.pk):
         return _denied()
+    if not media.device_active(request):
+        return _other_device()
+    if not media.key_allowed(request, lesson.video):  # logged; too many different videos in an hour -> 429
+        return _denied(429)
     return media.private_response(HttpResponse(bytes.fromhex(lesson.video.key_hex), content_type="application/octet-stream"))
 
 
@@ -98,16 +112,29 @@ def video_segment(request, slug, name):
         return blocked
     from .models import AdmissionsVideo
 
-    video = AdmissionsVideo.objects.filter(lesson__slug=slug, lesson__is_published=True).only("pk", "asset").first()
+    video = (AdmissionsVideo.objects.filter(lesson__slug=slug, lesson__is_published=True)
+             .only("pk", "asset", "storage").first())
     if video is None or not media.token_ok(request, request.GET.get("t"), "video", video.pk):
         return _denied()
     # The token proves access when it was issued; access is re-checked every couple of minutes.
     if not media.access_still_valid(request.user, "video", video.pk, lambda: _open_lesson(request, slug) is not None):
         return _denied()
+    if not media.device_active(request):
+        return _other_device()
     try:
         media.video_dir(video.asset)  # validates the stored folder name
     except ValueError:
         return _denied(404)
+    if video.storage == AdmissionsVideo.STORAGE_R2:
+        # Bytes come from the private bucket through a presigned URL that lives about a minute.
+        try:
+            url = media.presigned_segment_url(video.asset, name)
+        except ValueError:
+            return _denied(404)
+        except Exception:  # noqa: BLE001 - misconfigured bucket must not leak details
+            log.exception("premium R2 presign failed for video %s", video.pk)
+            return _denied(503)
+        return media.private_response(HttpResponseRedirect(url))
     return media.serve_private_file(f"{media.VIDEO_DIR}/{video.asset}/{name}", "video/mp2t")
 
 
@@ -133,6 +160,7 @@ def document_view(request, slug):
     context = student_workspace_context(request.user, active="admissions")
     context.update({"document": document, "viewer_label": viewer_label(request.user)})
     if document.is_open:
+        media.register_device(request)
         token = media.make_token(request, "doc", document.pk)
         context["document_pages"] = [
             reverse("admissions_document_page_root", args=[slug, number]) + f"?t={token}"
@@ -160,6 +188,8 @@ def document_page(request, slug, number):
     if not media.access_still_valid(request.user, "doc", document.pk,
                                     lambda: getattr(_open_document(request, slug)[0], "is_open", False)):
         return _denied()
+    if not media.device_active(request):
+        return _other_device()
     try:
         path = media.doc_dir(document.asset) / f"p{number:03d}.jpg"
     except ValueError:

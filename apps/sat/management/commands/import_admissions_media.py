@@ -5,6 +5,8 @@
     manage.py import_admissions_media /premium/incoming/Lessons --docs-only
 
 * "Lesson <N> - <title>.mp4" -> AES-128 encrypted HLS for the lesson with order N.
+  V82: when the private R2 bucket is configured (MAKONBOOK_PREMIUM_R2_*), the encrypted
+  segments are uploaded there and removed from the server (use --keep-on-server to skip).
 * PDFs listed in apps/sat/admissions_course.py DOCUMENTS -> page images.
 Everything is written to settings.MAKONBOOK_PREMIUM_ROOT. The source folder is only read;
 delete it from the server once the import has finished (see docs/ADMISSIONS_PREMIUM.md).
@@ -31,6 +33,8 @@ class Command(BaseCommand):
         parser.add_argument("--only", type=int, action="append", default=[], help="Only this lesson number (repeatable).")
         parser.add_argument("--videos-only", action="store_true")
         parser.add_argument("--docs-only", action="store_true")
+        parser.add_argument("--keep-on-server", action="store_true",
+                            help="Keep segments on the server volume even when the private R2 bucket is set.")
         parser.add_argument("--reencode", action="store_true",
                             help="Re-encode to H.264/AAC instead of copying streams (slow; only for odd sources).")
 
@@ -43,6 +47,10 @@ class Command(BaseCommand):
         if self._inside_public_folder(root):
             raise CommandError(f"MAKONBOOK_PREMIUM_ROOT ({root}) is inside a public folder. Refusing to write there.")
         self.stdout.write(f"Premium folder: {root}")
+        self.use_r2 = media.r2_configured() and not options["keep_on_server"]
+        if self.use_r2:
+            bucket = media.assert_private_bucket()
+            self.stdout.write(f"Encrypted segments go to the private R2 bucket: {bucket}")
         if not options["docs_only"]:
             self._videos(source, options)
         if not options["videos_only"]:
@@ -76,18 +84,28 @@ class Command(BaseCommand):
                 continue
             self.stdout.write(f"  #{number} {lesson.title}: encrypting {path.name} ...")
             result = media.encrypt_video_to_hls(path, reencode=options["reencode"])
+            playlist = (media.video_dir(result["asset"]) / "index.m3u8").read_text(encoding="utf-8")
+            storage = AdmissionsVideo.STORAGE_LOCAL
+            if self.use_r2:
+                uploaded = media.upload_video_to_r2(result["asset"])
+                storage = AdmissionsVideo.STORAGE_R2
+                self.stdout.write(f"     uploaded {uploaded} encrypted segments to R2")
+            old = (existing.asset, existing.storage) if existing else None
             with transaction.atomic():
-                old_asset = existing.asset if existing else None
                 AdmissionsVideo.objects.update_or_create(lesson=lesson, defaults={
                     "asset": result["asset"], "key_hex": result["key_hex"],
                     "duration_seconds": result["duration_seconds"], "segment_count": result["segment_count"],
-                    "source_name": path.name,
+                    "source_name": path.name, "storage": storage, "playlist_text": playlist,
                 })
                 if result["duration_seconds"]:
                     lesson.minutes = max(1, round(result["duration_seconds"] / 60))
                     lesson.save(update_fields=["minutes"])
-            if old_asset:
-                media.remove_asset(media.video_dir(old_asset))
+            if storage == AdmissionsVideo.STORAGE_R2:
+                media.remove_asset(media.video_dir(result["asset"]))  # the bytes now live only in R2
+            if old:
+                media.remove_asset(media.video_dir(old[0]))
+                if old[1] == AdmissionsVideo.STORAGE_R2:
+                    media.delete_video_from_r2(old[0])
             self.stdout.write(self.style.SUCCESS(
                 f"     done: {result['segment_count']} encrypted segments, {result['duration_seconds'] // 60} min"))
 

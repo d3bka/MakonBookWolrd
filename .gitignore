@@ -140,3 +140,7 @@ Lessons/
 *.m3u8
 *.ts.enc
 **/Lessons/
+# Video upload script artifacts: keys.csv holds decryption keys
+keys.csv
+upload_state.json
+hls_out/

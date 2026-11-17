@@ -1488,8 +1488,8 @@ class AdmissionsLessonProgressAdmin(admin.ModelAdmin):
 class AdmissionsVideoAdmin(admin.ModelAdmin):
     """V81: read-only. Videos are added by `manage.py import_admissions_media`; the encryption
     key is never shown here."""
-    list_display = ("lesson", "minutes", "segment_count", "source_name", "updated_at")
-    fields = ("lesson", "source_name", "duration_seconds", "segment_count", "created_at", "updated_at")
+    list_display = ("lesson", "storage", "minutes", "segment_count", "source_name", "updated_at")
+    fields = ("lesson", "storage", "source_name", "duration_seconds", "segment_count", "created_at", "updated_at")
     readonly_fields = fields
     search_fields = ("lesson__title", "source_name")
 
@@ -1515,3 +1515,51 @@ class AdmissionsDocumentAdmin(admin.ModelAdmin):
     filter_horizontal = ("lessons",)
     prepopulated_fields = {"slug": ("title",)}
     search_fields = ("title", "slug")
+
+
+@admin.register(AdmissionsKeyLog)
+class AdmissionsKeyLogAdmin(admin.ModelAdmin):
+    """V82: who received a video decryption key, when and from where (read-only)."""
+    list_display = ("created_at", "user", "video", "ip", "allowed", "note")
+    list_filter = ("allowed", "created_at")
+    search_fields = ("user__username", "user__email", "ip")
+    raw_id_fields = ("user", "video")
+    readonly_fields = ("user", "video", "ip", "user_agent", "session_tag", "allowed", "note", "created_at")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser  # the log is evidence; staff cannot erase it
+
+
+@admin.register(AdmissionsMediaSession)
+class AdmissionsMediaSessionAdmin(admin.ModelAdmin):
+    """V82: devices that opened premium content. Revoke one to stop it at once."""
+    list_display = ("user", "ip", "short_agent", "created_at", "last_seen", "revoked_at")
+    list_filter = ("revoked_at",)
+    search_fields = ("user__username", "user__email", "ip")
+    raw_id_fields = ("user",)
+    readonly_fields = ("user", "session_tag", "ip", "user_agent", "created_at", "last_seen", "revoked_at")
+    actions = ["revoke"]
+
+    @admin.display(description="Device")
+    def short_agent(self, obj):
+        return (obj.user_agent or "")[:60]
+
+    @admin.action(description="Switch off the selected devices")
+    def revoke(self, request, queryset):
+        from django.core.cache import cache
+
+        rows = list(queryset.filter(revoked_at__isnull=True))
+        queryset.filter(pk__in=[row.pk for row in rows]).update(revoked_at=timezone.now())
+        for row in rows:
+            cache.delete(f"adm-device:{row.user_id}:{row.session_tag}")
+        self.message_user(request, f"{len(rows)} device(s) switched off.")
+
+    def has_add_permission(self, request):
+        return False

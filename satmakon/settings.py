@@ -319,6 +319,24 @@ MAKONBOOK_PREMIUM_ROOT = Path(env_str("MAKONBOOK_PREMIUM_ROOT", "") or (BASE_DIR
 MAKONBOOK_PREMIUM_ACCEL_PREFIX = env_str("MAKONBOOK_PREMIUM_ACCEL_PREFIX", "")
 MAKONBOOK_FREE_ADMISSIONS_LESSONS = int(env_str("MAKONBOOK_FREE_ADMISSIONS_LESSONS", "3") or 3)
 
+# V82: encrypted video segments can live in a SEPARATE, PRIVATE R2 bucket (no r2.dev, no custom
+# domain). Django still checks every request, then redirects to a presigned URL that lives
+# MAKONBOOK_PREMIUM_R2_URL_TTL seconds. Unset = segments stay on the server volume.
+MAKONBOOK_PREMIUM_R2_BUCKET = env_str("MAKONBOOK_PREMIUM_R2_BUCKET", "")
+MAKONBOOK_PREMIUM_R2_ENDPOINT_URL = env_str("MAKONBOOK_PREMIUM_R2_ENDPOINT_URL", "")
+MAKONBOOK_PREMIUM_R2_ACCESS_KEY_ID = env_str("MAKONBOOK_PREMIUM_R2_ACCESS_KEY_ID", "")
+MAKONBOOK_PREMIUM_R2_SECRET_ACCESS_KEY = env_str("MAKONBOOK_PREMIUM_R2_SECRET_ACCESS_KEY", "")
+MAKONBOOK_PREMIUM_R2_URL_TTL = int(env_str("MAKONBOOK_PREMIUM_R2_URL_TTL", "60") or 60)
+MAKONBOOK_PREMIUM_R2_ALLOWED_ORIGINS = [
+    origin.strip() for origin in env_str(
+        "MAKONBOOK_PREMIUM_R2_ALLOWED_ORIGINS", f"https://{SITE_DOMAIN},https://www.{SITE_DOMAIN}"
+    ).split(",") if origin.strip()
+]
+# V82: premium content plays on at most this many devices (browser sessions) per student.
+MAKONBOOK_PREMIUM_MAX_DEVICES = int(env_str("MAKONBOOK_PREMIUM_MAX_DEVICES", "2") or 2)
+# V82: keys for more than this many different videos in one hour look like a downloader.
+MAKONBOOK_PREMIUM_MAX_VIDEOS_PER_HOUR = int(env_str("MAKONBOOK_PREMIUM_MAX_VIDEOS_PER_HOUR", "25") or 25)
+
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

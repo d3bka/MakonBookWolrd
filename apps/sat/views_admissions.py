@@ -211,8 +211,18 @@ def course_documents(lessons, full):
 
 
 def viewer_label(user):
+    """Watermark text: name · login · ID · masked phone (+99890•••••12)."""
+    from .admissions_media import masked_phone
+
     name = user.get_full_name() or user.get_username()
-    return f"{name} · {user.get_username()} · ID {user.pk}" if name != user.get_username() else f"{name} · ID {user.pk}"
+    parts = [name]
+    if name != user.get_username():
+        parts.append(user.get_username())
+    parts.append(f"ID {user.pk}")
+    phone = masked_phone(user)
+    if phone:
+        parts.append(phone)
+    return " · ".join(parts)
 
 
 @login_required(login_url='/login/')

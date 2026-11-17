@@ -40,3 +40,6 @@ Lessons/
 **/*.mp4
 **/*.m3u8
 Lessons/**
+keys.csv
+upload_state.json
+hls_out/
