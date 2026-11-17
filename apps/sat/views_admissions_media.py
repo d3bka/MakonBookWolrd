@@ -15,7 +15,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
 from . import admissions_media as media
-from .models import AdmissionsDocument
+from .models import AdmissionsDocument, AdmissionsVideo
 from .student_workspace import should_use_student_workspace, student_workspace_context
 from .views_admissions import _course_state, _student_only, course_documents, viewer_label
 
@@ -180,7 +180,8 @@ def document_page(request, slug, number):
     blocked = _guard(request, "page")
     if blocked:
         return blocked
-    document = AdmissionsDocument.objects.filter(slug=slug, is_published=True).only("pk", "asset", "page_count").first()
+    document = (AdmissionsDocument.objects.filter(slug=slug, is_published=True)
+                .only("pk", "asset", "page_count", "storage").first())
     if document is None or not document.asset or not 1 <= number <= document.page_count:
         return _denied(404)
     if not media.token_ok(request, request.GET.get("t"), "doc", document.pk):
@@ -190,13 +191,24 @@ def document_page(request, slug, number):
         return _denied()
     if not media.device_active(request):
         return _other_device()
-    try:
-        path = media.doc_dir(document.asset) / f"p{number:03d}.jpg"
-    except ValueError:
-        return _denied(404)
-    if not path.is_file():
-        return _denied(404)
-    image = media.stamp_page(path, media.watermark_text(request.user))
+    if document.storage == AdmissionsVideo.STORAGE_R2:
+        # V86: the clean page comes from the private bucket and is stamped here, so an
+        # unstamped page never leaves the server.
+        try:
+            source = media.read_page_from_r2(document.asset, number)
+        except ValueError:
+            return _denied(404)
+        except Exception:  # noqa: BLE001 - a missing object or bucket trouble must not leak details
+            log.exception("premium R2 page %s/%s failed", document.pk, number)
+            return _denied(503)
+    else:
+        try:
+            source = media.doc_dir(document.asset) / f"p{number:03d}.jpg"
+        except ValueError:
+            return _denied(404)
+        if not source.is_file():
+            return _denied(404)
+    image = media.stamp_page(source, media.watermark_text(request.user))
     response = HttpResponse(image, content_type="image/jpeg")
     response["Content-Disposition"] = "inline"
     return media.private_response(response)

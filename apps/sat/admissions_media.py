@@ -81,6 +81,13 @@ def doc_dir(asset):
     return premium_root() / DOC_DIR / asset
 
 
+def local_asset_dir(root, kind_dir, asset):
+    """The premium folder on the server, or `root` (a temporary folder on the uploader's PC)."""
+    if not ASSET_NAME.match(asset or ""):
+        raise ValueError("bad asset id")
+    return (Path(root) if root else premium_root()) / kind_dir / asset
+
+
 # ---------------------------------------------------------------- tokens and request guards
 
 
@@ -236,9 +243,12 @@ def _font(size):
 
 
 def stamp_page(image_path, text):
-    """JPEG bytes of a page image with a tiled diagonal watermark and a footer line."""
+    """JPEG bytes of a page image with a tiled diagonal watermark and a footer line.
+    `image_path` is a file path or the raw bytes of the page (V86: pages kept in R2)."""
     from PIL import Image, ImageDraw
 
+    if isinstance(image_path, (bytes, bytearray)):
+        image_path = io.BytesIO(image_path)
     with Image.open(image_path) as source:
         page = source.convert("RGB")
     width, height = page.size
@@ -270,20 +280,29 @@ def stamp_page(image_path, text):
 
 
 def ffmpeg_binary():
-    return shutil.which("ffmpeg") or os.environ.get("FFMPEG_BINARY") or "ffmpeg"
+    found = shutil.which("ffmpeg") or os.environ.get("FFMPEG_BINARY")
+    if found:
+        return found
+    try:  # V86: on a Windows PC `pip install imageio-ffmpeg` is enough
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:  # noqa: BLE001 - not installed: the plain name gives a clear error
+        return "ffmpeg"
 
 
 DURATION = re.compile(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)")
 
 
-def encrypt_video_to_hls(source, *, reencode=False, segment_seconds=6):
+def encrypt_video_to_hls(source, *, reencode=False, segment_seconds=6, root=None):
     """Cut `source` into AES-128 encrypted HLS in a new private asset folder.
 
     Returns dict(asset, key_hex, duration_seconds, segment_count). The key file only
     exists in a temporary folder while ffmpeg runs, then it is deleted.
+    V86: `root` puts the folder somewhere else (a temporary folder on the uploader's PC).
     """
     asset = new_asset_id()
-    final_dir = video_dir(asset)
+    final_dir = local_asset_dir(root, VIDEO_DIR, asset)
     work_dir = final_dir.with_name(asset + ".partial")
     work_dir.mkdir(parents=True, exist_ok=False)
     key = secrets.token_bytes(16)
@@ -312,13 +331,13 @@ def encrypt_video_to_hls(source, *, reencode=False, segment_seconds=6):
     return {"asset": asset, "key_hex": key.hex(), "duration_seconds": duration, "segment_count": segments}
 
 
-def render_pdf_pages(source, *, width=1400):
+def render_pdf_pages(source, *, width=1400, root=None):
     """Render each PDF page to a JPEG in a new private asset folder. Returns (asset, pages)."""
     import fitz  # PyMuPDF
     from PIL import Image
 
     asset = new_asset_id()
-    final_dir = doc_dir(asset)
+    final_dir = local_asset_dir(root, DOC_DIR, asset)
     work_dir = final_dir.with_name(asset + ".partial")
     work_dir.mkdir(parents=True, exist_ok=False)
     try:
@@ -407,13 +426,13 @@ def presigned_segment_url(asset, name):
     )
 
 
-def upload_video_to_r2(asset, *, workers=8):
+def upload_video_to_r2(asset, *, workers=8, folder=None, progress=None):
     """Upload every encrypted segment of a local asset to the private bucket and verify it.
     Returns the number of segments. The playlist and the key never go to R2."""
     from concurrent.futures import ThreadPoolExecutor
 
     bucket = assert_private_bucket()
-    folder = video_dir(asset)
+    folder = Path(folder) if folder else video_dir(asset)
     segments = sorted(p for p in folder.iterdir() if SEGMENT_NAME.match(p.name))
     client = r2_client()
 
@@ -421,25 +440,88 @@ def upload_video_to_r2(asset, *, workers=8):
         client.upload_file(str(path), bucket, r2_segment_key(asset, path.name), ExtraArgs={
             "ContentType": "video/mp2t", "CacheControl": "private, no-store, max-age=0",
         })
+        if progress:
+            progress()
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         list(pool.map(put, segments))
-    stored = 0
-    paginator = client.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=bucket, Prefix=f"{VIDEO_DIR}/{asset}/"):
-        stored += len(page.get("Contents", []))
+    stored = r2_count(f"{VIDEO_DIR}/{asset}/")
     if stored < len(segments):
         raise RuntimeError(f"R2 upload incomplete for {asset}: {stored}/{len(segments)} segments")
     return len(segments)
 
 
-def delete_video_from_r2(asset):
+def r2_count(prefix):
+    """How many objects the private bucket holds under `prefix`."""
     client, bucket = r2_client(), assert_private_bucket()
-    paginator = client.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=bucket, Prefix=f"{VIDEO_DIR}/{asset}/"):
+    stored = 0
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+        stored += len(page.get("Contents", []))
+    return stored
+
+
+def _delete_prefix(prefix):
+    client, bucket = r2_client(), assert_private_bucket()
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
         keys = [{"Key": item["Key"]} for item in page.get("Contents", [])]
         if keys:
             client.delete_objects(Bucket=bucket, Delete={"Objects": keys, "Quiet": True})
+
+
+def delete_video_from_r2(asset):
+    if not ASSET_NAME.match(asset or ""):
+        raise ValueError("bad asset id")
+    _delete_prefix(f"{VIDEO_DIR}/{asset}/")
+
+
+# ---------------------------------------------------------------- V86: PDF page images in the private bucket
+
+PAGE_NAME = re.compile(r"^p(\d{3})\.jpg$")
+
+
+def r2_page_key(asset, number):
+    if not ASSET_NAME.match(asset or "") or not 1 <= int(number) <= 999:
+        raise ValueError("bad page")
+    return f"{DOC_DIR}/{asset}/p{int(number):03d}.jpg"
+
+
+def upload_doc_to_r2(asset, *, folder=None, workers=8):
+    """Upload the page images of a document (never the PDF) and verify them. Returns the page count."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    bucket = assert_private_bucket()
+    folder = Path(folder) if folder else doc_dir(asset)
+    pages = sorted(p for p in folder.iterdir() if PAGE_NAME.match(p.name))
+    client = r2_client()
+
+    def put(path):
+        number = int(PAGE_NAME.match(path.name).group(1))
+        client.upload_file(str(path), bucket, r2_page_key(asset, number), ExtraArgs={
+            "ContentType": "image/jpeg", "CacheControl": "private, no-store, max-age=0",
+        })
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(put, pages))
+    stored = r2_count(f"{DOC_DIR}/{asset}/")
+    if stored < len(pages):
+        raise RuntimeError(f"R2 upload incomplete for {asset}: {stored}/{len(pages)} pages")
+    return len(pages)
+
+
+def read_page_from_r2(asset, number):
+    """Raw bytes of one page image. Only the access-checked page view calls this; the bytes
+    are stamped with the viewer's watermark before they leave the server."""
+    body = r2_client().get_object(Bucket=assert_private_bucket(), Key=r2_page_key(asset, number))["Body"]
+    try:
+        return body.read()
+    finally:
+        body.close()
+
+
+def delete_doc_from_r2(asset):
+    if not ASSET_NAME.match(asset or ""):
+        raise ValueError("bad asset id")
+    _delete_prefix(f"{DOC_DIR}/{asset}/")
 
 
 def apply_bucket_cors():

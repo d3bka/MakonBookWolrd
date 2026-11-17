@@ -127,8 +127,9 @@ class AdmissionsVideo(models.Model):
     """V81: a premium SATMakon lesson video, stored as AES-128 encrypted HLS in the private
     premium folder (settings.MAKONBOOK_PREMIUM_ROOT), never in /media or R2.
 
-    Created only by `manage.py import_admissions_media`. The key never leaves the server
-    except through the access-checked key endpoint.
+    Created by `manage.py import_admissions_media` on the server or, since V86, by
+    `manage.py upload_admissions_media` on the uploader's PC, which sends the key to the
+    site's media API. The key is never served except through the access-checked key endpoint.
     """
 
     STORAGE_LOCAL = "local"
@@ -168,6 +169,9 @@ class AdmissionsDocument(models.Model):
                                    help_text="File name in the Lessons folder used by the import command.")
     asset = models.CharField(max_length=40, blank=True, editable=False)
     page_count = models.PositiveSmallIntegerField(default=0, editable=False)
+    # V86: page images may live in the private R2 bucket (uploaded from a PC).
+    storage = models.CharField(max_length=8, choices=AdmissionsVideo.STORAGE_CHOICES,
+                               default=AdmissionsVideo.STORAGE_LOCAL, editable=False)
     lessons = models.ManyToManyField(AdmissionsLesson, related_name="documents", blank=True,
                                      help_text="Lessons that show this file. Students who can open one of "
                                                "these lessons can read it.")

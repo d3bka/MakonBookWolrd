@@ -327,6 +327,11 @@ MAKONBOOK_PREMIUM_R2_ENDPOINT_URL = env_str("MAKONBOOK_PREMIUM_R2_ENDPOINT_URL",
 MAKONBOOK_PREMIUM_R2_ACCESS_KEY_ID = env_str("MAKONBOOK_PREMIUM_R2_ACCESS_KEY_ID", "")
 MAKONBOOK_PREMIUM_R2_SECRET_ACCESS_KEY = env_str("MAKONBOOK_PREMIUM_R2_SECRET_ACCESS_KEY", "")
 MAKONBOOK_PREMIUM_R2_URL_TTL = int(env_str("MAKONBOOK_PREMIUM_R2_URL_TTL", "60") or 60)
+# V86: upload lessons from a PC (manage.py upload_admissions_media). The same long random
+# token is set on the site and on the PC; the site's media API is off while it is empty.
+# MAKONBOOK_MEDIA_UPLOAD_SITE is only read on the PC: the site the command registers with.
+MAKONBOOK_MEDIA_UPLOAD_TOKEN = env_str("MAKONBOOK_MEDIA_UPLOAD_TOKEN", "")
+MAKONBOOK_MEDIA_UPLOAD_SITE = env_str("MAKONBOOK_MEDIA_UPLOAD_SITE", "https://makonbook.uz")
 MAKONBOOK_PREMIUM_R2_ALLOWED_ORIGINS = [
     origin.strip() for origin in env_str(
         "MAKONBOOK_PREMIUM_R2_ALLOWED_ORIGINS", f"https://{SITE_DOMAIN},https://www.{SITE_DOMAIN}"

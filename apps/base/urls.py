@@ -7,6 +7,7 @@ from apps.sat import test_import_views as sat_test_import_views
 from apps.sat import views_mistakes as sat_mistakes_views
 from apps.sat import views_admissions as sat_admissions_views
 from apps.sat import views_admissions_media as sat_premium_views
+from apps.sat import views_admissions_upload as sat_media_upload_views
 from apps.sat import guest_views as sat_guest_views
 from apps.sat import event_registration_views as event_registration_views
 from apps.sat import public_placement_views as public_placement_views
@@ -212,6 +213,9 @@ urlpatterns = [
     path('vocabulary/<slug:slug>/', sat_views.vocabulary_section, name='vocabulary_section_root'),
     # V80: the Admissions course (lessons, videos, resources) and the Universities catalogue.
     # V81: premium SATMakon videos (encrypted HLS) and PDF pages, access-checked on every request.
+    path('api/admissions-media/status/', sat_media_upload_views.status, name='admissions_media_api_status'),
+    path('api/admissions-media/video/', sat_media_upload_views.register_video, name='admissions_media_api_video'),
+    path('api/admissions-media/document/', sat_media_upload_views.register_document, name='admissions_media_api_document'),
     path('admissions/files/<slug:slug>/', sat_premium_views.document_view, name='admissions_document_root'),
     path('admissions/files/<slug:slug>/page/<int:number>/', sat_premium_views.document_page, name='admissions_document_page_root'),
     path('admissions/<slug:slug>/video/playlist.m3u8', sat_premium_views.video_playlist, name='admissions_video_playlist_root'),

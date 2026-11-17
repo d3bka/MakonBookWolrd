@@ -1508,10 +1508,10 @@ class AdmissionsVideoAdmin(admin.ModelAdmin):
 class AdmissionsDocumentAdmin(admin.ModelAdmin):
     """V81: premium PDFs. Pages are rendered by the import command; here admins choose the
     title and which lessons show the file (that also decides who can read it)."""
-    list_display = ("title", "order", "page_count", "is_published")
+    list_display = ("title", "order", "page_count", "storage", "is_published")
     list_editable = ("order", "is_published")
-    fields = ("title", "slug", "description", "order", "lessons", "is_published", "source_name", "page_count")
-    readonly_fields = ("page_count",)
+    fields = ("title", "slug", "description", "order", "lessons", "is_published", "source_name", "page_count", "storage")
+    readonly_fields = ("page_count", "storage")
     filter_horizontal = ("lessons",)
     prepopulated_fields = {"slug": ("title",)}
     search_fields = ("title", "slug")
