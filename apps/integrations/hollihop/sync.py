@@ -1154,7 +1154,17 @@ class HollihopSyncEngine:
         if only_client_id is not None and not self._student_is_selected(int(only_client_id)):
             students = []
         elif selected is not None:
-            students = [s for s in students if int(s.get("ClientId") or 0) in selected]
+            # V88: students MakonBook already knows keep receiving status/contact
+            # updates after they leave every current group; otherwise a student who
+            # stopped studying stayed active after a full sync.
+            known = set(
+                UserProfile.objects.filter(hollihop_client_id__isnull=False)
+                .values_list("hollihop_client_id", flat=True)
+            )
+            students = [
+                s for s in students
+                if int(s.get("ClientId") or 0) in selected or int(s.get("ClientId") or 0) in known
+            ]
         self.summary.students_found += len(students)
         for data in students:
             try:
@@ -1591,7 +1601,11 @@ class HollihopSyncEngine:
         classroom = Classroom.objects.filter(hollihop_edunit_id=edunit_id).first()
         name_candidate = None
         if classroom is None:
-            by_name = list(Classroom.objects.filter(name__iexact=name)[:3])
+            # V88: a classroom already linked to another EdUnit is never a candidate.
+            # Hollihop reuses group names (a new intake with the same teacher), and
+            # taking that classroom over made two groups steal one classroom back and
+            # forth on every sync.
+            by_name = list(Classroom.objects.filter(name__iexact=name, hollihop_edunit_id__isnull=True)[:3])
             if len(by_name) == 1:
                 name_candidate = by_name[0]
             elif len(by_name) > 1:

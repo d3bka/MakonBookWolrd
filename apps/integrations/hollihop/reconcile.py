@@ -110,7 +110,9 @@ def _student_needs_update(engine: HollihopSyncEngine, data: dict, user) -> bool:
         return True
     if profile.middle_name != middle or profile.hollihop_status != status:
         return True
-    if email and normalize_email(user.email) != email:
+    # V84/V88: a student's own confirmed email is their login; Hollihop never replaces it,
+    # so a different Hollihop email is not a change to apply on every cycle.
+    if email and normalize_email(user.email) != email and not getattr(profile, "email_verified_at", None):
         return True
     if phone and (profile.phone_number or "") != phone:
         return True
@@ -182,6 +184,22 @@ class HollihopSmartReconciler:
             state.last_incremental_sync = last_incremental
             fields.append("last_incremental_sync")
         state.save(update_fields=fields)
+
+    def _sync_row_safely(self, entity_type, external_id, function, data):
+        """V88: one odd Hollihop row is logged and skipped; it must not abort the whole
+        smart cycle (and with it every later sweep and the saved checkpoints)."""
+        try:
+            with transaction.atomic():
+                function(data)
+        except (HollihopSyncAlreadyRunning, HollihopError):
+            raise
+        except Exception as exc:
+            reraise_fatal(exc)
+            self.engine.summary.errors += 1
+            self.engine._log(
+                "sync_error", entity_type=entity_type, external_id=external_id,
+                details=safe_sync_error_from_exception(exc),
+            )
 
     def _sync_one_student_row(self, data):
         try:
@@ -324,6 +342,7 @@ class HollihopSmartReconciler:
             for p in UserProfile.objects.select_related("user").filter(hollihop_teacher_id__isnull=False)
         }
         self.report.teacher_rows_checked = len(rows)
+        errors_before = self.engine.summary.errors
         for data in rows:
             try:
                 teacher_id = int(data.get("Id"))
@@ -335,9 +354,11 @@ class HollihopSmartReconciler:
                 # If an EdUnit references one, ensure_teacher() imports it instantly.
                 continue
             if _teacher_needs_update(data, user):
-                with transaction.atomic():
-                    self.engine._sync_teacher(data)
-        cursor["teachers_checked_at"] = _cursor_iso(now)
+                self._sync_row_safely("teacher", teacher_id, self.engine._sync_teacher, data)
+        if self.engine.summary.errors == errors_before:
+            cursor["teachers_checked_at"] = _cursor_iso(now)
+        else:
+            self.report.notes.append("Teacher poll had row errors; it will retry on the next cycle.")
 
     def _manager_poll(self, cursor, now):
         if not _due(cursor, "managers_checked_at", minutes=settings.HOLLIHOP_MANAGER_POLL_MINUTES, now=now):
@@ -361,6 +382,7 @@ class HollihopSmartReconciler:
         local_ids = set(
             UserProfile.objects.filter(hollihop_client_id__isnull=False).values_list("hollihop_client_id", flat=True)
         )
+        errors_before = self.engine.summary.errors
         if local_ids:
             rows = self.client.get_students()
             for data in rows:
@@ -373,10 +395,12 @@ class HollihopSmartReconciler:
                 user = _existing_student(client_id)
                 if _student_needs_update(self.engine, data, user):
                     self.engine.summary.students_found += 1
-                    with transaction.atomic():
-                        self.engine._sync_student(data)
+                    self._sync_row_safely("student", client_id, self.engine._sync_student, data)
         self.report.student_profile_sweep_ran = True
-        cursor["student_profile_sweep_at"] = _cursor_iso(now)
+        if self.engine.summary.errors == errors_before:
+            cursor["student_profile_sweep_at"] = _cursor_iso(now)
+        else:
+            self.report.notes.append("Student profile sweep had row errors; it will retry on the next cycle.")
 
     def _edunit_catalog_sweep(self, cursor, now):
         if not _due(
