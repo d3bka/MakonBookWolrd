@@ -109,6 +109,19 @@ class PublicPagesTests(TestCase):
                 self.assertContains(response, "makon-public-v85.css")
                 self.assertContains(response, "data-submit-once")
 
+    def test_logo_switches_with_the_theme_and_brand_transition_is_loaded(self):
+        # V87: purple shield on light, white shield on dark; the MakonBook veil plays on
+        # language/theme changes and header navigation.
+        for url in ("/", reverse("login"), reverse("public_placement_list"), reverse("rating_parent_lookup")):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertContains(response, 'class="mbp-logo mbp-logo-light"')
+                self.assertContains(response, "white-icon-nobg.png")
+                self.assertContains(response, "makon-landing-transitions-v641-local.js")
+        js = (Path(settings.BASE_DIR) / "static/assets/js/makon-landing-transitions-v641-local.js").read_text(encoding="utf-8")
+        self.assertIn("[data-mbp-header]", js)
+        self.assertIn("if (window.MakonBookLandingTransition) return;", js)
+
     def test_login_keeps_google_forgot_and_sign_up(self):
         response = self.client.get(reverse("login"))
         self.assertContains(response, reverse("forgot_password"))

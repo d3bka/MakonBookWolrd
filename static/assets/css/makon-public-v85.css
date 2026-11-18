@@ -88,8 +88,26 @@ html[data-theme="dark"] {
 .mbp-header.is-scrolled { padding: 8px 0; background: color-mix(in srgb, var(--p-bg) 82%, transparent); backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px); box-shadow: 0 1px 0 var(--p-line); }
 .mbp-nav { display: flex; align-items: center; gap: 18px; min-height: 58px; }
 .mbp-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex: 0 0 auto; }
-.mbp-brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; background: linear-gradient(135deg, #7c3aed, #a21caf); box-shadow: 0 8px 20px rgba(124, 58, 237, .3); }
-.mbp-brand-mark img { width: 30px; height: 30px; object-fit: contain; }
+/* V87: the shield itself is the logo: purple on light, white on dark (no tile behind it). */
+.mbp-brand-mark { position: relative; width: 36px; height: 43px; display: grid; place-items: center; flex: 0 0 auto;
+  transform-origin: 50% 60%; animation: mbpBrandEnter .7s cubic-bezier(.18, .65, .2, 1) backwards;
+  transition: transform .45s cubic-bezier(.34, 1.56, .64, 1), filter .3s ease; }
+.mbp-brand-mark .mbp-logo { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: contain; transition: opacity .3s ease; }
+.mbp-logo-dark { opacity: 0; }
+html[data-theme="dark"] .mbp-logo-light { opacity: 0; }
+html[data-theme="dark"] .mbp-logo-dark { opacity: 1; }
+.mbp-brand-copy strong { transition: color .25s ease; }
+.mbp-brand:hover .mbp-brand-mark, .mbp-brand:focus-visible .mbp-brand-mark {
+  transform: rotate(-9deg) scale(1.12); filter: drop-shadow(0 6px 14px rgba(124, 58, 237, .45)); }
+html[data-theme="dark"] .mbp-brand:hover .mbp-brand-mark { filter: drop-shadow(0 0 14px rgba(196, 181, 253, .55)); }
+.mbp-brand:hover .mbp-brand-copy strong { color: var(--p-brand); }
+.mbp-brand:active .mbp-brand-mark { transform: rotate(-4deg) scale(.94); transition-duration: .12s; }
+/* A short "wink" when the language or the theme changes. */
+.mbp-brand-mark.is-bump { animation: mbpBrandBump .65s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes mbpBrandEnter { from { opacity: .15; transform: translateY(-8px) scale(.9) rotate(-6deg); } to { opacity: 1; transform: none; } }
+@keyframes mbpBrandBump { 0% { transform: scale(1); } 35% { transform: scale(1.18) rotate(-12deg); } 65% { transform: scale(.95) rotate(5deg); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mbp-brand-mark, .mbp-brand-mark.is-bump { animation: none; transition: none; } }
+.mbp-body section[id] { scroll-margin-top: 84px; }
 .mbp-brand-copy strong { display: block; font-family: var(--p-display); font-size: 19px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
 .mbp-brand-copy small { display: block; margin-top: 3px; color: var(--p-muted); font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .mbp-links { display: flex; align-items: center; gap: 2px; margin: 0 auto; }
@@ -413,3 +431,23 @@ html[data-theme="dark"] body.mbp-body .theme-switcher {
 @media (max-width: 620px) { .mbp-trust-row .mbp-trust-title { flex-basis: 100%; text-align: center; } .mbp-stat span { font-size: 12px; } }
 /* Level check: its main button kept a dark label on purple. */
 a.pp-btn.pp12-primary-cta, a.pp-btn.pp12-primary-cta:hover { color: #fff; }
+/* RU/UZ labels are longer: FAQ stays in the footer and the mobile menu on laptop widths. */
+@media (max-width: 1500px) { html[lang="ru"] .mbp-links a.mbp-link-faq, html[lang="uz"] .mbp-links a.mbp-link-faq { display: none; } }
+
+/* V87: a single line under the menu slides to the block that is on screen. */
+.mbp-links { position: relative; }
+.mbp-links a.is-current { color: var(--p-text); }
+.mbp-nav-line { position: absolute; left: 0; bottom: 1px; height: 2.5px; width: 0; border-radius: 3px; pointer-events: none;
+  background: linear-gradient(90deg, var(--p-festive-1), var(--p-festive-2)); opacity: 0;
+  transition: transform .45s cubic-bezier(.22, .8, .3, 1), width .45s cubic-bezier(.22, .8, .3, 1), opacity .25s ease; }
+.mbp-nav-line.is-on { opacity: 1; }
+.mbp-mobile nav a.is-current { background: var(--p-brand-soft); color: var(--p-brand); }
+
+/* V87: FAQ answers slide and fade in and out. */
+.mbp-faq details p { transition: opacity .28s ease, transform .32s cubic-bezier(.22, .8, .3, 1); }
+.mbp-faq details:not([open]) p, .mbp-faq details.is-closing p { opacity: 0; transform: translateY(-6px); }
+.mbp-faq details[open]:not(.is-closing) p { opacity: 1; transform: none; }
+.mbp-faq details.is-closing summary::after { transform: rotate(0deg); }
+.mbp-faq details { transition: border-color .25s ease, box-shadow .25s ease; }
+.mbp-faq details[open]:not(.is-closing) { border-color: color-mix(in srgb, var(--p-brand) 35%, var(--p-line)); box-shadow: var(--p-shadow-sm); }
+@media (prefers-reduced-motion: reduce) { .mbp-nav-line, .mbp-faq details p { transition: none; } }

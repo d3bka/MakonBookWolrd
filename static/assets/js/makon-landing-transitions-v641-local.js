@@ -4,7 +4,10 @@
  */
 (function () {
   'use strict';
-  if (!document.querySelector('.mb56-nav-wrap')) return;
+  // V87: also runs under the V85 public header (.mbp-header); loaded once even when a page
+  // includes both the old and the new header assets.
+  if (window.MakonBookLandingTransition) return;
+  if (!document.querySelector('.mb56-nav-wrap, [data-mbp-header]')) return;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
   const TOTAL_MS = 730;
   const ACTION_MS = 270;
@@ -24,7 +27,7 @@
     image.alt = '';
     image.decoding = 'async';
     // Use the existing local asset; no Google Fonts or new network dependency.
-    const existing = document.querySelector('.mb56-nav .mb56-brand-mark img');
+    const existing = document.querySelector('.mb56-nav .mb56-brand-mark img, .mbp-brand-mark img');
     if (existing) {
       // The transition logo is fixed white on the same purple background in every theme.
       // Resolve next to the existing icon to respect custom STATIC_URL/CDN paths.
@@ -90,6 +93,7 @@
 
 
   function closeMobileMenu() {
+    if (window.MakonPublic && window.MakonPublic.closeMenu) window.MakonPublic.closeMenu();
     const menu = document.querySelector('[data-nav-menu]');
     const toggle = document.querySelector('[data-nav-toggle]');
     if (menu) menu.classList.remove('is-open');
@@ -164,9 +168,9 @@
     if (sameDocument) return;
     // Apply navigation effect to every header-bearing public page, not just
     // Landing <-> Parents. Also keep the existing parent/footer links covered.
-    const inHeader = Boolean(link.closest('.mb56-nav-wrap'));
+    const inHeader = Boolean(link.closest('.mb56-nav-wrap, .mbp-header, .mbp-mobile'));
     const decorated = link.matches('[data-mb642-parent-link], [data-mb645-transition]');
-    const inFooter = Boolean(link.closest('.mkp-footer'));
+    const inFooter = Boolean(link.closest('.mkp-footer, .mbp-footer'));
     if (!inHeader && !decorated && !inFooter) return;
     if (routePending) { event.preventDefault(); event.stopPropagation(); return; }
     if (link.matches('[data-mb642-parent-link]')) {

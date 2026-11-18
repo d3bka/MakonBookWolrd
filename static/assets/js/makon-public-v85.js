@@ -307,6 +307,7 @@
         o.setAttribute('aria-selected', o.getAttribute('data-mb63-lang-option') === lang ? 'true' : 'false');
       });
     }
+    try { window.dispatchEvent(new CustomEvent('makon:public-language', { detail: lang })); } catch (_) {}
     // Keep the language when moving between public pages that read ?lang (parent portal).
     doc.querySelectorAll('a[data-mb642-parent-link]').forEach(function (a) {
       try { var u = new URL(a.getAttribute('href'), window.location.href); u.searchParams.set('lang', lang); a.setAttribute('href', u.pathname + u.search + u.hash); } catch (_) {}
@@ -323,7 +324,7 @@
         var next = o.getAttribute('data-mb63-lang-option');
         open(false);
         if (!valid(next) || next === lang) return;
-        lang = next; store.set(lang); apply();
+        withBrand(function () { lang = next; store.set(lang); apply(); });
       });
     });
     doc.addEventListener('click', function (e) { if (!menuRoot.contains(e.target)) open(false); });
@@ -338,7 +339,37 @@
     });
   }
 
+  /* ------------------------------------------------ brand transition (V87) */
+  function bumpLogo() {
+    doc.querySelectorAll('.mbp-brand-mark').forEach(function (mark) {
+      mark.classList.remove('is-bump');
+      void mark.offsetWidth;
+      mark.classList.add('is-bump');
+      setTimeout(function () { mark.classList.remove('is-bump'); }, 700);
+    });
+  }
+  // Run `commit` under the full-screen MakonBook veil (makon-landing-transitions-v641-local.js).
+  function withBrand(commit) {
+    var fx = window.MakonBookLandingTransition;
+    var done = function () { commit(); bumpLogo(); };
+    if (fx && fx.run) fx.run(done).catch(done); else done();
+  }
+  // Theme choices: let the veil cover the switch, then replay the original click.
+  doc.addEventListener('click', function (event) {
+    var choice = event.target.closest && event.target.closest('[data-theme-choice]');
+    if (!choice || choice.dataset.mbpReplay) return;
+    var mode = choice.getAttribute('data-theme-choice');
+    if (mode && mode === html.dataset.themeMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    withBrand(function () {
+      choice.dataset.mbpReplay = '1';
+      try { choice.click(); } finally { delete choice.dataset.mbpReplay; }
+    });
+  }, true);
+
   /* ------------------------------------------------ header scroll + mobile menu */
+  var closeMenu = function () {};
   if (header) {
     var onScroll = function () { header.classList.toggle('is-scrolled', window.scrollY > 8); };
     onScroll();
@@ -352,6 +383,7 @@
         burger.setAttribute('aria-expanded', v ? 'true' : 'false');
         body.classList.toggle('mbp-menu-open', v);
       };
+      closeMenu = function () { setMenu(false); };
       burger.addEventListener('click', function () { setMenu(!header.classList.contains('is-open')); });
       mobile.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { setMenu(false); }); });
       doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
@@ -404,6 +436,88 @@
     layer.appendChild(frag);
   }
 
+  /* ------------------------------------------------ V87: the menu line follows the block on screen */
+  var navBox = doc.querySelector('.mbp-links');
+  var line = doc.querySelector('[data-mbp-nav-line]');
+  var spyLinks = Array.prototype.slice.call(doc.querySelectorAll('[data-mbp-spy]'));
+  var spySections = spyLinks.map(function (a) { return doc.getElementById(a.getAttribute('data-mbp-spy')); })
+    .filter(Boolean);
+  var current = null;
+  function placeLine() {
+    if (!navBox || !line) return;
+    var link = current && navBox.querySelector('[data-mbp-spy="' + current + '"]');
+    if (!link || !link.offsetWidth) { line.classList.remove('is-on'); return; }
+    line.style.width = link.offsetWidth - 24 + 'px';
+    line.style.transform = 'translateX(' + (link.offsetLeft + 12) + 'px)';
+    line.classList.add('is-on');
+  }
+  function setCurrent(id) {
+    if (id === current) return;
+    current = id;
+    spyLinks.forEach(function (a) { a.classList.toggle('is-current', a.getAttribute('data-mbp-spy') === id); });
+    placeLine();
+  }
+  if (spySections.length) {
+    var spy = function () {
+      // The block whose area crosses a line 35% from the top of the screen is "current".
+      var mark = window.innerHeight * 0.35;
+      var found = null;
+      spySections.forEach(function (section) {
+        var box = section.getBoundingClientRect();
+        if (box.top <= mark && box.bottom > mark) found = section.id;
+      });
+      setCurrent(found);
+    };
+    var ticking = false;
+    window.addEventListener('scroll', function () {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(function () { ticking = false; spy(); });
+    }, { passive: true });
+    window.addEventListener('resize', function () { placeLine(); spy(); });
+    spy();
+  }
+  // Labels change width with the language: keep the line under the right word.
+  window.addEventListener('makon:public-language', placeLine);
+  if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(placeLine);
+
+  /* ------------------------------------------------ V87: FAQ opens and closes smoothly, one at a time */
+  var faqItems = Array.prototype.slice.call(doc.querySelectorAll('.mbp-faq details'));
+  function animateDetails(details, open) {
+    var summary = details.querySelector('summary');
+    var from = details.offsetHeight;  // measured before a running animation is cancelled
+    if (details._mbpAnim) details._mbpAnim.cancel();
+    if (reduce || !details.animate) { details.open = open; return; }
+    if (open) details.open = true;
+    var to = open ? details.scrollHeight : summary.offsetHeight;
+    details.classList.toggle('is-closing', !open);
+    var anim = details.animate([{ height: from + 'px' }, { height: to + 'px' }],
+      { duration: open ? 340 : 280, easing: 'cubic-bezier(.22, .8, .3, 1)' });
+    details._mbpAnim = anim;
+    details.style.overflow = 'hidden';
+    anim.onfinish = function () {
+      details._mbpAnim = null;
+      details.classList.remove('is-closing');
+      if (!open) details.open = false;
+      details.style.overflow = '';
+    };
+    anim.oncancel = function () { details._mbpAnim = null; details.classList.remove('is-closing'); };
+  }
+  faqItems.forEach(function (details) {
+    var summary = details.querySelector('summary');
+    if (!summary) return;
+    summary.addEventListener('click', function (event) {
+      event.preventDefault();
+      var opening = !details.open || details.classList.contains('is-closing');
+      if (opening) {
+        faqItems.forEach(function (other) {
+          if (other !== details && other.open && !other.classList.contains('is-closing')) animateDetails(other, false);
+        });
+      }
+      animateDetails(details, opening);
+    });
+  });
+
   /* ------------------------------------------------ reveal on scroll */
   var items = Array.prototype.slice.call(doc.querySelectorAll('[data-reveal]'));
   if (items.length) {
@@ -424,5 +538,5 @@
   apply();
   // The testimonial carousel clones slides after load: translate the copies too.
   window.addEventListener('load', function () { setTimeout(apply, 50); });
-  window.MakonPublic = { apply: apply, lang: function () { return lang; } };
+  window.MakonPublic = { apply: apply, lang: function () { return lang; }, closeMenu: function () { closeMenu(); } };
 })();

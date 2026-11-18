@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  {% include 'landing/_public_transition_head_v645.html' %}
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>{% block title %}MakonBook — SAT preparation by SATMakon{% endblock %}</title>
   <meta name="description" content="{% block description %}MakonBook by SATMakon: Digital SAT practice, mistakes review, admissions course, universities catalogue and progress in one place.{% endblock %}">
@@ -14,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'assets/vendor/bootstrap-icons/bootstrap-icons.css' %}">
   <link rel="stylesheet" href="{% static 'assets/css/makon-theme-switcher.css' %}?v=5601">
-  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v85.css' %}?v=8500">
+  <link rel="stylesheet" href="{% static 'assets/css/makon-public-v85.css' %}?v=8701">
   <link rel="stylesheet" href="{% static 'assets/css/makon-festive-v85.css' %}?v=8500">
   {% block head %}{% endblock %}
 </head>
@@ -24,7 +25,8 @@
   <main id="main">{% block content %}{% endblock %}</main>
   {% block footer %}{% include 'public/_footer.html' %}{% endblock %}
   <script src="{% static 'assets/js/makon-theme-switcher.js' %}?v=6451"></script>
-  <script src="{% static 'assets/js/makon-public-v85.js' %}?v=8500"></script>
+  <script src="{% static 'assets/js/makon-public-v85.js' %}?v=8701"></script>
+  <script src="{% static 'assets/js/makon-landing-transitions-v641-local.js' %}?v=8700" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
