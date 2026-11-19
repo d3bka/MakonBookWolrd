@@ -1,0 +1,51 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Attempt requests • MakonBook{% endblock %}
+{% block content %}
+<style>
+.ar93-row{padding:16px 0;border-bottom:1px solid var(--border-color,#e5e7eb)}
+.ar93-row:last-child{border-bottom:0}
+.ar93-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ar93-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:800}
+.ar93-badge.wait{background:rgba(217,119,6,.12);color:#b45309}
+.ar93-badge.approved{background:rgba(22,163,74,.12);color:#15803d}
+.ar93-badge.rejected{background:rgba(220,38,38,.10);color:#b91c1c}
+.ar93-badge.withdrawn{background:rgba(100,116,139,.14);color:#475569}
+.ar93-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:12px}
+.ar93-actions select,.ar93-actions input{padding:9px 10px;border-radius:9px}
+.ar93-quote{margin:8px 0 0;padding:8px 12px;border-left:3px solid #7438da;border-radius:0 10px 10px 0;background:rgba(116,56,218,.06)}
+[data-theme="dark"] .ar93-badge.wait{color:#fcd34d}[data-theme="dark"] .ar93-badge.approved{color:#86efac}[data-theme="dark"] .ar93-badge.rejected{color:#fca5a5}[data-theme="dark"] .ar93-badge.withdrawn{color:#cbd5e1}
+</style>
+<div class="sf29-page">
+<section class="sf29-hero span-12"><span class="sf28-kicker"><i class="bi bi-arrow-counterclockwise"></i> SAT practice tests</span><h1>Attempt requests</h1>
+<p>SATMakon students can start each practice test {{ satmakon_limit }} times (other accounts {{ public_limit }}). When a student in your classes runs out, they can ask you here for 1–3 more attempts. They get a notification with your decision and note.</p></section>
+
+<section class="sf29-card span-12" id="waiting">
+  <div class="ar93-head" style="justify-content:space-between"><h2 style="margin:0">Waiting</h2>{% if pending %}<span class="ar93-badge wait">{{ pending|length }} waiting</span>{% endif %}</div>
+  {% for row in pending %}
+  <div class="ar93-row">
+    <div class="ar93-head"><strong>{{ row.user.get_full_name|default:row.user.username }} · {{ row.test.name }}</strong>
+      <span class="ar93-badge wait">{{ row.attempt_info.used }} of {{ row.attempt_info.total }} used{% if row.attempt_info.extra %} (incl. +{{ row.attempt_info.extra }} given before){% endif %}</span></div>
+    <p style="margin:6px 0 0">Sent {{ row.created_at|date:"d M, H:i" }}</p>
+    {% if row.message %}<p class="ar93-quote">“{{ row.message }}”</p>{% endif %}
+    <form method="post" class="ar93-actions">{% csrf_token %}
+      <input type="hidden" name="request_id" value="{{ row.pk }}">
+      <label>Attempts to give<br><select name="granted">{% for n in grant_choices %}<option value="{{ n }}">+{{ n }}</option>{% endfor %}</select></label>
+      <label>Note (optional)<br><input name="note" maxlength="300" placeholder="Visible to the student"></label>
+      <button class="sf28-btn primary" type="submit" name="decision" value="approve"><i class="bi bi-check2"></i> Give attempts</button>
+      <button class="sf28-btn" type="submit" name="decision" value="reject"><i class="bi bi-x"></i> Reject</button>
+    </form>
+  </div>
+  {% empty %}<p>No requests waiting.</p>{% endfor %}
+</section>
+
+{% if decided %}
+<section class="sf29-card span-12"><h2>Recently decided</h2>
+  {% for row in decided %}
+  <div class="ar93-row"><div class="ar93-head"><strong>{{ row.user.get_full_name|default:row.user.username }} · {{ row.test.name }}</strong>
+    <span class="ar93-badge {{ row.status }}">{{ row.get_status_display }}{% if row.status == 'approved' %} +{{ row.granted }}{% endif %}</span></div>
+    <p style="margin:6px 0 0">{% if row.decided_by %}{{ row.decided_by.get_full_name|default:row.decided_by.username }} · {% endif %}{{ row.decided_at|default:row.created_at|date:"d M, H:i" }}{% if row.decision_note %} · “{{ row.decision_note }}”{% endif %}</p></div>
+  {% endfor %}
+</section>
+{% endif %}
+</div>
+{% endblock %}

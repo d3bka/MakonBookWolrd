@@ -183,6 +183,7 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "teacher_progress_root": "progress",
     "teacher_assessments_root": "ratings",
     "teacher_access_root": "access",
+    "teacher_attempt_requests_root": "attempt-requests",
     "teacher_vocabulary_units_root": "vocabulary",
     "teacher_classroom_homework": "homework",
     "teacher_student_practice_progress_root": "progress",
@@ -274,6 +275,15 @@ def _hollihop_sync_busy():
     from apps.integrations.hollihop.activity import is_busy
 
     return is_busy()
+
+
+def _attempt_requests_waiting(user):
+    """V93: evaluated lazily, only when the teacher sidebar draws the Attempt requests item."""
+    def count():
+        from apps.sat.attempt_limits import pending_count
+
+        return pending_count(user)
+    return count
 
 
 def staff_workspace_meta(request):
@@ -370,6 +380,7 @@ def staff_workspace_meta(request):
         "staff_role_count": sum((has_teacher, has_manager or has_admin, has_admin, has_support)),
         # V89: a callable, so the DB/cache are touched only when the sidebar draws the item.
         "hollihop_sync_busy": _hollihop_sync_busy if (has_manager or has_admin) else False,
+        "attempt_requests_waiting": _attempt_requests_waiting(user) if has_teacher else 0,
     }
 
 

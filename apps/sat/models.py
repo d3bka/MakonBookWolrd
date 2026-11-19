@@ -3498,6 +3498,7 @@ class MakonNotification(models.Model):
     TYPE_ASSESSMENT = 'assessment'
     TYPE_SUPPORT = 'support'
     TYPE_SOCIAL = 'social'  # V50.7 friend requests and duel challenges
+    TYPE_ATTEMPTS = 'attempts'  # V93 extra SAT attempts
     TYPE_CHOICES = (
         (TYPE_TEST_REVIEW, 'Test review'),
         (TYPE_TEST_PUBLISHED, 'Test published'),
@@ -3508,6 +3509,7 @@ class MakonNotification(models.Model):
         (TYPE_ASSESSMENT, 'Assessment'),
         (TYPE_SUPPORT, 'Support lesson'),
         (TYPE_SOCIAL, 'Friends'),
+        (TYPE_ATTEMPTS, 'Test attempts'),
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='makon_notifications')
     type = models.CharField(max_length=32, choices=TYPE_CHOICES)
@@ -3575,3 +3577,6 @@ from .admissions_models import (  # noqa: E402,F401
     AdmissionsDocument, AdmissionsLesson, AdmissionsLessonProgress, AdmissionsResource, AdmissionsStep,
     AdmissionsKeyLog, AdmissionsMediaSession, AdmissionsVideo, University,
 )
+
+# V93: SAT practice-test attempt limits and extra attempts from teachers.
+from .attempt_limit_models import SatAttemptRequest, SatAttemptUse  # noqa: E402,F401

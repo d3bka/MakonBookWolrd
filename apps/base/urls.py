@@ -9,6 +9,7 @@ from apps.sat import views_admissions as sat_admissions_views
 from apps.sat import views_admissions_media as sat_premium_views
 from apps.sat import views_admissions_upload as sat_media_upload_views
 from apps.sat import guest_views as sat_guest_views
+from apps.sat import views_attempts as sat_attempt_views
 from apps.sat import event_registration_views as event_registration_views
 from apps.sat import public_placement_views as public_placement_views
 from apps.ratings import views as rating_views
@@ -86,6 +87,7 @@ urlpatterns = [
     path('teacher/classrooms/<int:classroom_id>/assessments/<int:student_id>/', rating_views.assess_student, name='teacher_assess_student_root'),
     path('teacher/assessments/<int:assessment_id>/edit/', rating_views.edit_assessment, name='teacher_edit_assessment_root'),
     path('teacher/access/', sat_views.teacher_access_hub, name='teacher_access_root'),
+    path('teacher/attempt-requests/', sat_attempt_views.teacher_attempt_requests, name='teacher_attempt_requests_root'),
     path('teacher/vocabulary/', sat_views.teacher_vocabulary_units, name='teacher_vocabulary_units_root'),
     path('teacher/vocabulary/create-unit/', sat_views.create_vocabulary_unit, name='teacher_vocabulary_create_unit_root'),
     path('teacher/vocabulary/unit/<int:unit_id>/', sat_views.teacher_vocabulary_unit_detail, name='teacher_vocabulary_unit_detail_root'),
@@ -193,6 +195,8 @@ urlpatterns = [
     path('tests/<str:pk>/module/', sat_views.module_test, name='practice_test_module_root'),
     path('tests/<str:pk>/restart/', sat_views.restart, name='practice_test_restart_root'),
     path('tests/<str:pk>/restart/<str:section>/', sat_views.restart_section, name='practice_test_restart_section_root'),
+    path('tests/<str:pk>/attempts/', sat_attempt_views.practice_test_attempts, name='practice_test_attempts_root'),
+    path('tests/attempt-requests/<int:request_id>/withdraw/', sat_attempt_views.withdraw_attempt_request, name='practice_test_attempt_request_withdraw_root'),
     path('tests/<str:test>/results/', sat_views.results, name='practice_test_results_root'),
     path('tests/<str:test>/results/certificate/', sat_views.certificate, name='practice_test_certificate_root'),
     path('tests/review/<str:key>/<str:section>/<str:module>/<str:id>/', sat_views.question, name='practice_test_review_question_root'),

@@ -84,8 +84,10 @@
           {% else %}New full-test attempt{% endif %}
         </strong>
         <span>Your previous score stays in attempt history. A new attempt is created only after you press Start below.</span>
+        {% if attempt_info and not attempt_info.unlimited %}<span class="sat93-attempts" data-attempts-left="{{ attempt_info.remaining }}"><b>{{ attempt_info.remaining }} of {{ attempt_info.total }}</b> attempt{{ attempt_info.total|pluralize }} left for this test{% if attempt_info.remaining == 1 %} · this is your last one{% endif %}.</span>{% endif %}
       </div>
     </section>
+    <style>.sat93-attempts{display:block;margin-top:6px;font-size:13px;opacity:.9}.sat93-attempts b{font-weight:800}</style>
     {% endif %}
 
     <section class="sat531-overview">

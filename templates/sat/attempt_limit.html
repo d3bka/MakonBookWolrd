@@ -1,0 +1,99 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}{{ test.name }} · No attempts left · MakonBook{% endblock %}
+{% block student_workspace_style %}
+  {{ block.super }}
+  <style>
+  /* V93: no attempts left */
+  .al93{max-width:880px;margin:0 auto;display:grid;gap:16px}
+  .al93-card{background:var(--mb62-card,#fff);border:1px solid var(--mb62-stroke,#e8e4f0);border-radius:22px;padding:24px;box-shadow:var(--mb62-elev,none);color:var(--mb62-text,#1c1926)}
+  .al93-hero{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+  .al93-icon{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;font-size:26px;background:rgba(116,56,218,.12);color:var(--mb62-purple,#7438da)}
+  .al93-kicker{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb62-muted,#746c84)}
+  .al93 h1{margin:4px 0 8px;font-size:clamp(22px,3.2vw,30px);line-height:1.2}
+  .al93 h2{margin:0 0 6px;font-size:19px}
+  .al93 p{margin:0;color:var(--mb62-muted,#746c84);line-height:1.55}
+  .al93-dots{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+  .al93-dot{width:28px;height:8px;border-radius:999px;background:var(--mb62-purple,#7438da)}
+  .al93-dot.extra{background:#16a34a}
+  .al93-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .al93-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:14px;font-weight:750;text-decoration:none;border:1px solid var(--mb62-stroke,#e8e4f0);background:transparent;color:var(--mb62-text,#1c1926);cursor:pointer;font:inherit}
+  .al93 .al93-btn.primary{background:var(--mb62-purple,#7438da);background-image:none;border-color:transparent;color:#fff;box-shadow:none;font-size:15px;font-weight:750;letter-spacing:normal}
+  .al93-btn:focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+  .al93-form{display:grid;gap:12px;margin-top:14px}
+  .al93-form textarea{width:100%;min-height:84px;padding:12px 14px;border-radius:14px;border:1px solid var(--mb62-stroke,#e8e4f0);background:var(--mb62-soft,#f4f0fc);color:var(--mb62-text,#1c1926);font:inherit;resize:vertical;box-sizing:border-box}
+  .al93-teachers{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .al93-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--mb62-soft,#f4f0fc);font-size:13px;font-weight:700}
+  .al93-status{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:16px;background:rgba(217,119,6,.10);border:1px solid rgba(217,119,6,.3)}
+  .al93-status strong{display:block}
+  .al93-history{display:grid;gap:8px;margin-top:10px}
+  .al93-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid var(--mb62-stroke,#e8e4f0);font-size:14px}
+  .al93-badge{padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800}
+  .al93-badge.approved{background:rgba(22,163,74,.14);color:#15803d}
+  .al93-badge.rejected{background:rgba(220,38,38,.12);color:#b91c1c}
+  .al93-badge.pending{background:rgba(217,119,6,.14);color:#b45309}
+  .al93-badge.withdrawn{background:rgba(100,116,139,.14);color:#475569}
+  [data-theme="dark"] .al93-badge.approved{color:#86efac}[data-theme="dark"] .al93-badge.rejected{color:#fca5a5}[data-theme="dark"] .al93-badge.pending{color:#fcd34d}[data-theme="dark"] .al93-badge.withdrawn{color:#cbd5e1}
+  @media(max-width:560px){.al93-hero{grid-template-columns:1fr}.al93-card{padding:18px}}
+  </style>
+{% endblock student_workspace_style %}
+
+{% block content %}
+<div class="al93">
+  <section class="al93-card al93-hero" aria-labelledby="al93-title">
+    <div class="al93-icon" aria-hidden="true"><i class="bi bi-hourglass-bottom"></i></div>
+    <div>
+      <span class="al93-kicker">{{ test.name }}</span>
+      <h1 id="al93-title">You have used all {{ attempts.total }} attempt{{ attempts.total|pluralize }} at this test.</h1>
+      <p>{% if attempts.satmakon %}SATMakon students get {{ attempts.limit }} attempts at each practice test{% else %}Each practice test can be started {{ attempts.limit }} times{% endif %}{% if attempts.extra %}, and your teacher gave you {{ attempts.extra }} more{% endif %}. Every start counts, including retaking one section. Your results stay in your history.</p>
+      <div class="al93-dots" aria-label="{{ attempts.used }} of {{ attempts.total }} attempts used">{% for i in ''|center:attempts.limit %}<span class="al93-dot"></span>{% endfor %}{% if attempts.extra %}{% for i in ''|center:attempts.extra %}<span class="al93-dot extra"></span>{% endfor %}{% endif %}</div>
+      <div class="al93-actions">
+        <a class="al93-btn primary" href="{% url 'practice_test_results_root' test.name %}"><i class="bi bi-bar-chart"></i> See my results</a>
+        <a class="al93-btn" href="{{ practice_library_url }}"><i class="bi bi-arrow-left"></i> Back to tests</a>
+      </div>
+    </div>
+  </section>
+
+  {% if attempts.satmakon %}
+  <section class="al93-card" aria-labelledby="al93-ask">
+    <h2 id="al93-ask">Need another try?</h2>
+    {% if attempts.pending %}
+      <div class="al93-status" role="status">
+        <div><strong><i class="bi bi-clock-history"></i> Waiting for your teacher</strong><p>Sent {{ attempts.pending.created_at|date:"d M, H:i" }}. You will get a notification when they decide.</p></div>
+        <form method="post" action="{% url 'practice_test_attempt_request_withdraw_root' attempts.pending.pk %}">{% csrf_token %}<button class="al93-btn" type="submit">Withdraw</button></form>
+      </div>
+    {% elif attempts.teachers %}
+      <p>Ask your teacher. If they agree, they can give you 1–3 more attempts at {{ test.name }}.</p>
+      <div class="al93-teachers">{% for teacher in attempts.teachers %}<span class="al93-chip"><i class="bi bi-person"></i> {{ teacher.get_full_name|default:teacher.username }}</span>{% endfor %}</div>
+      <form method="post" class="al93-form">{% csrf_token %}
+        <label for="al93-message" class="al93-kicker">Message to the teacher (optional)</label>
+        <textarea id="al93-message" name="message" maxlength="300" placeholder="For example: my internet went down during Module 2"></textarea>
+        <div><button class="al93-btn primary" type="submit"><i class="bi bi-send"></i> Ask for more attempts</button></div>
+      </form>
+    {% else %}
+      <p>You are not in a class with a teacher yet, so there is no one to ask. Join your class with the code from your teacher, then ask here.</p>
+      <div class="al93-actions"><a class="al93-btn primary" href="{% url 'student_classrooms_root' %}"><i class="bi bi-people"></i> My classes</a></div>
+    {% endif %}
+  </section>
+  {% else %}
+  <section class="al93-card" aria-labelledby="al93-join">
+    <h2 id="al93-join">Want more practice?</h2>
+    <p>SATMakon students get {{ satmakon_limit }} attempts at every practice test, the full test library, and teachers who can give extra attempts.</p>
+    <div class="al93-actions">
+      {% if request.user.profile.self_registered and not request.user.profile.hollihop_client_id %}<a class="al93-btn primary" href="{% url 'satmakon_link' %}"><i class="bi bi-link-45deg"></i> I study at SATMakon: connect my account</a>{% endif %}
+      <a class="al93-btn" href="{% url 'home' %}#courses"><i class="bi bi-mortarboard"></i> SATMakon courses</a>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if requests_history %}
+  <section class="al93-card" aria-labelledby="al93-history">
+    <h2 id="al93-history">Your requests</h2>
+    <div class="al93-history">
+      {% for row in requests_history %}
+      <div class="al93-row"><span>{{ row.created_at|date:"d M Y" }}{% if row.status == 'approved' %} · +{{ row.granted }} from {{ row.decided_by.get_full_name|default:row.decided_by.username }}{% elif row.decided_by %} · {{ row.decided_by.get_full_name|default:row.decided_by.username }}{% endif %}{% if row.decision_note %} · “{{ row.decision_note }}”{% endif %}</span><span class="al93-badge {{ row.status }}">{{ row.get_status_display }}</span></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock content %}

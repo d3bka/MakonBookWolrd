@@ -1563,3 +1563,23 @@ class AdmissionsMediaSessionAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+# V93: SAT practice-test attempt limits.
+from .attempt_limit_models import SatAttemptRequest, SatAttemptUse  # noqa: E402
+
+
+@admin.register(SatAttemptRequest)
+class SatAttemptRequestAdmin(admin.ModelAdmin):
+    list_display = ("user", "test", "status", "granted", "decided_by", "created_at", "decided_at")
+    list_filter = ("status",)
+    search_fields = ("user__username", "user__first_name", "user__last_name", "test__name")
+    raw_id_fields = ("user", "test", "decided_by")
+
+
+@admin.register(SatAttemptUse)
+class SatAttemptUseAdmin(admin.ModelAdmin):
+    list_display = ("user", "test", "source", "created_at")
+    list_filter = ("source",)
+    search_fields = ("user__username", "test__name")
+    raw_id_fields = ("user", "test")

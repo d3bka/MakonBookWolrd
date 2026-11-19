@@ -58,6 +58,8 @@ from .support_forms import SupportTeacherSelfAvailabilityForm, SupportTeacherSel
 from .student_goal_forms import StudentGoalProfileForm
 from .test_icon_service import ensure_default_test_icon
 from .student_workspace import student_workspace_context, should_use_student_workspace
+from . import attempt_limits
+from .attempt_limit_models import SatAttemptUse
 from .student_access import (
     classroom_join_codes_enabled, free_practice_test_limit, is_active_satmakon_student, practice_library_url,
 )
@@ -111,6 +113,7 @@ def restart(request, pk):
     blocked_stage = None
     stage = None
     response = False
+    limit_reached = False
     with transaction.atomic():
         User.objects.select_for_update().filter(pk=user.pk).first()
 
@@ -125,6 +128,8 @@ def restart(request, pk):
             )
             if active_other:
                 blocked_stage = active_other
+            elif not attempt_limits.can_start(user, test):
+                limit_reached = True
             else:
                 # A full retake must be a genuinely new TestStage row. Reusing the
                 # completed stage via resolve() can leave stale stage/runtime state
@@ -148,6 +153,7 @@ def restart(request, pk):
                     attempt_started_at=timezone.now(),
                 )
                 response = True
+                attempt_limits.record(user, test, stage.attempt_id, SatAttemptUse.SOURCE_RETAKE)
                 _apply_stage_integrity_config(
                     stage,
                     _requested_integrity_config(request, test, classroom),
@@ -164,6 +170,9 @@ def restart(request, pk):
             f"Finish or resume {blocked_stage.test.name} before starting another test attempt."
         )
         return redirect(_resumable_stage_module_url(blocked_stage))
+
+    if limit_reached:
+        return redirect(attempt_limits.limit_url(test))
 
     if response:
         _bind_active_attempt(request, stage)
@@ -731,6 +740,7 @@ def _discard_abandoned_stage(request, stage):
         TestModuleDraft.objects.filter(**attempt_scope).delete()
         TestModule.objects.filter(**attempt_scope).delete()
         TestReview.objects.filter(score__isnull=True, **attempt_scope).delete()
+        attempt_limits.refund(stage.user, stage.test, stage.attempt_id)
         stage.delete()
     _clear_bound_active_attempt(request, stage.test, stage.attempt_id)
 
@@ -2037,6 +2047,9 @@ def _claim_regular_test_stage(user, test_obj, *, classroom=None, mode='full_test
         if blocked:
             return None, blocked, False
 
+        if not attempt_limits.can_start(user, test_obj):
+            raise AttemptLimitReached()
+
         stage, created = _get_or_create_regular_test_stage(
             user,
             test_obj,
@@ -2044,7 +2057,13 @@ def _claim_regular_test_stage(user, test_obj, *, classroom=None, mode='full_test
             classroom=classroom,
             mode=mode,
         )
+        if created:
+            attempt_limits.record(user, test_obj, stage.attempt_id, SatAttemptUse.SOURCE_START)
         return stage, None, created
+
+
+class AttemptLimitReached(Exception):
+    """V93: the student has used every attempt at this SAT practice test."""
 
 
 
@@ -3888,6 +3907,10 @@ def start_Practise(request, pk):
             ),
         })
 
+    attempt_info = attempt_limits.state(user, test)
+    if attempt_info['exhausted'] and not resumable_stage and (retake_mode or str(request.GET.get('configured') or '').strip().lower() in {'1', 'true', 'yes'}):
+        return redirect(attempt_limits.limit_url(test))
+
     if retake_mode:
         blocked_stage = resumable_stage or _find_other_resumable_regular_stage(
             user, test_obj=test, classroom=None,
@@ -3906,6 +3929,7 @@ def start_Practise(request, pk):
             'has_active_attempt': bool(resumable_stage),
             'retake_mode': retake_mode,
             'retake_action_url': reverse(action_name, kwargs=action_kwargs),
+            'attempt_info': attempt_info,
             'blocked_active_attempt': blocked_stage,
             'blocked_active_url': _resumable_stage_module_url(blocked_stage) if blocked_stage else '',
             'start_url': '',
@@ -3956,6 +3980,7 @@ def start_Practise(request, pk):
                 'has_active_attempt': False,
                 'retake_mode': 'full',
                 'retake_action_url': reverse('practice_test_restart_root', kwargs={'pk': test.name}),
+                'attempt_info': attempt_info,
                 'blocked_active_attempt': None,
                 'blocked_active_url': '',
                 'start_url': '',
@@ -4484,12 +4509,15 @@ def module_test(request, pk, attempt_id=None):
             return HttpResponse('This SAT attempt is no longer active.', status=409)
 
         if test_stage is None:
-            test_stage, blocked_stage, created = _claim_regular_test_stage(
-                user,
-                test,
-                classroom=None,
-                mode=requested_mode,
-            )
+            try:
+                test_stage, blocked_stage, created = _claim_regular_test_stage(
+                    user,
+                    test,
+                    classroom=None,
+                    mode=requested_mode,
+                )
+            except AttemptLimitReached:
+                return redirect(attempt_limits.limit_url(test))
 
         # Coming back to an attempt abandoned without a single answer (this test's,
         # or another test's that would block starting this one): discard it and
@@ -5028,6 +5056,7 @@ def restart_section(request, pk, section):
     section = str(section or '').strip().lower()
     if section not in {'english', 'math'}:
         return HttpResponse("Unknown section.", status=400)
+    limit_reached = False
 
     classroom = _get_classroom_context_from_id(user, request.POST.get('classroom_id'), test_obj=test)
     if not _test_attempts_open(test, user):
@@ -5056,6 +5085,8 @@ def restart_section(request, pk, section):
             )
             if active_other:
                 blocked_stage = active_other
+            elif not attempt_limits.can_start(user, test):
+                limit_reached = True
             else:
                 previous_stage = _latest_regular_test_stage(user, test, classroom=classroom)
                 previous_retake_count = int(getattr(previous_stage, 'retake_count', 0) or 0)
@@ -5071,6 +5102,7 @@ def restart_section(request, pk, section):
                 )
                 response = stage.resolve_section(section)
                 if response:
+                    attempt_limits.record(user, test, stage.attempt_id, SatAttemptUse.SOURCE_SECTION)
                     _apply_stage_integrity_config(
                         stage,
                         _requested_integrity_config(request, test, classroom),
@@ -5086,6 +5118,9 @@ def restart_section(request, pk, section):
             f"Finish or resume {blocked_stage.test.name} before starting another test attempt."
         )
         return redirect(_resumable_stage_module_url(blocked_stage))
+
+    if limit_reached:
+        return redirect(attempt_limits.limit_url(test))
 
     if response:
         _bind_active_attempt(request, stage)

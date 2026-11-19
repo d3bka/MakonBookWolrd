@@ -386,6 +386,9 @@ TEST_IMPORT_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("TEST_IMPORT_RATE_LIMIT_WI
 # locking an entire school behind one NAT/public IP.
 CLASSROOM_JOIN_USER_MAX_ATTEMPTS = max(3, int(os.getenv("CLASSROOM_JOIN_USER_MAX_ATTEMPTS", "10")))
 CLASSROOM_JOIN_IP_MAX_ATTEMPTS = max(20, int(os.getenv("CLASSROOM_JOIN_IP_MAX_ATTEMPTS", "100")))
+# V93: how many times a student may start each SAT practice test (teachers/staff: unlimited).
+SAT_ATTEMPTS_SATMAKON_STUDENT = max(1, int(os.getenv("SAT_ATTEMPTS_SATMAKON_STUDENT", "5")))
+SAT_ATTEMPTS_PUBLIC = max(1, int(os.getenv("SAT_ATTEMPTS_PUBLIC", "3")))
 CLASSROOM_JOIN_RATE_WINDOW_SECONDS = max(60, int(os.getenv("CLASSROOM_JOIN_RATE_WINDOW_SECONDS", "600")))
 
 # Shared Redis counters in production; zero-setup in-memory counters in local

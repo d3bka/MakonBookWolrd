@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v527.css' %}?v=528">
   <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v528.css' %}?v=528">
   <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v529.css' %}?v=529">
+  <style>/* V93 */.mb93-count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}</style>
   <style>/* V89: Hollihop sync in progress */.mb89-sync-dot{width:8px;height:8px;margin-left:auto;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:mb89Pulse 1.6s ease-out infinite;flex:0 0 auto}.mb89-spin{animation:mb89Spin 1.4s linear infinite;display:inline-block}@keyframes mb89Pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}100%{box-shadow:0 0 0 9px rgba(34,197,94,0)}}@keyframes mb89Spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.mb89-sync-dot,.mb89-spin{animation:none}}</style>
   <link rel="stylesheet" href="{% static 'assets/css/staff-workspace-v50210.css' %}?v=502121">
   <link rel="stylesheet" href="{% static 'assets/css/workspace-section-reset-v69.css' %}?v=6901">
@@ -60,6 +61,7 @@
         <a class="mb50-nav-item{% if staff_workspace_active == 'progress' %} is-active{% endif %}" href="{% url 'teacher_progress_root' %}" data-sidebar-item data-nav-key="progress" data-sidebar-default-group="teaching"><i class="bi bi-graph-up-arrow"></i><span>Progress</span></a>
         <a class="mb50-nav-item{% if staff_workspace_active == 'ratings' %} is-active{% endif %}" href="{% url 'teacher_assessments_root' %}" data-sidebar-item data-nav-key="ratings" data-sidebar-default-group="teaching"><i class="bi bi-star"></i><span>Assessments</span></a>
         <a class="mb50-nav-item{% if staff_workspace_active == 'access' %} is-active{% endif %}" href="{% url 'teacher_access_root' %}" data-sidebar-item data-nav-key="access" data-sidebar-default-group="teaching"><i class="bi bi-shield-check"></i><span>Access</span></a>
+        <a class="mb50-nav-item{% if staff_workspace_active == 'attempt-requests' %} is-active{% endif %}" href="{% url 'teacher_attempt_requests_root' %}" data-sidebar-item data-nav-key="attempt-requests" data-sidebar-default-group="teaching"><i class="bi bi-arrow-counterclockwise"></i><span>Attempt requests</span>{% with waiting=attempt_requests_waiting %}{% if waiting %}<span class="mb93-count" aria-label="{{ waiting }} waiting">{{ waiting }}</span>{% endif %}{% endwith %}</a>
       </div>
       <div class="mb50-nav-group" data-sidebar-sortable data-sidebar-group="content"><span class="mb50-nav-label">Content</span>
         <a class="mb50-nav-item{% if staff_workspace_active == 'vocabulary' %} is-active{% endif %}" href="{% url 'teacher_vocabulary_units_root' %}" data-sidebar-item data-nav-key="vocabulary" data-sidebar-default-group="content"><i class="bi bi-journal-bookmark"></i><span>Vocabulary</span></a>
