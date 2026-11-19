@@ -33,3 +33,8 @@ MAKONBOOK_PREMIUM_R2_ACCESS_KEY_ID = ""
 MAKONBOOK_PREMIUM_R2_SECRET_ACCESS_KEY = ""
 MAKONBOOK_MEDIA_UPLOAD_TOKEN = ""
 MAKONBOOK_MEDIA_UPLOAD_SITE = "https://makonbook.example"
+
+# V92: models' Public/PrivateStorage write to a local temp folder in tests, never to R2.
+import tempfile as _tempfile  # noqa: E402
+MAKONBOOK_LOCAL_FILE_STORAGE = True
+MAKONBOOK_TEST_MEDIA_ROOT = str(Path(_tempfile.gettempdir()) / "makonbook-test-media")
