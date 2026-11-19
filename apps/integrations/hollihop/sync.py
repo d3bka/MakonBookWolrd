@@ -19,6 +19,7 @@ from apps.base.models import UserProfile
 from apps.integrations.models import HollihopAttendance, HollihopSyncConflict, HollihopSyncLog, HollihopSyncState
 from apps.sat.models import Classroom, ClassroomMembership
 
+from . import activity
 from .client import HollihopClient, HollihopError
 from .credentials import can_deliver_temporary_access, deliver_new_temporary_access
 from .error_reporting import safe_sync_error_details, safe_sync_error_from_exception
@@ -129,6 +130,8 @@ class HollihopSyncEngine:
         self.dry_run = bool(dry_run)
         self.send_credentials = bool(send_credentials) and not self.dry_run
         self.summary = SyncSummary()
+        # V89: shown in the Manager Panel while this run holds the lock.
+        self.activity_kind = "sync"
         self._lock_token = None
         self._next_lock_heartbeat_at = 0.0
         # Dry-run must model objects that *would* be created by earlier stages.
@@ -304,6 +307,7 @@ class HollihopSyncEngine:
             state.last_status = HollihopSyncState.STATUS_SYNCING
             state.last_error_safe = ""
             state.save()
+        activity.started(self.activity_kind)
 
     def heartbeat_lock(self, *, force=False):
         """Extend the DB sync lease while a long import is still healthy.
@@ -327,6 +331,7 @@ class HollihopSyncEngine:
             raise HollihopSyncAlreadyRunning(
                 "Hollihop synchronization lost ownership of its lock; aborting to prevent concurrent writes."
             )
+        activity.note(summary=self.summary)
         # Refresh at least every five minutes and at roughly one third of a
         # shorter configured lease. This keeps DB writes negligible.
         interval = max(30.0, min(300.0, settings.HOLLIHOP_SYNC_LOCK_MINUTES * 20.0))
@@ -360,6 +365,12 @@ class HollihopSyncEngine:
             state.attendance_synced = self.summary.attendance_created + self.summary.attendance_updated
             state.save()
         self._lock_token = None
+        activity.finished()
+
+    def stage(self, name):
+        """V89: the stage a manager sees in the panel (no-op in dry-run)."""
+        if not self.dry_run and self._lock_token:
+            activity.note(stage=name, summary=self.summary)
 
     def run(self, *, stages, date_from=None, date_to=None):
         self.acquire_lock()
@@ -367,21 +378,27 @@ class HollihopSyncEngine:
         try:
             self.heartbeat_lock(force=True)
             if "managers" in stages:
+                self.stage("managers")
                 self.sync_managers()
                 self.heartbeat_lock(force=True)
             if "teachers" in stages:
+                self.stage("teachers")
                 self.sync_teachers()
                 self.heartbeat_lock(force=True)
             if "students" in stages:
+                self.stage("students")
                 self.sync_students()
                 self.heartbeat_lock(force=True)
             if "classrooms" in stages:
+                self.stage("classrooms")
                 self.sync_classrooms()
                 self.heartbeat_lock(force=True)
             if "memberships" in stages:
+                self.stage("memberships")
                 self.sync_memberships()
                 self.heartbeat_lock(force=True)
             if "attendance" in stages:
+                self.stage("attendance")
                 self.sync_attendance(date_from=date_from, date_to=date_to)
                 self.heartbeat_lock(force=True)
             self.release_lock(success=self.summary.errors == 0, partial=self.summary.errors > 0)

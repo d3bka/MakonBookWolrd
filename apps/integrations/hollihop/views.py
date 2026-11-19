@@ -25,6 +25,7 @@ from apps.integrations.models import (
 from apps.sat.models import Classroom
 from apps.sat.roles import can_manage_classroom, is_manager, is_platform_admin
 
+from . import activity
 from .error_reporting import safe_sync_error_details
 
 logger = logging.getLogger(__name__)
@@ -139,8 +140,18 @@ def integration_dashboard(request):
         "credentials_auto_send": settings.HOLLIHOP_AUTO_SEND_CREDENTIALS,
         "sms_provider": getattr(settings, "MAKONBOOK_SMS_PROVIDER", "disabled"),
         "teacher_choices": teacher_choices,
+        "sync_activity": activity.current(state),
     }
     return render(request, "integrations/hollihop/dashboard.html", context)
+
+
+def sync_activity(request):
+    """V89: live status for the Manager Panel badge (polled every few seconds)."""
+    if not _manager_allowed(request.user):
+        return HttpResponseForbidden("Manager access required.")
+    response = JsonResponse(activity.current())
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @require_POST
@@ -166,6 +177,7 @@ def initial_sync(request):
         return redirect("hollihop_dashboard")
     try:
         manual_initial_hollihop_sync.delay()
+        activity.mark_queued("initial")
         messages.success(request, "Initial Hollihop import was queued. Automatic 5-minute smart sync will remain disabled until this import finishes successfully.")
     except Exception:
         try:
@@ -187,6 +199,7 @@ def smart_sync_now(request):
         return redirect("hollihop_dashboard")
     try:
         manual_smart_hollihop_sync.delay()
+        activity.mark_queued("smart")
         messages.success(request, "Lightweight Hollihop update check was queued.")
     except Exception:
         messages.error(request, "Background worker is unavailable.")
@@ -207,6 +220,7 @@ def membership_sync_now(request):
         return redirect("hollihop_dashboard")
     try:
         manual_membership_hollihop_sync.delay()
+        activity.mark_queued("memberships")
         messages.success(request, "Relation-only Hollihop membership reconciliation was queued (Days/payments are not requested).")
     except Exception:
         messages.error(request, "Background worker is unavailable.")
@@ -227,6 +241,7 @@ def full_reconciliation(request):
         return redirect("hollihop_dashboard")
     try:
         manual_full_hollihop_reconciliation.delay()
+        activity.mark_queued("full")
         messages.success(request, "Full Hollihop reconciliation was queued. This is manual only and is never run on app startup.")
     except Exception:
         messages.error(request, "Background worker is unavailable. Run: python manage.py sync_hollihop --all")

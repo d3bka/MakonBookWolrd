@@ -268,6 +268,13 @@ STAFF_WORKSPACE_ROUTE_MAP = {
 }
 
 
+def _hollihop_sync_busy():
+    """V89: evaluated lazily, only when the staff sidebar draws the Hollihop item."""
+    from apps.integrations.hollihop.activity import is_busy
+
+    return is_busy()
+
+
 def staff_workspace_meta(request):
     """Cheap role-aware context used only by the staff workspace shell.
 
@@ -360,6 +367,8 @@ def staff_workspace_meta(request):
         # Admin remains a distinct switchable workspace. Manager access is still
         # available to platform admins for backwards-compatible operational overrides.
         "staff_role_count": sum((has_teacher, has_manager or has_admin, has_admin, has_support)),
+        # V89: a callable, so the DB/cache are touched only when the sidebar draws the item.
+        "hollihop_sync_busy": _hollihop_sync_busy if (has_manager or has_admin) else False,
     }
 
 

@@ -25,10 +25,12 @@ def _initial_sync_ready():
     return bool(state and state.initial_sync_completed)
 
 
-def _new_engine(*, send_credentials=None):
+def _new_engine(*, send_credentials=None, kind="sync"):
     if send_credentials is None:
         send_credentials = settings.HOLLIHOP_AUTO_SEND_CREDENTIALS
-    return HollihopSyncEngine(send_credentials=bool(send_credentials))
+    engine = HollihopSyncEngine(send_credentials=bool(send_credentials))
+    engine.activity_kind = kind
+    return engine
 
 
 @shared_task(name="apps.integrations.hollihop.tasks.smart_reconcile_hollihop", soft_time_limit=1500, time_limit=1800)
@@ -65,6 +67,7 @@ def manual_hollihop_sync(
     date_to=None,
     send_credentials=False,
     mark_initial=False,
+    kind="full",
 ):
     """Explicit full/staged synchronization started by Manager/CLI.
 
@@ -74,7 +77,7 @@ def manual_hollihop_sync(
     """
     if not _integration_enabled():
         return {"status": "disabled"}
-    engine = _new_engine(send_credentials=send_credentials)
+    engine = _new_engine(send_credentials=send_credentials, kind=kind)
     try:
         summary = engine.run(stages=set(stages or full_stage_set()), date_from=date_from, date_to=date_to)
     except HollihopSyncAlreadyRunning:
@@ -98,6 +101,7 @@ def manual_initial_hollihop_sync():
             list(full_stage_set()),
             send_credentials=False,
             mark_initial=True,
+            kind="initial",
         )
     finally:
         try:
@@ -134,7 +138,7 @@ def manual_membership_hollihop_sync():
         return {"status": "disabled"}
     if not _initial_sync_ready():
         return {"status": "awaiting_initial_sync"}
-    engine = _new_engine(send_credentials=False)
+    engine = _new_engine(send_credentials=False, kind="memberships")
     try:
         engine.acquire_lock()
     except HollihopSyncAlreadyRunning:
@@ -162,7 +166,7 @@ def sync_resolved_classroom_mapping(edunit_id):
         return {"status": "disabled"}
     if not _initial_sync_ready():
         return {"status": "awaiting_initial_sync"}
-    engine = _new_engine(send_credentials=False)
+    engine = _new_engine(send_credentials=False, kind="mapping")
     try:
         engine.acquire_lock()
     except HollihopSyncAlreadyRunning:
@@ -189,7 +193,7 @@ def process_student_webhook(trigger_type, client_id, attempt=0):
     if not _initial_sync_ready():
         return {"status": "awaiting_initial_sync"}
 
-    engine = _new_engine()
+    engine = _new_engine(kind="webhook")
     try:
         engine.acquire_lock()
     except HollihopSyncAlreadyRunning:

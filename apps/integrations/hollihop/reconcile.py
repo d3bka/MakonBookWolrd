@@ -171,6 +171,7 @@ class HollihopSmartReconciler:
         if send_credentials is None:
             send_credentials = settings.HOLLIHOP_AUTO_SEND_CREDENTIALS
         self.engine = HollihopSyncEngine(send_credentials=bool(send_credentials))
+        self.engine.activity_kind = "smart"
         self.client = self.engine.client
         self.report = SmartSyncReport()
 
@@ -525,16 +526,24 @@ class HollihopSmartReconciler:
         cursor = dict(state.cursor_state or {})
         try:
             # Always-light 5-minute delta checks.
+            self.engine.stage("student_delta")
             self._student_delta(state, cursor, cycle_started)
+            self.engine.stage("edunit_delta")
             self._edunit_delta(state, cursor, cycle_started)
 
             # Bounded lower-frequency checks. These timestamps persist in DB, so
             # restarts do not cause an immediate burst of all expensive endpoints.
+            self.engine.stage("teacher_poll")
             self._teacher_poll(cursor, cycle_started)
+            self.engine.stage("manager_poll")
             self._manager_poll(cursor, cycle_started)
+            self.engine.stage("student_sweep")
             self._student_profile_sweep(cursor, cycle_started)
+            self.engine.stage("catalog_sweep")
             self._edunit_catalog_sweep(cursor, cycle_started)
+            self.engine.stage("membership_sweep")
             self._membership_sweep(cursor, cycle_started)
+            self.engine.stage("attendance_sweep")
             self._attendance_sweep(cursor, cycle_started)
 
             state = self._state()

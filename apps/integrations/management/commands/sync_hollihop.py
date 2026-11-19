@@ -187,6 +187,7 @@ class Command(BaseCommand):
 
         try:
             engine = HollihopSyncEngine(dry_run=dry_run, send_credentials=send_credentials)
+            engine.activity_kind = "command"
             if env_single:
                 found_any = False
 

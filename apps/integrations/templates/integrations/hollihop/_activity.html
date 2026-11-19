@@ -1,0 +1,81 @@
+{# V89: live "sync in progress" banner. Server-rendered first, then polled. #}
+<style>
+.holli-live{display:none;align-items:center;gap:16px;padding:16px 20px;margin-bottom:16px;border-radius:18px;border:1px solid rgba(34,197,94,.35);background:linear-gradient(90deg,rgba(34,197,94,.10),rgba(59,130,246,.06));}
+.holli-live.is-running,.holli-live.is-queued{display:flex}
+.holli-live.is-queued{border-color:rgba(217,119,6,.35);background:linear-gradient(90deg,rgba(245,158,11,.12),rgba(245,158,11,.04))}
+.holli-live-icon{position:relative;flex:0 0 auto;width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:#16a34a;color:#fff;font-size:20px}
+.holli-live.is-queued .holli-live-icon{background:#d97706}
+.holli-live.is-running .holli-live-icon i{animation:holliSpin 1.4s linear infinite;display:inline-block}
+.holli-live.is-running .holli-live-icon::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(34,197,94,.5);animation:holliRing 1.8s ease-out infinite}
+.holli-live-copy{min-width:0;flex:1}
+.holli-live-copy strong{display:block;font-size:16px}
+.holli-live-copy span{color:#64748b;font-size:13.5px}
+.holli-live-stage{display:inline-block;margin-left:6px;padding:2px 9px;border-radius:999px;background:rgba(22,163,74,.14);color:#15803d;font-weight:800;font-size:12px}
+.holli-live-counts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.holli-live-counts b{padding:3px 9px;border-radius:999px;background:rgba(15,23,42,.06);font-size:12px;font-weight:700}
+.holli-live-bar{height:4px;margin-top:9px;border-radius:999px;background:rgba(22,163,74,.15);overflow:hidden}
+.holli-live-bar i{display:block;width:35%;height:100%;border-radius:999px;background:#16a34a;animation:holliSlide 1.5s ease-in-out infinite}
+.holli-live.is-queued .holli-live-bar i{background:#d97706;animation-duration:2.4s}
+.holli-busy .holli-actions form button{opacity:.5;pointer-events:none}
+[data-theme="dark"] .holli-live-copy span{color:#94a3b8}
+[data-theme="dark"] .holli-live-counts b{background:rgba(255,255,255,.08)}
+@keyframes holliSpin{to{transform:rotate(360deg)}}
+@keyframes holliRing{0%{opacity:1;transform:scale(.9)}100%{opacity:0;transform:scale(1.35)}}
+@keyframes holliSlide{0%{transform:translateX(-110%)}100%{transform:translateX(310%)}}
+@media (prefers-reduced-motion:reduce){.holli-live *,.holli-live *::after{animation:none!important}}
+</style>
+<div class="holli-live is-{{ sync_activity.status }}" role="status" aria-live="polite"
+     data-holli-live data-url="{% url 'hollihop_sync_activity' %}" data-initial="{{ sync_activity.status }}">
+  <div class="holli-live-icon"><i class="bi {% if sync_activity.status == 'queued' %}bi-hourglass-split{% else %}bi-arrow-repeat{% endif %}" data-live-icon></i></div>
+  <div class="holli-live-copy">
+    <strong data-live-title>{% if sync_activity.status == 'queued' %}{{ sync_activity.kind_label }} queued — waiting for the background worker{% else %}{{ sync_activity.kind_label }} in progress{% endif %}</strong>
+    <span data-live-detail>{% if sync_activity.status == 'running' %}Started {{ sync_activity.elapsed }} ago{% if sync_activity.stage_label %} · stage<span class="holli-live-stage">{{ sync_activity.stage_label }}</span>{% endif %}{% elif sync_activity.status == 'queued' %}It starts as soon as a Celery worker is free.{% endif %}</span>
+    <div class="holli-live-counts" data-live-counts>{% for item in sync_activity.counts %}<b>{{ item.value }} {{ item.label }}</b>{% endfor %}</div>
+    <div class="holli-live-bar" aria-hidden="true"><i></i></div>
+  </div>
+</div>
+<script>
+(function () {
+  var box = document.querySelector('[data-holli-live]');
+  if (!box || !window.fetch) return;
+  var shell = box.closest('.holli-shell');
+  var wasBusy = box.dataset.initial !== 'idle';
+  var title = box.querySelector('[data-live-title]');
+  var detail = box.querySelector('[data-live-detail]');
+  var counts = box.querySelector('[data-live-counts]');
+  var icon = box.querySelector('[data-live-icon]');
+  function esc(text) { var d = document.createElement('div'); d.textContent = String(text == null ? '' : text); return d.innerHTML; }
+  function paint(data) {
+    var busy = data.status === 'running' || data.status === 'queued';
+    box.className = 'holli-live is-' + data.status;
+    if (shell) shell.classList.toggle('holli-busy', busy);
+    if (data.status === 'running') {
+      title.textContent = data.kind_label + ' in progress';
+      detail.innerHTML = 'Started ' + esc(data.elapsed) + ' ago' +
+        (data.stage_label ? ' · stage<span class="holli-live-stage">' + esc(data.stage_label) + '</span>' : '');
+      counts.innerHTML = (data.counts || []).map(function (c) { return '<b>' + esc(c.value) + ' ' + esc(c.label) + '</b>'; }).join('');
+      icon.className = 'bi bi-arrow-repeat';
+    } else if (data.status === 'queued') {
+      title.textContent = data.kind_label + ' queued — waiting for the background worker';
+      detail.textContent = 'It starts as soon as a Celery worker is free.';
+      counts.innerHTML = '';
+      icon.className = 'bi bi-hourglass-split';
+    }
+    // A run just finished: reload once so the numbers, errors and log below are fresh.
+    if (wasBusy && !busy) { window.location.reload(); return 'reload'; }
+    wasBusy = busy;
+    return busy;
+  }
+  function poll() {
+    fetch(box.dataset.url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var result = data ? paint(data) : wasBusy;
+        if (result !== 'reload') setTimeout(poll, result ? 4000 : 20000);
+      })
+      .catch(function () { setTimeout(poll, 20000); });
+  }
+  if (shell) shell.classList.toggle('holli-busy', wasBusy);
+  setTimeout(poll, wasBusy ? 4000 : 20000);
+})();
+</script>

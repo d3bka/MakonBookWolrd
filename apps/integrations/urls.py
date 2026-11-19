@@ -4,6 +4,7 @@ from .hollihop import views
 
 urlpatterns = [
     path("hollihop/", views.integration_dashboard, name="hollihop_dashboard"),
+    path("hollihop/activity.json", views.sync_activity, name="hollihop_sync_activity"),
     path("hollihop/sync-now/", views.sync_now, name="hollihop_sync_now"),
     path("hollihop/sync-initial/", views.initial_sync, name="hollihop_initial_sync"),
     path("hollihop/sync-smart/", views.smart_sync_now, name="hollihop_smart_sync"),
