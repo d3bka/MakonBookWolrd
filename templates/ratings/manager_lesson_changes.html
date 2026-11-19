@@ -1,0 +1,43 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Lesson changes report • MakonBook{% endblock %}
+{% block content %}
+<style>
+.lc91-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0}
+.lc91-stat{padding:16px;border-radius:16px;border:1px solid var(--border-color,#e5e7eb)}
+.lc91-stat span{display:block;color:#64748b;font-size:13px}.lc91-stat strong{font-size:26px}
+.lc91-table{width:100%;border-collapse:collapse;min-width:820px}.lc91-table th,.lc91-table td{padding:10px;border-bottom:1px solid var(--border-color,#e5e7eb);text-align:left;vertical-align:top}
+.lc91-table th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#64748b}
+.lc91-wrap{overflow-x:auto}
+@media(max-width:900px){.lc91-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<div class="sf29-page">
+<section class="sf29-hero span-12"><span class="sf28-kicker"><i class="bi bi-file-earmark-bar-graph"></i> Reports</span><h1>Lesson changes</h1>
+<p>Cancelled and covered lessons for {{ start|date:"F Y" }}: teacher requests (approved, rejected, waiting) and cancellations a manager set directly.</p>
+<div class="sf28-actions">
+  <form method="get" style="display:flex;gap:8px;align-items:center"><input type="month" name="month" value="{{ month }}" style="padding:9px;border-radius:9px"><button class="sf28-btn" type="submit">Show</button></form>
+  <a class="sf28-btn primary" href="{% url 'manager_lesson_changes_xlsx' %}?month={{ month }}"><i class="bi bi-file-earmark-excel"></i> Download Excel</a>
+  <a class="sf28-btn" href="{% url 'manager_assessment_schedules' %}#requests">Requests</a>
+  <a class="sf28-btn" href="{% url 'manager_assessment_report' %}?month={{ month }}">Penalty report</a>
+</div></section>
+
+<div class="lc91-stats span-12">
+  <div class="lc91-stat"><span>Cancelled (approved)</span><strong>{{ counts.cancelled }}</strong></div>
+  <div class="lc91-stat"><span>Covered (approved)</span><strong>{{ counts.covered }}</strong></div>
+  <div class="lc91-stat"><span>Set by manager</span><strong>{{ counts.manager }}</strong></div>
+  <div class="lc91-stat"><span>Rejected</span><strong>{{ counts.rejected }}</strong></div>
+  <div class="lc91-stat"><span>Waiting</span><strong>{{ counts.pending }}</strong></div>
+</div>
+
+<section class="sf29-card span-12"><h2>By teacher</h2>
+<div class="lc91-wrap"><table class="lc91-table"><thead><tr><th>Teacher</th><th>Lessons held (to date)</th><th>Cancelled</th><th>Covered</th><th>Set by manager</th><th>Rejected</th><th>Waiting</th></tr></thead><tbody>
+{% for row in totals %}<tr><td>{{ row.teacher.get_full_name|default:row.teacher.username }}</td><td>{{ row.held }}</td><td>{{ row.cancelled }}</td><td>{{ row.covered }}</td><td>{{ row.manager }}</td><td>{{ row.rejected }}</td><td>{{ row.pending }}</td></tr>
+{% empty %}<tr><td colspan="7">No lesson changes this month.</td></tr>{% endfor %}
+</tbody></table></div></section>
+
+<section class="sf29-card span-12"><h2>All changes</h2>
+<div class="lc91-wrap"><table class="lc91-table"><thead><tr><th>Date</th><th>Classroom</th><th>Teacher</th><th>Change</th><th>Reason</th><th>Status</th><th>Decided by</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.date|date:"D d M" }}</td><td>{{ row.classroom }}</td><td>{{ row.teacher.get_full_name|default:row.teacher.username }}</td><td>{{ row.kind }}{% if row.cover %}<br><small>by {{ row.cover }}</small>{% endif %}</td><td>{{ row.reason }}</td><td>{{ row.status }}</td><td>{{ row.decided_by|default:"—" }}{% if row.note %}<br><small>{{ row.note }}</small>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="7">No lesson changes this month.</td></tr>{% endfor %}
+</tbody></table></div></section>
+</div>
+{% endblock %}

@@ -250,6 +250,22 @@ python manage.py sync_hollihop --attendance --from 2026-01-01 --to 2026-08-22
 
 Attendance keys include student, EdUnit, date and Hollihop schedule-item IDs where present, so repeated sync updates an existing record rather than creating duplicates.
 
+## 11a. Lesson schedules for teacher assessments (V90)
+
+Every classroom sync also reads the group's `ScheduleItems` from `GetEdUnits`
+(`BeginDate`, `EndDate`, `Weekdays`, `TeacherIds`). `Weekdays` is the Hollihop bit mask
+(Mon 1, Tue 2, Wed 4, Thu 8, Fri 16, Sat 32, Sun 64), turned into the ISO weekdays of
+`AssessmentSchedule` (Manager Panel → Lesson schedules).
+
+- Hollihop is the source of truth for the days, the teacher and the end date of a Hollihop
+  group; a manual schedule of that group is taken over. Finished schedule items are ignored;
+  an item without teachers belongs to the group's teacher.
+- A new schedule lets the teacher assess at once with **fines off**. A manager turns fines on
+  per group or for all groups at once; fines then start the **next day** (never retroactively).
+- Manager calendar exceptions (cancelled / extra lessons) and fines already turned on are kept.
+- A teacher who no longer teaches the group in Hollihop stops being scheduled for it.
+- When Hollihop has no current schedule for a group, MakonBook changes nothing.
+
 ## 12. Webhook
 
 Endpoint:

@@ -59,7 +59,8 @@ def today_assessment_state(classroom, teacher, now=None):
     today = timezone.localdate(now)
     schedule = AssessmentSchedule.objects.filter(classroom=classroom, teacher=teacher, enabled=True).first()
     allowed = lesson_allowed(schedule, today)
-    required = allowed and today in required_lesson_dates(schedule, today)
+    # V90: a lesson is mandatory (and fined) only once a manager turned fines on.
+    required = allowed and schedule.fines_active_on(today) and today in required_lesson_dates(schedule, today)
     return schedule, allowed, required
 
 
@@ -73,12 +74,16 @@ def prepare_today_obligations(day=None, schedule=None):
     day = day or today
     if day != today:
         raise ValueError('Obligations may only be prepared for the current day.')
-    schedules = AssessmentSchedule.objects.filter(enabled=True, classroom__is_active=True).select_related('classroom', 'teacher')
+    # V90: obligations (and therefore fines, reminders and daily reports) exist only
+    # for schedules whose fines a manager has turned on.
+    schedules = AssessmentSchedule.objects.filter(
+        enabled=True, fines_enabled=True, classroom__is_active=True,
+    ).select_related('classroom', 'teacher')
     if schedule is not None:
         schedules = schedules.filter(pk=schedule.pk)
     created = 0
     for entry in schedules:
-        if not entry.teacher.is_active or day not in required_lesson_dates(entry, day):
+        if not entry.teacher.is_active or not entry.fines_active_on(day) or day not in required_lesson_dates(entry, day):
             continue
         # Ignore stale teacher mappings (e.g. Hollihop changed owners).
         if entry.classroom.teacher_id != entry.teacher_id and not ClassroomMembership.objects.filter(

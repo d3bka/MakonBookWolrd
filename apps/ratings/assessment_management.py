@@ -21,10 +21,14 @@ from .assessment_policy import (
     ASSESSMENTS_PER_WEEK, PENALTY_UZS, lesson_dates, prepare_today_obligations,
     settle_missed_assessments, send_pending_daily_manager_reports,
 )
+from .lesson_changes import decide, lessons_held, monthly_rows, summary_by_teacher
 from .models import (
     AssessmentCalendarException, AssessmentObligation, AssessmentPenalty,
-    AssessmentSchedule, UserActivityDay,
+    AssessmentSchedule, LessonChangeRequest, UserActivityDay,
 )
+
+
+WEEKDAY_NAMES = [(1, 'Mon'), (2, 'Tue'), (3, 'Wed'), (4, 'Thu'), (5, 'Fri'), (6, 'Sat'), (7, 'Sun')]
 
 
 def _manager(user):
@@ -50,15 +54,164 @@ def manager_assessment_schedules(request):
     if not _manager(request.user):
         return HttpResponseForbidden('Manager access required.')
     schedules = list(AssessmentSchedule.objects.select_related('teacher', 'classroom').prefetch_related('exceptions').order_by('classroom__name', 'teacher__username'))
-    classrooms = list(Classroom.objects.filter(is_active=True).select_related('teacher').prefetch_related('memberships').order_by('name'))
+    day_names = dict(WEEKDAY_NAMES)
+    today_local = timezone.localdate()
+    for schedule in schedules:
+        schedule.day_labels = ', '.join(day_names.get(d, str(d)) for d in sorted(schedule.weekdays or []))
+        schedule.fines_now = schedule.fines_active_on(today_local) if schedule.enabled else False
+    # V90: Hollihop groups get their days automatically; the manual form is only for
+    # classrooms that do not come from Hollihop.
+    classrooms = list(Classroom.objects.filter(is_active=True, hollihop_edunit_id__isnull=True).select_related('teacher').prefetch_related('memberships').order_by('name'))
     for classroom in classrooms:
         teacher_ids = {classroom.teacher_id} | {m.user_id for m in classroom.memberships.all() if m.role == 'teacher' and m.status == 'approved'}
         classroom.teacher_options = User.objects.filter(pk__in=teacher_ids, is_active=True).order_by('first_name', 'username')
     today = timezone.localdate()
+    hollihop_schedules = [s for s in schedules if s.hollihop_managed]
     return render(request, 'ratings/manager_assessment_schedules.html', {
         'schedules': schedules, 'classrooms': classrooms, 'today': today,
-        'weekdays': [(1, 'Mon'), (2, 'Tue'), (3, 'Wed'), (4, 'Thu'), (5, 'Fri'), (6, 'Sat'), (7, 'Sun')],
+        'weekdays': WEEKDAY_NAMES,
+        'hollihop_schedules': hollihop_schedules,
+        'manual_schedules': [s for s in schedules if not s.hollihop_managed],
+        'fines_off_count': sum(1 for s in hollihop_schedules if s.enabled and not s.fines_enabled),
+        'pending_changes': list(LessonChangeRequest.objects.filter(status=LessonChangeRequest.PENDING)
+                                .select_related('schedule__classroom', 'schedule__teacher', 'cover_teacher', 'requested_by')
+                                .order_by('date', 'created_at')),
+        'recent_changes': list(LessonChangeRequest.objects.exclude(status=LessonChangeRequest.PENDING)
+                               .select_related('schedule__classroom', 'schedule__teacher', 'cover_teacher', 'decided_by')
+                               .order_by('-decided_at', '-created_at')[:15]),
     })
+
+
+@login_required
+@require_POST
+def manager_decide_lesson_change(request, change_id):
+    """V91: approve (no assessments, no fine that day) or reject a teacher's lesson change."""
+    if not _manager(request.user):
+        return HttpResponseForbidden('Manager access required.')
+    change = get_object_or_404(LessonChangeRequest, pk=change_id)
+    approve = request.POST.get('decision') == 'approve'
+    if not approve and request.POST.get('decision') != 'reject':
+        messages.error(request, 'Choose approve or reject.')
+        return redirect('manager_assessment_schedules')
+    try:
+        change, waived = decide(change, approve=approve, manager=request.user, note=request.POST.get('note', ''))
+    except ValidationError as exc:
+        messages.error(request, ' '.join(exc.messages))
+        return redirect('manager_assessment_schedules')
+    if approve:
+        extra = f' {waived} fine(s) for that day were waived.' if waived else ''
+        messages.success(request, f'Approved: {change.schedule.classroom.name} on {change.date:%d %b} is cancelled.{extra}')
+    else:
+        messages.success(request, f'Rejected: the lesson on {change.date:%d %b} stays mandatory.')
+    return redirect(reverse('manager_assessment_schedules') + '#requests')
+
+
+def _lesson_change_report_data(month):
+    start, end = _month_interval(month)
+    rows = monthly_rows(start, end)
+    totals = summary_by_teacher(rows)
+    schedules = AssessmentSchedule.objects.filter(enabled=True).select_related('teacher')
+    held = lessons_held(schedules, start, end)
+    for bucket in totals:
+        bucket['held'] = held.get(bucket['teacher'].pk, 0)
+    return start, end, rows, totals
+
+
+@login_required
+def manager_lesson_changes_report(request):
+    """V91: monthly report of cancelled and covered lessons."""
+    if not _manager(request.user):
+        return HttpResponseForbidden('Manager access required.')
+    start, end, rows, totals = _lesson_change_report_data(request.GET.get('month'))
+    return render(request, 'ratings/manager_lesson_changes.html', {
+        'month': start.strftime('%Y-%m'), 'start': start, 'end': end, 'rows': rows, 'totals': totals,
+        'counts': {
+            'cancelled': sum(t['cancelled'] for t in totals), 'covered': sum(t['covered'] for t in totals),
+            'manager': sum(t['manager'] for t in totals), 'pending': sum(t['pending'] for t in totals),
+            'rejected': sum(t['rejected'] for t in totals),
+        },
+    })
+
+
+@login_required
+def manager_lesson_changes_xlsx(request):
+    if not _manager(request.user):
+        return HttpResponseForbidden('Manager access required.')
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    start, end, rows, totals = _lesson_change_report_data(request.GET.get('month'))
+
+    def safe_excel(value):
+        value = str(value or '')
+        return "'" + value if value.startswith(('=', '+', '-', '@')) else value
+
+    def name(user):
+        return safe_excel(user.get_full_name() or user.username) if user else ''
+
+    wb = Workbook()
+    summary = wb.active
+    summary.title = 'By Teacher'
+    summary.append(['Teacher', 'Lessons held (to date)', 'Cancelled (approved)', 'Covered (approved)',
+                    'Set by manager', 'Rejected', 'Waiting'])
+    for row in totals:
+        summary.append([name(row['teacher']), row['held'], row['cancelled'], row['covered'], row['manager'],
+                        row['rejected'], row['pending']])
+    detail = wb.create_sheet('All Changes')
+    detail.append(['Date', 'Classroom', 'Teacher', 'Change', 'Covered by', 'Reason', 'Status', 'Source',
+                   'Decided by', 'Manager note'])
+    for row in rows:
+        detail.append([row['date'], safe_excel(row['classroom']), name(row['teacher']), row['kind'],
+                       safe_excel(row['cover']), safe_excel(row['reason']), row['status'], row['source'],
+                       safe_excel(row['decided_by']), safe_excel(row['note'])])
+        detail.cell(detail.max_row, 1).number_format = 'YYYY-MM-DD'
+    for ws in wb:
+        ws.freeze_panes = 'A2'
+        ws.auto_filter.ref = ws.dimensions
+        for cell in ws[1]:
+            cell.fill = PatternFill('solid', fgColor='31205A')
+            cell.font = Font(bold=True, color='FFFFFF')
+        for column in ws.columns:
+            letter = column[0].column_letter
+            ws.column_dimensions[letter].width = min(55, max(14, max(len(str(cell.value or '')) for cell in column) + 3))
+    buf = BytesIO()
+    wb.save(buf)
+    response = HttpResponse(buf.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="makonbook-lesson-changes-{start:%Y-%m}.xlsx"'
+    return response
+
+
+@login_required
+@require_POST
+def manager_schedule_fines(request, schedule_id):
+    """V90: turn fines on/off for one schedule. Fines start the next day, never retroactively."""
+    if not _manager(request.user):
+        return HttpResponseForbidden('Manager access required.')
+    schedule = get_object_or_404(AssessmentSchedule, pk=schedule_id)
+    if request.POST.get('fines') == 'on':
+        schedule.fines_enabled = True
+        schedule.fines_from = timezone.localdate() + timedelta(days=1)
+        schedule.approved_by = request.user
+        messages.success(request, f'Fines for {schedule.classroom.name} start on {schedule.fines_from:%d %b %Y}.')
+    else:
+        schedule.fines_enabled = False
+        messages.success(request, f'Fines for {schedule.classroom.name} are off. Teachers can still assess.')
+    schedule.save(update_fields=['fines_enabled', 'fines_from', 'approved_by', 'updated_at'])
+    return redirect('manager_assessment_schedules')
+
+
+@login_required
+@require_POST
+def manager_schedule_fines_all(request):
+    """V90: turn fines on for every active Hollihop schedule that still has them off."""
+    if not _manager(request.user):
+        return HttpResponseForbidden('Manager access required.')
+    start = timezone.localdate() + timedelta(days=1)
+    count = AssessmentSchedule.objects.filter(enabled=True, hollihop_managed=True, fines_enabled=False).update(
+        fines_enabled=True, fines_from=start, approved_by=request.user, updated_at=timezone.now(),
+    )
+    messages.success(request, f'Fines turned on for {count} Hollihop schedule(s), starting {start:%d %b %Y}.')
+    return redirect('manager_assessment_schedules')
 
 
 @login_required

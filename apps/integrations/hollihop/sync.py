@@ -20,6 +20,7 @@ from apps.integrations.models import HollihopAttendance, HollihopSyncConflict, H
 from apps.sat.models import Classroom, ClassroomMembership
 
 from . import activity
+from .schedules import sync_classroom_schedules
 from .client import HollihopClient, HollihopError
 from .credentials import can_deliver_temporary_access, deliver_new_temporary_access
 from .error_reporting import safe_sync_error_details, safe_sync_error_from_exception
@@ -1767,6 +1768,9 @@ class HollihopSyncEngine:
         if stale_teachers.exists():
             stale_teachers.update(status="removed", removed_at=now, hollihop_last_synced_at=now)
             teacher_membership_changed = True
+
+        # V90: the group's Hollihop schedule drives the teacher assessment days.
+        sync_classroom_schedules(classroom, data, primary_teacher=primary_teacher)
 
         if created:
             self.summary.classrooms_created += 1

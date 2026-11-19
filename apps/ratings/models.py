@@ -164,13 +164,23 @@ class TermGrade(models.Model):
 
 
 class AssessmentSchedule(models.Model):
-    """Manager-approved recurring lesson days; not inferred from delayed attendance."""
+    """Recurring lesson days of one teacher in one classroom.
+
+    V90: for Hollihop groups the days come from the group's Hollihop schedule on every
+    sync (hollihop_managed). Teachers can assess on those days at once; fines start only
+    after a manager turns them on (fines_enabled). Manual schedules keep fines on.
+    """
     classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='assessment_schedules')
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assessment_schedules')
     weekdays = models.JSONField(default=list, help_text='ISO weekdays (Monday=1 to Sunday=7).')
     starts_on = models.DateField(default=timezone.localdate)
     ends_on = models.DateField(null=True, blank=True)
     enabled = models.BooleanField(default=True)
+    fines_enabled = models.BooleanField(
+        default=True, help_text='Missed required assessments are fined only when this is on.')
+    fines_from = models.DateField(null=True, blank=True, help_text='First day fines apply (empty = since the start).')
+    hollihop_managed = models.BooleanField(default=False, help_text='Days and teacher come from Hollihop.')
+    hollihop_synced_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_assessment_schedules')
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -187,6 +197,9 @@ class AssessmentSchedule(models.Model):
         if self.classroom_id and self.teacher_id and self.classroom.teacher_id != self.teacher_id:
             if not ClassroomMembership.objects.filter(classroom_id=self.classroom_id, user_id=self.teacher_id, role='teacher', status='approved').exists():
                 raise ValidationError({'teacher': 'Teacher must own or be assigned to this classroom.'})
+
+    def fines_active_on(self, day):
+        return bool(self.fines_enabled and (self.fines_from is None or day >= self.fines_from))
 
     def __str__(self):
         return f'{self.classroom} / {self.teacher} {self.weekdays}'
@@ -262,3 +275,49 @@ class AssessmentDailyReport(models.Model):
     completed = models.PositiveIntegerField(default=0)
     missed = models.PositiveIntegerField(default=0)
     sent_at = models.DateTimeField(default=timezone.now)
+
+
+class LessonChangeRequest(models.Model):
+    """V91: a teacher reports a cancelled or covered lesson; a manager decides.
+
+    An approved request becomes a "cancelled" calendar exception for that day: the lesson
+    is not mandatory and fines for it are waived. A cover counts as a cancellation for the
+    scheduled teacher (agreed with SATMakon); the cover teacher gets no access or duty.
+    Teachers report only for today or a future lesson day.
+    """
+    CANCEL = 'cancel'
+    COVER = 'cover'
+    KIND_CHOICES = [(CANCEL, 'Lesson cancelled'), (COVER, 'Another teacher covers')]
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+    WITHDRAWN = 'withdrawn'
+    STATUS_CHOICES = [(PENDING, 'Waiting for a manager'), (APPROVED, 'Approved'), (REJECTED, 'Rejected'), (WITHDRAWN, 'Withdrawn')]
+
+    schedule = models.ForeignKey(AssessmentSchedule, on_delete=models.CASCADE, related_name='change_requests')
+    date = models.DateField()
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    cover_teacher = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='covered_lesson_requests')
+    cover_name = models.CharField(max_length=150, blank=True)
+    reason = models.CharField(max_length=300)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING, db_index=True)
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lesson_change_requests')
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='decided_lesson_changes')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(
+            fields=['schedule', 'date'], condition=models.Q(status='pending'), name='rating_one_pending_change_per_day',
+        )]
+
+    @property
+    def cover_label(self):
+        if self.cover_teacher_id:
+            return self.cover_teacher.get_full_name() or self.cover_teacher.username
+        return self.cover_name
+
+    def __str__(self):
+        return f'{self.get_kind_display()} {self.schedule.classroom} {self.date} ({self.status})'

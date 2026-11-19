@@ -218,6 +218,7 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "manager_attendance_insights": "attendance",
     "manager_assessment_report": "assessment",
     "manager_assessment_schedules": "schedules",
+    "manager_lesson_changes_report": "schedules",
     "manager_activity_report": "activity",
     "manager_seasonal_theme": "seasonal-theme",
     "manager_teacher_list_root": "teachers",

@@ -1,11 +1,91 @@
 {% extends 'sat/staff_workspace.html' %}
 {% block page_title %}Lesson Schedule • MakonBook{% endblock %}
 {% block content %}
+<style>
+.ls90-row{padding:15px 0;border-bottom:1px solid var(--border-color,#dddded)}
+.ls90-row:last-child{border-bottom:0}
+.ls90-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ls90-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:800}
+.ls90-badge.holli{background:rgba(59,130,246,.12);color:#1d4ed8}
+.ls90-badge.on{background:rgba(220,38,38,.10);color:#b91c1c}
+.ls90-badge.off{background:rgba(22,163,74,.12);color:#15803d}
+.ls90-badge.soon{background:rgba(217,119,6,.12);color:#b45309}
+.ls90-badge.disabled{background:rgba(100,116,139,.14);color:#475569}
+.ls90-days{font-weight:800}
+.ls90-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:10px}
+.ls90-note{padding:12px 14px;border-radius:12px;background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);margin:12px 0}
+[data-theme="dark"] .ls90-badge.holli{color:#93c5fd}[data-theme="dark"] .ls90-badge.on{color:#fca5a5}[data-theme="dark"] .ls90-badge.off{color:#86efac}[data-theme="dark"] .ls90-badge.soon{color:#fcd34d}
+</style>
 <div class="sf29-page">
-<section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-calendar-check"></i> Teacher assessment policy</span><h1>Confirmed lesson calendar</h1><p>Teachers can assess only on their own scheduled lesson days, until 23:59:59 Asia/Tashkent. The first three scheduled lessons each Monday–Sunday are mandatory. Missing one student's required score = 5,000 UZS pending manager review.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'manager_assessment_report' %}">Penalty report</a><a class="sf28-btn" href="{% url 'manager_dashboard_root' %}">Manager dashboard</a></div></section>
-<section class="sf29-card"><h2>Confirm weekly class days</h2><p>Lesson dates MUST be verified with Hollihop before enabling fines. MakonBook cannot infer teacher-specific schedules from delayed attendance rows. Start dates cannot be backdated.</p>
+<section class="sf29-hero span-12"><span class="sf28-kicker"><i class="bi bi-calendar-check"></i> Teacher assessment policy</span><h1>Lesson calendar</h1>
+<p>Teachers assess students only on their scheduled lesson days, until 23:59 Asia/Tashkent. Days of Hollihop groups come from Hollihop automatically on every sync. When fines are on, the first three scheduled lessons each Monday–Sunday are mandatory and a missing student score is 5,000 UZS pending manager review.</p>
+<div class="sf28-actions"><a class="sf28-btn" href="{% url 'manager_assessment_report' %}">Penalty report</a><a class="sf28-btn" href="{% url 'manager_lesson_changes_report' %}"><i class="bi bi-file-earmark-bar-graph"></i> Lesson changes report</a><a class="sf28-btn" href="{% url 'hollihop_dashboard' %}">Hollihop sync</a><a class="sf28-btn" href="{% url 'manager_dashboard_root' %}">Manager dashboard</a></div></section>
+
+<section class="sf29-card span-12" id="requests">
+  <div class="ls90-head" style="justify-content:space-between"><h2 style="margin:0">Requests from teachers</h2>{% if pending_changes %}<span class="ls90-badge soon">{{ pending_changes|length }} waiting</span>{% endif %}</div>
+  <p>Approving makes the day a cancelled lesson: no assessments are required and fines for that day are waived. A cover counts as a cancellation for the scheduled teacher.</p>
+  {% for change in pending_changes %}
+  <div class="ls90-row">
+    <div class="ls90-head"><strong>{{ change.schedule.classroom.name }} · {{ change.date|date:"D d M Y" }}</strong>
+      <span class="ls90-badge {% if change.kind == 'cover' %}holli{% else %}disabled{% endif %}">{{ change.get_kind_display }}{% if change.cover_label %}: {{ change.cover_label }}{% endif %}</span></div>
+    <p style="margin:6px 0 0">{{ change.schedule.teacher.get_full_name|default:change.schedule.teacher.username }} · “{{ change.reason }}” · sent {{ change.created_at|date:"d M, H:i" }}</p>
+    <form method="post" action="{% url 'manager_decide_lesson_change' change.pk %}" class="ls90-actions">{% csrf_token %}
+      <label>Note (optional)<br><input name="note" maxlength="300" placeholder="Visible to the teacher"></label>
+      <button class="sf28-btn primary" type="submit" name="decision" value="approve"><i class="bi bi-check2"></i> Approve</button>
+      <button class="sf28-btn" type="submit" name="decision" value="reject"><i class="bi bi-x"></i> Reject</button>
+    </form>
+  </div>
+  {% empty %}<p>No requests waiting.</p>{% endfor %}
+  {% if recent_changes %}
+  <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:750">Recently decided ({{ recent_changes|length }})</summary>
+    {% for change in recent_changes %}<div class="ls90-row"><strong>{{ change.schedule.classroom.name }} · {{ change.date|date:"d M" }}</strong> · {{ change.get_kind_display }}{% if change.cover_label %} ({{ change.cover_label }}){% endif %} · <span class="ls90-badge {% if change.status == 'approved' %}off{% elif change.status == 'rejected' %}on{% else %}disabled{% endif %}">{{ change.get_status_display }}</span>{% if change.decided_by %} by {{ change.decided_by.get_full_name|default:change.decided_by.username }}{% endif %}</div>{% endfor %}
+  </details>
+  {% endif %}
+</section>
+
+<section class="sf29-card span-12">
+  <div class="ls90-head" style="justify-content:space-between">
+    <h2 style="margin:0">From Hollihop</h2>
+    {% if fines_off_count %}
+    <form method="post" action="{% url 'manager_schedule_fines_all' %}" onsubmit="return confirm('Turn fines on for all {{ fines_off_count }} Hollihop schedule(s)? Fines start tomorrow.');">{% csrf_token %}<button class="sf28-btn primary" type="submit"><i class="bi bi-cash-coin"></i> Turn fines on for all ({{ fines_off_count }})</button></form>
+    {% endif %}
+  </div>
+  <div class="ls90-note"><strong>Automatic.</strong> Weekdays, teacher and end date follow the group's schedule in Hollihop and update on every sync. New groups let teachers assess right away; fines start only after you turn them on (from the next day). Your cancelled/extra lessons below are kept.</div>
+  {% for schedule in hollihop_schedules %}
+  <div class="ls90-row">
+    <div class="ls90-head">
+      <strong>{{ schedule.classroom.name }} · {{ schedule.teacher.get_full_name|default:schedule.teacher.username }}</strong>
+      <span class="ls90-badge holli"><i class="bi bi-arrow-repeat"></i> Hollihop</span>
+      {% if not schedule.enabled %}<span class="ls90-badge disabled">Not teaching this group now</span>
+      {% elif schedule.fines_now %}<span class="ls90-badge on">Fines on</span>
+      {% elif schedule.fines_enabled %}<span class="ls90-badge soon">Fines from {{ schedule.fines_from|date:"d M" }}</span>
+      {% else %}<span class="ls90-badge off">Assessing · fines off</span>{% endif %}
+    </div>
+    <p style="margin:6px 0 0"><span class="ls90-days">{{ schedule.day_labels }}</span> · from {{ schedule.starts_on|date:"d M Y" }}{% if schedule.ends_on %} to {{ schedule.ends_on|date:"d M Y" }}{% endif %}{% if schedule.hollihop_synced_at %} · synced {{ schedule.hollihop_synced_at|date:"d M, H:i" }}{% endif %}</p>
+    {% if schedule.enabled %}
+    <div class="ls90-actions">
+      <form method="post" action="{% url 'manager_schedule_fines' schedule.pk %}">{% csrf_token %}
+        {% if schedule.fines_enabled %}<input type="hidden" name="fines" value="off"><button class="sf28-btn" type="submit">Turn fines off</button>
+        {% else %}<input type="hidden" name="fines" value="on"><button class="sf28-btn primary" type="submit">Turn fines on</button>{% endif %}
+      </form>
+      <form method="post" action="{% url 'manager_schedule_exception' schedule.pk %}" style="display:flex;flex-wrap:wrap;align-items:end;gap:10px">{% csrf_token %}
+        <label>Day<br><input type="date" name="date" min="{{ today|date:'Y-m-d' }}" required></label>
+        <label>Exception<br><select name="action"><option value="cancelled">Cancelled / holiday</option><option value="added">Extra class</option><option value="delete">Remove exception</option></select></label>
+        <label>Reason<br><input name="reason" maxlength="220" placeholder="Why was the class changed?"></label>
+        <button type="submit" class="sf28-btn">Apply</button>
+      </form>
+    </div>
+    {% endif %}
+    {% for e in schedule.exceptions.all %}<small style="display:inline-block;margin:7px">{{ e.date }}: {{ e.get_action_display }} — {{ e.reason }}</small>{% endfor %}
+  </div>
+  {% empty %}
+  <p>No Hollihop schedules yet. They appear after the next Hollihop sync for groups whose schedule is set in Hollihop.</p>
+  {% endfor %}
+</section>
+
+<section class="sf29-card span-12"><h2>Classrooms outside Hollihop</h2><p>Confirm the weekly class days for classrooms created in MakonBook. Start dates cannot be backdated; fines apply to these schedules as soon as they are confirmed.</p>
 {% for classroom in classrooms %}
-<form method="post" action="{% url 'manager_save_assessment_schedule' %}" style="padding:16px 0;border-bottom:1px solid var(--border-color,#dddded)">{% csrf_token %}
+<form method="post" action="{% url 'manager_save_assessment_schedule' %}" class="ls90-row">{% csrf_token %}
 <input type="hidden" name="classroom_id" value="{{ classroom.id }}"><strong>{{ classroom.name }}</strong>
 <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:12px 0">
 <label>Teacher<br><select name="teacher_id" required style="padding:10px;border-radius:9px">{% for teacher in classroom.teacher_options %}<option value="{{ teacher.pk }}">{{ teacher.get_full_name|default:teacher.username }}</option>{% endfor %}</select></label>
@@ -14,12 +94,14 @@
 <label><input type="checkbox" name="enabled" value="1" checked> Enabled</label>
 </div><div style="display:flex;flex-wrap:wrap;gap:15px;margin:12px 0">{% for number,label in weekdays %}<label><input type="checkbox" name="weekdays" value="{{ number }}"> {{ label }}</label>{% endfor %}</div><button class="sf28-btn primary" type="submit">Confirm schedule</button>
 </form>
-{% empty %}<p>No active classrooms yet.</p>{% endfor %}
-</section>
-<section class="sf29-card"><h2>Existing schedules & exceptions</h2><p>To edit a schedule, select its classroom and teacher above. Once obligations exist, the original start date is locked; use an effective change carefully.</p>
-{% for schedule in schedules %}
-<div style="padding:15px 0;border-bottom:1px solid var(--border-color,#d8d8ee)"><strong>{{ schedule.classroom.name }} · {{ schedule.teacher.get_full_name|default:schedule.teacher.username }}</strong> <span class="sf28-chip">{{ schedule.weekdays|join:', ' }} (Mon=1)</span> <span class="sf28-chip">{% if schedule.enabled %}Active{% else %}Disabled{% endif %}</span><p>From {{ schedule.starts_on }}{% if schedule.ends_on %} to {{ schedule.ends_on }}{% endif %}; approved by {{ schedule.approved_by|default:'—' }}</p>
-<form method="post" action="{% url 'manager_schedule_exception' schedule.pk %}" style="display:flex;flex-wrap:wrap;align-items:end;gap:12px">{% csrf_token %}
+{% empty %}<p>Every active classroom comes from Hollihop.</p>{% endfor %}
+{% if manual_schedules %}
+<h3 style="margin-top:20px">Confirmed manual schedules</h3>
+{% for schedule in manual_schedules %}
+<div class="ls90-row"><div class="ls90-head"><strong>{{ schedule.classroom.name }} · {{ schedule.teacher.get_full_name|default:schedule.teacher.username }}</strong>
+{% if schedule.enabled %}<span class="ls90-badge {% if schedule.fines_now %}on{% else %}off{% endif %}">{% if schedule.fines_now %}Fines on{% else %}Fines off{% endif %}</span>{% else %}<span class="ls90-badge disabled">Disabled</span>{% endif %}</div>
+<p style="margin:6px 0 0"><span class="ls90-days">{{ schedule.day_labels }}</span> · from {{ schedule.starts_on|date:"d M Y" }}{% if schedule.ends_on %} to {{ schedule.ends_on|date:"d M Y" }}{% endif %}; approved by {{ schedule.approved_by|default:'—' }}</p>
+<form method="post" action="{% url 'manager_schedule_exception' schedule.pk %}" class="ls90-actions">{% csrf_token %}
 <label>Day<br><input type="date" name="date" min="{{ today|date:'Y-m-d' }}" required></label>
 <label>Exception<br><select name="action"><option value="cancelled">Cancelled / holiday</option><option value="added">Extra class</option><option value="delete">Remove exception</option></select></label>
 <label>Reason<br><input name="reason" maxlength="220" placeholder="Why was the class changed?"></label>
@@ -27,7 +109,8 @@
 </form>
 {% for e in schedule.exceptions.all %}<small style="display:inline-block;margin:7px">{{ e.date }}: {{ e.get_action_display }} — {{ e.reason }}</small>{% endfor %}
 </div>
-{% empty %}<p>Schedules must be confirmed before assessments can be submitted.</p>{% endfor %}
+{% endfor %}
+{% endif %}
 </section>
 </div>
 {% endblock %}

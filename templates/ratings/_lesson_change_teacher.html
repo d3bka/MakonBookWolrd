@@ -1,0 +1,37 @@
+{# V91: teacher reports a cancelled or covered lesson. #}
+{% if change_schedule %}
+<section class="sf29-card span-12" id="lesson-change">
+  <div class="sf29-section-head"><div><small>Schedule change</small><h2>Lesson cancelled or covered?</h2></div></div>
+  <p>Tell the managers before the lesson (or the same day). When a manager approves, no assessments are required that day and there is no fine.</p>
+  {% if change_dates %}
+  <form method="post" action="{% url 'teacher_report_lesson_change' classroom.pk %}" style="display:grid;gap:12px;max-width:760px" data-lesson-change>
+    {% csrf_token %}
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end">
+      <label>Lesson day<br><select name="date" required style="padding:10px;border-radius:9px">{% for d in change_dates %}<option value="{{ d|date:'Y-m-d' }}">{{ d|date:'D d M' }}{% if d == change_today %} (today){% endif %}</option>{% endfor %}</select></label>
+      <label>What happened<br><select name="kind" required style="padding:10px;border-radius:9px" data-change-kind><option value="cancel">The lesson is cancelled</option><option value="cover">Another teacher covers me</option></select></label>
+    </div>
+    <div style="display:none;flex-wrap:wrap;gap:12px;align-items:end" data-cover-fields>
+      <label>Covering teacher<br><select name="cover_teacher_id" style="padding:10px;border-radius:9px"><option value="">— choose —</option>{% for t in cover_options %}<option value="{{ t.pk }}">{{ t.get_full_name|default:t.username }}</option>{% endfor %}</select></label>
+      <label>or name (not on MakonBook)<br><input name="cover_name" maxlength="150" style="padding:10px;border-radius:9px"></label>
+    </div>
+    <label>Reason<br><textarea name="reason" required minlength="3" maxlength="300" rows="2" style="width:100%;padding:10px;border-radius:9px" placeholder="For example: I am ill; the centre is closed for a holiday"></textarea></label>
+    <div><button class="sf28-btn primary" type="submit"><i class="bi bi-send"></i> Send to managers</button></div>
+  </form>
+  <script>
+  (function(){var f=document.querySelector('[data-lesson-change]');if(!f)return;var k=f.querySelector('[data-change-kind]'),c=f.querySelector('[data-cover-fields]');function s(){c.style.display=k.value==='cover'?'flex':'none';}k.addEventListener('change',s);s();})();
+  </script>
+  {% else %}
+  <p class="sf29-empty">No upcoming lessons in the next three weeks.</p>
+  {% endif %}
+  {% if change_requests %}
+  <div class="sf29-list" style="margin-top:14px">
+    {% for change in change_requests %}
+    <div class="sf29-row"><div class="grow"><strong>{{ change.date|date:'D d M' }} · {{ change.get_kind_display }}{% if change.cover_label %} ({{ change.cover_label }}){% endif %}</strong><small>{{ change.reason }}{% if change.decision_note %} · Manager: {{ change.decision_note }}{% endif %}</small></div>
+      <span class="sf28-chip">{{ change.get_status_display }}</span>
+      {% if change.status == 'pending' %}<form method="post" action="{% url 'teacher_withdraw_lesson_change' change.pk %}">{% csrf_token %}<button class="sf28-btn" type="submit">Withdraw</button></form>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}

@@ -628,9 +628,85 @@ def teacher_classroom_ratings(request, classroom_id):
         "assessment_allowed_today": allowed,
         "assessment_required_today": required,
         "lesson_schedule": schedule,
-        "week_required_dates": required_lesson_dates(schedule, today) if schedule else [],
+        "week_required_dates": required_lesson_dates(schedule, today) if schedule and schedule.fines_active_on(today) else [],
         "graded_today_count": len(graded_today),
+        **_lesson_change_context(classroom, request.user),
     })
+
+
+def _lesson_change_context(classroom, teacher):
+    """V91: what the teacher needs to report a cancelled or covered lesson."""
+    from .lesson_changes import upcoming_lesson_dates
+    from .models import AssessmentSchedule
+
+    schedule = AssessmentSchedule.objects.filter(classroom=classroom, teacher=teacher, enabled=True).first()
+    if schedule is None:
+        return {"change_schedule": None}
+    return {
+        "change_schedule": schedule,
+        "change_today": timezone.localdate(),
+        "change_dates": upcoming_lesson_dates(schedule),
+        "change_requests": list(schedule.change_requests.select_related("cover_teacher", "decided_by")[:10]),
+        "cover_options": User.objects.filter(is_active=True, groups__name="Teacher").exclude(pk=teacher.pk)
+        .distinct().order_by("first_name", "last_name", "username"),
+    }
+
+
+@login_required
+@require_POST
+def teacher_report_lesson_change(request, classroom_id):
+    """V91: the teacher reports that a lesson is cancelled or covered by someone else."""
+    from datetime import date as _date
+
+    from django.core.exceptions import ValidationError
+
+    from .lesson_changes import request_change
+    from .models import AssessmentSchedule
+
+    classroom = get_object_or_404(Classroom, pk=classroom_id)
+    if not _is_teacher_for(request.user, classroom):
+        raise PermissionDenied
+    back = redirect("teacher_classroom_assessments_root", classroom_id=classroom.pk)
+    schedule = AssessmentSchedule.objects.filter(classroom=classroom, teacher=request.user, enabled=True).first()
+    if schedule is None:
+        messages.error(request, "You have no lesson schedule in this classroom.")
+        return back
+    try:
+        day = _date.fromisoformat(request.POST.get("date", ""))
+    except ValueError:
+        messages.error(request, "Choose the lesson date.")
+        return back
+    cover_teacher = None
+    raw_cover = str(request.POST.get("cover_teacher_id") or "").strip()
+    if raw_cover.isdigit():
+        cover_teacher = User.objects.filter(pk=int(raw_cover), is_active=True, groups__name="Teacher").first()
+    try:
+        request_change(
+            schedule, day=day, kind=request.POST.get("kind", ""), reason=request.POST.get("reason", ""),
+            requested_by=request.user, cover_teacher=cover_teacher, cover_name=request.POST.get("cover_name", ""),
+        )
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+        return back
+    messages.success(request, "Sent to the managers. You will get a notification when they decide.")
+    return back
+
+
+@login_required
+@require_POST
+def teacher_withdraw_lesson_change(request, change_id):
+    from django.core.exceptions import ValidationError
+
+    from .lesson_changes import withdraw
+    from .models import LessonChangeRequest
+
+    change = get_object_or_404(LessonChangeRequest, pk=change_id, requested_by=request.user)
+    try:
+        withdraw(change, user=request.user)
+        messages.success(request, "Request withdrawn.")
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+    return redirect("teacher_classroom_assessments_root", classroom_id=change.schedule.classroom_id)
 
 
 @login_required
