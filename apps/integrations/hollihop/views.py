@@ -62,6 +62,32 @@ def _sync_precheck(request):
     return None
 
 
+def _initial_result(state):
+    """V95: what the last initial import did, so the button never looks like it did nothing."""
+    if not state:
+        return None
+    if state.initial_sync_completed:
+        log = HollihopSyncLog.objects.filter(event_type="initial_sync_completed").order_by("-created_at").first()
+        details = log.details if log and isinstance(log.details, dict) else {}
+        return {
+            "finished": True,
+            "at": state.initial_sync_completed_at,
+            "row_errors": int(details.get("row_errors") or details.get("errors") or 0),
+            "students": details.get("students_found"),
+            "classrooms": details.get("classrooms_found"),
+        }
+    if state.last_attempt and state.last_status in {HollihopSyncState.STATUS_PARTIAL, HollihopSyncState.STATUS_ERROR}:
+        return {
+            "finished": False,
+            "at": state.last_attempt,
+            "status": state.get_last_status_display(),
+            "reason": state.last_error_safe,
+            "students": state.students_synced,
+            "classrooms": state.classrooms_synced,
+        }
+    return None
+
+
 def integration_dashboard(request):
     if not _manager_allowed(request.user):
         return HttpResponseForbidden("Manager access required.")
@@ -141,6 +167,7 @@ def integration_dashboard(request):
         "sms_provider": getattr(settings, "MAKONBOOK_SMS_PROVIDER", "disabled"),
         "teacher_choices": teacher_choices,
         "sync_activity": activity.current(state),
+        "initial_result": _initial_result(state),
     }
     return render(request, "integrations/hollihop/dashboard.html", context)
 

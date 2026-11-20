@@ -12,7 +12,7 @@ from apps.base.models import UserProfile
 from apps.integrations.models import HollihopSyncLog, HollihopSyncState
 
 from .client import HollihopAPIError
-from .reconcile import HollihopSmartReconciler, mark_initial_sync_completed
+from .reconcile import HollihopSmartReconciler, initial_import_can_finish, mark_initial_sync_completed
 from .sync import HollihopSyncAlreadyRunning, HollihopSyncEngine, full_stage_set
 
 
@@ -83,12 +83,12 @@ def manual_hollihop_sync(
     except HollihopSyncAlreadyRunning:
         return {"status": "busy"}
 
-    if mark_initial and summary.errors == 0:
+    if mark_initial and initial_import_can_finish(summary):
         state = mark_initial_sync_completed()
         HollihopSyncLog.objects.create(
             event_type="initial_sync_completed",
             entity_type="sync",
-            details={"state_id": state.id, **summary.as_dict()},
+            details={"state_id": state.id, "row_errors": summary.errors, **summary.as_dict()},
         )
     return {"status": "ok" if summary.errors == 0 else "partial", **summary.as_dict()}
 

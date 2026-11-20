@@ -9,7 +9,7 @@ from django.utils.dateparse import parse_date
 from apps.integrations.hollihop.client import HollihopConfigurationError, HollihopError
 from apps.integrations.hollihop.sync import HollihopSyncAlreadyRunning, HollihopSyncEngine, full_stage_set
 from apps.integrations.hollihop.normalization import normalize_phone
-from apps.integrations.hollihop.reconcile import mark_initial_sync_completed
+from apps.integrations.hollihop.reconcile import initial_import_can_finish, mark_initial_sync_completed
 
 
 def _env_bool(name, default=False):
@@ -247,10 +247,14 @@ class Command(BaseCommand):
             raise CommandError(str(exc)) from exc
 
         if mark_initial:
-            if summary.errors:
-                raise CommandError("Full sync completed with errors; initial-sync gate was NOT enabled.")
+            if not initial_import_can_finish(summary):
+                raise CommandError("The import brought nothing in; initial-sync gate was NOT enabled.")
             mark_initial_sync_completed()
-            self.stdout.write(self.style.SUCCESS("Initial-sync gate enabled for this database."))
+            if summary.errors:
+                self.stdout.write(self.style.WARNING(
+                    f"Initial-sync gate enabled; {summary.errors} row(s) failed and are listed under Synchronization errors."))
+            else:
+                self.stdout.write(self.style.SUCCESS("Initial-sync gate enabled for this database."))
 
         self.stdout.write("")
         self.stdout.write(self.style.MIGRATE_LABEL("Managers (Hollihop admin employees)"))

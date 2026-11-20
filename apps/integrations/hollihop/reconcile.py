@@ -565,6 +565,22 @@ class HollihopSmartReconciler:
             raise
 
 
+def initial_import_can_finish(summary):
+    """V95: may this full import end the initial-sync setup?
+
+    The engine returns a summary only when every stage ran to the end; an aborted
+    run (API down, time limit, lost lock) raises instead. A few bad rows (a duplicate
+    phone, an empty name) are logged as sync errors and must not keep automatic sync
+    blocked for ever, which made "Run initial sync" look as if it did nothing.
+    An import that brought nothing in at all is still refused.
+    """
+    if summary.errors == 0:
+        return True
+    imported = (summary.students_found + summary.teachers_found
+                + summary.managers_found + summary.classrooms_found)
+    return imported > 0
+
+
 def mark_initial_sync_completed(*, at=None):
     """Enable periodic smart sync only after an explicit successful full import."""
     at = at or timezone.now()

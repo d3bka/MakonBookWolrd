@@ -44,6 +44,11 @@
         <a class="holli-btn secondary" href="{% url 'manager_dashboard_root' %}">Back to Manager Panel</a>
       </div>
 
+      {% if initial_result and initial_result.finished %}
+        <div class="holli-okbox" data-initial-result="done"><strong>Initial import finished</strong>{% if initial_result.at %} {{ initial_result.at|date:"d M Y, H:i" }}{% endif %}{% if initial_result.students is not None %}: {{ initial_result.students }} students, {{ initial_result.classrooms }} classrooms{% endif %}.{% if initial_result.row_errors %} {{ initial_result.row_errors }} row(s) could not be imported — see <a href="#holli-sync-errors">Synchronization errors</a>. The regular sweeps try them again.{% endif %}</div>
+      {% elif initial_result %}
+        <div class="holli-warning" data-initial-result="unfinished"><strong>The last import did not finish the setup</strong> ({{ initial_result.at|date:"d M Y, H:i" }} · {{ initial_result.status }}{% if initial_result.students %} · {{ initial_result.students }} students, {{ initial_result.classrooms }} classrooms read{% endif %}).{% if initial_result.reason %} {{ initial_result.reason }}{% endif %} Fix the cause if it is shown, then press <em>Run initial sync</em> again. A few bad rows no longer block the setup.</div>
+      {% endif %}
       {% if not initial_sync_completed %}
         <div class="holli-warning"><strong>Automatic sync is currently blocked.</strong> This is intentional: local development, runserver reloads and Celery restarts cannot trigger an import before you explicitly press <em>Run initial sync</em>.</div>
       {% else %}
