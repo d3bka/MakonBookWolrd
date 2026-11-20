@@ -20,6 +20,7 @@ and MAKONBOOK_MEDIA_UPLOAD_TOKEN (the same value as on the site).
 import json
 import re
 import shutil
+import ssl
 import subprocess
 import tempfile
 import time
@@ -35,6 +36,20 @@ from apps.sat import admissions_media as media
 
 VIDEO_FILE = re.compile(r"^Lesson\s+(\d+)\s*-\s*.+\.mp4$", re.IGNORECASE)
 LOCAL_HOSTS = {"localhost", "127.0.0.1"}
+
+
+def _tls_context():
+    """Verify the site with the certifi CA bundle when it is installed.
+
+    The Windows certificate store can build the Let's Encrypt chain through an
+    expired cross-signed root and then fail with "certificate has expired" even
+    though the site's certificate is valid. certifi trusts ISRG Root X2 directly.
+    """
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+    return ssl.create_default_context(cafile=certifi.where())
 
 
 class ApiError(Exception):
@@ -128,7 +143,7 @@ class Command(BaseCommand):
                      "Accept": "application/json", "User-Agent": "MakonBook-media-uploader/86"},
         )
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
+            with urllib.request.urlopen(request, timeout=120, context=_tls_context()) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             try:
