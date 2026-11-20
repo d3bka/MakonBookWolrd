@@ -347,7 +347,11 @@ class ProtectionConfigTests(TestCase):
         template = (base / "templates" / "sat" / "admissions_lesson.html").read_text(encoding="utf-8")
         self.assertIn("assets/vendor/hls.js/hls.min.js", template)
         self.assertNotIn("cdn.jsdelivr.net/npm/hls.js", template)
-        self.assertTrue((base / "static" / "assets" / "vendor" / "hls.js" / "hls.min.js").is_file())
+        library = base / "static" / "assets" / "vendor" / "hls.js" / "hls.min.js"
+        self.assertTrue(library.is_file())
+        # Whitenoise's manifest storage fails collectstatic (and the web container's
+        # startup) on a sourceMappingURL whose .map file isn't shipped.
+        self.assertNotIn("sourceMappingURL", library.read_text(encoding="utf-8"))
 
     def test_nginx_serves_premium_files_only_internally(self):
         conf = (Path(settings.BASE_DIR) / "nginx" / "default.conf").read_text(encoding="utf-8")
