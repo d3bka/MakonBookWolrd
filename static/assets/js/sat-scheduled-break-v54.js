@@ -32,9 +32,11 @@
       remaining=Math.max(Math.ceil((endMono-monoNow())/1000),0);
       if(clock) clock.textContent=fmt(remaining);
       if(track) track.style.width=(total?Math.max(0,remaining/total*100):0)+'%';
-      if(btn && remaining<=0){
-        btn.disabled=false;
+      if(remaining<=0){
+        if(btn) btn.disabled=false;
         clearInterval(timer);
+        // V96: event breaks cannot be skipped and continue on their own.
+        if(body.dataset.autoContinue==='1') go(url);
       }
     }
 

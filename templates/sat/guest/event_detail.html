@@ -99,6 +99,12 @@
       {% elif availability.can_start %}
         <form action="{% url 'start_global_event_root' event.slug %}" method="POST" class="signin-form auth-form" data-guest-start-form>
           {% csrf_token %}
+          {% if needs_guest_name %}
+            <div class="form-group">
+              <label class="form-label" for="guest-name-field">Your name</label>
+              <input id="guest-name-field" type="text" name="full_name" maxlength="120" placeholder="First and last name" autocomplete="name" required>
+            </div>
+          {% endif %}
           {% if event.access_code %}
             <div class="form-group">
               <label class="form-label" for="access-code-field">Access code</label>

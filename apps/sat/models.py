@@ -3028,6 +3028,8 @@ class GlobalEventAttempt(models.Model):
     expires_at = models.DateTimeField()
     submitted_at = models.DateTimeField(null=True, blank=True)
     current_module_started_at = models.DateTimeField(null=True, blank=True, help_text="When the current module started")
+    # V96: the 10-minute break between Reading and Writing and Math in events.
+    subject_break_until = models.DateTimeField(null=True, blank=True, help_text="End of the break before the next subject")
 
     status = models.CharField(
         max_length=20,

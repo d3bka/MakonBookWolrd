@@ -65,6 +65,9 @@ logger = logging.getLogger(__name__)
 VALID_SECTIONS = {"english", "math"}
 VALID_MODULES = {"m1", "m2"}
 GUEST_SUBMIT_GRACE_SECONDS = 300
+# V96: events break between Reading and Writing and Math, like the real SAT.
+# The break cannot be skipped. Placement tests have no break.
+EVENT_SUBJECT_BREAK_SECONDS = 10 * 60
 
 
 def get_client_ip(request):
@@ -153,6 +156,7 @@ def guest_required(view_func):
             not getattr(settings, "MAKONBOOK_GUEST_MODE_ENABLED", False)
             and not request.session.get("verified_event_registration")
             and not request.session.get("public_placement_guest")
+            and not request.session.get("open_event_guest")
         ):
             return redirect("home")
         return view_func(request, *args, **kwargs)
@@ -331,6 +335,45 @@ def _event_hard_ended(event, now=None):
     return bool(effective_end and now >= effective_end)
 
 
+def _event_has_subject_break(event, sequence):
+    """Events that run both subjects pause between them; placement tests do not."""
+    if getattr(event, "event_type", GlobalEvent.TYPE_EVENT) != GlobalEvent.TYPE_EVENT:
+        return False
+    return len({section for section, _ in sequence}) > 1
+
+
+def _schedule_subject_break(attempt, completed_section, next_step, now=None):
+    if not next_step or next_step[0] == completed_section:
+        return
+    if not _event_has_subject_break(attempt.event, attempt_sequence(attempt)):
+        return
+    if GlobalEventModuleDraft.objects.filter(attempt=attempt, section=next_step[0], module=next_step[1]).exists():
+        return
+    now = now or timezone.now()
+    attempt.subject_break_until = min(now + timedelta(seconds=EVENT_SUBJECT_BREAK_SECONDS), attempt.expires_at)
+    attempt.save(update_fields=["subject_break_until"])
+
+
+def _subject_break_response(request, attempt, section, module):
+    """Show the break page while the break runs. There is no way to skip it."""
+    until = attempt.subject_break_until
+    if not until:
+        return None
+    now = timezone.now()
+    if until <= now or GlobalEventModuleDraft.objects.filter(attempt=attempt, section=section, module=module).exists():
+        attempt.subject_break_until = None
+        attempt.save(update_fields=["subject_break_until"])
+        return None
+    return render(request, "test/scheduled_break.html", {
+        "test": attempt.event.test,
+        "break_remaining_seconds": max(ceil((until - now).total_seconds()), 0),
+        "continue_url": reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token}),
+        "skip_break_url": "",
+        "auto_continue": True,
+        "next_section_label": "Mathematics" if section == "math" else "Reading and Writing",
+    })
+
+
 def _guest_attempt_expiry(event, sequence, now=None):
     now = now or timezone.now()
     # Always-active events ignore their calendar end entirely. Attempts still
@@ -341,6 +384,8 @@ def _guest_attempt_expiry(event, sequence, now=None):
         if effective_end:
             return effective_end
     total_seconds = sum(max(int(event.get_module_duration(section) or 0), 1) * 60 for section, _ in sequence)
+    if _event_has_subject_break(event, sequence):
+        total_seconds += EVENT_SUBJECT_BREAK_SECONDS
     if event.allow_resume:
         return now + timedelta(days=7)
     return now + timedelta(seconds=max(total_seconds + 1800, 3600))
@@ -669,7 +714,8 @@ def _complete_guest_module_locked(attempt, section, module):
     section = str(section or "").strip().lower()
     module = normalize_module_name(module)
     completed = _completed_guest_module_pairs(attempt)
-    if (section, module) not in completed:
+    newly_completed = (section, module) not in completed
+    if newly_completed:
         draft = GlobalEventModuleDraft.objects.filter(attempt=attempt, section=section, module=module).first()
         if draft:
             _sync_guest_answer_rows(attempt, section, module, draft.answers or [])
@@ -684,6 +730,8 @@ def _complete_guest_module_locked(attempt, section, module):
     if current is None:
         finalize_attempt(attempt)
         return reverse("global_event_result_root", kwargs={"guest_token": attempt.guest_token})
+    if newly_completed:
+        _schedule_subject_break(attempt, section, current)
     base = reverse("global_event_attempt_root", kwargs={"guest_token": attempt.guest_token})
     return f"{base}?section={current[0]}&module={module_query_name(current[1])}"
 
@@ -1416,12 +1464,39 @@ def global_event_detail_view(request, slug):
         "event_registration_window": registration_window(event) if event.registration_enabled else None,
         "event_confirmed_count": event_confirmed_count(event) if event.registration_enabled else 0,
         "event_seats_left": seats_left(event) if event.registration_enabled else None,
+        "needs_guest_name": (
+            not event.registration_enabled
+            and not getattr(request.user, "is_authenticated", False)
+            and guest is None
+        ),
     }
     if getattr(request.user, "is_authenticated", False):
         from .student_workspace import student_workspace_context
         context.update(student_workspace_context(request.user, active='events'))
         return render(request, "sat/student_event_detail.html", context)
     return render(request, "sat/guest/event_detail.html", context)
+
+
+def _clean_guest_name(value):
+    return " ".join(str(value or "").replace("\x00", "").split())[:120]
+
+
+def _create_open_event_guest(request, full_name):
+    if not request.session.session_key:
+        request.session.create()
+    guest = GuestParticipant.objects.create(
+        full_name=full_name,
+        display_name=full_name,
+        session_key=request.session.session_key or "",
+        first_ip=get_client_ip(request),
+        user_agent=(request.META.get("HTTP_USER_AGENT") or "")[:2000],
+    )
+    request.session["guest_mode"] = True
+    request.session["guest_id"] = str(guest.guest_id)
+    request.session["guest_name"] = full_name
+    request.session["open_event_guest"] = True
+    request.session.modified = True
+    return guest
 
 
 def start_global_event_view(request, slug):
@@ -1433,6 +1508,7 @@ def start_global_event_view(request, slug):
         and not request.session.get("verified_event_registration")
         and not getattr(request.user, "is_authenticated", False)
         and event.event_type != GlobalEvent.TYPE_PLACEMENT
+        and event.registration_enabled
     ):
         messages.info(request, "This public session is only valid for placement tests.")
         return redirect("public_placement_list")
@@ -1444,14 +1520,16 @@ def start_global_event_view(request, slug):
         guest = event_registration.guest
         bind_registration_to_session(request, event_registration)
     else:
+        # V96: without registration the event is open to everyone. Visitors
+        # who are not signed in only give the name shown on their result.
         guest = get_guest_from_session(request)
         if not guest and getattr(request.user, "is_authenticated", False):
             guest = ensure_authenticated_event_participant(request)
         if not guest:
-            if getattr(settings, "MAKONBOOK_GUEST_MODE_ENABLED", False):
-                return redirect("guest_entry")
-            messages.info(request, "This event does not accept anonymous guest attempts.")
-            return redirect("home")
+            new_guest_name = _clean_guest_name(request.POST.get("full_name", ""))
+            if not new_guest_name:
+                messages.error(request, "Enter your name to start this event.")
+                return redirect("global_event_detail_root", slug=slug)
 
     key, _, now_ts, blocked_until = _guest_access_failure_state(request, event)
     if blocked_until > now_ts:
@@ -1480,6 +1558,9 @@ def start_global_event_view(request, slug):
         return _event_home_redirect(request)
 
     _clear_guest_access_failures(request, event)
+
+    if guest is None:
+        guest = _create_open_event_guest(request, new_guest_name)
 
     sequence = get_test_sequence(event.test)
     if not sequence:
@@ -1540,6 +1621,9 @@ def global_event_attempt_view(request, guest_token):
         _finalize_guest_attempt_safely(attempt.pk)
         return redirect("global_event_result_root", guest_token=attempt.guest_token)
     section, module = current_step
+    break_page = _subject_break_response(request, attempt, section, module)
+    if break_page is not None:
+        return break_page
     questions = _questions_for_step(attempt.event.test, section, module, formatted=(section == "english"))
     if not questions:
         return redirect(_complete_guest_module(attempt, section, module))
