@@ -1,0 +1,88 @@
+{# V97: tier-based placement result. Needs `diagnostic` (apps.sat.guest_views.attempt_diagnostic). #}
+<style>
+.dg97{display:grid;gap:16px;margin-top:18px;text-align:left;color:inherit}
+.dg97-card{border:1px solid rgba(124,92,255,.22);border-radius:20px;padding:18px;background:rgba(124,92,255,.05)}
+.dg97 h2{margin:0 0 4px;font-size:20px}
+.dg97 h3{margin:0 0 10px;font-size:16px}
+.dg97 p{margin:0;line-height:1.55;opacity:.85}
+.dg97-course{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:6px 0 8px}
+.dg97-course strong{font-size:24px}
+.dg97-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;font-size:12.5px;font-weight:800;background:rgba(124,92,255,.14);color:#6d3fd6}
+.dg97-pill.ok{background:rgba(22,163,74,.14);color:#15803d}.dg97-pill.no{background:rgba(220,38,38,.12);color:#b91c1c}.dg97-pill.skip{background:rgba(100,116,139,.15);color:#475569}.dg97-pill.wait{background:rgba(217,119,6,.15);color:#b45309}
+[data-theme="dark"] .dg97-pill{color:#c4b5fd}[data-theme="dark"] .dg97-pill.ok{color:#86efac}[data-theme="dark"] .dg97-pill.no{color:#fca5a5}[data-theme="dark"] .dg97-pill.skip{color:#cbd5e1}[data-theme="dark"] .dg97-pill.wait{color:#fcd34d}
+.dg97-tiers{display:grid;gap:12px}
+.dg97-tier-head{display:flex;justify-content:space-between;gap:8px;font-weight:750;font-size:14px}
+.dg97-bar{height:10px;border-radius:999px;background:rgba(124,92,255,.14);overflow:hidden;margin-top:6px}
+.dg97-bar span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#7c5cff,#c084fc)}
+.dg97-skills{width:100%;border-collapse:collapse;font-size:14px}
+.dg97-skills th{text-align:left;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;opacity:.7;padding:8px 6px;border-bottom:1px solid rgba(124,92,255,.2)}
+.dg97-skills td{padding:9px 6px;border-bottom:1px solid rgba(124,92,255,.12);vertical-align:top}
+.dg97-skills tr:last-child td{border-bottom:0}
+.dg97-q{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:24px;margin:0 4px 4px 0;padding:0 6px;border-radius:8px;font-size:12.5px;font-weight:800}
+.dg97-q.ok{background:rgba(22,163,74,.16);color:#15803d}.dg97-q.no{background:rgba(220,38,38,.13);color:#b91c1c}.dg97-q.skip{background:rgba(100,116,139,.16);color:#475569}
+[data-theme="dark"] .dg97-q.ok{color:#86efac}[data-theme="dark"] .dg97-q.no{color:#fca5a5}[data-theme="dark"] .dg97-q.skip{color:#cbd5e1}
+.dg97-written{display:grid;gap:10px}
+.dg97-answer{padding:12px 14px;border-radius:14px;border:1px solid rgba(124,92,255,.16)}
+.dg97-answer-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:6px;font-weight:750}
+.dg97-answer blockquote{margin:0 0 6px;font-style:italic;opacity:.9}
+.dg97-answer small{display:block;opacity:.8;line-height:1.5}
+.dg97-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:12.5px;opacity:.85}
+@media(max-width:640px){.dg97-skills th:nth-child(2),.dg97-skills td:nth-child(2){display:none}}
+</style>
+<section class="dg97" aria-label="Diagnostic result">
+  <div class="dg97-card">
+    <span class="dg97-pill">Recommended placement</span>
+    <div class="dg97-course"><strong>{{ diagnostic.course }}</strong><span class="dg97-pill">{{ diagnostic.correct }} / {{ diagnostic.total }} · {{ diagnostic.percent }}%</span></div>
+    <p>{{ diagnostic.summary }}</p>
+    {% if diagnostic.borderline %}<p style="margin-top:8px"><span class="dg97-pill">Borderline result</span> You are close to the SAT Course cut-off and scored at least 60% on every level, so you are placed in the SAT Course.</p>{% endif %}
+    {% if diagnostic.pending %}<p style="margin-top:8px"><span class="dg97-pill wait"><i>⏳</i> Written answers are still being checked</span> Refresh this page in a minute; your placement may change.</p>{% endif %}
+  </div>
+
+  {% if diagnostic.tiers %}
+  <div class="dg97-card">
+    <h3>Score by level</h3>
+    <div class="dg97-tiers">
+      {% for tier in diagnostic.tiers %}
+      <div>
+        <div class="dg97-tier-head"><span>{{ tier.label }}</span><span>{{ tier.correct }} / {{ tier.total }} · {{ tier.percent }}%</span></div>
+        <div class="dg97-bar" role="img" aria-label="{{ tier.label }}: {{ tier.percent }} percent"><span style="width:{{ tier.percent }}%"></span></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="dg97-card">
+    <h3>Skills</h3>
+    <table class="dg97-skills">
+      <thead><tr><th>Skill</th><th>Level</th><th>Questions</th></tr></thead>
+      <tbody>
+        {% for skill in diagnostic.skills %}
+        <tr>
+          <td><strong>{{ skill.skill }}</strong><br><small>{{ skill.correct }} of {{ skill.total }} correct</small></td>
+          <td>{{ skill.tier|default:"—" }}</td>
+          <td>{% for q in skill.numbers %}<span class="dg97-q {% if q.correct %}ok{% elif q.answered %}no{% else %}skip{% endif %}" title="Question {{ q.number }}: {% if q.correct %}correct{% elif q.answered %}incorrect{% else %}not answered{% endif %}">{{ q.number }}</span>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="dg97-legend"><span><span class="dg97-q ok">#</span> correct</span><span><span class="dg97-q no">#</span> incorrect</span><span><span class="dg97-q skip">#</span> not answered</span></div>
+  </div>
+
+  {% if diagnostic.written %}
+  <div class="dg97-card">
+    <h3>Your written answers</h3>
+    <div class="dg97-written">
+      {% for row in diagnostic.written %}
+      <div class="dg97-answer">
+        <div class="dg97-answer-head"><span>Question {{ row.number }}{% if row.skill %} · {{ row.skill }}{% endif %}</span>
+          {% if row.pending %}<span class="dg97-pill wait">Being checked</span>{% elif row.correct %}<span class="dg97-pill ok">Correct</span>{% elif row.answer %}<span class="dg97-pill no">Incorrect</span>{% else %}<span class="dg97-pill skip">Not answered</span>{% endif %}</div>
+        {% if row.answer %}<blockquote>“{{ row.answer }}”</blockquote>{% endif %}
+        {% if row.feedback %}<small>{{ row.feedback }}</small>{% endif %}
+        {% if not row.correct and not row.pending %}<small>Model answer: {{ row.model_answer }}</small>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>

@@ -218,7 +218,15 @@ def validate_import_question(question: TestImportQuestion, save=True):
         errors.append("Question number is missing or invalid.")
     if not str(question.question or "").strip():
         errors.append("Question prompt is empty.")
-    is_open = question.response_type == "open_text" or (question.section == "math" and question.written)
+    is_open = question.response_type in {"open_text", "ai_written"} or (question.section == "math" and question.written)
+    if question.response_type == "ai_written":
+        if question.section != "english":
+            errors.append("Written answers checked by AI are supported for Reading & Writing questions only.")
+        if not str(question.grading_criteria or "").strip():
+            warnings.append("Written answer has no grading criteria; the AI will grade against the model answer only.")
+    job_type = getattr(getattr(question, "job", None), "target_test_type", "")
+    if job_type == Test.TYPE_PLACEMENT and question.section == "english" and not question.placement_tier:
+        warnings.append("Placement question has no level (Foundation / Pre-SAT / SAT); it will not count toward the recommended course.")
     if not is_open:
         if not question.choice_graph:
             missing = [letter for letter, value in (("A", question.a), ("B", question.b), ("C", question.c), ("D", question.d)) if not str(value or "").strip()]
@@ -300,8 +308,9 @@ def _audit_payload_for_questions(job: TestImportJob, questions):
             "stored_explanation": q.explanation,
             "has_prompt_image": q.graph,
             "response_type": q.response_type,
-            "accepted_answers": "",
+            "accepted_answers": q.accepted_answers or "",
             "answer_patterns": "",
+            "grading_criteria": q.grading_criteria or "",
             "written": q.written,
             "has_choice_images": q.choice_graph,
         })
@@ -407,6 +416,14 @@ STRUCTURED_QUESTION_RE = re.compile(
     re.I | re.S,
 )
 STRUCTURED_PAGE_RE = re.compile(r"\[\[\s*MB_PAGE\s*:\s*(\d+)\s*\]\]", re.I)
+# V97: optional header [[TEST_TYPE:PLACEMENT]] and per-question [[LEVEL:...]] / [[SKILL:...]].
+STRUCTURED_TEST_TYPE_RE = re.compile(r"\[\[\s*TEST_TYPE\s*:\s*([A-Z_\-]+)\s*\]\]", re.I)
+STRUCTURED_OR_RE = re.compile(r"\[\[\s*OR\s*\]\]", re.I)
+STRUCTURED_TEST_TYPES = {"PRACTICE": "regular", "REGULAR": "regular", "PLACEMENT": "placement", "EVENT": "event"}
+STRUCTURED_LEVELS = {
+    "FOUNDATION": "foundation", "PRE_SAT": "pre_sat", "PRESAT": "pre_sat", "PRE-SAT": "pre_sat", "SAT": "sat",
+}
+STRUCTURED_WRITTEN_TYPES = {"WRITTEN", "AI_WRITTEN", "WRITTEN_AI"}
 STRUCTURED_VISUAL_OPEN_RE = re.compile(r"\[\[\s*VISUAL\s*:\s*([A-Z0-9_\-]+)\s*\]\]", re.I)
 STRUCTURED_VISUAL_REGION_RE = re.compile(
     r"\[\[\s*VISUAL\s*:\s*([A-Z0-9_\-]+)\s*\]\].*?\[\[\s*/\s*VISUAL\s*:\s*\1\s*\]\]",
@@ -973,7 +990,11 @@ def _parse_structured_pdf(data: bytes, expected_section: str):
             pages_before = STRUCTURED_PAGE_RE.findall(text[:absolute_question_start])
             source_page = int(pages_before[-1]) if pages_before else 1
             q_type = _structured_scalar(block, "TYPE", "MCQ").upper().replace("-", "_")
-            is_open = q_type in {"SPR", "OPEN", "OPEN_TEXT", "STUDENT_PRODUCED_RESPONSE"}
+            is_written = q_type in STRUCTURED_WRITTEN_TYPES
+            is_open = is_written or q_type in {"SPR", "OPEN", "OPEN_TEXT", "STUDENT_PRODUCED_RESPONSE"}
+            level_token = _structured_scalar(block, "LEVEL", "").upper().replace(" ", "_")
+            accepted_raw = _structured_block(block, "ACCEPTED", section=expected_section, field_name="accepted")
+            accepted = [part.strip() for part in STRUCTURED_OR_RE.split(accepted_raw) if part.strip()]
 
             visual_assets = {"main": [], "choices": {"A": [], "B": [], "C": [], "D": []}}
             visual_errors = []
@@ -1016,8 +1037,13 @@ def _parse_structured_pdf(data: bytes, expected_section: str):
                 "d": _structured_block(block, "D", section=expected_section, field_name="d"),
                 "answer": _structured_block(block, "ANSWER", section=expected_section, field_name="answer"),
                 "explanation": _structured_block(block, "EXPLANATION", section=expected_section, field_name="explanation"),
-                "response_type": "open_text" if is_open else "multiple_choice",
+                "response_type": "ai_written" if is_written else ("open_text" if is_open else "multiple_choice"),
                 "written": bool(expected_section == "math" and is_open),
+                "accepted_answers": "\n".join(accepted),
+                "grading_criteria": _structured_block(block, "CRITERIA", section=expected_section, field_name="criteria"),
+                "placement_tier": STRUCTURED_LEVELS.get(level_token, ""),
+                "declared_level": level_token,
+                "skill": _structured_scalar(block, "SKILL", "")[:120],
                 "graph": graph,
                 "choice_graph": choice_graph,
                 "source_page": source_page,
@@ -1045,7 +1071,9 @@ def _parse_structured_pdf(data: bytes, expected_section: str):
 
     if not parsed:
         raise ValueError("Structured PDF contains no questions.")
+    test_type_match = STRUCTURED_TEST_TYPE_RE.search(text)
     return parsed, {
+        "test_type": STRUCTURED_TEST_TYPES.get(test_type_match.group(1).upper().replace("-", "_"), "") if test_type_match else "",
         "page_count": page_count,
         "modules": module_meta,
         "structured_version": version,
@@ -1108,6 +1136,9 @@ def _process_structured_import_job(job_id: int, *, run_audit=False, progress_cal
                 "visual_error_count": meta.get("visual_error_count", 0),
             }
             structure["modules"].extend(meta["modules"])
+            if meta.get("test_type"):
+                structure["test_type"] = meta["test_type"]
+                job.target_test_type = meta["test_type"]
 
             for module_name, item in parsed:
                 visual_assets = item.pop("_visual_assets", {"main": [], "choices": {}})
@@ -1123,6 +1154,10 @@ def _process_structured_import_job(job_id: int, *, run_audit=False, progress_cal
                     answer=item["answer"],
                     explanation=item["explanation"],
                     response_type=item["response_type"],
+                    accepted_answers=item.get("accepted_answers", ""),
+                    grading_criteria=item.get("grading_criteria", ""),
+                    placement_tier=item.get("placement_tier", ""),
+                    skill=item.get("skill", ""),
                     written=item["written"],
                     graph=item["graph"],
                     choice_graph=item["choice_graph"],
@@ -1186,7 +1221,10 @@ def _process_structured_import_job(job_id: int, *, run_audit=False, progress_cal
         job.requested_test_type = detected
         job.page_count = total_pages
         job.structure_data = structure
-        job.save(update_fields=["detected_test_type", "requested_test_type", "page_count", "structure_data", "ai_model", "updated_at"])
+        job.save(update_fields=[
+            "detected_test_type", "requested_test_type", "page_count", "structure_data", "ai_model",
+            "target_test_type", "updated_at",
+        ])
 
         _emit_progress(job, 55, "validating", "Validating parsed question blocks and answers...", progress_callback)
         validate_job(job)
@@ -1446,7 +1484,8 @@ def publish_import_job(job_id: int, *, published_by=None):
         job.status = TestImportJob.STATUS_PUBLISHING
         job.save(update_fields=["status", "updated_at"])
         published_at = timezone.now()
-        test = Test.objects.create(name=job.name, published_at=published_at)
+        test_type = job.target_test_type or Test.TYPE_REGULAR
+        test = Test.objects.create(name=job.name, published_at=published_at, test_type=test_type)
 
         english, math = [], []
         for q in job.questions.all().order_by("section", "module", "number"):
@@ -1454,14 +1493,16 @@ def publish_import_job(job_id: int, *, published_by=None):
                 english.append(English_Question(
                     test=test, module=q.module, number=q.number, passage=q.passage, question=q.question,
                     a=q.a, b=q.b, c=q.c, d=q.d, graph=q.graph, image=q.image, response_type=q.response_type,
-                    answer=q.answer, explained=q.explanation,
+                    answer=q.answer, explained=q.explanation, accepted_answers=q.accepted_answers,
+                    grading_criteria=q.grading_criteria, placement_tier=q.placement_tier, skill=q.skill,
+                    content_format=q.content_format,
                 ))
             else:
                 math.append(Math_Question(
                     test=test, module=q.module, number=q.number, passage=q.passage, question=q.question,
                     a=q.a, b=q.b, c=q.c, d=q.d, graph=q.graph, image=q.image, choice_graph=q.choice_graph,
                     image_a=q.image_a, image_b=q.image_b, image_c=q.image_c, image_d=q.image_d,
-                    written=q.written, answer=q.answer, explained=q.explanation,
+                    written=q.written, answer=q.answer, explained=q.explanation, content_format=q.content_format,
                 ))
         if english:
             English_Question.objects.bulk_create(english)
@@ -1469,16 +1510,18 @@ def publish_import_job(job_id: int, *, published_by=None):
             Math_Question.objects.bulk_create(math)
 
         # Existing approved students in classrooms set to "All practice tests" inherit the publication immediately.
-        all_policy_classroom_ids = ClassroomPracticeTestAccessPolicy.objects.filter(
-            access_mode=ClassroomPracticeTestAccessPolicy.ACCESS_MODE_ALL
-        ).values_list("classroom_id", flat=True)
-        memberships = ClassroomMembership.objects.filter(
-            classroom_id__in=all_policy_classroom_ids, role="student", status="approved"
-        ).values_list("id", flat=True)
-        StudentPracticeTestAccess.objects.bulk_create(
-            [StudentPracticeTestAccess(membership_id=mid, test=test, has_access=True) for mid in memberships],
-            ignore_conflicts=True,
-        )
+        # Placement and event tests are not practice tests: nobody gets practice access to them.
+        if test_type == Test.TYPE_REGULAR:
+            all_policy_classroom_ids = ClassroomPracticeTestAccessPolicy.objects.filter(
+                access_mode=ClassroomPracticeTestAccessPolicy.ACCESS_MODE_ALL
+            ).values_list("classroom_id", flat=True)
+            memberships = ClassroomMembership.objects.filter(
+                classroom_id__in=all_policy_classroom_ids, role="student", status="approved"
+            ).values_list("id", flat=True)
+            StudentPracticeTestAccess.objects.bulk_create(
+                [StudentPracticeTestAccess(membership_id=mid, test=test, has_access=True) for mid in memberships],
+                ignore_conflicts=True,
+            )
 
         job.published_test = test
         job.published_at = published_at

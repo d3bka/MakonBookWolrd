@@ -1,6 +1,6 @@
 {% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block page_title %}Import Structured Test | MakonBook{% endblock %}{% block title-main %}Import a test{% endblock %}{% block title-subtitle %}<span>Structured PDFs stay in staging until publication</span>{% endblock %}{% block title %}New import{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=10">{% endblock %}
 {% block content %}
 <div class="tic-shell narrow">
   <a class="tic-back" href="{% url 'manager_test_import_list_root' %}"><i class="bi bi-arrow-left"></i> Import Center</a>
@@ -34,7 +34,18 @@ Inline math: \(x^2 + 3x\).  Display math: \[\frac{x+1}{2}\].[[/PASSAGE]]
 Visual example:
 [[VISUAL:QUESTION]]
 <cropped table/chart/figure only>
-[[/VISUAL:QUESTION]]</pre>
+[[/VISUAL:QUESTION]]
+
+Placement test (optional header line):
+[[TEST_TYPE:PLACEMENT]]
+
+Written answer checked by AI (EBRW only):
+[[TYPE:WRITTEN]]
+[[LEVEL:FOUNDATION]]      FOUNDATION / PRE_SAT / SAT
+[[SKILL:Past perfect]]
+[[ANSWER]]model answer[[/ANSWER]]
+[[ACCEPTED]]variant 1 [[OR]] variant 2[[/ACCEPTED]]
+[[CRITERIA]]what a correct answer must do[[/CRITERIA]]</pre>
     </details>
   </section>
 
@@ -44,6 +55,14 @@ Visual example:
       {% if form.non_field_errors %}{% for error in form.non_field_errors %}<div class="tic-alert error">{{ error }}</div>{% endfor %}{% endif %}
       {% for field in form %}<label><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}
       <button class="tic-btn primary" type="submit" data-import-submit-button><i class="bi bi-cloud-arrow-up"></i> <span>Upload & build staging test</span></button>
+    </form>
+  </section>
+
+  <section class="tic-card">
+    <div class="tic-card-head"><div><span class="tic-kicker">Or</span><h2>Import from JSON</h2><p>For text-only tests, such as placement tests with written answers, levels and skills. The file goes through the same AI answer check, review and publishing as a PDF. The format is described at the end of the conversion prompt.</p></div></div>
+    <form method="post" enctype="multipart/form-data" action="{% url 'manager_test_import_create_json_root' %}" class="tic-form">{% csrf_token %}
+      <label><span>JSON file</span><input type="file" name="file" accept=".json,application/json" required><small>Up to 2 MB. Set "test_type": "placement" to publish it as a placement test.</small></label>
+      <button class="tic-btn ghost" type="submit"><i class="bi bi-filetype-json"></i> Import JSON</button>
     </form>
   </section>
 </div>

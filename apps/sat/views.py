@@ -4058,7 +4058,7 @@ def _review_question_payload(question, section):
     if is_makon(question):
         # MakonBook-format text (synced from makonbook-api), rendered to safe HTML.
         written = bool(getattr(question, 'written', False)) if section == 'math' else (
-            getattr(question, 'response_type', 'multiple_choice') == 'open_text'
+            bool(getattr(question, 'is_open_text', False))
         )
         payload = {
             'id': question.id,
@@ -4107,7 +4107,7 @@ def _review_question_payload(question, section):
         'd': _strip_review_choice_prefix(question.d or '', 'D'),
         'graph': question.graph_url() or '',
         'response_type': getattr(question, 'response_type', 'multiple_choice'),
-        'written': getattr(question, 'response_type', 'multiple_choice') == 'open_text',
+        'written': bool(getattr(question, 'is_open_text', False)),
         'reference_answer': reference_answer(question),
     }
 

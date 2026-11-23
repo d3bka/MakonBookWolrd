@@ -1,27 +1,76 @@
 {% extends 'sat/admin/base_admin.html' %}
 
 {% block admin_content %}
-<h2><i class="fa fa-file-text"></i> Test: {{ test.name }}</h2>
+{% include 'sat/admin/_tests_style.html' %}
+<div class="at97">
+  <header class="at97-head">
+    <div>
+      <a class="at97-kicker" href="{% url 'admin_tests' %}" style="text-decoration:none"><i class="bi bi-arrow-left"></i> All tests</a>
+      <h1>{{ test.name }}</h1>
+      <div class="at97-meta">
+        <span class="at97-badge">{{ type_label }}</span>
+        {% if test.is_available %}<span class="at97-badge ok"><i class="bi bi-eye"></i> Visible to students</span>{% else %}<span class="at97-badge off"><i class="bi bi-eye-slash"></i> Hidden</span>{% endif %}
+        <span class="at97-muted" style="font-size:13px">{% if test.published_at %}Published {{ test.published_at|date:"d M Y" }}{% else %}Updated {{ test.created|date:"d M Y" }}{% endif %}</span>
+      </div>
+    </div>
+    <div class="at97-actions">
+      <a class="at97-btn" href="{% url 'rankings' test.name %}"><i class="bi bi-trophy"></i> Rankings</a>
+      <a class="at97-btn primary" href="{% url 'manager_managed_test_edit_root' test.name %}"><i class="bi bi-pencil-square"></i> Edit questions &amp; settings</a>
+    </div>
+  </header>
 
-<div class="admin-card">
-  <div style="display: flex; gap: 30px; flex-wrap: wrap;">
-    <div>
-      <p><strong>Name:</strong> {{ test.name }}</p>
-      <p><strong>Created:</strong> {{ test.created|date:"M d, Y" }}</p>
-    </div>
-    <div>
-      <p><strong>Completions:</strong> {{ completion_count }}</p>
-      <p><strong>Groups:</strong>
-        {% for g in groups %}
-          <span class="badge badge-info">{{ g.name }}</span>
-        {% empty %}
-          <span style="color: #94a3b8;">Not assigned to any group</span>
-        {% endfor %}
-      </p>
-    </div>
-  </div>
-  <div style="margin-top: 15px;">
-    <a href="{% url 'rankings' test.name %}" class="btn-admin btn-primary">View Rankings</a>
+  <section class="at97-stats" aria-label="Summary">
+    <div class="at97-stat"><span>Questions</span><strong>{{ modules.english.total|add:modules.math.total }}</strong><small>{{ modules.english.total }} Reading &amp; Writing · {{ modules.math.total }} Math</small></div>
+    <div class="at97-stat"><span>Completions</span><strong>{{ summary.completions }}</strong><small>{{ summary.students }} student{{ summary.students|pluralize }}</small></div>
+    <div class="at97-stat"><span>Average score</span><strong>{% if summary.average %}{{ summary.average|floatformat:0 }}{% else %}—{% endif %}</strong><small>Across all completions</small></div>
+    <div class="at97-stat"><span>Used in events</span><strong>{{ events|length }}</strong><small>Events and placement tests</small></div>
+  </section>
+
+  <div class="at97-grid">
+    <section class="at97-card at97-span8">
+      <h2>Questions by module</h2>
+      {% if modules.english.total or modules.math.total %}
+      <div class="at97-modules">
+        <div class="at97-module"><span>Reading &amp; Writing · Module 1</span><strong>{{ modules.english.m1 }}</strong></div>
+        <div class="at97-module"><span>Reading &amp; Writing · Module 2</span><strong>{{ modules.english.m2 }}</strong></div>
+        <div class="at97-module"><span>Math · Module 1</span><strong>{{ modules.math.m1 }}</strong></div>
+        <div class="at97-module"><span>Math · Module 2</span><strong>{{ modules.math.m2 }}</strong></div>
+      </div>
+      {% else %}
+      <p class="at97-empty"><span class="at97-badge warn"><i class="bi bi-exclamation-triangle"></i> No questions</span><br>Students cannot take this test until questions are added.</p>
+      {% endif %}
+    </section>
+
+    <section class="at97-card at97-span4">
+      <h2>Groups with access</h2>
+      <div class="at97-groups" style="max-width:none;margin-top:10px">
+        {% for g in groups %}<a class="at97-chip" href="{% url 'admin_group_detail' g.pk %}" style="text-decoration:none">{{ g.name }}</a>{% empty %}<span class="at97-muted">Not assigned to any group.</span>{% endfor %}
+      </div>
+    </section>
+
+    <section class="at97-card at97-span8">
+      <h2>Recent completions</h2>
+      <div class="at97-list">
+        {% for review in recent %}
+        <div class="at97-list-row">
+          <span><strong>{{ review.user.get_full_name|default:review.user.username|default:"Deleted user" }}</strong>{% if review.classroom %} <span class="at97-muted">· {{ review.classroom.name }}</span>{% endif %}</span>
+          <span class="at97-q">{% if review.score is not None %}<b>{{ review.score }}</b> · {% endif %}<span class="at97-muted">{{ review.created_at|date:"d M Y, H:i" }}</span></span>
+        </div>
+        {% empty %}<p class="at97-muted">Nobody has completed this test yet.</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="at97-card at97-span4">
+      <h2>Events using this test</h2>
+      <div class="at97-list">
+        {% for event in events %}
+        <div class="at97-list-row">
+          <a href="{% url 'global_event_detail_root' event.slug %}">{{ event.title }}</a>
+          <span class="at97-badge{% if event.status == 'live' %} ok{% elif event.status == 'closed' %} off{% endif %}">{{ event.get_status_display }}</span>
+        </div>
+        {% empty %}<p class="at97-muted">No events use this test.</p>{% endfor %}
+      </div>
+    </section>
   </div>
 </div>
 {% endblock admin_content %}

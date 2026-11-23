@@ -20,8 +20,11 @@ from .test_import_service import (
     audit_staging_question_batch,
     process_import_job,
     publish_import_job,
+    validate_import_question,
     validate_job,
 )
+from .question_audit import ai_audit_required
+from .rich_text import FORMAT_MAKON, render_makon_text
 from .roles import is_support_teacher
 from .test_import_rate_limit import check_test_import_submit_limit
 from .test_management_service import (
@@ -519,6 +522,23 @@ def test_import_create(request):
     return render(request, "sat/test_import/create.html", {"form": form})
 
 
+@login_required(login_url="/login/")
+@require_POST
+def test_import_create_json(request):
+    """V97: a JSON test file becomes a staging import (apps.sat.json_test_import)."""
+    from .json_test_import import JsonImportError, import_uploaded_json
+
+    if not _manager_allowed(request.user):
+        return HttpResponseForbidden("Manager access required.")
+    try:
+        job = import_uploaded_json(request.FILES.get("file"), created_by=request.user)
+    except JsonImportError as exc:
+        messages.error(request, f"Nothing was imported: {exc}")
+        return redirect("manager_test_import_create_root")
+    messages.success(request, f"'{job.name}' is ready for review. The AI is now solving every question to check the answer key.")
+    return redirect("manager_test_import_detail_root", job_id=job.pk)
+
+
 def _import_file_url(field):
     try:
         return field.url if field else ""
@@ -576,6 +596,10 @@ def test_import_preview(request, job_id):
             "c": q.c or "",
             "d": q.d or "",
             "response_type": q.response_type or "multiple_choice",
+            "html": (
+                {field: str(render_makon_text(getattr(q, field) or "")) for field in ("passage", "question", "a", "b", "c", "d")}
+                if q.content_format == FORMAT_MAKON else None
+            ),
             "written": bool(q.written),
             "graph": _import_file_url(q.image),
             "choice_graph": bool(q.choice_graph),
@@ -640,7 +664,25 @@ def test_import_detail(request, job_id):
     audit_uncertain_count = sum(1 for q in questions if q.audit_verdict == "uncertain")
     audit_complete = bool(questions) and audited_count == len(questions)
     audit_partial = 0 < audited_count < len(questions)
-    audit_provider = str(getattr(settings, "QUESTION_AUDIT_PROVIDER", "deepseek") or "deepseek").strip().title()
+    ai_state = job.ai_check_state
+    flagged_questions = [q for q in questions if q.audit_verdict in {"issue", "uncertain"}]
+    publish_blockers = []
+    if job.status not in {TestImportJob.STATUS_PUBLISHED, TestImportJob.STATUS_PUBLISHING, TestImportJob.STATUS_READY_TO_PUBLISH} and questions:
+        if validation_counts["error"]:
+            publish_blockers.append(f"Fix {validation_counts['error']} question(s) with errors.")
+        if ai_state == TestImportJob.AI_PENDING:
+            publish_blockers.append("Wait for the AI answer check to finish.")
+        elif ai_state == TestImportJob.AI_ISSUES:
+            publish_blockers.append(f"Fix or confirm {len(flagged_questions)} question(s) the AI flagged.")
+        if any(r.verdict == TestImportReview.VERDICT_CHANGES for r in reviews):
+            publish_blockers.append("A reviewer asked for changes.")
+        if job.human_approval_count < 1:
+            publish_blockers.append("At least one person must approve.")
+        elif job.approval_count < job.approval_target:
+            publish_blockers.append(f"Approvals: {job.approval_count}/{job.approval_target}.")
+    audit_provider = {"deepseek": "DeepSeek", "openai": "OpenAI"}.get(
+        str(getattr(settings, "QUESTION_AUDIT_PROVIDER", "deepseek") or "deepseek").strip().lower(), "AI"
+    )
     audit_model = str(getattr(settings, "TEST_IMPORT_AUDIT_MODEL", "") or getattr(settings, "QUESTION_AUDIT_MODEL", "") or "")
     return render(request, "sat/test_import/detail.html", {
         "job": job,
@@ -656,6 +698,16 @@ def test_import_detail(request, job_id):
         "audit_partial": audit_partial,
         "audit_provider": audit_provider,
         "audit_model": audit_model,
+        "ai_state": ai_state,
+        "publish_blockers": publish_blockers,
+        "ai_required": ai_audit_required(),
+        "flagged_questions": flagged_questions,
+        "ai_auto_start": (
+            _manager_allowed(request.user)
+            and ai_state == TestImportJob.AI_PENDING
+            and job.status not in {TestImportJob.STATUS_PROCESSING, TestImportJob.STATUS_PUBLISHING, TestImportJob.STATUS_PUBLISHED}
+            and job.progress_stage != "audit_failed"
+        ),
         "can_manage": _manager_allowed(request.user),
         "can_publish": _manager_allowed(request.user) and job.status == TestImportJob.STATUS_READY_TO_PUBLISH and not job.has_blocking_errors,
     })
@@ -832,14 +884,50 @@ def test_import_question_edit(request, job_id, question_id):
         return HttpResponseForbidden("Published staging questions are read-only.")
     form = TestImportQuestionForm(request.POST or None, request.FILES or None, instance=question)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        edited = form.save(commit=False)
+        # V97: the AI checks the edited question again (the detail page starts it).
+        edited.audit_verdict = ""
+        edited.audit_severity = ""
+        edited.audit_confidence = None
+        edited.audit_summary = ""
+        edited.audit_verified_answer = ""
+        edited.audit_recommended_fix = ""
+        edited.save()
+        form.save_m2m()
         job.reviews.update(verdict=TestImportReview.VERDICT_PENDING, note="", reviewed_at=None)
+        if job.progress_stage == "audit_failed":
+            job.progress_stage = "audit_waiting"
+            job.save(update_fields=["progress_stage", "updated_at"])
         validate_job(job)
         job.status = TestImportJob.STATUS_REVIEW_REQUIRED if not job.has_blocking_errors else TestImportJob.STATUS_CHANGES_REQUESTED
         job.save(update_fields=["status", "updated_at"])
         messages.success(request, f"{question.display_code} updated. Previous approvals were reset because the test changed.")
         return redirect(_review_ui_url(request, "manager_test_import_detail_root", "support_teacher_review_detail_root", kwargs={"job_id": job.pk}))
     return render(request, "sat/test_import/question_form.html", {"job": job, "question": question, "form": form})
+
+
+@login_required(login_url="/login/")
+@require_POST
+def test_import_audit_confirm(request, job_id, question_id):
+    """V97: a manager keeps the stored key after the AI flagged a question."""
+    if not _manager_allowed(request.user):
+        return HttpResponseForbidden("Manager access required.")
+    job = get_object_or_404(TestImportJob, pk=job_id)
+    if job.status in {TestImportJob.STATUS_PUBLISHED, TestImportJob.STATUS_PUBLISHING, TestImportJob.STATUS_PROCESSING}:
+        messages.error(request, "This import cannot be changed now.")
+        return redirect("manager_test_import_detail_root", job_id=job.pk)
+    question = get_object_or_404(TestImportQuestion, pk=question_id, job=job)
+    if question.audit_verdict not in {"issue", "uncertain"}:
+        return redirect("manager_test_import_detail_root", job_id=job.pk)
+    who = request.user.get_full_name() or request.user.username
+    question.audit_summary = f"Key confirmed by {who} on {timezone.localtime():%d %b %Y %H:%M}. AI said ({question.audit_verdict}): {question.audit_summary}"[:4000]
+    question.audit_verdict = "ok"
+    question.audit_severity = "none"
+    question.save(update_fields=["audit_verdict", "audit_severity", "audit_summary", "updated_at"])
+    validate_import_question(question)
+    job.refresh_review_status()
+    messages.success(request, f"{question.display_code}: the answer key ({question.answer}) is kept.")
+    return redirect("manager_test_import_detail_root", job_id=job.pk)
 
 
 @login_required(login_url="/login/")

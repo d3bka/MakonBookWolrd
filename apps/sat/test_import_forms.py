@@ -7,13 +7,15 @@ from .test_import_service import validate_import_question
 class TestImportUploadForm(forms.ModelForm):
     class Meta:
         model = TestImportJob
-        fields = ["name", "english_pdf", "math_pdf", "required_approvals"]
+        fields = ["name", "target_test_type", "english_pdf", "math_pdf", "required_approvals"]
         widgets = {"required_approvals": forms.NumberInput(attrs={"min": 1, "max": 5})}
         labels = {
+            "target_test_type": "Publish as",
             "english_pdf": "EBRW structured PDF",
             "math_pdf": "Math structured PDF",
         }
         help_texts = {
+            "target_test_type": "Placement tests are published to Placement Tests, not to the practice-test bank. A [[TEST_TYPE:PLACEMENT]] line in the PDF sets this too.",
             "english_pdf": "Optional. Upload a MakonBook Structured PDF v2 Reading & Writing file (v1 remains accepted for legacy imports).",
             "math_pdf": "Optional. Upload a MakonBook Structured PDF v2 Math file (v1 remains accepted for legacy imports).",
         }
@@ -66,7 +68,8 @@ class TestImportQuestionForm(forms.ModelForm):
         fields = [
             "number", "passage", "question", "a", "b", "c", "d", "answer", "explanation",
             "image", "image_a", "image_b", "image_c", "image_d",
-            "response_type", "written", "graph", "choice_graph", "source_page",
+            "response_type", "accepted_answers", "grading_criteria", "placement_tier", "skill",
+            "written", "graph", "choice_graph", "source_page",
         ]
         widgets = {
             "passage": forms.Textarea(attrs={"rows": 6}),
@@ -74,6 +77,8 @@ class TestImportQuestionForm(forms.ModelForm):
             "a": forms.Textarea(attrs={"rows": 2}), "b": forms.Textarea(attrs={"rows": 2}),
             "c": forms.Textarea(attrs={"rows": 2}), "d": forms.Textarea(attrs={"rows": 2}),
             "explanation": forms.Textarea(attrs={"rows": 5}),
+            "accepted_answers": forms.Textarea(attrs={"rows": 3}),
+            "grading_criteria": forms.Textarea(attrs={"rows": 3}),
         }
 
     def save(self, commit=True):

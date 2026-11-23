@@ -70,7 +70,7 @@
 
   function isOpenText(core) {
     const question = core.questions[core.currentQuestionIndex] || {};
-    return question.response_type === 'open_text';
+    return question.response_type === 'open_text' || question.response_type === 'ai_written';
   }
 
   function syncEliminateControls(core) {

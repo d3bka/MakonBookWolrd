@@ -142,6 +142,13 @@ def test_import_meta(request):
         return empty
 
 
+# V97: pages that belong to the Manager workspace although their route name has no
+# "manager_" prefix. A Teacher+Manager must not see them in Teacher chrome.
+MANAGER_WORKSPACE_ROUTES = {"hollihop_dashboard"}
+# Pages linked from both the Manager and the Admin sidebar keep the workspace the
+# user came from (?workspace=admin), like Settings and Profile do.
+SHARED_WORKSPACE_ROUTES = {"settings_page", "edit_profile", "hollihop_dashboard", "manager_seasonal_theme"}
+
 STAFF_WORKSPACE_ROUTE_MAP = {
     "admin_dashboard": "home",
     "admin_users": "users",
@@ -332,6 +339,7 @@ def staff_workspace_meta(request):
     requested_account_mode = ""
     if route_name in {"settings_page", "edit_profile"}:
         active = "account"
+    if route_name in SHARED_WORKSPACE_ROUTES:
         candidate = (request.GET.get("workspace") or "").strip().lower()
         allowed = {
             "teacher": has_teacher,
@@ -350,7 +358,9 @@ def staff_workspace_meta(request):
         mode = requested_account_mode
     elif admin_route and has_admin:
         mode = "admin"
-    elif route_name.startswith('manager_') or active == "manager":
+    elif (route_name.startswith('manager_') or active == "manager" or route_name in MANAGER_WORKSPACE_ROUTES) and (
+        has_manager or has_admin
+    ):
         mode = "manager"
     elif route_name.startswith('support_teacher_') or active in {"support", "support-profile"}:
         # A Manager/Admin may inspect support-teacher pages without actually

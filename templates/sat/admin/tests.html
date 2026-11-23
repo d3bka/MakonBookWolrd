@@ -1,39 +1,90 @@
 {% extends 'sat/admin/base_admin.html' %}
 
 {% block admin_content %}
-<h2><i class="fa fa-file-text"></i> Tests</h2>
+{% include 'sat/admin/_tests_style.html' %}
+<div class="at97">
+  <header class="at97-head">
+    <div>
+      <span class="at97-kicker"><i class="bi bi-journal-text"></i> Test library</span>
+      <h1>Tests</h1>
+      <p class="at97-sub">Every SAT test on the platform: practice, placement and event tests. Open a test to see its questions, who completed it and which events use it.</p>
+    </div>
+    <div class="at97-actions">
+      <form method="post" action="{% url 'admin_test_import_json' %}" enctype="multipart/form-data" data-at97-json>{% csrf_token %}
+        <label class="at97-btn" title="Create a hidden test from a JSON file"><i class="bi bi-filetype-json"></i> Import from JSON<input type="file" name="file" accept=".json,application/json" hidden onchange="this.form.submit()"></label>
+      </form>
+      <a class="at97-btn" href="{% url 'manager_managed_test_list_root' %}"><i class="bi bi-pencil-square"></i> Edit tests</a>
+      <a class="at97-btn primary" href="{% url 'manager_test_import_create_root' %}"><i class="bi bi-upload"></i> Import a test</a>
+    </div>
+  </header>
 
-<div class="admin-card">
-  <table class="admin-table">
-    <thead>
-      <tr>
-        <th>Test Name</th>
-        <th>Groups</th>
-        <th>Completions</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in test_data %}
-      <tr>
-        <td><a href="{% url 'admin_test_detail' item.test.name %}">{{ item.test.name }}</a></td>
-        <td>
-          {% for g in item.groups %}
-            <span class="badge badge-info">{{ g.name }}</span>
+  <section class="at97-stats" aria-label="Summary">
+    <div class="at97-stat"><span>All tests</span><strong>{{ stats.total }}</strong><small>{{ stats.by_type.regular }} practice · {{ stats.by_type.placement }} placement · {{ stats.by_type.event }} event</small></div>
+    <div class="at97-stat"><span>Visible to students</span><strong>{{ stats.available }}</strong><small>{% if stats.hidden %}{{ stats.hidden }} hidden from students{% else %}Nothing hidden{% endif %}</small></div>
+    <div class="at97-stat"><span>Completions</span><strong>{{ stats.completions }}</strong><small>Finished attempts, all tests</small></div>
+    <div class="at97-stat"><span>Without questions</span><strong>{{ stats.empty }}</strong><small>{% if stats.empty %}Need questions before use{% else %}Every test has questions{% endif %}</small></div>
+  </section>
+
+  <section class="at97-card" aria-label="Tests">
+    <form class="at97-filters" method="get" role="search">
+      <label class="grow">Search<input type="search" name="q" value="{{ query }}" placeholder="Test name, e.g. DAY12" autocomplete="off"></label>
+      <label>Type<select name="type">
+        <option value="all">All types</option>
+        {% for key, label in type_labels.items %}<option value="{{ key }}"{% if test_type == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></label>
+      <label>Status<select name="state">
+        <option value="all">Any status</option>
+        <option value="available"{% if state == 'available' %} selected{% endif %}>Visible to students</option>
+        <option value="hidden"{% if state == 'hidden' %} selected{% endif %}>Hidden</option>
+        <option value="empty"{% if state == 'empty' %} selected{% endif %}>Without questions</option>
+      </select></label>
+      <label>Sort<select name="sort">
+        {% for key, label in sort_labels.items %}<option value="{{ key }}"{% if sort == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></label>
+      <button class="at97-btn primary" type="submit"><i class="bi bi-funnel"></i> Apply</button>
+      {% if filtered or sort != 'name' %}<a class="at97-btn" href="{% url 'admin_tests' %}">Reset</a>{% endif %}
+    </form>
+  </section>
+
+  <section class="at97-card">
+    <p class="at97-count">{% if filtered %}{{ tests|length }} of {{ stats.total }} tests match{% else %}{{ tests|length }} test{{ tests|length|pluralize }}{% endif %}</p>
+    <div class="at97-scroll">
+      <table class="at97-table">
+        <thead><tr><th>Test</th><th>Questions</th><th>Groups</th><th>Completions</th><th>Last completed</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          {% for test in tests %}
+          <tr>
+            <td>
+              <a class="at97-name" href="{% url 'admin_test_detail' test.name %}">{{ test.name }}</a>
+              <div class="at97-meta">
+                <span class="at97-badge">{% if test.test_type == 'placement' %}Placement{% elif test.test_type == 'event' %}Event{% else %}Practice{% endif %}</span>
+                {% if test.is_available %}<span class="at97-badge ok"><i class="bi bi-eye"></i> Visible</span>{% else %}<span class="at97-badge off"><i class="bi bi-eye-slash"></i> Hidden</span>{% endif %}
+                {% if test.event_count %}<span class="at97-badge"><i class="bi bi-calendar-event"></i> {{ test.event_count }} event{{ test.event_count|pluralize }}</span>{% endif %}
+              </div>
+            </td>
+            <td data-label="Questions" class="at97-q">
+              {% if test.english_count or test.math_count %}<b>{{ test.english_count }}</b> <span class="at97-muted">R&amp;W</span> · <b>{{ test.math_count }}</b> <span class="at97-muted">Math</span>
+              {% else %}<span class="at97-badge warn"><i class="bi bi-exclamation-triangle"></i> No questions</span>{% endif %}
+            </td>
+            <td data-label="Groups">
+              <div class="at97-groups">
+                {% for g in test.groups.all|slice:":3" %}<span class="at97-chip">{{ g.name }}</span>{% empty %}<span class="at97-muted">—</span>{% endfor %}
+                {% with extra=test.groups.all|length|add:"-3" %}{% if extra > 0 %}<span class="at97-chip">+{{ extra }}</span>{% endif %}{% endwith %}
+              </div>
+            </td>
+            <td data-label="Completions" class="at97-q"><b>{{ test.completion_count }}</b></td>
+            <td data-label="Last completed" class="at97-muted">{% if test.last_completed %}{{ test.last_completed|date:"d M Y" }}{% else %}Never{% endif %}</td>
+            <td><div class="at97-row-actions">
+              <a class="at97-btn sm" href="{% url 'admin_test_detail' test.name %}">Open</a>
+              <a class="at97-btn sm" href="{% url 'rankings' test.name %}" title="Rankings"><i class="bi bi-trophy"></i><span class="sr-only">Rankings</span></a>
+            </div></td>
+          </tr>
           {% empty %}
-            <span style="color: #94a3b8;">-</span>
+          <tr><td colspan="6" class="at97-empty">{% if filtered %}No tests match these filters. <a href="{% url 'admin_tests' %}">Show all tests</a>{% else %}No tests yet. Import one to get started.{% endif %}</td></tr>
           {% endfor %}
-        </td>
-        <td>{{ item.completion_count }}</td>
-        <td>
-          <a href="{% url 'admin_test_detail' item.test.name %}" class="btn-admin btn-sm btn-primary">Details</a>
-          <a href="{% url 'rankings' item.test.name %}" class="btn-admin btn-sm btn-secondary">Rankings</a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4" style="text-align:center; color:#94a3b8;">No tests found.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </tbody>
+      </table>
+    </div>
+  </section>
 </div>
 {% endblock admin_content %}

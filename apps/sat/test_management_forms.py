@@ -49,7 +49,8 @@ class ManagedEnglishQuestionForm(EnglishQuestionForm):
         fields = [
             "module", "number", "domain", "type", "passage", "question",
             "a", "b", "c", "d", "graph", "image", "response_type",
-            "answer", "accepted_answers", "answer_patterns", "explained",
+            "answer", "accepted_answers", "answer_patterns", "grading_criteria", "explained",
+            "placement_tier", "skill",
         ]
 
 

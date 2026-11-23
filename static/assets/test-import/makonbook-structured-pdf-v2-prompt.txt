@@ -80,9 +80,14 @@ Math:
 [[MAKONBOOK_STRUCTURED_PDF:2]]
 [[SECTION:MATH]]
 
+Placement tests add one more header line right after [[SECTION:...]]:
+[[TEST_TYPE:PLACEMENT]]
+(Use it only for placement / level tests. Ordinary SAT practice tests need no TEST_TYPE line.)
+
 Start modules with:
 [[MODULE:1]]
 [[MODULE:2]]
+A placement test with one part uses only [[MODULE:1]].
 
 ## Multiple-choice question without a visual
 
@@ -193,6 +198,52 @@ Explanation from the source, if available.
 [[/EXPLANATION]]
 [[END_QUESTION]]
 
+## Written answer checked by AI (Reading & Writing only)
+
+Use this when the student writes a sentence or a short text instead of choosing A-D: rewrite a sentence, correct a mistake, combine sentences, transform to reported speech, passive voice, conditionals, and so on. MakonBook compares the student's answer with the model answer and the accepted variants first; anything else is graded by AI using the criteria. Never use it for Math.
+
+[[QUESTION:1]]
+[[TYPE:WRITTEN]]
+[[LEVEL:FOUNDATION]]
+[[SKILL:Past perfect]]
+[[PASSAGE]]
+Task instruction and the sentence the student works with, exactly as in the source.
+[[/PASSAGE]]
+[[PROMPT]]
+The question line, if the source has a separate one.
+[[/PROMPT]]
+[[A]][[/A]]
+[[B]][[/B]]
+[[C]][[/C]]
+[[D]][[/D]]
+[[ANSWER]]
+The model answer from the source answer key.
+[[/ANSWER]]
+[[ACCEPTED]]
+Other fully correct answers from the source key [[OR]] another correct variant
+[[/ACCEPTED]]
+[[CRITERIA]]
+What a correct answer must contain, from the source rubric. Example: Uses had + past participle for the earlier action; keeps the original meaning.
+[[/CRITERIA]]
+[[EXPLANATION]]
+Explanation from the source, if available.
+[[/EXPLANATION]]
+[[END_QUESTION]]
+
+Rules for written answers:
+- [[ANSWER]] holds one model answer. Put every other answer the source accepts into [[ACCEPTED]], separated by [[OR]]. Leave [[ACCEPTED]] empty when the source gives only one answer.
+- [[CRITERIA]] restates the source's grading rule or rubric for this item. If the source has no rubric, write the grammar point being tested in one short sentence (this is the only place where you may summarise instead of copy). Do not make the criteria stricter or looser than the source.
+- Keep [[A]]..[[D]] empty.
+
+## Placement level and skill (placement tests)
+
+Placement tests often group questions by level and skill. Copy them from the source; do not guess:
+- [[LEVEL:FOUNDATION]], [[LEVEL:PRE_SAT]] or [[LEVEL:SAT]] — the level the source assigns to the question (for example "Tier 1 / Foundation", "Tier 2 / Pre-SAT", "Tier 3 / SAT").
+- [[SKILL:Name]] — the skill or topic the source names for the question, for example [[SKILL:Reported speech]] or [[SKILL:Transitions]]. Keep it short (under 120 characters) and on one line.
+Both markers go right after [[TYPE:...]] and work for multiple-choice and written questions. If the source has no levels or skills, leave the markers out. MakonBook uses the levels to recommend a course and the skills to show the student a diagnostic.
+
+If the source repeats the same question twice (for example a second copy with shuffled options), include it once and tell the human operator outside the PDF.
+
 ## Final verification before returning the PDFs
 
 - Every [[QUESTION:n]] has exactly one [[END_QUESTION]].
@@ -207,3 +258,37 @@ Explanation from the source, if available.
 - Fill-in-the-blank locations use [[BLANK]], never underscores followed by the literal word "blank".
 - Non-visual math is valid KaTeX-compatible LaTeX inside \( ... \) or \[ ... \].
 - Empty/missing source questions are NOT invented. Preserve the gap and flag it to the human operator outside the PDF if needed.
+- Written-answer questions use [[TYPE:WRITTEN]] with a model answer in [[ANSWER]], extra correct answers in [[ACCEPTED]] separated by [[OR]], and the rubric in [[CRITERIA]].
+- Placement tests have [[TEST_TYPE:PLACEMENT]] in the header, and every question carries the [[LEVEL:...]] and [[SKILL:...]] that the source gives it.
+
+## Alternative for text-only tests: JSON
+
+If a test has no tables, graphs or pictures that must stay visual (simple pipe tables are fine), you may return one JSON file instead of PDFs. Upload it in MakonBook under Import Center -> Import a test -> Import from JSON. It goes through the same AI answer check and review.
+
+Text uses the MakonBook format: a blank line starts a new paragraph, and a table is written as pipe rows:
+| Year | Visitors |
+| 2019 | 1,200 |
+
+{
+  "name": "English Placement Test (Spring 2027)",
+  "test_type": "placement",
+  "english": [
+    {"module": 1, "number": 1, "response_type": "ai_written",
+     "passage": "Rewrite the sentence using the past perfect: We arrived at the station. The train left.",
+     "question": "",
+     "answer": "When we arrived at the station, the train had already left.",
+     "accepted_answers": ["The train had left before we arrived at the station."],
+     "grading_criteria": "Uses had + past participle for the earlier action; keeps the meaning.",
+     "tier": "foundation", "skill": "Past perfect", "explanation": ""},
+    {"module": 1, "number": 2, "response_type": "multiple_choice",
+     "passage": "...", "question": "Which choice completes the text?",
+     "choices": {"A": "...", "B": "...", "C": "...", "D": "..."},
+     "answer": "C", "tier": "pre_sat", "skill": "Transitions", "explanation": ""}
+  ],
+  "math": []
+}
+
+- test_type: "regular" (practice test), "placement" or "event".
+- response_type: "multiple_choice", "open_text" (exact short answer) or "ai_written" (sentence checked by AI).
+- tier: "foundation", "pre_sat", "sat" or "" when the source has no levels.
+- The same fidelity rules apply: copy wording and answers exactly, never invent content.

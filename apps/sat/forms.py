@@ -192,6 +192,9 @@ class EnglishQuestionForm(BaseQuestionForm):
         if response_type == "multiple_choice":
             if answer.upper() not in {"A", "B", "C", "D"}:
                 self.add_error("answer", "Multiple-choice English questions must use A, B, C, or D as the answer key.")
+        elif response_type == "ai_written":
+            if not answer:
+                self.add_error("answer", "Written answers checked by AI need a model answer.")
         elif not any([answer, accepted, patterns]):
             self.add_error("accepted_answers", "Add at least one accepted answer or a carefully reviewed full-match pattern.")
         return cleaned_data

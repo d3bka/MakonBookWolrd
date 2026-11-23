@@ -181,7 +181,11 @@ class EnglishQuestionAdmin(admin.ModelAdmin):
             'fields': ('a', 'b', 'c', 'd')
         }),
         ('Answer and Explanation', {
-            'fields': ('answer', 'accepted_answers', 'answer_patterns', 'explained')
+            'fields': ('answer', 'accepted_answers', 'answer_patterns', 'grading_criteria', 'explained')
+        }),
+        ('Placement diagnostic', {
+            'fields': ('placement_tier', 'skill'),
+            'description': 'Placement tests only. Tiers decide the recommended course.',
         }),
     )
 

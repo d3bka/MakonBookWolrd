@@ -39,9 +39,12 @@
       <div class="pp12-result-grid">
         <div class="pp12-result-copy">
           <span class="pp-kicker">YOUR RESULT</span>
-          <h1>{% if lead %}{{ lead.first_name }}, your{% else %}Your{% endif %} {% if online_placement %}scores are{% else %}current level is{% endif %} ready.</h1>
+          <h1>{% if lead %}{{ lead.first_name }}, your{% else %}Your{% endif %} {% if diagnostic %}placement is{% elif online_placement %}scores are{% else %}current level is{% endif %} ready.</h1>
 
-          {% if online_placement and show_score or online_placement and section_result %}
+          {% if diagnostic and show_score %}
+            <div class="pp12-level-title"><span>Recommended course</span><strong>{{ diagnostic.course }}</strong></div>
+            <p>{{ diagnostic.summary }}</p>
+          {% elif online_placement and show_score or online_placement and section_result %}
             {% include 'sat/public_placement/_online_levels.html' %}
           {% elif section_result and placement %}
             <div class="pp12-level-title"><span>Your level · Level {{ placement.level_number }}</span><strong>{{ placement.level_name }}</strong></div>
@@ -65,7 +68,11 @@
         </div>
 
         <div class="pp12-score-panel">
-          {% if online_placement and show_score or online_placement and section_result %}
+          {% if diagnostic and show_score %}
+            <div class="pp12-score-ring pp12-score-ring-number" style="--score: {{ diagnostic.percent }}">
+              <div><strong>{{ diagnostic.correct }}</strong><span>out of {{ diagnostic.total }}</span></div>
+            </div>
+          {% elif online_placement and show_score or online_placement and section_result %}
             <div class="pp12-score-ring pp12-score-ring-number" style="--score: {{ placement_percentage|default:0 }}">
               <div><strong>{{ online_placement.total_score }}</strong><span>out of {{ online_placement.max_total }}</span></div>
             </div>
@@ -95,6 +102,8 @@
         </div>
       </div>
     </section>
+
+    {% if diagnostic and show_score %}<section class="pp12-after-card" data-pp-reveal style="display:block">{% include 'sat/public_placement/_diagnostic.html' %}</section>{% endif %}
 
     <section class="pp12-after-card" data-pp-reveal>
       <div><span class="pp-kicker">WHAT HAPPENS NEXT</span><h2>Your result is already recorded.</h2></div>

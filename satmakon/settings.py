@@ -859,6 +859,11 @@ QUESTION_AUDIT_JSON_RETRIES = max(1, min(4, int(os.getenv("QUESTION_AUDIT_JSON_R
 QUESTION_AUDIT_DEEPSEEK_THINKING = os.getenv("QUESTION_AUDIT_DEEPSEEK_THINKING", "0").strip().lower() in {"1", "true", "yes", "on"}
 QUESTION_AUDIT_DEEPSEEK_REASONING_EFFORT = os.getenv("QUESTION_AUDIT_DEEPSEEK_REASONING_EFFORT", "low")
 
+# V97: written placement answers are checked by DeepSeek (the same DEEPSEEK_API_KEY).
+AI_WRITTEN_GRADING_PROVIDER = os.getenv("AI_WRITTEN_GRADING_PROVIDER", "deepseek").strip().lower()
+AI_WRITTEN_GRADING_MODEL = os.getenv("AI_WRITTEN_GRADING_MODEL", "deepseek-v4-flash").strip()
+AI_WRITTEN_GRADING_TIMEOUT_SECONDS = int(os.getenv("AI_WRITTEN_GRADING_TIMEOUT_SECONDS", "40"))
+
 # Legacy arbitrary-PDF AI extraction remains OpenAI-only for old import records.
 # New MakonBook Structured PDF v1/v2 imports never call TEST_IMPORT_MODEL.
 TEST_IMPORT_MODEL = os.getenv("TEST_IMPORT_MODEL", "gpt-5.6-terra")
@@ -868,6 +873,8 @@ if QUESTION_AUDIT_PROVIDER == "deepseek" and not TEST_IMPORT_AUDIT_MODEL.startsw
 elif QUESTION_AUDIT_PROVIDER == "openai" and TEST_IMPORT_AUDIT_MODEL.startswith("deepseek-"):
     TEST_IMPORT_AUDIT_MODEL = QUESTION_AUDIT_MODEL
 TEST_IMPORT_TIMEOUT_SECONDS = int(os.getenv("TEST_IMPORT_TIMEOUT_SECONDS", "180"))
+# V97: the AI solves every imported question; publishing waits for a clean check (or a manager-confirmed key).
+TEST_IMPORT_REQUIRE_AI_AUDIT = env_bool("TEST_IMPORT_REQUIRE_AI_AUDIT", True)
 TEST_IMPORT_RUN_AI_AUDIT = os.getenv("TEST_IMPORT_RUN_AI_AUDIT", "1").strip().lower() not in {"0", "false", "no", "off"}  # CLI/legacy opt-in only; web import never auto-audits.
 
 

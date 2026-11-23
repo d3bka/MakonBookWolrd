@@ -57,3 +57,22 @@ def convert_video_to_hls(video_id):
         video.conversion_status = "failed"
         video.save(update_fields=["conversion_status"])
         raise
+
+
+@shared_task(bind=True, soft_time_limit=180, time_limit=240, max_retries=6)
+def regrade_written_answers(self, attempt_id):
+    """V97: check written answers again when the AI was unavailable at submit time."""
+    from django.db import transaction
+
+    from .guest_views import apply_attempt_score, written_grading_pending
+    from .models import GlobalEventAttempt
+
+    with transaction.atomic():
+        attempt = GlobalEventAttempt.objects.select_for_update().select_related("event", "event__test").filter(pk=attempt_id).first()
+        if attempt is None or attempt.status != "submitted":
+            return {"status": "skipped"}
+        apply_attempt_score(attempt, submit=False)
+        pending = written_grading_pending(attempt)
+    if pending:
+        raise self.retry(countdown=min(1800, 120 * (2 ** self.request.retries)))
+    return {"status": "graded"}

@@ -376,43 +376,140 @@ def admin_group_remove_user(request, group_id, user_id):
 
 
 # --- Tests ---
+ADMIN_TEST_TYPES = {"regular": "Practice", "placement": "Placement", "event": "Event"}
+ADMIN_TEST_SORTS = {"name": "Name", "recent": "Recently completed", "popular": "Most completed", "new": "Newest"}
+
+
+def _count_subquery(model, field="test_id"):
+    from django.db.models import IntegerField, OuterRef, Subquery
+
+    return Subquery(
+        model.objects.filter(**{field: OuterRef("pk")}).values(field).annotate(total=Count("pk")).values("total")[:1],
+        output_field=IntegerField(),
+    )
+
+
 @login_required
 @admin_panel_required
 def admin_tests(request):
-    tests = Test.objects.all().order_by('name')
-    test_data = []
-    for test in tests:
-        groups = test.groups.all()
-        completion_count = TestReview.objects.filter(test=test).count()
-        test_data.append({
-            'test': test,
-            'groups': groups,
-            'completion_count': completion_count,
-        })
+    """V97: one query per column instead of two queries per test, with search and filters."""
+    from django.db.models import DateTimeField, F, OuterRef, Subquery, Value
+    from django.db.models.functions import Coalesce
+
+    from .models import English_Question, GlobalEvent, Math_Question
+
+    query = (request.GET.get("q") or "").strip()[:120]
+    test_type = (request.GET.get("type") or "all").strip().lower()
+    state = (request.GET.get("state") or "all").strip().lower()
+    sort = (request.GET.get("sort") or "name").strip().lower()
+    if sort not in ADMIN_TEST_SORTS:
+        sort = "name"
+
+    last_done = Subquery(
+        TestReview.objects.filter(test_id=OuterRef("pk")).order_by("-created_at").values("created_at")[:1],
+        output_field=DateTimeField(),
+    )
+    tests = (
+        Test.objects.prefetch_related("groups")
+        .annotate(
+            english_count=Coalesce(_count_subquery(English_Question), Value(0)),
+            math_count=Coalesce(_count_subquery(Math_Question), Value(0)),
+            completion_count=Coalesce(_count_subquery(TestReview), Value(0)),
+            event_count=Coalesce(_count_subquery(GlobalEvent), Value(0)),
+            last_completed=last_done,
+        )
+    )
+    all_tests = list(tests)
+    stats = {
+        "total": len(all_tests),
+        "available": sum(1 for t in all_tests if t.is_available),
+        "hidden": sum(1 for t in all_tests if not t.is_available),
+        "completions": sum(t.completion_count for t in all_tests),
+        "empty": sum(1 for t in all_tests if not (t.english_count or t.math_count)),
+        "by_type": {key: sum(1 for t in all_tests if t.test_type == key) for key in ADMIN_TEST_TYPES},
+    }
+
+    if query:
+        tests = tests.filter(name__icontains=query)
+    if test_type in ADMIN_TEST_TYPES:
+        tests = tests.filter(test_type=test_type)
+    if state == "available":
+        tests = tests.filter(is_available=True)
+    elif state == "hidden":
+        tests = tests.filter(is_available=False)
+    elif state == "empty":
+        tests = tests.filter(english_count=0, math_count=0)
+    order = {
+        "name": ["name"],
+        "recent": [F("last_completed").desc(nulls_last=True), "name"],
+        "popular": ["-completion_count", "name"],
+        "new": [F("published_at").desc(nulls_last=True), "-created", "name"],
+    }[sort]
+    tests = list(tests.order_by(*order))
 
     context = {
-        'test_data': test_data,
-        'page_title': 'Tests',
-        'active_page': 'tests',
+        "tests": tests,
+        "stats": stats,
+        "query": query,
+        "test_type": test_type if test_type in ADMIN_TEST_TYPES else "all",
+        "state": state if state in {"available", "hidden", "empty"} else "all",
+        "sort": sort,
+        "type_labels": ADMIN_TEST_TYPES,
+        "sort_labels": ADMIN_TEST_SORTS,
+        "filtered": bool(query or test_type in ADMIN_TEST_TYPES or state in {"available", "hidden", "empty"}),
+        "page_title": "Tests",
+        "active_page": "tests",
     }
-    return render(request, 'sat/admin/tests.html', context)
+    return render(request, "sat/admin/tests.html", context)
+
+
+@login_required
+@admin_panel_required
+def admin_test_import_json(request):
+    """V97: a JSON file becomes a staging import (see apps.sat.json_test_import)."""
+    from .json_test_import import JsonImportError, import_uploaded_json
+
+    if request.method != "POST":
+        return redirect("admin_tests")
+    try:
+        job = import_uploaded_json(request.FILES.get("file"), created_by=request.user)
+    except JsonImportError as exc:
+        messages.error(request, f"Nothing was imported: {exc}")
+        return redirect("admin_tests")
+    messages.success(request, f"'{job.name}' is ready for review. The AI is now solving every question to check the answer key.")
+    return redirect("manager_test_import_detail_root", job_id=job.pk)
 
 
 @login_required
 @admin_panel_required
 def admin_test_detail(request, test_name):
-    test = get_object_or_404(Test, pk=test_name)
-    groups = test.groups.all()
-    completion_count = TestReview.objects.filter(test=test).count()
+    from .models import English_Question, GlobalEvent, Math_Question
+
+    test = get_object_or_404(Test.objects.prefetch_related("groups"), pk=test_name)
+    modules = {}
+    for label, model in (("english", English_Question), ("math", Math_Question)):
+        rows = dict(model.objects.filter(test=test).values_list("module").annotate(total=Count("pk")))
+        modules[label] = {"m1": rows.get("module_1", 0), "m2": rows.get("module_2", 0)}
+        modules[label]["total"] = sum(rows.values())
+    reviews = TestReview.objects.filter(test=test)
+    summary = reviews.aggregate(
+        completions=Count("pk"), students=Count("user", distinct=True), average=Avg("score"),
+    )
+    recent = reviews.select_related("user", "classroom").order_by("-created_at")[:12]
+    events = GlobalEvent.objects.filter(test=test).order_by("-start_at")[:10]
 
     context = {
-        'test': test,
-        'groups': groups,
-        'completion_count': completion_count,
-        'page_title': f'Test: {test.name}',
-        'active_page': 'tests',
+        "test": test,
+        "groups": list(test.groups.all()),
+        "modules": modules,
+        "summary": summary,
+        "recent": recent,
+        "events": events,
+        "type_label": ADMIN_TEST_TYPES.get(test.test_type, test.test_type),
+        "page_title": f"Test: {test.name}",
+        "active_page": "tests",
     }
-    return render(request, 'sat/admin/test_detail.html', context)
+    return render(request, "sat/admin/test_detail.html", context)
 
 
 # --- Mocks ---

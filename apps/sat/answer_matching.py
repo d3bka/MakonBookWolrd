@@ -19,7 +19,7 @@ def check_english_answer(question, response) -> bool:
     """Grade English MCQ or open text without any external service."""
     if question is None:
         return False
-    if getattr(question, "response_type", "multiple_choice") != "open_text":
+    if getattr(question, "response_type", "multiple_choice") not in ("open_text", "ai_written"):
         return normalize_text_answer(response).upper() == normalize_text_answer(question.answer).upper() and bool(normalize_text_answer(response))
 
     actual = normalize_text_answer(response)

@@ -1117,13 +1117,36 @@ def mark_answers_and_count_correct(attempt):
     ).in_bulk()
 
     changed = []
+    # V97: written answers checked by AI. Matches are free; the rest go to the AI
+    # in one batch, and a verdict is stored so it is never asked twice.
+    verdicts, ai_rows = {}, []
+    for answer in answers:
+        if answer.section != "english":
+            continue
+        question = english_map.get(answer.question_id)
+        if question is not None and getattr(question, "is_ai_written", False):
+            verdict = _written_verdict(question, answer)
+            if verdict is None:
+                ai_rows.append((answer, question))
+            else:
+                verdicts[answer.pk] = verdict
+    if ai_rows:
+        verdicts.update(_grade_with_ai(attempt, ai_rows))
+
     for answer in answers:
         is_correct = False
         module = module_key(answer.module)
         if answer.section == "english":
             question = english_map.get(answer.question_id)
             if question:
-                is_correct = check_english_answer(question, answer.selected_answer)
+                if answer.pk in verdicts:
+                    is_correct, grading = verdicts[answer.pk]
+                    if (answer.grading or {}) != grading:
+                        answer.grading = grading
+                        if answer.is_correct == is_correct:
+                            changed.append(answer)
+                else:
+                    is_correct = check_english_answer(question, answer.selected_answer)
                 if is_correct:
                     ebrw_raw += 1
                     correct_counts["english"][module] += 1
@@ -1142,8 +1165,107 @@ def mark_answers_and_count_correct(attempt):
             answer.is_correct = is_correct
             changed.append(answer)
     if changed:
-        GlobalEventAnswer.objects.bulk_update(changed, ["is_correct"])
+        GlobalEventAnswer.objects.bulk_update(changed, ["is_correct", "grading"])
     return ebrw_raw, math_raw, correct_counts
+
+
+AI_RETRY_SECONDS = 90
+
+
+def _written_verdict(question, answer):
+    """(is_correct, grading) without the AI, or None when the AI has to decide."""
+    text = " ".join(str(answer.selected_answer or "").split())
+    stored = answer.grading or {}
+    if not text:
+        return False, {"source": "blank"}
+    if check_english_answer(question, text):
+        return True, {"source": "match", "text": text}
+    if stored.get("text") == text and stored.get("source") in {"ai", "teacher"}:
+        return stored.get("correct") is True, stored
+    if stored.get("text") == text and stored.get("source") == "pending":
+        tried = stored.get("tried_at")
+        if tried and (timezone.now().timestamp() - float(tried)) < AI_RETRY_SECONDS:
+            return False, stored
+    return None
+
+
+def _grade_with_ai(attempt, rows):
+    from .ai_written_grading import GradingUnavailable, build_item, grade_items
+
+    texts = {answer.pk: " ".join(str(answer.selected_answer or "").split()) for answer, _ in rows}
+    items = [build_item(answer.pk, question, texts[answer.pk]) for answer, question in rows]
+    try:
+        graded = grade_items(items)
+    except GradingUnavailable:
+        now = timezone.now().timestamp()
+        _schedule_written_regrade(attempt)
+        return {answer.pk: (False, {"source": "pending", "text": texts[answer.pk], "tried_at": now}) for answer, _ in rows}
+    result = {}
+    for answer, _question in rows:
+        row = graded[str(answer.pk)]
+        result[answer.pk] = (row["correct"], {
+            "source": "ai", "text": texts[answer.pk], "correct": row["correct"], "feedback": row["feedback"],
+        })
+    return result
+
+
+def _schedule_written_regrade(attempt):
+    """Try the AI again shortly when it was unavailable (best effort)."""
+    def enqueue():
+        try:
+            from .tasks import regrade_written_answers
+
+            regrade_written_answers.apply_async(args=[attempt.pk], countdown=AI_RETRY_SECONDS + 5)
+        except Exception:  # noqa: BLE001 - no broker: the result page retries on the next visit
+            logger.info("Could not queue a written-answer regrade for attempt %s", attempt.pk)
+    transaction.on_commit(enqueue)
+
+
+def written_grading_pending(attempt):
+    return attempt.answers.filter(grading__source="pending").exists()
+
+
+def attempt_diagnostic(attempt):
+    """V97: course, tier and skill breakdown for tier-based placement tests (None otherwise)."""
+    from .placement_tiers import diagnostic, is_tiered
+
+    if "english" not in attempt_sections(attempt):
+        return None
+    sequence = [step for step in attempt_sequence(attempt) if step[0] == "english"]
+    modules = [module_query_name(module) for _section, module in sequence]
+    questions = list(
+        English_Question.objects.filter(test=attempt.event.test, module__in=modules).order_by("module", "number", "pk")
+    )
+    if not is_tiered(questions):
+        return None
+    answers = {
+        answer.question_id: answer
+        for answer in attempt.answers.filter(section="english")
+    }
+    rows = []
+    for question in questions:
+        answer = answers.get(question.pk)
+        answered = bool(answer and str(answer.selected_answer or "").strip())
+        rows.append((question, bool(answer and answer.is_correct), answered))
+    result = diagnostic(rows)
+    written = []
+    for question in questions:
+        if not getattr(question, "is_ai_written", False):
+            continue
+        answer = answers.get(question.pk)
+        grading = (answer.grading if answer else None) or {}
+        written.append({
+            "number": question.number,
+            "skill": question.skill,
+            "answer": str(answer.selected_answer or "").strip() if answer else "",
+            "correct": bool(answer and answer.is_correct),
+            "pending": grading.get("source") == "pending",
+            "feedback": grading.get("feedback", ""),
+            "model_answer": question.answer or "",
+        })
+    result["written"] = written
+    result["pending"] = any(row["pending"] for row in written)
+    return result
 
 
 def calculate_attempt_breakdown(attempt):
@@ -1211,7 +1333,21 @@ def calculate_attempt_breakdown(attempt):
             "percentage": calculate_level_check_percentage(total_raw, placement_total_questions),
         }
 
+    # V97: tier-based placement tests recommend a course from their tiers.
+    diagnostic_result = attempt_diagnostic(attempt) if attempt.event.event_type == GlobalEvent.TYPE_PLACEMENT else None
+    if diagnostic_result:
+        scoring_type = "tiered_placement"
+        scoring_label = "Placement & diagnostic rubric"
+        placement = {
+            "online": True,
+            "label": diagnostic_result["course"],
+            "level_name": diagnostic_result["course"],
+            "level_number": None,
+            "percentage": diagnostic_result["percent"],
+        }
+
     return {
+        "diagnostic": diagnostic_result,
         "ebrw_raw": ebrw_raw,
         "math_raw": math_raw,
         "total_raw": total_raw,
@@ -1980,6 +2116,7 @@ def global_event_result_view(request, guest_token):
         "elapsed_minutes": elapsed_minutes,
         "level_message": level_messages.get(level_number, "Your result has been recorded and is ready to use as your starting point."),
         "online_placement": breakdown.get("online_placement"),
+        "diagnostic": breakdown.get("diagnostic"),
         "public_placement_mode": public_placement_mode,
     }
     template_name = "sat/public_placement/result.html" if public_placement_mode else "sat/guest/result.html"

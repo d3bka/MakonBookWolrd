@@ -3,7 +3,7 @@
 {% block title-main %}{{ job.name }}{% endblock %}
 {% block title-subtitle %}<span>Import review</span>{% endblock %}
 {% block title %}Test import{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=10">{% endblock %}
 {% block content %}
 <div class="tic-shell">
 
@@ -16,7 +16,7 @@
       {% if job.math_pdf %}<a class="tic-btn ghost" target="_blank" href="{% if staff_workspace_mode == 'support' %}{% url 'support_teacher_review_pdf_root' job.id %}{% else %}{% url 'manager_test_import_pdf_root' job.id %}{% endif %}?section=math"><i class="bi bi-file-earmark-pdf"></i> Math PDF</a>{% endif %}
       {% if can_manage and job.published_test %}<a class="tic-btn ghost" href="{% url 'manager_managed_test_edit_root' job.published_test.pk %}"><i class="bi bi-pencil-square"></i> Edit published test</a>{% endif %}
       {% if not job.english_pdf and not job.math_pdf and job.source_pdf %}<a class="tic-btn ghost" target="_blank" href="{% if staff_workspace_mode == 'support' %}{% url 'support_teacher_review_pdf_root' job.id %}{% else %}{% url 'manager_test_import_pdf_root' job.id %}{% endif %}"><i class="bi bi-file-earmark-pdf"></i> Legacy source PDF</a>{% endif %}
-      {% if can_manage and job.status != 'published' and job.status != 'publishing' and job.status != 'processing' %}
+      {% if can_manage and not job.is_json_import and job.status != 'published' and job.status != 'publishing' and job.status != 'processing' %}
       <form method="post" action="{% url 'manager_test_import_process_root' job.id %}" data-local-rerun-form>{% csrf_token %}
         <button class="tic-btn ghost" type="submit"><i class="bi bi-arrow-repeat"></i> {% if job.questions.exists %}Re-run parser{% else %}Run parser{% endif %}</button>
       </form>
@@ -38,7 +38,8 @@
     <div>
       <span class="tic-status {{ job.status }}">{{ job.get_status_display }}</span>
       <h2>{{ job.name }}</h2>
-      <p>MakonBook Structured PDF · {{ job.ai_model|default:'pending' }} · {{ job.detected_test_type|default:'pending'|upper }} · {{ job.page_count }} source pages</p>
+      <p>{% if job.is_json_import %}MakonBook JSON file{% else %}MakonBook Structured PDF · {{ job.ai_model|default:'pending' }} · {{ job.page_count }} source pages{% endif %} · {{ job.detected_test_type|default:'pending'|upper }} · Publish as <strong>{{ job.get_target_test_type_display }}</strong></p>
+      {% if publish_blockers %}<ul class="tic-blockers">{% for item in publish_blockers %}<li><i class="bi bi-dot"></i>{{ item }}</li>{% endfor %}</ul>{% endif %}
     </div>
     <div class="tic-score-row">
       <div><strong>{{ questions|length }}</strong><span>Questions</span></div>
@@ -54,28 +55,53 @@
   {% if job.error_message %}<div class="tic-alert error"><strong>Processing failed.</strong> {{ job.error_message }}</div>{% endif %}
   {% if job.structure_data.count_warnings %}<div class="tic-alert warning"><strong>Question-count check:</strong><ul>{% for warning in job.structure_data.count_warnings %}<li>{{ warning }}</li>{% endfor %}</ul></div>{% endif %}
 
-  {% if can_manage and questions and job.status != 'published' and job.status != 'publishing' %}
-  <section class="tic-card tic-ai-audit-card">
+  {% if questions and job.status != 'published' and job.status != 'publishing' %}
+  <section class="tic-card tic-ai-audit-card" id="ai-check">
     <div class="tic-card-head">
       <div>
-        <span class="tic-kicker">Optional quality check</span>
-        <h2>{{ audit_provider }} AI audit</h2>
-        <p>The structured PDF is already parsed. AI is not required to build or publish the test; this only independently checks answer keys before human review.</p>
+        <span class="tic-kicker">AI answer check</span>
+        <h2>{{ audit_provider }} solves every question</h2>
+        <p>{% if ai_required %}The AI solves each question on its own and compares its answer with the key. A clean check counts as one approval. A flagged question blocks publishing until it is fixed or a manager confirms the key.{% else %}No AI provider key is configured on this server, so the answer check is optional.{% endif %}</p>
       </div>
-      <span class="tic-format-badge"><i class="bi bi-stars"></i> optional</span>
+      <span class="tic-format-badge tic-ai-state {{ ai_state }}">{% if ai_state == 'clean' %}<i class="bi bi-check2-circle"></i> all answers match{% elif ai_state == 'issues' %}<i class="bi bi-exclamation-triangle"></i> {{ flagged_questions|length }} to check{% elif ai_state == 'pending' %}<i class="bi bi-hourglass-split"></i> checking{% else %}<i class="bi bi-stars"></i> optional{% endif %}</span>
     </div>
     <div class="tic-audit-summary">
-      <div><strong data-audit-done>{{ audited_count }}</strong><span>Audited / {{ questions|length }}</span></div>
+      <div><strong data-audit-done>{{ audited_count }}</strong><span>Checked / {{ questions|length }}</span></div>
       <div><strong>{{ audit_issue_count }}</strong><span>Issues</span></div>
       <div><strong>{{ audit_uncertain_count }}</strong><span>Uncertain</span></div>
       <div><strong>{{ audit_model|default:'configured model' }}</strong><span>Model</span></div>
     </div>
+    <div class="tic-ai-inline" data-audit-inline hidden>
+      <div class="tic-progress-track"><span data-audit-inline-bar style="width:0%"></span></div>
+      <p data-audit-inline-message>Starting the AI answer check…</p>
+    </div>
+    {% if job.progress_stage == 'audit_failed' %}<div class="tic-alert error"><strong>The AI answer check stopped.</strong> {{ job.progress_message }} Press “Continue AI check” to try again.</div>{% endif %}
+    {% if flagged_questions %}
+    <div class="tic-ai-flags">
+      {% for q in flagged_questions %}
+      <div class="tic-ai-flag">
+        <div class="tic-ai-flag-body">
+          <strong>{{ q.display_code }}</strong> <span class="tic-status warning">{% if q.audit_verdict == 'issue' %}AI found a problem{% else %}AI is not sure{% endif %}{% if q.audit_severity and q.audit_severity != 'none' %} · {{ q.audit_severity }}{% endif %}</span>
+          <p>{{ q.audit_summary }}</p>
+          <small>Key: <b>{{ q.answer|truncatechars:90 }}</b>{% if q.audit_verified_answer %} · AI answer: <b>{{ q.audit_verified_answer|truncatechars:90 }}</b>{% endif %}</small>
+          {% if q.audit_recommended_fix %}<em>{{ q.audit_recommended_fix }}</em>{% endif %}
+        </div>
+        <div class="tic-ai-flag-actions">
+          <a class="tic-btn ghost" href="{% if staff_workspace_mode == 'support' %}{% url 'support_teacher_review_question_edit_root' job.id q.id %}{% else %}{% url 'manager_test_import_question_edit_root' job.id q.id %}{% endif %}"><i class="bi bi-pencil-square"></i> Fix question</a>
+          {% if can_manage %}<form method="post" action="{% url 'manager_test_import_audit_confirm_root' job.id q.id %}" onsubmit="return confirm('Keep the answer key for {{ q.display_code|escapejs }}?');">{% csrf_token %}<button class="tic-btn success" type="submit"><i class="bi bi-check2"></i> Key is correct</button></form>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if can_manage %}
     <div class="tic-audit-actions">
-      <p><i class="bi bi-info-circle"></i> Starting or re-running the audit resets previous human approvals because reviewers should see the newest findings.</p>
-      <form method="post" action="{% url 'manager_test_import_audit_batch_root' job.id %}" data-audit-run-form data-audit-restart="{% if audit_partial %}0{% else %}1{% endif %}">{% csrf_token %}
-        <button type="submit" class="tic-btn ghost" data-audit-run-button><i class="bi bi-stars"></i> {% if audit_partial %}Continue AI audit{% elif audit_complete %}Re-run AI audit{% else %}Run AI audit{% endif %}</button>
+      <p><i class="bi bi-info-circle"></i> The check starts by itself after import and after a question is edited. Re-running the whole check resets previous approvals.</p>
+      <form method="post" action="{% url 'manager_test_import_audit_batch_root' job.id %}" data-audit-run-form data-audit-restart="{% if ai_state == 'pending' or audit_partial %}0{% else %}1{% endif %}"{% if ai_auto_start %} data-audit-autostart{% endif %}>{% csrf_token %}
+        <button type="submit" class="tic-btn ghost" data-audit-run-button><i class="bi bi-stars"></i> {% if audited_count and not audit_complete %}Continue AI check{% elif audit_complete %}Re-run AI check{% else %}Run AI check{% endif %}</button>
       </form>
     </div>
+    {% endif %}
   </section>
   {% endif %}
 
@@ -89,7 +115,7 @@
           <span class="tic-qnum">{{ q.number }}</span>
           <div>
             <strong>{{ q.question|default:q.passage|truncatechars:105 }}</strong>
-            <small>Page {{ q.source_page|default:'?' }} · Structured parser{% if q.audit_verdict and q.audit_verdict != 'auditing' %} · Audit: {{ q.audit_verdict }} / {{ q.audit_severity }}{% endif %}</small>
+            <small>{% if job.is_json_import %}JSON{% else %}Page {{ q.source_page|default:'?' }}{% endif %}{% if q.response_type == 'ai_written' %} · Written (AI){% elif q.response_type == 'open_text' or q.written %} · Open answer{% endif %}{% if q.placement_tier %} · {{ q.get_placement_tier_display }}{% endif %}{% if q.skill %} · {{ q.skill }}{% endif %}{% if q.audit_verdict and q.audit_verdict != 'auditing' %} · AI: {% if q.audit_verdict == 'ok' %}matches the key{% elif q.audit_verdict == 'issue' %}problem{% else %}not sure{% endif %}{% endif %}</small>
             {% if q.validation_errors %}<em>{{ q.validation_errors|join:' · ' }}</em>{% endif %}
           </div>
           <i class="bi bi-pencil-square"></i>
@@ -129,13 +155,13 @@
   <div class="tic-upload-sheet" role="status" aria-live="polite">
     <div class="tic-upload-visual" aria-hidden="true"><span class="tic-upload-core"><i class="bi bi-stars"></i></span><span class="tic-orbit orbit-a"></span><span class="tic-orbit orbit-b"></span><span class="tic-orbit orbit-c"></span></div>
     <div class="tic-upload-copy">
-      <span class="tic-kicker">Optional AI audit</span>
-      <h2>Checking the answer key</h2>
+      <span class="tic-kicker">AI answer check</span>
+      <h2>Solving every question</h2>
       <p data-audit-message>Preparing the first {{ audit_provider }} batch…</p>
       <div class="tic-progress-track"><span data-audit-bar style="width:0%"></span></div>
       <small data-audit-detail><i class="bi bi-shield-check"></i> Structured parsing is already complete. This step can be stopped and run again later.</small>
     </div>
   </div>
 </div>
-<script src="{% static 'assets/js/test-import-audit.js' %}?v=1" defer></script>
+<script src="{% static 'assets/js/test-import-audit.js' %}?v=97" defer></script>
 {% endblock %}

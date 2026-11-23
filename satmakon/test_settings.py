@@ -38,3 +38,6 @@ MAKONBOOK_MEDIA_UPLOAD_SITE = "https://makonbook.example"
 import tempfile as _tempfile  # noqa: E402
 MAKONBOOK_LOCAL_FILE_STORAGE = True
 MAKONBOOK_TEST_MEDIA_ROOT = str(Path(_tempfile.gettempdir()) / "makonbook-test-media")
+
+# V97: import tests opt in to the AI answer check explicitly (override_settings).
+TEST_IMPORT_REQUIRE_AI_AUDIT = False

@@ -7,17 +7,33 @@
   const message = overlay.querySelector('[data-audit-message]');
   const detail = overlay.querySelector('[data-audit-detail]');
   const bar = overlay.querySelector('[data-audit-bar]');
+  const inline = document.querySelector('[data-audit-inline]');
+  const inlineBar = inline ? inline.querySelector('[data-audit-inline-bar]') : null;
+  const inlineMessage = inline ? inline.querySelector('[data-audit-inline-message]') : null;
+  const doneCounter = document.querySelector('[data-audit-done]');
   const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]');
   let running = false;
+  // V97: after an import the check starts by itself and reports progress inside
+  // the card, so the reviewer can keep reading while the AI works.
+  let quiet = false;
 
   const setProgress = (percent, text, subtext) => {
     const safe = Math.max(0, Math.min(100, Number(percent) || 0));
+    if (quiet) {
+      if (inlineBar) inlineBar.style.width = `${safe}%`;
+      if (inlineMessage) inlineMessage.textContent = subtext ? `${text} · ${subtext}` : (text || 'Checking questions…');
+      return;
+    }
     if (bar) bar.style.width = `${safe}%`;
-    if (message) message.textContent = text || 'Auditing questions…';
+    if (message) message.textContent = text || 'Checking questions…';
     if (detail && subtext) detail.textContent = subtext;
   };
 
   const open = () => {
+    if (quiet) {
+      if (inline) inline.hidden = false;
+      return;
+    }
     overlay.classList.add('is-active');
     overlay.setAttribute('aria-hidden', 'false');
     document.documentElement.classList.add('tic-upload-busy');
@@ -41,17 +57,16 @@
     });
     let data = {};
     try { data = await response.json(); } catch (_) {}
-    if (!response.ok) throw new Error(data.detail || `Audit request failed (HTTP ${response.status}).`);
+    if (!response.ok) throw new Error(data.detail || `AI check request failed (HTTP ${response.status}).`);
     return data;
   };
 
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
+  const run = async () => {
     if (running) return;
     running = true;
     if (button) button.disabled = true;
     open();
-    setProgress(2, 'Preparing the first AI batch…', 'No Redis or Celery worker is involved.');
+    setProgress(2, 'Preparing the first AI batch…', quiet ? '' : 'No Redis or Celery worker is involved.');
 
     try {
       let first = true;
@@ -59,20 +74,32 @@
       while (true) {
         const data = await requestBatch(first && restartFirstBatch);
         first = false;
+        if (doneCounter && data.done != null) doneCounter.textContent = data.done;
         setProgress(
           data.percent,
-          data.message || `AI audit: ${data.done || 0}/${data.total || 0}`,
-          `Checked ${data.done || 0} of ${data.total || 0} staging questions.`
+          data.message || `AI check: ${data.done || 0}/${data.total || 0}`,
+          quiet ? '' : `Checked ${data.done || 0} of ${data.total || 0} questions.`
         );
         if (data.complete) break;
       }
-      setProgress(100, 'AI audit complete', 'Refreshing the review screen with the newest findings…');
+      setProgress(100, 'AI answer check complete', quiet ? 'refreshing…' : 'Refreshing the review screen with the newest findings…');
       window.setTimeout(() => window.location.reload(), 650);
     } catch (error) {
-      setProgress(0, 'AI audit stopped', error.message || 'The audit provider could not complete the request.');
+      setProgress(0, 'AI answer check stopped', error.message || 'The AI provider could not complete the request.');
       if (button) button.disabled = false;
       running = false;
-      window.setTimeout(close, 3500);
+      if (!quiet) window.setTimeout(close, 3500);
     }
+  };
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    quiet = false;
+    run();
   });
+
+  if (form.hasAttribute('data-audit-autostart')) {
+    quiet = true;
+    run();
+  }
 })();

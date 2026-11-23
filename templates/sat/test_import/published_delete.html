@@ -1,7 +1,7 @@
 {% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block page_title %}Delete {{ test.name }} | MakonBook{% endblock %}
 {% block title-main %}Delete Test{% endblock %}{% block title-subtitle %}<span>Permanent action</span>{% endblock %}{% block title %}Delete published test{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=8">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=10">{% endblock %}
 {% block content %}
 <div class="tic-shell narrow">
   <a class="tic-back" href="{% url 'manager_managed_test_edit_root' test.pk %}"><i class="bi bi-arrow-left"></i> Back to test editor</a>

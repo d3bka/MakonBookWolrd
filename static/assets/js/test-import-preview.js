@@ -130,11 +130,21 @@
     } catch (_) {}
   }
 
-  function renderRichText(target, text) {
+  function renderRichText(target, text, html) {
     if (!target) return;
-    target.innerHTML = formatStructuredText(text);
-    target.style.whiteSpace = 'pre-wrap';
+    if (typeof html === 'string') {
+      // V97: MakonBook-format questions (JSON imports) arrive rendered and escaped by the server.
+      target.innerHTML = html;
+      target.style.whiteSpace = 'normal';
+    } else {
+      target.innerHTML = formatStructuredText(text);
+      target.style.whiteSpace = 'pre-wrap';
+    }
     renderMath(target);
+  }
+
+  function renderedField(q, key) {
+    return q && q.html ? q.html[key] : undefined;
   }
 
   function sizeVisual(img) {
@@ -160,7 +170,7 @@
 
   function renderAnswers(q) {
     els.answers.innerHTML = '';
-    const openResponse = q.response_type === 'open_text' || q.written;
+    const openResponse = q.response_type === 'open_text' || q.response_type === 'ai_written' || q.written;
 
     if (openResponse) {
       const card = document.createElement('div');
@@ -224,7 +234,7 @@
       if (choiceImages[letter]) {
         content.appendChild(imageElement(choiceImages[letter], `Choice ${letter}`));
       } else {
-        renderRichText(content, q[key] || '');
+        renderRichText(content, q[key] || '', renderedField(q, key));
       }
       choice.appendChild(content);
       box.appendChild(choice);
@@ -344,8 +354,8 @@
     els.prev.disabled = state.index <= 0;
     els.next.disabled = state.index >= list.length - 1;
 
-    renderRichText(els.passage, q.passage || '');
-    renderRichText(els.question, q.question || '');
+    renderRichText(els.passage, q.passage || '', renderedField(q, 'passage'));
+    renderRichText(els.question, q.question || '', renderedField(q, 'question'));
 
     els.graph.innerHTML = '';
     if (q.graph) {

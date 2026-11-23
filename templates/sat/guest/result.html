@@ -34,19 +34,21 @@
       <p>You have completed <strong>{{ event.title }}</strong>.</p>
 
       {% if show_score %}
-        <div class="score-box">Total Score: {{ total_score }}</div>
+        {% if diagnostic %}<div class="score-box">{{ diagnostic.correct }} / {{ diagnostic.total }} correct · {{ diagnostic.course }}</div>{% else %}<div class="score-box">Total Score: {{ total_score }}</div>{% endif %}
         <p><strong>Scoring:</strong> {{ scoring_label }}</p>
         {% if scoring_type == "sat_estimated" %}
           <p class="score-note"><strong>Note:</strong> This event does not contain both standard SAT modules for every tested section. MakonBook normalizes performance to the SAT 200–800 section range; the result is an estimate, not an official College Board equated score.</p>
         {% endif %}
-        {% if online_placement %}
+        {% if diagnostic %}
+          {% include 'sat/public_placement/_diagnostic.html' %}
+        {% elif online_placement %}
           {% include 'sat/public_placement/_online_levels.html' %}
         {% else %}
         {% if test_mode == "full" or test_mode == "ebrw_only" %}<p><strong>EBRW Score:</strong> {{ ebrw_score }}</p>{% endif %}
         {% if test_mode == "full" or test_mode == "math_only" %}<p><strong>Math Score:</strong> {{ math_score }}</p>{% endif %}
         {% endif %}
         {% if range_total %}<p><strong>Estimated range:</strong> {{ range_total.lower }}–{{ range_total.upper }}</p>{% endif %}
-        {% if placement and not online_placement %}<div class="score-box placement-box">{{ placement.label }} · {{ placement.percentage }}%</div>{% endif %}
+        {% if placement and not online_placement and not diagnostic %}<div class="score-box placement-box">{{ placement.label }} · {{ placement.percentage }}%</div>{% endif %}
       {% else %}
         <div class="score-box">Result available later</div>
       {% endif %}

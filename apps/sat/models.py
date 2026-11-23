@@ -222,6 +222,17 @@ class English_Question(BaseModel):
     RESPONSE_TYPE_CHOICES = [
         ("multiple_choice", "Multiple choice"),
         ("open_text", "Open text (deterministic matching)"),
+        ("ai_written", "Written answer (checked by AI)"),
+    ]
+    # V97: placement diagnostics. Each question belongs to a tier; the tiers decide
+    # which course a placement test recommends (apps.sat.placement_tiers).
+    TIER_FOUNDATION = "foundation"
+    TIER_PRE_SAT = "pre_sat"
+    TIER_SAT = "sat"
+    TIER_CHOICES = [
+        (TIER_FOUNDATION, "Foundation"),
+        (TIER_PRE_SAT, "Pre-SAT"),
+        (TIER_SAT, "SAT"),
     ]
 
     test = models.ForeignKey(Test, on_delete=models.SET_NULL, null=True)
@@ -268,10 +279,26 @@ class English_Question(BaseModel):
     )
     source_question_id = models.CharField(max_length=36, blank=True, default='', db_default='')
     source_difficulty = models.CharField(max_length=10, blank=True, default='', db_default='')
+    placement_tier = models.CharField(
+        "Placement tier", max_length=12, choices=TIER_CHOICES, blank=True, default="", db_default="",
+        help_text="Placement tests only: the level this question checks. Tiers decide the recommended course.",
+    )
+    skill = models.CharField(
+        max_length=120, blank=True, default="", db_default="",
+        help_text="Skill shown in the diagnostic result, e.g. Past perfect or Transitions.",
+    )
+    grading_criteria = models.TextField(
+        blank=True, default="", db_default="",
+        help_text="Written answers checked by AI: what a correct answer must do, e.g. 'Requires had + past participle'.",
+    )
 
     @property
     def is_open_text(self):
-        return self.response_type == "open_text"
+        return self.response_type in ("open_text", "ai_written")
+
+    @property
+    def is_ai_written(self):
+        return self.response_type == "ai_written"
 
     def graph_url(self):
         if self.graph and self.image:
@@ -3143,6 +3170,9 @@ class GlobalEventAnswer(models.Model):
 
     is_correct = models.BooleanField(null=True, blank=True)
     time_spent = models.PositiveIntegerField(default=0)
+    # V97: how a written answer was checked: {"source": "match" | "ai" | "pending",
+    # "text": the answer that was checked, "feedback": short explanation}.
+    grading = models.JSONField(default=dict, blank=True)
 
     answered_at = models.DateTimeField(auto_now=True)
 
@@ -3335,6 +3365,12 @@ class TestImportJob(models.Model):
     math_pdf = models.FileField(upload_to='sat/test_imports/structured/math/', storage=PrivateStorage(), blank=True, null=True)
     requested_test_type = models.CharField(max_length=20, choices=TEST_TYPE_CHOICES, default=TYPE_AUTO)
     detected_test_type = models.CharField(max_length=20, blank=True)
+    # V97: what the published Test becomes (Test.test_type). Placement tests are
+    # published as Placement, not into the practice-test bank.
+    target_test_type = models.CharField(
+        "Publish as", max_length=20, choices=Test.TEST_TYPE_CHOICES, default=Test.TYPE_REGULAR,
+        db_default=Test.TYPE_REGULAR,
+    )
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_UPLOADED, db_index=True)
     required_approvals = models.PositiveSmallIntegerField(default=2)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_test_imports')
@@ -3362,13 +3398,39 @@ class TestImportJob(models.Model):
         ordering = ['-created_at']
         indexes = [models.Index(fields=['status', '-created_at'], name='sat_import_status_created')]
 
+    # V97: the AI solves every imported question on its own and compares its
+    # answer with the key. A clean AI check counts as one approval (teachers
+    # rarely solve imports themselves); a flagged question blocks publishing
+    # until it is fixed or a manager confirms the key.
+    AI_OFF = "off"
+    AI_PENDING = "pending"
+    AI_ISSUES = "issues"
+    AI_CLEAN = "clean"
+
     @property
-    def approval_count(self):
+    def ai_check_state(self):
+        from .question_audit import ai_audit_required
+
+        if not ai_audit_required():
+            return self.AI_OFF
+        verdicts = list(self.questions.values_list("audit_verdict", flat=True))
+        if not verdicts or any(v not in {"ok", "issue", "uncertain"} for v in verdicts):
+            return self.AI_PENDING
+        if any(v != "ok" for v in verdicts):
+            return self.AI_ISSUES
+        return self.AI_CLEAN
+
+    @property
+    def human_approval_count(self):
         return self.reviews.filter(verdict=TestImportReview.VERDICT_APPROVED).count()
 
     @property
+    def approval_count(self):
+        return self.human_approval_count + (1 if self.ai_check_state == self.AI_CLEAN else 0)
+
+    @property
     def reviewer_count(self):
-        return self.reviews.count()
+        return self.reviews.count() + (0 if self.ai_check_state == self.AI_OFF else 1)
 
     @property
     def approval_target(self):
@@ -3381,6 +3443,10 @@ class TestImportJob(models.Model):
     def has_blocking_errors(self):
         return self.questions.filter(validation_status=TestImportQuestion.VALIDATION_ERROR).exists()
 
+    @property
+    def is_json_import(self):
+        return (self.structure_data or {}).get("format") == "makonbook_json"
+
     def refresh_review_status(self, save=True):
         if self.status in {self.STATUS_PUBLISHED, self.STATUS_PUBLISHING, self.STATUS_QUEUED, self.STATUS_PROCESSING, self.STATUS_FAILED}:
             return self.status
@@ -3388,7 +3454,12 @@ class TestImportJob(models.Model):
             self.status = self.STATUS_CHANGES_REQUESTED
         elif self.reviews.filter(verdict=TestImportReview.VERDICT_CHANGES).exists():
             self.status = self.STATUS_CHANGES_REQUESTED
-        elif self.approval_target > 0 and self.approval_count >= self.approval_target:
+        elif (
+            self.approval_target > 0
+            and self.approval_count >= self.approval_target
+            and self.human_approval_count >= 1  # the AI alone never publishes
+            and self.ai_check_state in {self.AI_OFF, self.AI_CLEAN}
+        ):
             self.status = self.STATUS_READY_TO_PUBLISH
         else:
             self.status = self.STATUS_REVIEW_REQUIRED
@@ -3429,7 +3500,16 @@ class TestImportQuestion(models.Model):
     image_b = models.ImageField(upload_to='sat/test_imports/choice_images/', storage=PublicStorage(), blank=True, null=True)
     image_c = models.ImageField(upload_to='sat/test_imports/choice_images/', storage=PublicStorage(), blank=True, null=True)
     image_d = models.ImageField(upload_to='sat/test_imports/choice_images/', storage=PublicStorage(), blank=True, null=True)
-    response_type = models.CharField(max_length=24, choices=(('multiple_choice', 'Multiple choice'), ('open_text', 'Open text')), default='multiple_choice')
+    response_type = models.CharField(max_length=24, choices=English_Question.RESPONSE_TYPE_CHOICES, default='multiple_choice')
+    # V97: copied to English_Question on publish (written answers, placement diagnostics).
+    accepted_answers = models.TextField(blank=True, default="", db_default="", help_text="One accepted answer per line.")
+    grading_criteria = models.TextField(blank=True, default="", db_default="")
+    placement_tier = models.CharField("Placement tier", max_length=12, choices=English_Question.TIER_CHOICES, blank=True, default="", db_default="")
+    skill = models.CharField(max_length=120, blank=True, default="", db_default="")
+    content_format = models.CharField(
+        max_length=10, choices=[('legacy', 'Structured PDF'), ('makon', 'MakonBook format')],
+        default='legacy', db_default='legacy',
+    )
     written = models.BooleanField(default=False)
     graph = models.BooleanField(default=False)
     choice_graph = models.BooleanField(default=False)
