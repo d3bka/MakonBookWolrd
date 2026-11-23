@@ -3,7 +3,7 @@
 {% block title-main %}{{ job.name }}{% endblock %}
 {% block title-subtitle %}<span>Import review</span>{% endblock %}
 {% block title %}Test import{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=10">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=14">{% endblock %}
 {% block content %}
 <div class="tic-shell">
 
@@ -61,7 +61,7 @@
       <div>
         <span class="tic-kicker">AI answer check</span>
         <h2>{{ audit_provider }} solves every question</h2>
-        <p>{% if ai_required %}The AI solves each question on its own and compares its answer with the key. A clean check counts as one approval. A flagged question blocks publishing until it is fixed or a manager confirms the key.{% else %}No AI provider key is configured on this server, so the answer check is optional.{% endif %}</p>
+        <p>{% if ai_required %}The AI solves each question on its own, compares its answer with the key and suggests fixes and categories. Approve applies a fix, Decline keeps the question as it is. Publishing waits until every suggestion is decided; a clean check then counts as one approval.{% else %}No AI provider key is configured on this server, so the answer check is optional.{% endif %}</p>
       </div>
       <span class="tic-format-badge tic-ai-state {{ ai_state }}">{% if ai_state == 'clean' %}<i class="bi bi-check2-circle"></i> all answers match{% elif ai_state == 'issues' %}<i class="bi bi-exclamation-triangle"></i> {{ flagged_questions|length }} to check{% elif ai_state == 'pending' %}<i class="bi bi-hourglass-split"></i> checking{% else %}<i class="bi bi-stars"></i> optional{% endif %}</span>
     </div>
@@ -77,19 +77,56 @@
     </div>
     {% if job.progress_stage == 'audit_failed' %}<div class="tic-alert error"><strong>The AI answer check stopped.</strong> {{ job.progress_message }} Press “Continue AI check” to try again.</div>{% endif %}
     {% if flagged_questions %}
+    <h3 class="tic-ai-subhead">Needs your decision <span>{{ flagged_questions|length }}</span></h3>
     <div class="tic-ai-flags">
       {% for q in flagged_questions %}
       <div class="tic-ai-flag">
         <div class="tic-ai-flag-body">
-          <strong>{{ q.display_code }}</strong> <span class="tic-status warning">{% if q.audit_verdict == 'issue' %}AI found a problem{% else %}AI is not sure{% endif %}{% if q.audit_severity and q.audit_severity != 'none' %} · {{ q.audit_severity }}{% endif %}</span>
+          <strong>{{ q.display_code }}</strong> <span class="tic-status warning">{% if q.audit_verdict == 'issue' %}AI found a problem{% elif q.audit_verdict == 'uncertain' %}AI is not sure{% else %}AI suggests a fix{% endif %}{% if q.audit_severity and q.audit_severity != 'none' %} · {{ q.audit_severity }}{% endif %}</span>
           <p>{{ q.audit_summary }}</p>
+          {% if not q.proposal_fixes %}
           <small>Key: <b>{{ q.answer|truncatechars:90 }}</b>{% if q.audit_verified_answer %} · AI answer: <b>{{ q.audit_verified_answer|truncatechars:90 }}</b>{% endif %}</small>
           {% if q.audit_recommended_fix %}<em>{{ q.audit_recommended_fix }}</em>{% endif %}
+          <em>The AI cannot fix this itself (for example a missing graph or photo). Upload it in “Fix question”, or keep the question as it is with Decline.</em>
+          {% endif %}
+          {% if q.proposal_rows %}
+          <div class="tic-diff" role="table" aria-label="AI suggestion for {{ q.display_code }}">
+            <div class="tic-diff-row head" role="row"><span role="columnheader">Field</span><span role="columnheader">Now</span><span role="columnheader">AI suggests</span></div>
+            {% for row in q.proposal_rows %}
+            <div class="tic-diff-row" role="row"><span role="cell">{{ row.label }}</span><span role="cell" class="now">{{ row.now|default:'—'|truncatechars:600 }}</span><span role="cell" class="new">{% if row.field == 'table' %}<pre>{{ row.new }}</pre>{% else %}{{ row.new|truncatechars:900 }}{% endif %}</span></div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
         <div class="tic-ai-flag-actions">
+          {% if can_manage %}
+          {% if q.proposal_rows %}<form method="post" action="{% url 'manager_test_import_ai_decision_root' job.id q.id %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><button class="tic-btn success" type="submit"><i class="bi bi-check2"></i> {% if q.proposal_fixes %}Approve{% else %}Approve category{% endif %}</button></form>{% endif %}
+          <form method="post" action="{% url 'manager_test_import_ai_decision_root' job.id q.id %}">{% csrf_token %}<input type="hidden" name="decision" value="decline"><button class="tic-btn ghost tic-decline" type="submit"><i class="bi bi-x-lg"></i> Decline</button></form>
+          {% endif %}
           <a class="tic-btn ghost" href="{% if staff_workspace_mode == 'support' %}{% url 'support_teacher_review_question_edit_root' job.id q.id %}{% else %}{% url 'manager_test_import_question_edit_root' job.id q.id %}{% endif %}"><i class="bi bi-pencil-square"></i> Fix question</a>
-          {% if can_manage %}<form method="post" action="{% url 'manager_test_import_audit_confirm_root' job.id q.id %}" onsubmit="return confirm('Keep the answer key for {{ q.display_code|escapejs }}?');">{% csrf_token %}<button class="tic-btn success" type="submit"><i class="bi bi-check2"></i> Key is correct</button></form>{% endif %}
         </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if suggestion_questions %}
+    <div class="tic-ai-suggest-head">
+      <h3 class="tic-ai-subhead">Categories and explanations <span>{{ suggestion_questions|length }}</span></h3>
+      {% if can_manage %}<form method="post" action="{% url 'manager_test_import_ai_approve_suggestions_root' job.id %}">{% csrf_token %}<button class="tic-btn success" type="submit"><i class="bi bi-check2-all"></i> Approve all</button></form>{% endif %}
+    </div>
+    <div class="tic-ai-suggestions">
+      {% for q in suggestion_questions %}
+      <div class="tic-ai-suggestion">
+        <strong>{{ q.display_code }}</strong>
+        <div class="tic-ai-suggestion-body">
+          {% for row in q.proposal_rows %}{% if row.field == 'explanation' %}<details><summary>Explanation</summary><p>{{ row.new }}</p></details>{% else %}<span class="tic-chip">{{ row.new }}</span>{% endif %}{% endfor %}
+        </div>
+        {% if can_manage %}
+        <div class="tic-ai-suggestion-actions">
+          <form method="post" action="{% url 'manager_test_import_ai_decision_root' job.id q.id %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><button class="tic-icon-btn" type="submit" title="Approve" aria-label="Approve {{ q.display_code }}"><i class="bi bi-check2"></i></button></form>
+          <form method="post" action="{% url 'manager_test_import_ai_decision_root' job.id q.id %}">{% csrf_token %}<input type="hidden" name="decision" value="decline"><button class="tic-icon-btn danger" type="submit" title="Decline" aria-label="Decline {{ q.display_code }}"><i class="bi bi-x-lg"></i></button></form>
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -115,7 +152,7 @@
           <span class="tic-qnum">{{ q.number }}</span>
           <div>
             <strong>{{ q.question|default:q.passage|truncatechars:105 }}</strong>
-            <small>{% if job.is_json_import %}JSON{% else %}Page {{ q.source_page|default:'?' }}{% endif %}{% if q.response_type == 'ai_written' %} · Written (AI){% elif q.response_type == 'open_text' or q.written %} · Open answer{% endif %}{% if q.placement_tier %} · {{ q.get_placement_tier_display }}{% endif %}{% if q.skill %} · {{ q.skill }}{% endif %}{% if q.audit_verdict and q.audit_verdict != 'auditing' %} · AI: {% if q.audit_verdict == 'ok' %}matches the key{% elif q.audit_verdict == 'issue' %}problem{% else %}not sure{% endif %}{% endif %}</small>
+            <small>{% if job.is_json_import %}JSON{% else %}Page {{ q.source_page|default:'?' }}{% endif %}{% if q.response_type == 'ai_written' %} · Written (AI){% elif q.response_type == 'open_text' or q.written %} · Open answer{% endif %}{% if q.placement_tier %} · {{ q.get_placement_tier_display }}{% endif %}{% if q.domain_name %} · {{ q.domain_name }}{% endif %}{% if q.skill %} · {{ q.skill }}{% endif %}{% if q.audit_verdict and q.audit_verdict != 'auditing' %} · AI: {% if q.audit_verdict == 'ok' %}matches the key{% elif q.audit_verdict == 'issue' %}problem{% else %}not sure{% endif %}{% endif %}</small>
             {% if q.validation_errors %}<em>{{ q.validation_errors|join:' · ' }}</em>{% endif %}
           </div>
           <i class="bi bi-pencil-square"></i>

@@ -89,10 +89,34 @@ Start modules with:
 [[MODULE:2]]
 A placement test with one part uses only [[MODULE:1]].
 
+## Question category (every test)
+
+Every question carries its official SAT domain and skill, right after [[TYPE:...]]:
+[[DOMAIN:Algebra]]
+[[SKILL:Linear functions]]
+
+- Copy the domain and skill from the source when it names them. Otherwise decide them from the question itself.
+- Spell them exactly as in the list below; MakonBook groups students' mistakes and topic practice by these names.
+- Reading & Writing questions use a Reading & Writing domain; Math questions use a Math domain.
+- If you really cannot tell, leave both markers out. MakonBook's AI check will suggest a category for a person to approve.
+
+Reading & Writing:
+- Information and Ideas: Central Ideas and Details; Command of Evidence; Inferences
+- Craft and Structure: Words in Context; Text Structure and Purpose; Cross-Text Connections
+- Expression of Ideas: Rhetorical Synthesis; Transitions
+- Standard English Conventions: Boundaries; Form, Structure, and Sense
+Math:
+- Algebra: Linear equations in one variable; Linear functions; Linear equations in two variables; Systems of two linear equations in two variables; Linear inequalities in one or two variables
+- Advanced Math: Nonlinear functions; Nonlinear equations in one variable and systems of equations in two variables; Equivalent expressions
+- Problem-Solving and Data Analysis: Ratios, rates, proportional relationships, and units; Percentages; One-variable data: Distributions and measures of center and spread; Two-variable data: Models and scatterplots; Probability and conditional probability; Inference from sample statistics and margin of error; Evaluating statistical claims: Observational studies and experiments
+- Geometry and Trigonometry: Area and volume; Lines, angles, and triangles; Right triangles and trigonometry; Circles
+
 ## Multiple-choice question without a visual
 
 [[QUESTION:1]]
 [[TYPE:MCQ]]
+[[DOMAIN:Craft and Structure]]
+[[SKILL:Words in Context]]
 [[PASSAGE]]
 Passage/source text. Leave empty if none.
 [[/PASSAGE]]
@@ -127,6 +151,8 @@ Example:
 
 [[QUESTION:11]]
 [[TYPE:MCQ]]
+[[DOMAIN:Information and Ideas]]
+[[SKILL:Command of Evidence]]
 [[PASSAGE]]
 [[VISUAL:QUESTION]]
 <PLACE ONLY THE CLEAN WHITE-BACKGROUND VECTOR TABLE/CHART/FIGURE HERE>
@@ -180,6 +206,8 @@ For EBRW, preserve answer choices as selectable text. Do not use visual choices 
 
 [[QUESTION:1]]
 [[TYPE:SPR]]
+[[DOMAIN:Algebra]]
+[[SKILL:Linear equations in one variable]]
 [[PASSAGE]]
 Optional context.
 [[/PASSAGE]]
@@ -259,6 +287,7 @@ If the source repeats the same question twice (for example a second copy with sh
 - Non-visual math is valid KaTeX-compatible LaTeX inside \( ... \) or \[ ... \].
 - Empty/missing source questions are NOT invented. Preserve the gap and flag it to the human operator outside the PDF if needed.
 - Written-answer questions use [[TYPE:WRITTEN]] with a model answer in [[ANSWER]], extra correct answers in [[ACCEPTED]] separated by [[OR]], and the rubric in [[CRITERIA]].
+- Every question has [[DOMAIN:...]] and [[SKILL:...]] spelled exactly as in the official list (or both left out when truly unclear).
 - Placement tests have [[TEST_TYPE:PLACEMENT]] in the header, and every question carries the [[LEVEL:...]] and [[SKILL:...]] that the source gives it.
 
 ## Alternative for text-only tests: JSON
@@ -279,16 +308,21 @@ Text uses the MakonBook format: a blank line starts a new paragraph, and a table
      "answer": "When we arrived at the station, the train had already left.",
      "accepted_answers": ["The train had left before we arrived at the station."],
      "grading_criteria": "Uses had + past participle for the earlier action; keeps the meaning.",
-     "tier": "foundation", "skill": "Past perfect", "explanation": ""},
+     "tier": "foundation", "domain": "Standard English Conventions", "skill": "Past perfect", "explanation": ""},
     {"module": 1, "number": 2, "response_type": "multiple_choice",
      "passage": "...", "question": "Which choice completes the text?",
      "choices": {"A": "...", "B": "...", "C": "...", "D": "..."},
-     "answer": "C", "tier": "pre_sat", "skill": "Transitions", "explanation": ""}
+     "answer": "C", "tier": "pre_sat", "domain": "Expression of Ideas", "skill": "Transitions", "explanation": ""}
   ],
-  "math": []
+  "math": [
+    {"module": 1, "number": 1, "question": "If \\(3x + 5 = 20\\), what is the value of \\(x\\)?",
+     "choices": {"A": "3", "B": "5", "C": "15", "D": "25"}, "answer": "B",
+     "domain": "Algebra", "skill": "Linear equations in one variable", "explanation": ""}
+  ]
 }
 
 - test_type: "regular" (practice test), "placement" or "event".
 - response_type: "multiple_choice", "open_text" (exact short answer) or "ai_written" (sentence checked by AI).
 - tier: "foundation", "pre_sat", "sat" or "" when the source has no levels.
+- domain / skill: the official SAT domain and skill from the list above ("" when truly unclear).
 - The same fidelity rules apply: copy wording and answers exactly, never invent content.

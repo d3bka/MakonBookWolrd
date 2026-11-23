@@ -23,6 +23,8 @@ from .models import (
     English_Question,
     MakonNotification,
     Math_Question,
+    QuestionDomain,
+    QuestionType,
     StudentPracticeTestAccess,
     SupportTeacherProfile,
     Test,
@@ -31,6 +33,7 @@ from .models import (
     TestImportReview,
 )
 from .question_audit import audit_question_payloads
+from .sat_taxonomy import canonical_domain, canonical_skill
 
 
 STRUCTURE_SCHEMA = {
@@ -224,6 +227,9 @@ def validate_import_question(question: TestImportQuestion, save=True):
             errors.append("Written answers checked by AI are supported for Reading & Writing questions only.")
         if not str(question.grading_criteria or "").strip():
             warnings.append("Written answer has no grading criteria; the AI will grade against the model answer only.")
+    declared_domain = (question.raw_payload or {}).get("declared_domain")
+    if declared_domain and not question.domain_name:
+        warnings.append(f"Unknown SAT domain '{declared_domain}'. Use one of the official domains.")
     job_type = getattr(getattr(question, "job", None), "target_test_type", "")
     if job_type == Test.TYPE_PLACEMENT and question.section == "english" and not question.placement_tier:
         warnings.append("Placement question has no level (Foundation / Pre-SAT / SAT); it will not count toward the recommended course.")
@@ -311,10 +317,157 @@ def _audit_payload_for_questions(job: TestImportJob, questions):
             "accepted_answers": q.accepted_answers or "",
             "answer_patterns": "",
             "grading_criteria": q.grading_criteria or "",
+            "domain": q.domain_name or "",
+            "skill": q.skill or "",
             "written": q.written,
             "has_choice_images": q.choice_graph,
         })
     return payload
+
+
+PROPOSAL_TEXT_FIELDS = ("question", "passage", "a", "b", "c", "d", "explanation")
+# Fields that only add information; they never count as fixing a flagged problem.
+SUGGESTION_ONLY_FIELDS = {"domain_name", "skill", "explanation"}
+
+
+def _is_choice_question(q):
+    return q.response_type == "multiple_choice" and not (q.section == "math" and q.written)
+
+
+def parse_pipe_table(text):
+    """[[cell, ...], ...] from "| a | b |" rows; separator rows (|---|) are skipped."""
+    rows = []
+    for line in str(text or "").splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if all(set(cell) <= set("-: ") for cell in cells):
+            continue
+        rows.append(cells)
+    if len(rows) < 2 or max(len(row) for row in rows) < 2:
+        return []
+    width = max(len(row) for row in rows)
+    return [row + [""] * (width - len(row)) for row in rows]
+
+
+def render_table_svg(text) -> bytes:
+    """A clean white-background SVG of a pipe table (header row bold)."""
+    from xml.sax.saxutils import escape
+
+    rows = parse_pipe_table(text)
+    if not rows:
+        raise ValueError("The table has no rows.")
+    char_w, row_h, pad = 7.6, 34, 14
+    widths = [max(64, int(max(len(row[c]) for row in rows) * char_w + 2 * pad)) for c in range(len(rows[0]))]
+    total_w, total_h = sum(widths) + 2, row_h * len(rows) + 2
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="{total_h}" viewBox="0 0 {total_w} {total_h}">',
+        f'<rect x="0" y="0" width="{total_w}" height="{total_h}" fill="#ffffff"/>',
+        f'<rect x="1" y="1" width="{total_w - 2}" height="{row_h}" fill="#f1f1f1"/>',
+    ]
+    y = 1
+    for index, row in enumerate(rows):
+        x = 1
+        weight = "700" if index == 0 else "400"
+        for col, cell in enumerate(row):
+            parts.append(
+                f'<text x="{x + widths[col] / 2:.1f}" y="{y + row_h / 2 + 5:.1f}" text-anchor="middle" '
+                f'font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="{weight}" fill="#111111">{escape(cell)}</text>'
+            )
+            x += widths[col]
+        y += row_h
+    y = 1
+    for _ in range(len(rows) + 1):
+        parts.append(f'<line x1="1" y1="{y}" x2="{total_w - 1}" y2="{y}" stroke="#333333" stroke-width="1"/>')
+        y += row_h
+    x = 1
+    for col in range(len(widths) + 1):
+        parts.append(f'<line x1="{x}" y1="1" x2="{x}" y2="{total_h - 1}" stroke="#333333" stroke-width="1"/>')
+        if col < len(widths):
+            x += widths[col]
+    parts.append("</svg>")
+    return "".join(parts).encode("utf-8")
+
+
+def proposal_from_finding(q, finding):
+    """What the AI suggests changing on one staging question ({} when nothing)."""
+    proposal = {}
+    fix = finding.get("proposed_fix") if isinstance(finding.get("proposed_fix"), dict) else {}
+    flagged = finding.get("verdict") in {"issue", "uncertain"}
+    for field in PROPOSAL_TEXT_FIELDS:
+        value = str(fix.get(field) or "").strip()
+        current = str(getattr(q, field) or "").strip()
+        if not value or value == current:
+            continue
+        # A new explanation is welcome when there is none; rewriting a good one is noise.
+        if field == "explanation" and current and not flagged:
+            continue
+        proposal[field] = value[:20000]
+    answer = str(fix.get("answer") or "").strip()
+    if answer and _is_choice_question(q):
+        answer = answer.upper()
+        answer = answer if answer in {"A", "B", "C", "D"} else ""
+    if answer and answer != str(q.answer or "").strip():
+        proposal["answer"] = answer[:400]
+    table = str(fix.get("table") or "").strip()
+    if table and not q.image and parse_pipe_table(table):
+        proposal["table"] = table[:4000]
+    if not q.domain_name:
+        domain = canonical_domain(finding.get("domain"), q.section)
+        if domain:
+            proposal["domain_name"] = domain
+    if not q.skill:
+        skill = canonical_skill(proposal.get("domain_name") or q.domain_name, finding.get("skill"))
+        if skill:
+            proposal["skill"] = skill
+    return proposal
+
+
+def _decision_note(user, verb):
+    who = (user.get_full_name() or user.username) if user else "a manager"
+    return f"{verb} by {who} on {timezone.localtime():%d %b %Y %H:%M}."
+
+
+def apply_ai_proposal(question: TestImportQuestion, user=None):
+    """Approve: write the AI's suggestion into the staging question."""
+    proposal = dict(question.ai_proposal or {})
+    for field in PROPOSAL_TEXT_FIELDS + ("answer", "domain_name", "skill"):
+        if proposal.get(field):
+            setattr(question, field, proposal[field])
+    table = proposal.get("table")
+    if table and not question.image:
+        if question.content_format == "makon":
+            question.passage = (str(question.passage or "").rstrip() + "\n\n" + table).strip()
+        else:
+            question.image.save(
+                f"import-{question.job_id}-{question.section}-{question.module}-q{question.number}-table.svg",
+                ContentFile(render_table_svg(table)), save=False,
+            )
+            question.graph = True
+    question.ai_proposal_status = TestImportQuestion.PROPOSAL_APPROVED
+    # A category or explanation alone does not solve a flagged problem (e.g. a missing graph).
+    fixes_problem = bool(set(proposal) - SUGGESTION_ONLY_FIELDS)
+    if question.audit_verdict in {"issue", "uncertain"} and fixes_problem:
+        question.audit_summary = f"{_decision_note(user, 'AI fix approved')} {question.audit_summary}"[:4000]
+        question.audit_verdict = "ok"
+        question.audit_severity = "none"
+    question.save()
+    validate_import_question(question)
+    return question
+
+
+def decline_ai_proposal(question: TestImportQuestion, user=None):
+    """Decline: keep the question as it is (and accept the stored key when the AI flagged it)."""
+    if question.ai_proposal:
+        question.ai_proposal_status = TestImportQuestion.PROPOSAL_DECLINED
+    if question.audit_verdict in {"issue", "uncertain"}:
+        question.audit_summary = f"{_decision_note(user, 'Kept as is')} AI said ({question.audit_verdict}): {question.audit_summary}"[:4000]
+        question.audit_verdict = "ok"
+        question.audit_severity = "none"
+    question.save(update_fields=["ai_proposal_status", "audit_verdict", "audit_severity", "audit_summary", "updated_at"])
+    validate_import_question(question)
+    return question
 
 
 def _apply_audit_findings(job: TestImportJob, questions, findings):
@@ -335,9 +488,11 @@ def _apply_audit_findings(job: TestImportJob, questions, findings):
             q.audit_summary = finding.get("summary", "")
             q.audit_verified_answer = finding.get("verified_answer", "")
             q.audit_recommended_fix = finding.get("recommended_fix", "")
+        q.ai_proposal = proposal_from_finding(q, finding) if finding else {}
+        q.ai_proposal_status = TestImportQuestion.PROPOSAL_PENDING if q.ai_proposal else ""
         q.save(update_fields=[
             "audit_verdict", "audit_severity", "audit_confidence", "audit_summary",
-            "audit_verified_answer", "audit_recommended_fix", "updated_at",
+            "audit_verified_answer", "audit_recommended_fix", "ai_proposal", "ai_proposal_status", "updated_at",
         ])
         validate_import_question(q)
 
@@ -994,6 +1149,7 @@ def _parse_structured_pdf(data: bytes, expected_section: str):
             is_open = is_written or q_type in {"SPR", "OPEN", "OPEN_TEXT", "STUDENT_PRODUCED_RESPONSE"}
             level_token = _structured_scalar(block, "LEVEL", "").upper().replace(" ", "_")
             accepted_raw = _structured_block(block, "ACCEPTED", section=expected_section, field_name="accepted")
+            domain_token = canonical_domain(_structured_scalar(block, "DOMAIN", ""), expected_section)
             accepted = [part.strip() for part in STRUCTURED_OR_RE.split(accepted_raw) if part.strip()]
 
             visual_assets = {"main": [], "choices": {"A": [], "B": [], "C": [], "D": []}}
@@ -1043,7 +1199,9 @@ def _parse_structured_pdf(data: bytes, expected_section: str):
                 "grading_criteria": _structured_block(block, "CRITERIA", section=expected_section, field_name="criteria"),
                 "placement_tier": STRUCTURED_LEVELS.get(level_token, ""),
                 "declared_level": level_token,
-                "skill": _structured_scalar(block, "SKILL", "")[:120],
+                "skill": canonical_skill(domain_token, _structured_scalar(block, "SKILL", ""))[:120],
+                "domain_name": canonical_domain(_structured_scalar(block, "DOMAIN", ""), expected_section),
+                "declared_domain": _structured_scalar(block, "DOMAIN", "")[:100],
                 "graph": graph,
                 "choice_graph": choice_graph,
                 "source_page": source_page,
@@ -1158,6 +1316,7 @@ def _process_structured_import_job(job_id: int, *, run_audit=False, progress_cal
                     grading_criteria=item.get("grading_criteria", ""),
                     placement_tier=item.get("placement_tier", ""),
                     skill=item.get("skill", ""),
+                    domain_name=item.get("domain_name", ""),
                     written=item["written"],
                     graph=item["graph"],
                     choice_graph=item["choice_graph"],
@@ -1488,14 +1647,38 @@ def publish_import_job(job_id: int, *, published_by=None):
         test = Test.objects.create(name=job.name, published_at=published_at, test_type=test_type)
 
         english, math = [], []
+        taxonomy = {}
+
+        def category(q):
+            # Domain always; the skill becomes a QuestionType only outside placement
+            # tests (placement skills such as "Past perfect" stay on the question).
+            if not q.domain_name:
+                return None, None
+            if q.domain_name not in taxonomy:
+                taxonomy[q.domain_name] = (
+                    QuestionDomain.objects.filter(name=q.domain_name).order_by("id").first()
+                    or QuestionDomain.objects.create(name=q.domain_name)
+                )
+            domain = taxonomy[q.domain_name]
+            if not q.skill or test_type == Test.TYPE_PLACEMENT:
+                return domain, None
+            key = (q.domain_name, q.skill)
+            if key not in taxonomy:
+                taxonomy[key] = (
+                    QuestionType.objects.filter(name=q.skill, domain=domain).order_by("id").first()
+                    or QuestionType.objects.create(name=q.skill, domain=domain)
+                )
+            return domain, taxonomy[key]
+
         for q in job.questions.all().order_by("section", "module", "number"):
+            q_domain, q_type = category(q)
             if q.section == "english":
                 english.append(English_Question(
                     test=test, module=q.module, number=q.number, passage=q.passage, question=q.question,
                     a=q.a, b=q.b, c=q.c, d=q.d, graph=q.graph, image=q.image, response_type=q.response_type,
                     answer=q.answer, explained=q.explanation, accepted_answers=q.accepted_answers,
                     grading_criteria=q.grading_criteria, placement_tier=q.placement_tier, skill=q.skill,
-                    content_format=q.content_format,
+                    content_format=q.content_format, domain=q_domain, type=q_type,
                 ))
             else:
                 math.append(Math_Question(
@@ -1503,6 +1686,7 @@ def publish_import_job(job_id: int, *, published_by=None):
                     a=q.a, b=q.b, c=q.c, d=q.d, graph=q.graph, image=q.image, choice_graph=q.choice_graph,
                     image_a=q.image_a, image_b=q.image_b, image_c=q.image_c, image_d=q.image_d,
                     written=q.written, answer=q.answer, explained=q.explanation, content_format=q.content_format,
+                    domain=q_domain, type=q_type,
                 ))
         if english:
             English_Question.objects.bulk_create(english)

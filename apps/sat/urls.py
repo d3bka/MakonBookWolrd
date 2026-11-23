@@ -69,7 +69,8 @@ urlpatterns = [
     path('test-imports/', test_import_views.test_import_list, name='test_import_list'),
     path('test-imports/new/', test_import_views.test_import_create, name='test_import_create'),
     path('test-imports/new/json/', test_import_views.test_import_create_json, name='test_import_create_json'),
-    path('test-imports/<int:job_id>/questions/<int:question_id>/confirm-key/', test_import_views.test_import_audit_confirm, name='test_import_audit_confirm'),
+    path('test-imports/<int:job_id>/questions/<int:question_id>/ai-decision/', test_import_views.test_import_ai_decision, name='test_import_ai_decision'),
+    path('test-imports/<int:job_id>/ai-suggestions/approve/', test_import_views.test_import_ai_approve_suggestions, name='test_import_ai_approve_suggestions'),
     path('test-imports/published/', test_import_views.managed_test_list, name='managed_test_list'),
     # Put the specific question route before the greedy <path:test_name> edit route.
     path('test-imports/published/<path:test_name>/questions/<str:section>/<int:question_id>/edit/', test_import_views.managed_test_question_edit, name='managed_test_question_edit'),

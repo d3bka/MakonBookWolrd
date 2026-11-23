@@ -16,6 +16,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from .models import English_Question, Math_Question, Test
+from .sat_taxonomy import taxonomy_text
 
 
 AUDIT_SCHEMA = {
@@ -31,6 +32,7 @@ AUDIT_SCHEMA = {
                 "required": [
                     "id", "section", "verdict", "severity", "confidence",
                     "issue_types", "summary", "verified_answer", "recommended_fix",
+                    "domain", "skill", "proposed_fix",
                 ],
                 "properties": {
                     "id": {"type": "integer"},
@@ -49,6 +51,18 @@ AUDIT_SCHEMA = {
                     "summary": {"type": "string"},
                     "verified_answer": {"type": "string"},
                     "recommended_fix": {"type": "string"},
+                    # V98: SAT category and one-click fixes ("" = keep the current value).
+                    "domain": {"type": "string"},
+                    "skill": {"type": "string"},
+                    "proposed_fix": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["question", "passage", "a", "b", "c", "d", "answer", "explanation", "table"],
+                        "properties": {
+                            name: {"type": "string"}
+                            for name in ("question", "passage", "a", "b", "c", "d", "answer", "explanation", "table")
+                        },
+                    },
                 },
             },
         }
@@ -66,7 +80,26 @@ For response_type 'ai_written', an AI will later grade each student's sentence a
 completes the task, that the criteria are clear enough to grade fairly, and that the accepted variants are all correct.
 Put your own correct answer in verified_answer.
 This is an audit only. Never claim that a database record was changed.
-"""
+
+For every question also return:
+- domain and skill: the official SAT domain and skill below, spelled exactly as listed. If the input already
+  has a correct domain and skill, return them unchanged. Placement questions that test grammar outside the list
+  get the closest domain; keep the skill the input gives.
+- proposed_fix: corrections a reviewer can approve with one click. Every field is a string; "" keeps the current value.
+  * answer: only when the stored key is wrong and you are confident (multiple choice: one letter A-D).
+  * question, passage, a, b, c, d: only to repair conversion damage (OCR errors, lost symbols or minus signs,
+    broken math, garbled, cut or swapped text) when the intended wording is clear. Return the whole corrected
+    field in the same markup as the input ([[U]], [[BLANK]], \\( \\) math). Never rewrite good content.
+  * explanation: a short, correct explanation (at most 120 words) when stored_explanation is empty or wrong.
+  * table: when the question needs a table that is missing (has_prompt_image is false) but all its values are
+    present in the text, return it as pipe rows with the header first, e.g. "| Year | Visitors |\\n| 2019 | 1,200 |".
+    Never invent values. A missing graph, photo or diagram cannot be fixed this way: use verdict 'issue' with
+    issue type 'missing_information'.
+- Use verdict 'issue' whenever answer, choices, question text or table need a fix; a missing domain, skill or
+  explanation alone is not an issue.
+
+Official SAT domains and skills:
+""" + taxonomy_text() + "\n"
 
 
 @dataclass
@@ -97,6 +130,8 @@ def _question_payload(question, section: str) -> dict:
         "stored_answer": question.answer or "",
         "stored_explanation": question.explained or "",
         "has_prompt_image": bool(getattr(question, "image", None)),
+        "domain": getattr(getattr(question, "domain", None), "name", "") or "",
+        "skill": getattr(getattr(question, "type", None), "name", "") or "",
     }
     if section == "english":
         data.update({

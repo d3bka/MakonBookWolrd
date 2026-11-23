@@ -16,9 +16,13 @@ Format (text uses the MakonBook format: blank line = paragraph, pipe tables):
      "response_type": "ai_written",           # multiple_choice | open_text | ai_written
      "answer": "model answer or A-D", "accepted_answers": ["..."],
      "grading_criteria": "...", "choices": {"A": "...", "B": "...", "C": "...", "D": "..."},
-     "tier": "foundation", "skill": "Past perfect", "explanation": "..."}
+     "tier": "foundation", "domain": "Standard English Conventions", "skill": "Past perfect", "explanation": "..."}
   ],
-  "math": [{"module": 1, "number": 1, "question": "...", "choices": {...}, "answer": "B", "written": false}]
+  "math": [{"module": 1, "number": 1, "question": "...", "choices": {...}, "answer": "B", "written": false,
+            "domain": "Algebra", "skill": "Linear functions"}]
+
+"domain" is one of the official SAT domains (apps.sat.sat_taxonomy). When it is
+missing, the AI suggests one during the answer check.
 }
 """
 from __future__ import annotations
@@ -27,6 +31,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import Test, TestImportJob, TestImportQuestion
+from .sat_taxonomy import canonical_domain, canonical_skill
 
 MAX_QUESTIONS = 200
 RESPONSE_TYPES = {"multiple_choice", "open_text", "ai_written"}
@@ -63,6 +68,14 @@ def _choices(row):
     return {letter: str(choices.get(letter.upper()) or choices.get(letter) or "").strip() for letter in "abcd"}
 
 
+def _category(row, section, where):
+    declared = _text(row, "domain", 100)
+    domain = canonical_domain(declared, section)
+    if declared and not domain:
+        raise JsonImportError(f"{where}: unknown domain '{declared}'. Use one of the official SAT domains.")
+    return domain, canonical_skill(domain, _text(row, "skill", 120))[:120]
+
+
 def _number(row, index, where):
     number = row.get("number", index + 1)
     if not isinstance(number, int) or isinstance(number, bool) or number < 1:
@@ -90,6 +103,7 @@ def _english(job, row, index):
             raise JsonImportError(f"{where}: multiple-choice questions need choices A, B, C and D.")
     elif not answer:
         raise JsonImportError(f"{where}: written answers need a model answer.")
+    domain, skill = _category(row, "english", where)
     accepted = row.get("accepted_answers") or []
     if isinstance(accepted, str):
         accepted = [accepted]
@@ -103,7 +117,7 @@ def _english(job, row, index):
         accepted_answers="\n".join(str(item).strip() for item in accepted if str(item).strip()),
         grading_criteria=_text(row, "grading_criteria", 2000),
         explanation=_text(row, "explanation"),
-        placement_tier=tier, skill=_text(row, "skill", 120),
+        placement_tier=tier, skill=skill, domain_name=domain,
         content_format="makon", ai_confidence=1.0, raw_payload={"format": "makonbook_json"},
     )
 
@@ -121,13 +135,14 @@ def _math(job, row, index):
             raise JsonImportError(f"{where}: multiple-choice questions need choices A-D and an answer A-D.")
     elif not answer:
         raise JsonImportError(f"{where}: written questions need an answer.")
+    domain, skill = _category(row, "math", where)
     return TestImportQuestion(
         job=job, section="math", module=_module(row, where), number=_number(row, index, where),
         passage=_text(row, "passage"), question=_text(row, "question"),
         a=choices["a"], b=choices["b"], c=choices["c"], d=choices["d"],
         response_type="open_text" if written else "multiple_choice",
         written=written, answer=answer, explanation=_text(row, "explanation"),
-        content_format="makon", ai_confidence=1.0, raw_payload={"format": "makonbook_json"},
+        domain_name=domain, skill=skill, content_format="makon", ai_confidence=1.0, raw_payload={"format": "makonbook_json"},
     )
 
 

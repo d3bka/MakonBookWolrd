@@ -1,6 +1,6 @@
 {% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block page_title %}Import Structured Test | MakonBook{% endblock %}{% block title-main %}Import a test{% endblock %}{% block title-subtitle %}<span>Structured PDFs stay in staging until publication</span>{% endblock %}{% block title %}New import{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=10">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=14">{% endblock %}
 {% block content %}
 <div class="tic-shell narrow">
   <a class="tic-back" href="{% url 'manager_test_import_list_root' %}"><i class="bi bi-arrow-left"></i> Import Center</a>
@@ -18,6 +18,8 @@
 [[MODULE:1]]
 [[QUESTION:1]]
 [[TYPE:MCQ]]
+[[DOMAIN:Craft and Structure]]     official SAT domain
+[[SKILL:Words in Context]]         official SAT skill
 [[PASSAGE]]Normal prose with no PDF-only line wraps.
 [[PAR]] starts a real paragraph.
 Use [[U]]underlined source text[[/U]], [[EM]]emphasis[[/EM]], and [[BLANK]].

@@ -17,7 +17,10 @@ from .models import English_Question, MakonNotification, Math_Question, Test, Te
 from .test_import_forms import TestImportQuestionForm, TestImportUploadForm
 from .test_management_forms import ManagedEnglishQuestionForm, ManagedMathQuestionForm, ManagedTestForm
 from .test_import_service import (
+    SUGGESTION_ONLY_FIELDS,
+    apply_ai_proposal,
     audit_staging_question_batch,
+    decline_ai_proposal,
     process_import_job,
     publish_import_job,
     validate_import_question,
@@ -665,7 +668,11 @@ def test_import_detail(request, job_id):
     audit_complete = bool(questions) and audited_count == len(questions)
     audit_partial = 0 < audited_count < len(questions)
     ai_state = job.ai_check_state
-    flagged_questions = [q for q in questions if q.audit_verdict in {"issue", "uncertain"}]
+    flagged_questions = [q for q in questions if _needs_decision(q)]
+    suggestion_questions = [q for q in questions if _is_suggestion(q)]
+    for q in flagged_questions + suggestion_questions:
+        q.proposal_rows = _proposal_rows(q)
+        q.proposal_fixes = any(row["field"] not in SUGGESTION_ONLY_FIELDS for row in q.proposal_rows)
     publish_blockers = []
     if job.status not in {TestImportJob.STATUS_PUBLISHED, TestImportJob.STATUS_PUBLISHING, TestImportJob.STATUS_READY_TO_PUBLISH} and questions:
         if validation_counts["error"]:
@@ -673,7 +680,10 @@ def test_import_detail(request, job_id):
         if ai_state == TestImportJob.AI_PENDING:
             publish_blockers.append("Wait for the AI answer check to finish.")
         elif ai_state == TestImportJob.AI_ISSUES:
-            publish_blockers.append(f"Fix or confirm {len(flagged_questions)} question(s) the AI flagged.")
+            if flagged_questions:
+                publish_blockers.append(f"Approve or decline the AI on {len(flagged_questions)} flagged question(s).")
+            if suggestion_questions:
+                publish_blockers.append(f"Approve or decline {len(suggestion_questions)} AI suggestion(s) (categories, explanations).")
         if any(r.verdict == TestImportReview.VERDICT_CHANGES for r in reviews):
             publish_blockers.append("A reviewer asked for changes.")
         if job.human_approval_count < 1:
@@ -702,6 +712,7 @@ def test_import_detail(request, job_id):
         "publish_blockers": publish_blockers,
         "ai_required": ai_audit_required(),
         "flagged_questions": flagged_questions,
+        "suggestion_questions": suggestion_questions,
         "ai_auto_start": (
             _manager_allowed(request.user)
             and ai_state == TestImportJob.AI_PENDING
@@ -769,7 +780,7 @@ def test_import_audit_batch(request, job_id):
         return JsonResponse({"detail": "Manager access required."}, status=403)
 
     restart = request.POST.get("restart") == "1"
-    batch_size = max(1, min(12, int(getattr(settings, "QUESTION_AUDIT_BATCH_SIZE", 8) or 8)))
+    batch_size = max(1, min(6, int(getattr(settings, "QUESTION_AUDIT_BATCH_SIZE", 6) or 6)))
     now = timezone.now()
 
     with transaction.atomic():
@@ -794,6 +805,7 @@ def test_import_audit_batch(request, job_id):
             job.questions.update(
                 audit_verdict="", audit_severity="", audit_confidence=None,
                 audit_summary="", audit_verified_answer="", audit_recommended_fix="",
+                ai_proposal={}, ai_proposal_status="",
             )
             job.reviews.update(verdict=TestImportReview.VERDICT_PENDING, note="", reviewed_at=None)
 
@@ -892,6 +904,8 @@ def test_import_question_edit(request, job_id, question_id):
         edited.audit_summary = ""
         edited.audit_verified_answer = ""
         edited.audit_recommended_fix = ""
+        edited.ai_proposal = {}
+        edited.ai_proposal_status = ""
         edited.save()
         form.save_m2m()
         job.reviews.update(verdict=TestImportReview.VERDICT_PENDING, note="", reviewed_at=None)
@@ -906,28 +920,89 @@ def test_import_question_edit(request, job_id, question_id):
     return render(request, "sat/test_import/question_form.html", {"job": job, "question": question, "form": form})
 
 
-@login_required(login_url="/login/")
-@require_POST
-def test_import_audit_confirm(request, job_id, question_id):
-    """V97: a manager keeps the stored key after the AI flagged a question."""
-    if not _manager_allowed(request.user):
-        return HttpResponseForbidden("Manager access required.")
+PROPOSAL_LABELS = (
+    ("answer", "Answer key"), ("question", "Question"), ("passage", "Passage"),
+    ("a", "Choice A"), ("b", "Choice B"), ("c", "Choice C"), ("d", "Choice D"),
+    ("table", "Table (becomes the question picture)"), ("explanation", "Explanation"),
+    ("domain_name", "Domain"), ("skill", "Skill"),
+)
+
+
+def _proposal_rows(question):
+    if question.ai_proposal_status != TestImportQuestion.PROPOSAL_PENDING:
+        return []
+    proposal = question.ai_proposal or {}
+    return [
+        {"label": label, "field": field, "now": getattr(question, field, "") or "", "new": proposal[field]}
+        for field, label in PROPOSAL_LABELS if proposal.get(field)
+    ]
+
+
+def _needs_decision(question):
+    pending = question.ai_proposal_status == TestImportQuestion.PROPOSAL_PENDING
+    return question.audit_verdict in {"issue", "uncertain"} or (
+        pending and bool(set(question.ai_proposal or {}) - SUGGESTION_ONLY_FIELDS)
+    )
+
+
+def _is_suggestion(question):
+    return (
+        question.ai_proposal_status == TestImportQuestion.PROPOSAL_PENDING
+        and question.audit_verdict == "ok"
+        and not (set(question.ai_proposal or {}) - SUGGESTION_ONLY_FIELDS)
+    )
+
+
+def _editable_job_or_redirect(request, job_id):
     job = get_object_or_404(TestImportJob, pk=job_id)
     if job.status in {TestImportJob.STATUS_PUBLISHED, TestImportJob.STATUS_PUBLISHING, TestImportJob.STATUS_PROCESSING}:
         messages.error(request, "This import cannot be changed now.")
-        return redirect("manager_test_import_detail_root", job_id=job.pk)
+        return job, redirect("manager_test_import_detail_root", job_id=job.pk)
+    return job, None
+
+
+@login_required(login_url="/login/")
+@require_POST
+def test_import_ai_decision(request, job_id, question_id):
+    """V98: Approve applies the AI's suggested fix; Decline keeps the question as it is."""
+    if not _manager_allowed(request.user):
+        return HttpResponseForbidden("Manager access required.")
+    job, blocked = _editable_job_or_redirect(request, job_id)
+    if blocked:
+        return blocked
     question = get_object_or_404(TestImportQuestion, pk=question_id, job=job)
-    if question.audit_verdict not in {"issue", "uncertain"}:
-        return redirect("manager_test_import_detail_root", job_id=job.pk)
-    who = request.user.get_full_name() or request.user.username
-    question.audit_summary = f"Key confirmed by {who} on {timezone.localtime():%d %b %Y %H:%M}. AI said ({question.audit_verdict}): {question.audit_summary}"[:4000]
-    question.audit_verdict = "ok"
-    question.audit_severity = "none"
-    question.save(update_fields=["audit_verdict", "audit_severity", "audit_summary", "updated_at"])
-    validate_import_question(question)
+    decision = request.POST.get("decision")
+    if decision == "approve" and question.ai_proposal and question.ai_proposal_status == TestImportQuestion.PROPOSAL_PENDING:
+        try:
+            apply_ai_proposal(question, request.user)
+        except ValueError as exc:
+            messages.error(request, f"{question.display_code}: {exc}")
+            return redirect(f"{reverse('manager_test_import_detail_root', args=[job.pk])}#ai-check")
+        messages.success(request, f"{question.display_code}: the AI fix is applied.")
+    elif decision == "decline":
+        decline_ai_proposal(question, request.user)
+        messages.success(request, f"{question.display_code}: kept as it is.")
     job.refresh_review_status()
-    messages.success(request, f"{question.display_code}: the answer key ({question.answer}) is kept.")
-    return redirect("manager_test_import_detail_root", job_id=job.pk)
+    return redirect(f"{reverse('manager_test_import_detail_root', args=[job.pk])}#ai-check")
+
+
+@login_required(login_url="/login/")
+@require_POST
+def test_import_ai_approve_suggestions(request, job_id):
+    """V98: approve every pending category / explanation suggestion at once."""
+    if not _manager_allowed(request.user):
+        return HttpResponseForbidden("Manager access required.")
+    job, blocked = _editable_job_or_redirect(request, job_id)
+    if blocked:
+        return blocked
+    approved = 0
+    for question in job.questions.filter(ai_proposal_status=TestImportQuestion.PROPOSAL_PENDING):
+        if _is_suggestion(question):
+            apply_ai_proposal(question, request.user)
+            approved += 1
+    job.refresh_review_status()
+    messages.success(request, f"Approved {approved} AI suggestion(s).")
+    return redirect(f"{reverse('manager_test_import_detail_root', args=[job.pk])}#ai-check")
 
 
 @login_required(login_url="/login/")

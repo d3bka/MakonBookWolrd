@@ -68,7 +68,7 @@ class TestImportQuestionForm(forms.ModelForm):
         fields = [
             "number", "passage", "question", "a", "b", "c", "d", "answer", "explanation",
             "image", "image_a", "image_b", "image_c", "image_d",
-            "response_type", "accepted_answers", "grading_criteria", "placement_tier", "skill",
+            "response_type", "accepted_answers", "grading_criteria", "placement_tier", "domain_name", "skill",
             "written", "graph", "choice_graph", "source_page",
         ]
         widgets = {
@@ -80,6 +80,19 @@ class TestImportQuestionForm(forms.ModelForm):
             "accepted_answers": forms.Textarea(attrs={"rows": 3}),
             "grading_criteria": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # V98: the official SAT domains for this question's section.
+        from .sat_taxonomy import domain_choices
+
+        section = getattr(self.instance, "section", None)
+        current = getattr(self.instance, "domain_name", "")
+        choices = [("", "—")] + [(name, name) for name in domain_choices(section)]
+        if current and current not in dict(choices):
+            choices.append((current, current))
+        self.fields["domain_name"] = forms.ChoiceField(label="Domain", choices=choices, required=False)
+        self.fields["skill"].help_text = "SAT skill (e.g. Linear functions, Words in Context) or the placement skill."
 
     def save(self, commit=True):
         obj = super().save(commit=commit)

@@ -1,6 +1,6 @@
 {% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block page_title %}Published Tests | MakonBook{% endblock %}
-{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=10">{% endblock %}
+{% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/test-import-center.css' %}?v=14">{% endblock %}
 {% block content %}
 <div class="sf29-page">
   <section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-journal-check"></i> Published tests</span><h1>Manage the live test bank.</h1><p>Search by name, filter availability and import source, then switch between list and card view. The page is paginated so the manager does not have to scroll through the entire catalog.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'manager_test_import_list_root' %}"><i class="bi bi-arrow-left"></i>Import Center</a><a class="sf28-btn primary" href="{% url 'manager_test_import_create_root' %}"><i class="bi bi-plus-circle"></i>Import new test</a></div></section>

@@ -3413,10 +3413,11 @@ class TestImportJob(models.Model):
 
         if not ai_audit_required():
             return self.AI_OFF
-        verdicts = list(self.questions.values_list("audit_verdict", flat=True))
-        if not verdicts or any(v not in {"ok", "issue", "uncertain"} for v in verdicts):
+        rows = list(self.questions.values_list("audit_verdict", "ai_proposal_status"))
+        if not rows or any(verdict not in {"ok", "issue", "uncertain"} for verdict, _ in rows):
             return self.AI_PENDING
-        if any(v != "ok" for v in verdicts):
+        # A flagged question or an undecided AI suggestion waits for a manager.
+        if any(verdict != "ok" or status == TestImportQuestion.PROPOSAL_PENDING for verdict, status in rows):
             return self.AI_ISSUES
         return self.AI_CLEAN
 
@@ -3510,6 +3511,14 @@ class TestImportQuestion(models.Model):
         max_length=10, choices=[('legacy', 'Structured PDF'), ('makon', 'MakonBook format')],
         default='legacy', db_default='legacy',
     )
+    # V98: official SAT domain (QuestionDomain on publish); `skill` becomes the QuestionType.
+    domain_name = models.CharField("Domain", max_length=100, blank=True, default="", db_default="")
+    # V98: what the AI suggests changing ({field: new value}); a manager approves or declines it.
+    PROPOSAL_PENDING = "pending"
+    PROPOSAL_APPROVED = "approved"
+    PROPOSAL_DECLINED = "declined"
+    ai_proposal = models.JSONField(default=dict, blank=True)
+    ai_proposal_status = models.CharField(max_length=12, blank=True, default="", db_default="")
     written = models.BooleanField(default=False)
     graph = models.BooleanField(default=False)
     choice_graph = models.BooleanField(default=False)
