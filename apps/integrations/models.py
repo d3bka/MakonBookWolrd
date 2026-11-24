@@ -173,3 +173,56 @@ class HollihopCredentialDelivery(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class CredentialCampaign(models.Model):
+    """V105: one controlled sending of logins to people the Hollihop import created.
+
+    A manager first sends to 1–3 chosen people (test), then starts the campaign. Celery
+    sends in small batches; the manager can pause, resume or stop it. Each person gets
+    at most one delivery: an atomic pending → sending switch guards against doubles.
+    """
+
+    STATUS_DRAFT = "draft"
+    STATUS_RUNNING = "running"
+    STATUS_PAUSED = "paused"
+    STATUS_DONE = "done"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "Not started"),
+        (STATUS_RUNNING, "Sending"),
+        (STATUS_PAUSED, "Paused"),
+        (STATUS_DONE, "Finished"),
+        (STATUS_CANCELLED, "Stopped"),
+    ]
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
+    roles = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    test_sent_ok = models.PositiveIntegerField(default=0)
+    total = models.PositiveIntegerField(default=0)
+    sent = models.PositiveIntegerField(default=0)
+    partial = models.PositiveIntegerField(default=0)
+    failed = models.PositiveIntegerField(default=0)
+    no_contact = models.PositiveIntegerField(default=0)
+    last_user_id = models.PositiveIntegerField(default=0)
+    last_error = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def processed(self):
+        return self.sent + self.partial + self.failed + self.no_contact
+
+    @property
+    def percent(self):
+        return min(100, round(100 * self.processed / self.total)) if self.total else 0
+
+    @property
+    def is_active(self):
+        return self.status in {self.STATUS_DRAFT, self.STATUS_RUNNING, self.STATUS_PAUSED}

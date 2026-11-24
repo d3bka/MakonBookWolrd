@@ -11,6 +11,7 @@ urlpatterns = [
     path("hollihop/sync-memberships/", views.membership_sync_now, name="hollihop_membership_sync"),
     path("hollihop/sync-full/", views.full_reconciliation, name="hollihop_full_reconciliation"),
     path("hollihop/resend/<int:user_id>/", views.resend_credentials, name="hollihop_resend_credentials"),
+    path("hollihop/send-logins/", views.credential_campaign, name="hollihop_credential_campaign"),
     path("hollihop/conflict/<int:conflict_id>/resolve/", views.resolve_conflict, name="hollihop_resolve_conflict"),
     path("hollihop/my-attendance/", views.my_attendance, name="hollihop_my_attendance"),
     path("hollihop/classroom/<int:classroom_id>/attendance/", views.classroom_attendance, name="hollihop_classroom_attendance"),

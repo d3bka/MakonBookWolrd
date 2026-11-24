@@ -443,3 +443,85 @@ def webhook(request):
         logger.exception("Hollihop webhook could not be queued (client_id=%s)", client_id)
         return JsonResponse({"Error": "Temporarily unavailable, retry later."}, status=503)
     return JsonResponse({"ok": True})
+
+
+def credential_campaign(request):
+    """V105: send logins to the people the Hollihop import created — test first, then in batches."""
+    from apps.integrations.models import CredentialCampaign
+
+    from .credential_campaign import ROLES, active_campaign, eligible_users, find_test_people, overview, send_one
+    from .credentials import _sms_channel_enabled
+    from .tasks import run_credential_campaign_batch
+
+    if not _manager_allowed(request.user):
+        return HttpResponseForbidden("Manager access required.")
+    campaign = active_campaign()
+    workspace = "?workspace=admin" if request.GET.get("workspace") == "admin" or request.POST.get("workspace") == "admin" else ""
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        roles = [r for r in request.POST.getlist("roles") if r in ROLES]
+        if action in {"test", "start"} and campaign.status == CredentialCampaign.STATUS_DRAFT:
+            if not roles:
+                messages.error(request, "Choose at least one group: students, teachers or managers.")
+                return redirect(f"{request.path}{workspace}")
+            campaign.roles = roles
+            campaign.save(update_fields=["roles", "updated_at"])
+        if action == "test" and campaign.status == CredentialCampaign.STATUS_DRAFT:
+            people, missing = find_test_people(request.POST.get("people", ""), campaign.roles)
+            for user in people:
+                result = send_one(user)
+                status = getattr(result, "overall_status", result) or "skipped"
+                if status in {"sent", "partial"}:
+                    campaign.test_sent_ok += 1
+                detail = ""
+                if not isinstance(result, str) and result is not None:
+                    detail = f" (SMS: {result.get_sms_status_display()}{', ' + result.sms_error_safe if result.sms_error_safe else ''}; e-mail: {result.get_email_status_display()})"
+                level = messages.success if status in {"sent", "partial"} else messages.error
+                level(request, f"Test · {user.get_full_name() or user.username}: {status}{detail}")
+            campaign.save(update_fields=["test_sent_ok", "updated_at"])
+            for raw in missing:
+                messages.error(request, f"Test · “{raw}” is not among the people who would get a login (already sent, already logged in, or not from Hollihop).")
+        elif action == "start" and campaign.status == CredentialCampaign.STATUS_DRAFT:
+            if not campaign.test_sent_ok:
+                messages.error(request, "Send a test to at least one person first and check that the SMS arrived.")
+            elif request.POST.get("confirm") != "1":
+                messages.error(request, "Tick the box to confirm that the test SMS arrived.")
+            else:
+                campaign.total = eligible_users(campaign.roles).count()
+                campaign.status = CredentialCampaign.STATUS_RUNNING
+                campaign.started_at = timezone.now()
+                campaign.created_by = request.user
+                campaign.save()
+                run_credential_campaign_batch.delay(campaign.pk)
+                messages.success(request, f"Sending started: {campaign.total} people.")
+        elif action == "pause" and campaign.status == CredentialCampaign.STATUS_RUNNING:
+            campaign.status = CredentialCampaign.STATUS_PAUSED
+            campaign.save(update_fields=["status", "updated_at"])
+            messages.success(request, "Paused. The current batch finishes, then sending stops.")
+        elif action == "resume" and campaign.status == CredentialCampaign.STATUS_PAUSED:
+            campaign.status = CredentialCampaign.STATUS_RUNNING
+            campaign.save(update_fields=["status", "updated_at"])
+            run_credential_campaign_batch.delay(campaign.pk)
+            messages.success(request, "Sending resumed.")
+        elif action == "stop" and campaign.status in {CredentialCampaign.STATUS_RUNNING, CredentialCampaign.STATUS_PAUSED}:
+            campaign.status = CredentialCampaign.STATUS_CANCELLED
+            campaign.finished_at = timezone.now()
+            campaign.save(update_fields=["status", "finished_at", "updated_at"])
+            messages.success(request, "Stopped. People who did not get a login yet can be sent later in a new campaign.")
+        return redirect(f"{request.path}{workspace}")
+
+    recent_failures = HollihopCredentialDelivery.objects.filter(
+        overall_status__in=["failed", "partial", "no_contact"],
+        created_at__gte=campaign.started_at or campaign.created_at,
+    ).select_related("user")[:30]
+    return render(request, "integrations/hollihop/credential_campaign.html", {
+        "campaign": campaign,
+        "overview": overview(),
+        "roles": ROLES,
+        "sms_enabled": _sms_channel_enabled(),
+        "sms_provider": getattr(settings, "MAKONBOOK_SMS_PROVIDER", ""),
+        "recent_failures": recent_failures,
+        "past_campaigns": CredentialCampaign.objects.exclude(pk=campaign.pk)[:5],
+        "workspace_query": workspace,
+    })

@@ -257,3 +257,12 @@ def process_student_webhook(trigger_type, client_id, attempt=0):
             )
             return {"status": "retry_queued", "attempt": attempt + 1, "error": type(exc).__name__}
         raise
+
+
+@shared_task(name="apps.integrations.hollihop.tasks.run_credential_campaign_batch", soft_time_limit=540, time_limit=600)
+def run_credential_campaign_batch(campaign_id):
+    """V105: send one batch of logins, then queue the next one (pause/stop are honoured between batches)."""
+    from .credential_campaign import BATCH_PAUSE_SECONDS, run_batch
+
+    if run_batch(campaign_id):
+        run_credential_campaign_batch.apply_async(args=[campaign_id], countdown=BATCH_PAUSE_SECONDS)

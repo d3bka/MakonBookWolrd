@@ -54,6 +54,7 @@
             <button class="holli-btn danger" type="submit">Full reconciliation</button>
           </form>
         {% endif %}
+        <a class="holli-btn secondary" href="{% url 'hollihop_credential_campaign' %}{% if staff_workspace_mode == 'admin' %}?workspace=admin{% endif %}">Send logins</a>
         {% if staff_workspace_mode == 'admin' %}<a class="holli-btn secondary" href="{% url 'admin_dashboard' %}">Back to Admin Panel</a>{% else %}<a class="holli-btn secondary" href="{% url 'manager_dashboard_root' %}">Back to Manager Panel</a>{% endif %}
       </div>
 

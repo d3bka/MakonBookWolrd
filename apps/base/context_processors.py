@@ -144,10 +144,10 @@ def test_import_meta(request):
 
 # V97: pages that belong to the Manager workspace although their route name has no
 # "manager_" prefix. A Teacher+Manager must not see them in Teacher chrome.
-MANAGER_WORKSPACE_ROUTES = {"hollihop_dashboard"}
+MANAGER_WORKSPACE_ROUTES = {"hollihop_dashboard", "hollihop_credential_campaign"}
 # Pages linked from both the Manager and the Admin sidebar keep the workspace the
 # user came from (?workspace=admin), like Settings and Profile do.
-SHARED_WORKSPACE_ROUTES = {"settings_page", "edit_profile", "hollihop_dashboard", "manager_seasonal_theme"}
+SHARED_WORKSPACE_ROUTES = {"settings_page", "edit_profile", "hollihop_dashboard", "hollihop_credential_campaign", "manager_seasonal_theme"}
 
 STAFF_WORKSPACE_ROUTE_MAP = {
     "admin_dashboard": "home",
@@ -242,6 +242,7 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "manager_teacher_detail": "manager",
     "manager_classroom_detail": "manager",
     "hollihop_dashboard": "hollihop",
+    "hollihop_credential_campaign": "hollihop",
     "hollihop_classroom_attendance": "classrooms",
     "support_teacher_list": "support",
     "support_teacher_detail": "support",

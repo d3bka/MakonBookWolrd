@@ -752,9 +752,22 @@ class HollihopSyncEngine:
         # later sync runs must never silently rotate the user's password.
         if profile.credentials_delivery_status != "pending":
             return
+        # V105: people from the initial import get their logins through the controlled
+        # "Send logins" campaign (test first, batches, pause). Only accounts created after
+        # the initial import are sent automatically, so a Hollihop edit to an imported
+        # student no longer triggers a random, one-off delivery.
+        if self._created_by_initial_import(user):
+            return
         if not can_deliver_temporary_access(user):
             return
         deliver_new_temporary_access(user)
+
+    def _created_by_initial_import(self, user):
+        completed_at = getattr(self, "_initial_completed_at", False)
+        if completed_at is False:
+            state = HollihopSyncState.objects.filter(provider="hollihop", initial_sync_completed=True).first()
+            completed_at = self._initial_completed_at = state.initial_sync_completed_at if state else None
+        return bool(completed_at and user.date_joined and user.date_joined <= completed_at)
 
     @staticmethod
     def _employee_role_values(data):
