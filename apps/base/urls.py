@@ -12,6 +12,7 @@ from apps.sat import guest_views as sat_guest_views
 from apps.sat import views_attempts as sat_attempt_views
 from apps.sat import views_attention as sat_attention_views
 from apps.sat import views_lesson_import as sat_lesson_import_views
+from apps.sat import views_account_duplicates as sat_duplicate_views
 from apps.sat import event_registration_views as event_registration_views
 from apps.sat import public_placement_views as public_placement_views
 from apps.ratings import views as rating_views
@@ -99,6 +100,8 @@ urlpatterns = [
     path('manager/dashboard/', sat_views.manager_dashboard, name='manager_dashboard_root'),
     path('manager/attendance/', manager_attendance_insights, name='manager_attendance_insights'),
     path('manager/attention/', sat_attention_views.manager_attention, name='manager_attention_root'),
+    path('manager/duplicates/', sat_duplicate_views.manager_account_duplicates, name='manager_account_duplicates_root'),
+    path('manager/duplicates/merge/<int:keep_id>/<int:remove_id>/', sat_duplicate_views.manager_account_merge, name='manager_account_merge_root'),
     path('manager/assessment-schedules/', rating_manager_views.manager_assessment_schedules, name='manager_assessment_schedules'),
     path('manager/assessment-schedules/save/', rating_manager_views.manager_save_schedule, name='manager_save_assessment_schedule'),
     path('manager/assessment-schedules/<int:schedule_id>/exception/', rating_manager_views.manager_schedule_exception, name='manager_schedule_exception'),

@@ -1,0 +1,97 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Duplicate accounts | MakonBook{% endblock %}
+{% block staff_workspace_style %}
+<style>
+/* V104: Duplicate accounts */
+.du104{display:grid;gap:18px;max-width:1120px;margin:0 auto;color:var(--mb50-text,#1c1926)}
+.du104-kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb50-accent,#7438da)}
+.du104 h1{margin:4px 0;font-size:clamp(24px,3vw,32px);line-height:1.15}
+.du104 h2{margin:0;font-size:17px}
+.du104-sub{margin:0;color:var(--mb50-muted,#746c84);max-width:760px;line-height:1.5}
+.du104-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.du104-tab{padding:8px 14px;border-radius:999px;border:1px solid var(--mb50-border,#e8e4f0);font-weight:750;font-size:14px;text-decoration:none;color:var(--mb50-muted,#746c84)}
+.du104-tab.on{background:var(--mb50-accent-soft,rgba(116,56,218,.12));border-color:transparent;color:var(--mb50-accent,#7438da)}
+.du104-pair{border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-radius:18px;padding:16px;display:grid;gap:12px}
+.du104-pair-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.du104-chips{display:flex;flex-wrap:wrap;gap:6px}
+.du104-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:750;background:var(--mb50-accent-soft,rgba(116,56,218,.12));color:var(--mb50-accent,#7438da)}
+.du104-chip.hh{background:rgba(14,165,233,.14);color:#0369a1}
+.du104-chip.rec{background:rgba(34,197,94,.14);color:#15803d}
+.du104-sides{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.du104-side{border:1px solid var(--mb50-border,#e8e4f0);border-radius:14px;padding:12px;display:grid;gap:8px;align-content:start}
+.du104-side.rec{border-color:rgba(34,197,94,.55)}
+.du104-side strong{font-size:15px}
+.du104-meta{margin:0;font-size:13px;color:var(--mb50-muted,#746c84);line-height:1.55}
+.du104-nums{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.du104-nums b{font-size:14px}
+.du104 .du104-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff)!important;background-image:none!important;box-shadow:none!important;color:var(--mb50-text,#1c1926)!important;font-weight:750;font-size:14px;text-decoration:none;cursor:pointer;white-space:nowrap}
+.du104 .du104-btn.primary{background:#7438da!important;border-color:transparent;color:#fff!important}
+.du104 .du104-btn.primary:hover{background:#5f2bbd!important}
+.du104 .du104-btn:hover{border-color:var(--mb50-accent,#7438da)}
+.du104 :is(a,button):focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+.du104-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.du104-empty{padding:30px 16px;text-align:center;border-radius:18px;border:1px dashed var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-muted,#746c84)}
+.du104-log{border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-radius:18px;padding:16px}
+.du104-log ul{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:6px;font-size:14px}
+.du104-log li small{color:var(--mb50-muted,#746c84)}
+html[data-theme="dark"] .du104-chip.hh{color:#7dd3fc}
+html[data-theme="dark"] .du104-chip.rec{color:#86efac}
+@media(max-width:760px){.du104-sides{grid-template-columns:1fr}.du104-actions .du104-btn,.du104-actions form{width:100%}}
+</style>
+{% endblock staff_workspace_style %}
+{% block content %}
+<div class="du104">
+  <header>
+    <span class="du104-kicker"><i class="bi bi-people"></i> Accounts</span>
+    <h1>Duplicate accounts</h1>
+    <p class="du104-sub">People who seem to have two MakonBook accounts, usually an old one made by hand and a new one from Hollihop (“HH”). Merging moves classes, lessons, homework, test results and history to the account you keep and switches the other one off. Nothing is deleted.</p>
+  </header>
+
+  <nav class="du104-tabs" aria-label="Account type">
+    {% for key, label in categories.items %}<a class="du104-tab{% if key == category %} on{% endif %}" href="?type={{ key }}">{{ label }}{% if key == category %} · {{ total_pairs }}{% endif %}</a>{% endfor %}
+  </nav>
+
+  {% if total_pairs > pairs|length %}<p class="du104-sub">Showing the {{ pairs|length }} most likely pairs of {{ total_pairs }}. Merge or dismiss them to see the next ones.</p>{% endif %}
+  {% for pair in pairs %}
+  <article class="du104-pair">
+    <div class="du104-pair-head">
+      <div class="du104-chips">{% for r in pair.reasons %}<span class="du104-chip">{{ r }}</span>{% endfor %}</div>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="dismiss"><input type="hidden" name="a" value="{{ pair.a.id }}"><input type="hidden" name="b" value="{{ pair.b.id }}"><button class="du104-btn"><i class="bi bi-x-lg"></i> Different people</button></form>
+    </div>
+    <div class="du104-sides">
+      {% for side in pair.sides %}
+      <section class="du104-side{% if side.recommended %} rec{% endif %}">
+        <div>
+          <strong>{{ side.user.get_full_name|default:side.user.username }}</strong>
+          <div class="du104-chips" style="margin-top:6px">
+            <span class="du104-chip" style="background:transparent;padding-left:0;color:var(--mb50-muted,#746c84)">#{{ side.user.id }} · {{ side.user.username }}</span>
+            {% for link in side.summary.hollihop %}<span class="du104-chip hh">{{ link }}</span>{% endfor %}
+            {% if side.recommended %}<span class="du104-chip rec"><i class="bi bi-check2"></i> Recommended to keep</span>{% endif %}
+          </div>
+        </div>
+        <p class="du104-meta">Last login: {% if side.user.last_login %}{{ side.user.last_login|date:'d M Y' }}{% else %}never{% endif %} · joined {{ side.user.date_joined|date:'d M Y' }}{% if side.user.email %}<br>{{ side.user.email }}{% endif %}</p>
+        <div class="du104-nums">
+          {% if category == 'staff' %}<span><b>{{ side.summary.classes_taught }}</b> class{{ side.summary.classes_taught|pluralize:"es" }} taught</span>{% endif %}
+          <span><b>{{ side.summary.classes }}</b> class membership{{ side.summary.classes|pluralize }}</span>
+          <span><b>{{ side.summary.tests }}</b> test result{{ side.summary.tests|pluralize }}</span>
+          <span><b>{{ side.summary.homework }}</b> homework</span>
+        </div>
+        <div class="du104-actions"><a class="du104-btn{% if side.recommended %} primary{% endif %}" href="{% url 'manager_account_merge_root' side.user.id side.other.id %}?type={{ category }}">Keep this one…</a></div>
+      </section>
+      {% endfor %}
+    </div>
+  </article>
+  {% empty %}
+  <div class="du104-empty"><i class="bi bi-check-circle" style="font-size:26px;color:#16a34a"></i><p style="margin:8px 0 0">No duplicate {% if category == 'staff' %}staff{% else %}student{% endif %} accounts found.</p></div>
+  {% endfor %}
+
+  {% if recent_merges %}
+  <section class="du104-log" aria-labelledby="du104-log">
+    <h2 id="du104-log">Recent merges</h2>
+    <ul>
+      {% for m in recent_merges %}<li><strong>{{ m.removed_name|default:m.removed_username }}</strong> ({{ m.removed_username }}) → {% if m.kept_user %}{{ m.kept_user.get_full_name|default:m.kept_user.username }} ({{ m.kept_user.username }}){% else %}deleted account{% endif %} <small>· {{ m.created_at|date:'d M Y, H:i' }}{% if m.merged_by %} · {{ m.merged_by.get_full_name|default:m.merged_by.username }}{% endif %}</small></li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

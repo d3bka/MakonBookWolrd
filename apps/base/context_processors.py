@@ -167,6 +167,8 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "teacher_attention_root": "attention",
     "teacher_classroom_units_import_root": "classrooms",
     "manager_attention_root": "attention",
+    "manager_account_duplicates_root": "duplicates",
+    "manager_account_merge_root": "duplicates",
     "admin_test_detail": "tests",
     "admin_mocks": "mocks",
     "admin_mock_create": "mocks",

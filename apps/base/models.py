@@ -346,3 +346,34 @@ class SystemHeartbeat(models.Model):
 
     def __str__(self):
         return f"{self.component} · {self.last_seen or 'never'}"
+
+
+class AccountMerge(models.Model):
+    """V104: one account was merged into another (a person had two MakonBook accounts)."""
+
+    kept_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="account_merges_kept")
+    removed_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="account_merges_removed")
+    removed_username = models.CharField(max_length=150)
+    removed_name = models.CharField(max_length=300, blank=True)
+    merged_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="account_merges_done")
+    moved = models.JSONField(default=dict, blank=True)
+    dropped = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.removed_username} → {self.kept_user_id}"
+
+
+class AccountDuplicateDismissal(models.Model):
+    """V104: a manager confirmed two similar accounts belong to different people."""
+
+    user_low = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    user_high = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    dismissed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user_low", "user_high"], name="base_duplicate_dismissal_pair")]

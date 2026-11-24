@@ -44,3 +44,8 @@ TEST_IMPORT_REQUIRE_AI_AUDIT = False
 
 # V102: the health watcher never runs threads or sends alerts from the test suite.
 SYSTEM_HEALTH_WATCH_ENABLED = False
+
+# V104: tests never pick up super admins or alert chats from the local .env.
+TELEGRAM_SUPERADMIN_IDS = ""
+MONITORING_TELEGRAM_CHAT_ID = ""
+MONITORING_ALERT_EMAILS = ""

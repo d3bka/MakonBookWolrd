@@ -1,0 +1,91 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Merge accounts | MakonBook{% endblock %}
+{% block staff_workspace_style %}
+<style>
+/* V104: merge confirmation */
+.mg104{display:grid;gap:16px;max-width:900px;margin:0 auto;color:var(--mb50-text,#1c1926)}
+.mg104-back{display:inline-flex;align-items:center;gap:8px;font-weight:700;text-decoration:none;color:var(--mb50-accent,#6d28d9)}
+.mg104 h1{margin:4px 0;font-size:clamp(22px,3vw,30px);line-height:1.2}
+.mg104 h2{margin:0 0 8px;font-size:16px}
+.mg104-sub{margin:0;color:var(--mb50-muted,#746c84);line-height:1.5}
+.mg104-card{border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-radius:18px;padding:16px}
+.mg104-flow{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}
+.mg104-acc{border:1px solid var(--mb50-border,#e8e4f0);border-radius:14px;padding:12px}
+.mg104-acc.keep{border-color:rgba(34,197,94,.55)}
+.mg104-acc.off{border-color:rgba(239,68,68,.45)}
+.mg104-acc small{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb50-muted,#746c84)}
+.mg104-acc strong{display:block;margin-top:4px;font-size:15px}
+.mg104-acc span{display:block;font-size:13px;color:var(--mb50-muted,#746c84);margin-top:2px;overflow-wrap:anywhere}
+.mg104-arrow{font-size:22px;color:var(--mb50-muted,#746c84)}
+.mg104-list{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:14px}
+.mg104-list li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--mb50-border,#e8e4f0)}
+.mg104-list li:last-child{border-bottom:0}
+.mg104-points{margin:0;padding-left:20px;line-height:1.7;font-size:14px}
+.mg104-warn{margin:0;padding:11px 13px;border-radius:12px;background:rgba(239,68,68,.12);color:#b91c1c;font-size:14px;line-height:1.5}
+.mg104-form{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.mg104-form label{display:grid;gap:5px;font-size:12px;font-weight:750;color:var(--mb50-muted,#746c84)}
+.mg104-form input{padding:10px 12px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font:inherit;font-size:15px;letter-spacing:.08em;width:160px}
+.mg104 .mg104-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:12px;border:0;background:#b91c1c!important;background-image:none!important;box-shadow:none!important;color:#fff!important;font-weight:800;font-size:14px;cursor:pointer}
+.mg104 .mg104-btn:hover{background:#991b1b!important}
+.mg104 :is(a,button,input):focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+html[data-theme="dark"] .mg104-warn{color:#fca5a5}
+@media(max-width:640px){.mg104-flow{grid-template-columns:1fr}.mg104-arrow{transform:rotate(90deg);justify-self:center}.mg104 .mg104-btn{width:100%;justify-content:center}}
+</style>
+{% endblock staff_workspace_style %}
+{% block content %}
+<div class="mg104">
+  <a class="mg104-back" href="{% url 'manager_account_duplicates_root' %}?type={{ category }}"><i class="bi bi-arrow-left"></i> Duplicate accounts</a>
+  <header>
+    <h1>Merge two accounts</h1>
+    <p class="mg104-sub">Check that this is really one person. A merge cannot be undone from this page.</p>
+  </header>
+
+  <section class="mg104-card mg104-flow" aria-label="Accounts">
+    <div class="mg104-acc off">
+      <small>Switched off</small>
+      <strong>{{ remove.get_full_name|default:remove.username }}</strong>
+      <span>#{{ remove.id }} · {{ remove.username }}</span>
+      <span>{% if remove_summary.hollihop %}{{ remove_summary.hollihop|join:', ' }} {{ remove_summary.hollihop_ids|join:', ' }}{% else %}Not linked to Hollihop{% endif %}</span>
+      <span>Last login: {% if remove.last_login %}{{ remove.last_login|date:'d M Y' }}{% else %}never{% endif %}</span>
+    </div>
+    <i class="bi bi-arrow-right mg104-arrow" aria-hidden="true"></i>
+    <div class="mg104-acc keep">
+      <small>Kept</small>
+      <strong>{{ keep.get_full_name|default:keep.username }}</strong>
+      <span>#{{ keep.id }} · {{ keep.username }}</span>
+      <span>{% if keep_summary.hollihop %}{{ keep_summary.hollihop|join:', ' }} {{ keep_summary.hollihop_ids|join:', ' }}{% else %}Not linked to Hollihop{% endif %}</span>
+      <span>Last login: {% if keep.last_login %}{{ keep.last_login|date:'d M Y' }}{% else %}never{% endif %}</span>
+    </div>
+  </section>
+
+  <section class="mg104-card">
+    <h2>What happens</h2>
+    <ul class="mg104-points">
+      <li>Everything below moves from <strong>{{ remove.username }}</strong> to <strong>{{ keep.username }}</strong>.</li>
+      <li>The person logs in as <strong>{{ keep.username }}</strong> with that account’s password. <strong>{{ remove.username }}</strong> can no longer log in.</li>
+      <li>Hollihop links, phone and roles move to the kept account, so synchronization keeps updating it.</li>
+      <li>If both accounts have the same record (for example the same homework), the kept account’s record stays and the other one stays with the old account. Nothing is deleted.</li>
+    </ul>
+  </section>
+
+  <section class="mg104-card">
+    <h2>Moves to the kept account</h2>
+    {% if preview %}
+    <ul class="mg104-list">{% for label, count in preview %}<li><span>{{ label|capfirst }}</span><strong>{{ count }}</strong></li>{% endfor %}</ul>
+    {% else %}
+    <p class="mg104-sub">The old account holds no data. Only its roles and contact details move.</p>
+    {% endif %}
+  </section>
+
+  <section class="mg104-card">
+    {% if blocked %}
+    <p class="mg104-warn">{{ blocked }}</p>
+    {% else %}
+    <form class="mg104-form" method="post">{% csrf_token %}
+      <label>Type MERGE to confirm<input name="confirm" autocomplete="off" required placeholder="MERGE" aria-label="Type MERGE to confirm"></label>
+      <button class="mg104-btn"><i class="bi bi-people"></i> Merge into {{ keep.username }}</button>
+    </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
