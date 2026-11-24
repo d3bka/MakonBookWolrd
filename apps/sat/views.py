@@ -9136,6 +9136,7 @@ def teacher_classroom_dashboard(request, classroom_id):
     join_code = getattr(classroom, 'join_code', None)
     lessons = list(
         ClassroomLesson.objects.filter(classroom=classroom)
+        .annotate(copy_count=Count('copies', distinct=True))  # V102: how often other classes imported it
         .prefetch_related('resources__test', 'resources__vocabulary_unit')
         .order_by('order', 'created_at')
     )

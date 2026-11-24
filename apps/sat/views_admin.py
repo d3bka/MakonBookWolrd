@@ -906,3 +906,33 @@ def admin_support_teacher_availability_delete(request, teacher_id, availability_
     availability.delete()
     messages.success(request, "Availability slot deleted.")
     return redirect('admin_support_teacher_edit', teacher_id=teacher.id)
+
+
+@login_required
+@admin_panel_required
+def admin_system_health(request):
+    """V102: is every part of MakonBook alive, and who receives the alerts."""
+    from django.conf import settings as django_settings
+
+    from apps.base.system_health import alert_recipients, collect_status, send_alert
+
+    if request.method == "POST" and request.POST.get("action") == "test":
+        report = send_alert(
+            f"✅ MakonBook · Test alert sent by {request.user.get_full_name() or request.user.username}. "
+            "System alerts reach this chat.",
+            subject="MakonBook: test alert",
+        )
+        if report["delivered"]:
+            messages.success(request, f"Test alert sent: {report['telegram_sent']} Telegram chat(s), {report['email_sent']} e-mail address(es).")
+        else:
+            messages.error(request, "The test alert reached nobody. Check the recipients below and the server logs.")
+        return redirect("admin_system_health")
+
+    statuses = collect_status()
+    return render(request, "sat/admin/system_health.html", {
+        "page_title": "System health",
+        "statuses": statuses,
+        "down_count": sum(1 for s in statuses if s.state == "down"),
+        "recipients": alert_recipients(),
+        "watch_enabled": getattr(django_settings, "SYSTEM_HEALTH_WATCH_ENABLED", False),
+    })

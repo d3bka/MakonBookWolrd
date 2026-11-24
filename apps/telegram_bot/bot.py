@@ -21,6 +21,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'satmakon.settings')
 django.setup()
 
 from .placement_notifications import placement_notification_worker
+from .system_watch import system_health_watch_worker
 
 from .handlers import (
     StartHandler,
@@ -278,14 +279,17 @@ async def start_bot():
         
         # Deliver public placement notifications independently from exam requests.
         notifier_task = asyncio.create_task(placement_notification_worker(bot))
+        # V102: the bot records its heartbeat, checks the website and Celery, and alerts.
+        watch_task = asyncio.create_task(system_health_watch_worker())
         try:
             await dp.start_polling(bot)
         finally:
-            notifier_task.cancel()
-            try:
-                await notifier_task
-            except asyncio.CancelledError:
-                pass
+            for task in (notifier_task, watch_task):
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
         
     except Exception as e:
         logger.error(f"Error during bot polling: {e}")

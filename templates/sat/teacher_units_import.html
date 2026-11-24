@@ -1,0 +1,208 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Import units · {{ classroom.name }} | MakonBook{% endblock %}
+{% block staff_workspace_style %}
+<style>
+/* V102: Import units */
+.iu102{display:grid;gap:16px;max-width:1080px;margin:0 auto;color:var(--mb50-text,#1c1926)}
+.iu102-back{display:inline-flex;align-items:center;gap:8px;font-weight:700;text-decoration:none;color:var(--mb50-accent,#6d28d9)}
+.iu102-kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb50-accent,#7438da)}
+.iu102 h1{margin:4px 0;font-size:clamp(24px,3vw,30px);line-height:1.15}
+.iu102 h2{margin:0;font-size:17px}
+.iu102-sub{margin:0;color:var(--mb50-muted,#746c84);max-width:720px;line-height:1.5}
+.iu102-form{display:grid;gap:16px;min-width:0}
+.iu102-card{border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-radius:18px;padding:16px}
+.iu102-search{display:flex;gap:10px;flex-wrap:wrap}
+.iu102-search input{flex:1 1 260px;padding:11px 13px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font:inherit}
+.iu102-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 15px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font-weight:750;font-size:14px;text-decoration:none;cursor:pointer;line-height:1.2;white-space:nowrap}
+.iu102-btn:hover{border-color:var(--mb50-accent,#7438da)}
+.iu102-btn.primary{background:#7438da;border-color:transparent;color:#fff}
+.iu102-btn.primary:hover{background:#5f2bbd}
+.iu102-btn[disabled]{opacity:.5;cursor:not-allowed}
+.iu102 :is(a,button,input,select,summary):focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+.iu102-results{display:grid;gap:10px}
+.iu102-result{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:16px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff)}
+.iu102-result strong{font-size:15px}
+.iu102-meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:4px;font-size:13px;color:var(--mb50-muted,#746c84)}
+.iu102-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.iu102-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:750;background:var(--mb50-accent-soft,rgba(116,56,218,.12));color:var(--mb50-accent,#7438da)}
+.iu102-chip.muted{background:var(--mb50-panel-soft,#f3f1f7);color:var(--mb50-muted,#746c84)}
+.iu102-chip.warn{background:rgba(245,158,11,.16);color:#b45309}
+.iu102-warn{margin:0;padding:11px 13px;border-radius:12px;background:rgba(245,158,11,.14);color:#92400e;font-size:14px;line-height:1.5}
+.iu102-section-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.iu102-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.iu102-unit{border:1px solid var(--mb50-border,#e8e4f0);border-radius:14px;padding:10px 12px}
+.iu102-unit.is-dup{border-color:rgba(245,158,11,.6)}
+.iu102-row{display:flex;align-items:flex-start;gap:10px}
+.iu102-row input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:#7438da;flex:0 0 auto}
+.iu102-row label{flex:1;cursor:pointer}
+.iu102-row label b{display:block;font-size:14.5px}
+.iu102-unit details{margin:6px 0 0 28px;font-size:13px}
+.iu102-unit summary{cursor:pointer;color:var(--mb50-muted,#746c84);font-weight:700}
+.iu102-unit details ul{margin:6px 0 0;padding-left:0;list-style:none;display:grid;gap:4px}
+.iu102-unit details li{display:flex;align-items:center;gap:7px;color:var(--mb50-text,#1c1926)}
+.iu102-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:end}
+.iu102-options label.field{display:grid;gap:6px;font-size:12.5px;font-weight:750;color:var(--mb50-muted,#746c84)}
+.iu102-options select{padding:10px 12px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font:inherit;font-size:14px}
+.iu102-check{display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer}
+.iu102-check input{width:18px;height:18px;accent-color:#7438da;margin-top:1px}
+.iu102-check small{display:block;color:var(--mb50-muted,#746c84);font-size:12.5px}
+.iu102-submit{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;position:sticky;bottom:12px;padding:12px 16px;border-radius:16px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);box-shadow:0 12px 30px rgba(30,20,60,.12)}
+.iu102-submit p{margin:0;font-size:13.5px;color:var(--mb50-muted,#746c84)}
+.iu102-empty{padding:28px 16px;text-align:center;color:var(--mb50-muted,#746c84)}
+html[data-theme="dark"] .iu102-warn{color:#fde68a}
+html[data-theme="dark"] .iu102-chip.warn{color:#fcd34d}
+html[data-theme="dark"] .iu102-chip.muted{background:rgba(255,255,255,.06)}
+html[data-theme="dark"] .iu102-submit{box-shadow:0 12px 30px rgba(0,0,0,.45)}
+@media(max-width:600px){.iu102-submit .iu102-btn{width:100%}.iu102-result .iu102-btn{width:100%}}
+</style>
+{% endblock staff_workspace_style %}
+{% block content %}
+<div class="iu102">
+  <a class="iu102-back" href="{% url 'teacher_classroom_root' classroom.id %}?edit=1#course"><i class="bi bi-arrow-left"></i> {{ classroom.name }}</a>
+  <header>
+    <span class="iu102-kicker"><i class="bi bi-box-arrow-in-down"></i> Import units</span>
+    <h1>Import units into {{ classroom.name }}</h1>
+    <p class="iu102-sub">Copy units with all their materials from any class of the school instead of building them again. The copy is yours: change it freely, the original class stays as it is.</p>
+  </header>
+
+  {% if not source %}
+  <section class="iu102-card">
+    <form class="iu102-search" method="get" role="search">
+      <input type="search" name="q" value="{{ query }}" placeholder="Unit name, class or teacher, e.g. Linear equations" aria-label="Search units, classes or teachers" autofocus>
+      <button class="iu102-btn primary" type="submit"><i class="bi bi-search"></i> Search</button>
+    </form>
+  </section>
+
+  <section aria-label="Classes">
+    <p class="iu102-sub" style="margin-bottom:10px">{% if query %}Classes with “{{ query }}” in a unit, the class name or the teacher’s name.{% else %}Your other classes first, then classes whose units changed recently. Search to see every class, archived ones too.{% endif %}</p>
+    {% if results %}
+    <div class="iu102-results">
+      {% for c in results %}
+      <article class="iu102-result">
+        <div>
+          <strong>{{ c.name }}</strong>
+          <div class="iu102-meta">
+            <span><i class="bi bi-person"></i> {% if c.teacher %}{{ c.teacher.get_full_name|default:c.teacher.username }}{% else %}No teacher{% endif %}</span>
+            <span><i class="bi bi-collection"></i> {{ c.unit_count }} unit{{ c.unit_count|pluralize }}</span>
+            {% if not c.is_active %}<span class="iu102-chip muted">Archived</span>{% endif %}
+          </div>
+          {% if c.matched_units %}<div class="iu102-chips">{% for u in c.matched_units %}<span class="iu102-chip">Unit {{ u.order }} · {{ u.title }}</span>{% endfor %}</div>{% endif %}
+        </div>
+        <a class="iu102-btn primary" href="?source={{ c.pk }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">Choose units <i class="bi bi-arrow-right"></i></a>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="iu102-card iu102-empty">{% if query %}No class matches “{{ query }}”. Try a shorter word.{% else %}No other class has units yet.{% endif %}</div>
+    {% endif %}
+  </section>
+
+  {% else %}
+  <a class="iu102-back" href="?{% if query %}q={{ query|urlencode }}{% endif %}"><i class="bi bi-arrow-left"></i> Other classes</a>
+  <form method="post" class="iu102-form" data-iu102-form>{% csrf_token %}
+    <input type="hidden" name="source" value="{{ source.pk }}">
+    <section class="iu102-card">
+      <div class="iu102-section-head">
+        <div>
+          <span class="iu102-kicker">From</span>
+          <h2>{{ source_label }}</h2>
+          <div class="iu102-meta"><span>{{ units|length }} unit{{ units|length|pluralize }}</span>{% if not source.is_active %}<span class="iu102-chip muted">Archived</span>{% endif %}</div>
+        </div>
+        {% if units %}<label class="iu102-check"><input type="checkbox" data-iu102-all> <span>Select all units</span></label>{% endif %}
+      </div>
+      {% if duplicate_count %}<p class="iu102-warn" style="margin-bottom:10px"><i class="bi bi-exclamation-triangle"></i> {{ duplicate_count }} unit{{ duplicate_count|pluralize:" has,s have" }} the same name as a unit already in {{ classroom.name }}. {{ duplicate_count|pluralize:"It is,They are" }} not ticked; tick {{ duplicate_count|pluralize:"it,them" }} to copy anyway.</p>{% endif %}
+      {% if units %}
+      <ul class="iu102-list">
+        {% for unit in units %}
+        <li class="iu102-unit{% if unit.duplicate_of %} is-dup{% endif %}">
+          <div class="iu102-row">
+            <input type="checkbox" name="units" value="{{ unit.pk }}" id="iu102-u{{ unit.pk }}" data-iu102-unit{% if not unit.duplicate_of %} checked{% endif %}>
+            <label for="iu102-u{{ unit.pk }}">
+              <b>Unit {{ unit.order }} · {{ unit.title }}</b>
+              <span class="iu102-meta">
+                <span>{{ unit.resources.all|length }} material{{ unit.resources.all|length|pluralize }}</span>
+                {% if not unit.is_published %}<span class="iu102-chip muted">Hidden in that class</span>{% endif %}
+                {% if unit.duplicate_of %}<span class="iu102-chip warn"><i class="bi bi-exclamation-triangle"></i> Already in your class as Unit {{ unit.duplicate_of.order }}</span>{% endif %}
+              </span>
+            </label>
+          </div>
+          {% if unit.resources.all %}
+          <details>
+            <summary>Show materials</summary>
+            <ul>
+              {% for r in unit.resources.all %}<li><i class="bi {% if r.resource_type == 'test' %}bi-ui-checks{% elif r.resource_type == 'vocabulary_quiz' %}bi-translate{% elif r.resource_type == 'link' %}bi-link-45deg{% elif r.resource_type == 'presentation' %}bi-easel{% else %}bi-file-earmark{% endif %}" aria-hidden="true"></i>{{ r.title }}{% if not r.is_visible %} <span class="iu102-chip muted">hidden</span>{% endif %}</li>{% endfor %}
+            </ul>
+          </details>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="iu102-empty">This class has no units.</p>
+      {% endif %}
+    </section>
+
+    {% if source_homework %}
+    <section class="iu102-card">
+      <div class="iu102-section-head">
+        <div>
+          <h2>Also copy homework?</h2>
+          <p class="iu102-sub">Ticked homework arrives hidden and without a deadline. Set the dates for your class in Homework, then show it to students.</p>
+        </div>
+      </div>
+      <ul class="iu102-list">
+        {% for hw in source_homework %}
+        <li class="iu102-unit"><div class="iu102-row">
+          <input type="checkbox" name="homework" value="{{ hw.pk }}" id="iu102-h{{ hw.pk }}" data-iu102-hw>
+          <label for="iu102-h{{ hw.pk }}"><b>{{ hw.title }}</b><span class="iu102-meta"><span>{{ hw.get_assignment_type_display }}</span>{% if hw.due_at %}<span>was due {{ hw.due_at|date:'d M Y' }}</span>{% endif %}</span></label>
+        </div></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <section class="iu102-card iu102-options">
+      <label class="field">Where to put the units
+        <select name="insert_after">
+          {% with last=target_lessons|last %}<option value="">At the end{% if last %} (after Unit {{ last.order }} · {{ last.title|truncatechars:40 }}){% endif %}</option>{% endwith %}
+          <option value="0">At the beginning</option>
+          {% for t in target_lessons %}{% if not forloop.last %}<option value="{{ t.order }}">After Unit {{ t.order }} · {{ t.title|truncatechars:50 }}</option>{% endif %}{% endfor %}
+        </select>
+      </label>
+      <label class="iu102-check"><input type="checkbox" name="publish" value="1"><span>Publish to students right away<small>Off: the units arrive hidden, so you can check them first.</small></span></label>
+    </section>
+
+    <div class="iu102-submit">
+      <p data-iu102-summary>Tick the units to import.</p>
+      <button class="iu102-btn primary" type="submit" data-iu102-submit><i class="bi bi-box-arrow-in-down"></i> Import</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var form = document.querySelector('[data-iu102-form]');
+  if (!form) return;
+  var all = form.querySelector('[data-iu102-all]');
+  var units = Array.prototype.slice.call(form.querySelectorAll('[data-iu102-unit]'));
+  var hws = Array.prototype.slice.call(form.querySelectorAll('[data-iu102-hw]'));
+  var summary = form.querySelector('[data-iu102-summary]');
+  var button = form.querySelector('[data-iu102-submit]');
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+  function refresh() {
+    var u = units.filter(function (x) { return x.checked; }).length;
+    var h = hws.filter(function (x) { return x.checked; }).length;
+    var parts = [];
+    if (u) parts.push(plural(u, 'unit'));
+    if (h) parts.push(h + ' homework');
+    summary.textContent = parts.length ? 'Selected: ' + parts.join(' and ') + '.' : 'Tick the units to import.';
+    button.disabled = !(u || h);
+    if (all) { all.checked = u === units.length && u > 0; all.indeterminate = u > 0 && u < units.length; }
+  }
+  if (all) all.addEventListener('change', function () { units.forEach(function (x) { x.checked = all.checked; }); refresh(); });
+  units.concat(hws).forEach(function (x) { x.addEventListener('change', refresh); });
+  form.addEventListener('submit', function () { button.disabled = true; });
+  refresh();
+})();
+</script>
+{% endblock %}

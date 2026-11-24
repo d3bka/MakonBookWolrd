@@ -15,10 +15,27 @@ def favicon_redirect(request):
     return HttpResponsePermanentRedirect(static("assets/img/icons/original-icon-nobg.png"))
 
 
+def healthz(request):
+    """V102: the bot's uptime check. Says only whether the site and its database answer."""
+    from django.db import connection
+    from django.http import HttpResponse
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception:  # noqa: BLE001
+        response = HttpResponse("database unavailable", status=503, content_type="text/plain")
+    else:
+        response = HttpResponse("ok", content_type="text/plain")
+    response["Cache-Control"] = "no-store"
+    return response
+
+
 urlpatterns = [
     # V74: browsers ask for /favicon.ico on pages without an icon link (allauth, error pages).
     # V99: resolved per request, not at import time (background processes have no static manifest).
     path("favicon.ico", favicon_redirect, name="favicon"),
+    path("healthz/", healthz, name="healthz"),
     path(
         "robots.txt",
         cache_control(max_age=60 * 60 * 24)(

@@ -102,3 +102,55 @@ class TemporaryPasswordChangeMiddleware:
                 from django.shortcuts import redirect
                 return redirect("change_temporary_password")
         return self.get_response(request)
+
+
+class SystemHealthWatchMiddleware:
+    """V102: at most once a minute per process, check the background parts of MakonBook
+    in a daemon thread (never on the request path) and send alerts when one goes quiet.
+    The Telegram bot fetches /healthz/ every minute, so this also runs at night."""
+
+    INTERVAL_SECONDS = 60
+    _next_run = 0.0
+    _lock = None
+
+    def __init__(self, get_response):
+        import threading
+
+        self.get_response = get_response
+        if SystemHealthWatchMiddleware._lock is None:
+            SystemHealthWatchMiddleware._lock = threading.Lock()
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        self._maybe_start()
+        return response
+
+    def _maybe_start(self):
+        import threading
+        import time
+
+        from django.conf import settings
+
+        if not getattr(settings, "SYSTEM_HEALTH_WATCH_ENABLED", False):
+            return
+        now = time.monotonic()
+        with SystemHealthWatchMiddleware._lock:
+            if now < SystemHealthWatchMiddleware._next_run:
+                return
+            SystemHealthWatchMiddleware._next_run = now + self.INTERVAL_SECONDS
+        threading.Thread(target=_run_web_watch, name="makonbook-health-watch", daemon=True).start()
+
+
+def _run_web_watch():
+    import logging
+
+    from django.db import connections
+
+    try:
+        from apps.base.system_health import run_watch
+
+        run_watch("web")
+    except Exception:  # noqa: BLE001 - the watcher must never take the site down
+        logging.getLogger(__name__).exception("System health watch failed")
+    finally:
+        connections.close_all()

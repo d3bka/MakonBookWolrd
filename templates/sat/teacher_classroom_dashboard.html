@@ -1,5 +1,6 @@
 {% extends 'sat/staff_workspace.html' %}{% load static %}
 {% block content %}
+<style>/* V102: import units */.sf210-create-unit-bar{gap:8px;flex-wrap:wrap}.v102-unit-origin{display:block;margin-top:6px;font-size:12px;line-height:1.5;color:var(--mb50-muted,#746c84)}.v102-unit-origin i{margin-right:3px}</style>
 <div class="sf29-page">
   <section class="sf29-hero">
     <span class="sf28-kicker"><i class="bi bi-easel2"></i> E-class</span>
@@ -16,7 +17,7 @@
       </div>
 
       {% if course_edit_mode %}
-      <div class="sf210-create-unit-bar"><button class="sf28-btn primary sf210-compact-action" type="button" data-v50211-modal-open="create-unit"><i class="bi bi-plus-lg"></i>Create unit</button></div>
+      <div class="sf210-create-unit-bar"><a class="sf28-btn sf210-compact-action" href="{% url 'teacher_classroom_units_import_root' classroom.id %}"><i class="bi bi-box-arrow-in-down"></i>Import units</a><button class="sf28-btn primary sf210-compact-action" type="button" data-v50211-modal-open="create-unit"><i class="bi bi-plus-lg"></i>Create unit</button></div>
       {% endif %}
 
       <div class="sf210-course-list">
@@ -25,7 +26,7 @@
         <article class="sf210-unit{% if not lesson.is_published %} is-hidden{% endif %}">
           <div class="sf210-unit-top">
             <span class="sf210-unit-index">Unit {{ lesson.order }}</span>
-            <div class="sf210-unit-copy"><h3>{{ lesson.title }}</h3>{% if lesson.summary %}<p>{{ lesson.summary }}</p>{% endif %}</div>
+            <div class="sf210-unit-copy"><h3>{{ lesson.title }}</h3>{% if lesson.summary %}<p>{{ lesson.summary }}</p>{% endif %}{% if course_edit_mode and lesson.copied_from_label or course_edit_mode and lesson.copy_count %}<small class="v102-unit-origin">{% if lesson.copied_from_label %}<i class="bi bi-box-arrow-in-down"></i> Copied from {{ lesson.copied_from_label }} · {{ lesson.created_at|date:'d M Y' }}{% endif %}{% if lesson.copied_from_label and lesson.copy_count %} · {% endif %}{% if lesson.copy_count %}<i class="bi bi-people"></i> Imported by {{ lesson.copy_count }} other class{{ lesson.copy_count|pluralize:"es" }}{% endif %}</small>{% endif %}</div>
             <div class="sf210-unit-head-actions">
               <span class="sf28-chip">{% if lesson.is_published %}Published{% else %}Hidden{% endif %}</span>
               {% if course_edit_mode %}<button class="sf210-edit-trigger" type="button" data-v50211-modal-open="edit-unit-{{ lesson.id }}"><i class="bi bi-pencil-square"></i><span>Edit unit</span></button>{% endif %}

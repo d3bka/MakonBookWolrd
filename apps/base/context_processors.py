@@ -162,6 +162,10 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "admin_group_remove_user": "groups",
     "edit_group_tests": "groups",
     "admin_tests": "tests",
+    "admin_system_health": "system-health",
+    "teacher_attention_root": "attention",
+    "teacher_classroom_units_import_root": "classrooms",
+    "manager_attention_root": "attention",
     "admin_test_detail": "tests",
     "admin_mocks": "mocks",
     "admin_mock_create": "mocks",
@@ -277,6 +281,13 @@ STAFF_WORKSPACE_ROUTE_MAP = {
 }
 
 
+def _system_health_alert():
+    """V102: evaluated lazily, only when the admin sidebar draws the System health item."""
+    from apps.base.system_health import any_alert_open
+
+    return any_alert_open()
+
+
 def _hollihop_sync_busy():
     """V89: evaluated lazily, only when the staff sidebar draws the Hollihop item."""
     from apps.integrations.hollihop.activity import is_busy
@@ -390,6 +401,8 @@ def staff_workspace_meta(request):
         "staff_role_count": sum((has_teacher, has_manager or has_admin, has_admin, has_support)),
         # V89: a callable, so the DB/cache are touched only when the sidebar draws the item.
         "hollihop_sync_busy": _hollihop_sync_busy if (has_manager or has_admin) else False,
+        # V102: a red dot on "System health" while a part of MakonBook is down (one query, only when drawn).
+        "system_health_alert": _system_health_alert if has_admin else False,
         "attempt_requests_waiting": _attempt_requests_waiting(user) if has_teacher else 0,
     }
 

@@ -10,6 +10,8 @@ from apps.sat import views_admissions_media as sat_premium_views
 from apps.sat import views_admissions_upload as sat_media_upload_views
 from apps.sat import guest_views as sat_guest_views
 from apps.sat import views_attempts as sat_attempt_views
+from apps.sat import views_attention as sat_attention_views
+from apps.sat import views_lesson_import as sat_lesson_import_views
 from apps.sat import event_registration_views as event_registration_views
 from apps.sat import public_placement_views as public_placement_views
 from apps.ratings import views as rating_views
@@ -56,6 +58,7 @@ urlpatterns = [
     path('teacher/classrooms/<int:classroom_id>/', sat_views.teacher_classroom_dashboard, name='teacher_classroom_root'),
     path('teacher/classrooms/<int:classroom_id>/homework/', sat_views.teacher_classroom_homework, name='teacher_classroom_homework_root'),
     path('teacher/classrooms/<int:classroom_id>/lessons/', sat_views.teacher_classroom_lessons, name='teacher_classroom_lessons_root'),
+    path('teacher/classrooms/<int:classroom_id>/units/import/', sat_lesson_import_views.teacher_classroom_units_import, name='teacher_classroom_units_import_root'),
     path('teacher/classrooms/<int:classroom_id>/generate-code/', sat_views.generate_classroom_join_code, name='teacher_generate_classroom_join_code_root'),
     path('teacher/classrooms/<int:classroom_id>/requests/', sat_views.classroom_join_requests, name='teacher_classroom_requests_root'),
     path('teacher/classrooms/<int:classroom_id>/requests/<int:membership_id>/approve/', sat_views.approve_join_request, name='teacher_approve_join_request_root'),
@@ -80,6 +83,7 @@ urlpatterns = [
     path('teacher/practice-tests/<str:pk>/start/', sat_views.start_Practise, name='teacher_practice_test_start_root'),
     path('teacher/lessons/', sat_views.teacher_lessons_hub, name='teacher_lessons_root'),
     path('teacher/progress/', sat_views.teacher_progress_hub, name='teacher_progress_root'),
+    path('teacher/attention/', sat_attention_views.teacher_attention, name='teacher_attention_root'),
     path('teacher/assessments/', sat_views.teacher_assessments_hub, name='teacher_assessments_root'),
     path('teacher/classrooms/<int:classroom_id>/assessments/', rating_views.teacher_classroom_ratings, name='teacher_classroom_assessments_root'),
     path('teacher/classrooms/<int:classroom_id>/assessments/lesson-change/', rating_views.teacher_report_lesson_change, name='teacher_report_lesson_change'),
@@ -94,6 +98,7 @@ urlpatterns = [
     path('teacher/vocabulary/unit/<int:unit_id>/', sat_views.teacher_vocabulary_unit_detail, name='teacher_vocabulary_unit_detail_root'),
     path('manager/dashboard/', sat_views.manager_dashboard, name='manager_dashboard_root'),
     path('manager/attendance/', manager_attendance_insights, name='manager_attendance_insights'),
+    path('manager/attention/', sat_attention_views.manager_attention, name='manager_attention_root'),
     path('manager/assessment-schedules/', rating_manager_views.manager_assessment_schedules, name='manager_assessment_schedules'),
     path('manager/assessment-schedules/save/', rating_manager_views.manager_save_schedule, name='manager_save_assessment_schedule'),
     path('manager/assessment-schedules/<int:schedule_id>/exception/', rating_manager_views.manager_schedule_exception, name='manager_schedule_exception'),

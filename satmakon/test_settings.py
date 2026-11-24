@@ -41,3 +41,6 @@ MAKONBOOK_TEST_MEDIA_ROOT = str(Path(_tempfile.gettempdir()) / "makonbook-test-m
 
 # V97: import tests opt in to the AI answer check explicitly (override_settings).
 TEST_IMPORT_REQUIRE_AI_AUDIT = False
+
+# V102: the health watcher never runs threads or sends alerts from the test suite.
+SYSTEM_HEALTH_WATCH_ENABLED = False

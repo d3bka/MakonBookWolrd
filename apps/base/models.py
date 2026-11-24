@@ -322,3 +322,27 @@ class HolidayTheme(models.Model):
 
         clear_holiday_cache()
         return result
+
+
+class SystemHeartbeat(models.Model):
+    """V102: one row per background part of MakonBook (Celery, the Telegram bot, the site).
+
+    Each part writes ``last_seen`` about once a minute. The watchers compare it with a
+    threshold and send one alert when a part goes quiet, and one when it is back.
+    ``alert_open`` is flipped with a conditional UPDATE, so several web workers and the
+    bot can watch at the same time without sending the same alert twice.
+    """
+
+    component = models.CharField(max_length=40, unique=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
+    detail = models.JSONField(default=dict, blank=True)
+    alert_open = models.BooleanField(default=False)
+    down_since = models.DateTimeField(null=True, blank=True)
+    alerted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["component"]
+
+    def __str__(self):
+        return f"{self.component} · {self.last_seen or 'never'}"

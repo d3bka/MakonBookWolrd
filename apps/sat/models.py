@@ -2278,6 +2278,9 @@ class ClassroomLesson(models.Model):
     order = models.PositiveIntegerField(default=1, db_index=True)
     is_published = models.BooleanField(default=True, db_index=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_classroom_lessons')
+    # V102: a unit imported from another classroom remembers where it came from.
+    copied_from = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='copies')
+    copied_from_label = models.CharField(max_length=300, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -3712,3 +3715,20 @@ from .admissions_models import (  # noqa: E402,F401
 
 # V93: SAT practice-test attempt limits and extra attempts from teachers.
 from .attempt_limit_models import SatAttemptRequest, SatAttemptUse  # noqa: E402,F401
+
+
+class StudentAttentionSnooze(models.Model):
+    """V102: the teacher has talked to the student; hide them from "Needs attention" for a while."""
+
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='attention_snoozes')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='+')
+    snoozed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    note = models.CharField(max_length=200, blank=True, default='')
+    until = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['classroom', 'student'], name='sat_attention_snooze_unique')]
+
+    def __str__(self):
+        return f"{self.student_id} in {self.classroom_id} until {self.until:%Y-%m-%d}"

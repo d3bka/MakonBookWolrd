@@ -1,0 +1,161 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Needs attention | MakonBook{% endblock %}
+{% block staff_workspace_style %}
+<style>
+/* V102: Needs attention */
+.na102{display:grid;gap:18px;max-width:1180px;margin:0 auto;color:var(--mb50-text,#1c1926)}
+.na102-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+.na102-kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb50-accent,#7438da)}
+.na102 h1{margin:4px 0;font-size:clamp(24px,3vw,32px);line-height:1.15}
+.na102-sub{margin:0;color:var(--mb50-muted,#746c84);max-width:700px;line-height:1.5}
+.na102-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.na102-stat{padding:14px 16px;border-radius:16px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff)}
+.na102-stat span{display:block;font-size:12px;font-weight:750;color:var(--mb50-muted,#746c84)}
+.na102-stat strong{display:block;margin-top:4px;font-size:24px;line-height:1.1}
+.na102-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:14px 16px;border-radius:16px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff)}
+.na102-filters label{display:grid;gap:5px;font-size:12px;font-weight:750;color:var(--mb50-muted,#746c84);flex:1 1 220px}
+.na102-filters select{width:100%;padding:9px 11px;border-radius:11px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font:inherit;font-size:14px}
+.na102-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font-weight:750;font-size:14px;text-decoration:none;cursor:pointer;line-height:1.2;white-space:nowrap}
+.na102-btn:hover{border-color:var(--mb50-accent,#7438da)}
+.na102-btn.primary{background:#7438da;border-color:transparent;color:#fff}
+.na102-btn.primary:hover{background:#5f2bbd}
+.na102-btn:focus-visible,.na102 select:focus-visible,.na102 input:focus-visible,.na102 summary:focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+.na102-list{display:grid;gap:10px}
+.na102-card{display:grid;grid-template-columns:minmax(200px,260px) 1fr auto;gap:16px;align-items:start;padding:16px;border-radius:18px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-left:5px solid #f59e0b}
+.na102-card.high{border-left-color:#ef4444}
+.na102-card.low{border-left-color:#a8a1b6}
+.na102-who strong{display:block;font-size:16px}
+.na102-who span{display:block;margin-top:3px;font-size:13px;color:var(--mb50-muted,#746c84)}
+.na102-who .na102-level{display:inline-flex;margin-top:8px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:800}
+.na102-level.high{background:rgba(239,68,68,.13);color:#b91c1c}
+.na102-level.medium{background:rgba(245,158,11,.16);color:#b45309}
+.na102-level.low{background:var(--mb50-panel-soft,#f3f1f7);color:var(--mb50-muted,#746c84)}
+.na102-reasons{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.na102-reason{display:flex;gap:10px;align-items:flex-start}
+.na102-reason i{flex:0 0 auto;width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:var(--mb50-accent-soft,rgba(116,56,218,.12));color:var(--mb50-accent,#7438da);font-size:15px}
+.na102-reason strong{display:block;font-size:14px}
+.na102-reason small{display:block;color:var(--mb50-muted,#746c84);font-size:12.5px;overflow-wrap:anywhere}
+.na102-actions{display:grid;gap:8px;justify-items:stretch;min-width:190px}
+.na102-actions details{position:relative}
+.na102-actions summary{list-style:none;display:flex}
+.na102-actions summary::-webkit-details-marker{display:none}
+.na102-snooze{display:grid;gap:8px;margin-top:8px;padding:10px;border-radius:12px;background:var(--mb50-panel-soft,#f6f4fa)}
+.na102-snooze input{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font:inherit;font-size:13px}
+.na102-empty{padding:34px 20px;text-align:center;border-radius:18px;border:1px dashed var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff)}
+.na102-empty i{font-size:30px;color:#16a34a}
+.na102-empty h2{margin:8px 0 4px;font-size:18px}
+.na102-empty p{margin:0;color:var(--mb50-muted,#746c84)}
+.na102-fold{border-radius:16px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);padding:12px 16px}
+.na102-fold>summary{cursor:pointer;font-weight:800}
+.na102-fold ul{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+.na102-fold li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--mb50-border,#e8e4f0)}
+.na102-fold li small{color:var(--mb50-muted,#746c84)}
+.na102-rules{margin:0;padding-left:18px;color:var(--mb50-muted,#746c84);font-size:13.5px;line-height:1.6}
+html[data-theme="dark"] .na102-level.high{color:#fca5a5}
+html[data-theme="dark"] .na102-level.medium{color:#fcd34d}
+html[data-theme="dark"] .na102-snooze,html[data-theme="dark"] .na102-level.low{background:rgba(255,255,255,.05)}
+@media(max-width:860px){.na102-card{grid-template-columns:1fr}.na102-actions{min-width:0}}
+</style>
+{% endblock staff_workspace_style %}
+{% block content %}
+<div class="na102">
+  <header class="na102-head">
+    <div>
+      <span class="na102-kicker"><i class="bi bi-person-exclamation"></i> {% if scope == 'manager' %}Whole school{% else %}Your classes{% endif %}</span>
+      <h1>Needs attention</h1>
+      <p class="na102-sub">Students who miss homework or lessons, score lower than usual or stopped opening MakonBook. Talk to them, then press “Talked to the student” to hide them for {{ rules.snooze }} days.</p>
+    </div>
+  </header>
+
+  <section class="na102-stats" aria-label="Summary">
+    <div class="na102-stat"><span>Need attention</span><strong>{{ counts.listed }}</strong></div>
+    <div class="na102-stat"><span>Urgent</span><strong>{{ counts.high }}</strong></div>
+    <div class="na102-stat"><span>Talked to, hidden</span><strong>{{ counts.snoozed }}</strong></div>
+    <div class="na102-stat"><span>Classes checked</span><strong>{{ counts.classrooms }}</strong></div>
+  </section>
+
+  <form class="na102-filters" method="get" role="search">
+    {% if scope == 'manager' %}
+    <label>Teacher
+      <select name="teacher" onchange="this.form.submit()">
+        <option value="">All teachers</option>
+        {% for id, name in teachers %}<option value="{{ id }}"{% if id == selected_teacher %} selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <label>Class
+      <select name="classroom" onchange="this.form.submit()">
+        <option value="">All active classes</option>
+        {% for c in classrooms %}<option value="{{ c.pk }}"{% if c.pk == selected_classroom %} selected{% endif %}>{{ c.name }}{% if not c.is_active %} (archived){% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button class="na102-btn" type="submit">Show</button></noscript>
+  </form>
+
+  {% if rows %}
+  <section class="na102-list" aria-label="Students who need attention">
+    {% for row in rows %}
+    <article class="na102-card {{ row.level }}">
+      <div class="na102-who">
+        <strong>{{ row.student.get_full_name|default:row.student.username }}</strong>
+        <span>{{ row.classroom.name }}{% if scope == 'manager' and row.classroom.teacher %} · {{ row.classroom.teacher.get_full_name|default:row.classroom.teacher.username }}{% endif %}</span>
+        <span class="na102-level {{ row.level }}">{% if row.level == 'high' %}Urgent{% elif row.level == 'medium' %}Soon{% else %}Keep an eye{% endif %}</span>
+      </div>
+      <ul class="na102-reasons">
+        {% for r in row.reasons %}
+        <li class="na102-reason">
+          <i class="bi {% if r.kind == 'homework' %}bi-journal-x{% elif r.kind == 'partial' %}bi-circle-half{% elif r.kind == 'attendance' %}bi-calendar-x{% elif r.kind == 'score' %}bi-graph-down-arrow{% else %}bi-moon{% endif %}" aria-hidden="true"></i>
+          <div><strong>{{ r.title }}</strong><small>{{ r.detail }}</small></div>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="na102-actions">
+        <a class="na102-btn" href="{% url 'classroom_progress_dashboard' row.classroom.pk %}"><i class="bi bi-graph-up-arrow"></i> Class progress</a>
+        <details>
+          <summary class="na102-btn primary"><i class="bi bi-chat-check"></i> Talked to the student</summary>
+          <form class="na102-snooze" method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="snooze"><input type="hidden" name="classroom" value="{{ row.classroom.pk }}"><input type="hidden" name="student" value="{{ row.student.pk }}">
+            <input name="note" maxlength="200" placeholder="Note (optional), e.g. called the parent" aria-label="Note">
+            <button class="na102-btn primary" type="submit">Hide for {{ rules.snooze }} days</button>
+          </form>
+        </details>
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+  {% else %}
+  <section class="na102-empty">
+    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+    <h2>Nobody needs attention right now</h2>
+    <p>Every student in {% if selected_classroom %}this class{% else %}these classes{% endif %} does the homework, comes to lessons and keeps their scores.</p>
+  </section>
+  {% endif %}
+
+  {% if snoozed_rows %}
+  <details class="na102-fold">
+    <summary>Talked to recently ({{ snoozed_rows|length }})</summary>
+    <ul>
+      {% for row in snoozed_rows %}
+      <li>
+        <div><strong>{{ row.student.get_full_name|default:row.student.username }}</strong> · {{ row.classroom.name }}<br>
+          <small>Hidden until {{ row.snooze.until|date:'d M' }}{% if row.snooze.snoozed_by %} by {{ row.snooze.snoozed_by.get_full_name|default:row.snooze.snoozed_by.username }}{% endif %}{% if row.snooze.note %} · “{{ row.snooze.note }}”{% endif %}</small></div>
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="unsnooze"><input type="hidden" name="classroom" value="{{ row.classroom.pk }}"><input type="hidden" name="student" value="{{ row.student.pk }}"><button class="na102-btn" type="submit">Show again</button></form>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  <details class="na102-fold">
+    <summary>How students get on this list</summary>
+    <p class="na102-sub" style="margin-top:10px">A student is listed for one strong reason (two missed homework, two missed lessons, a lower score) or two weaker ones together (one missed homework and no visits, for example).</p>
+    <ul class="na102-rules">
+      <li>Homework past its deadline and not done, or marked “Not done” by the teacher, in the last {{ rules.window }} days.</li>
+      <li>Homework marked “Partly done” two or more times.</li>
+      <li>Two or more missed lessons in the last {{ rules.window }} days (attendance from Hollihop).</li>
+      <li>The last test score is clearly below the student’s usual score for the same kind of test.</li>
+      <li>No visit to MakonBook for {{ rules.inactive }} days or more.</li>
+    </ul>
+  </details>
+</div>
+{% endblock %}

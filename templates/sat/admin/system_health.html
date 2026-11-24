@@ -1,0 +1,96 @@
+{% extends 'sat/admin/base_admin.html' %}
+
+{% block admin_content %}
+<style>
+/* V102: System health */
+.sh102{display:grid;gap:18px;max-width:1100px;margin:0 auto;color:var(--mb50-text,#1c1926)}
+.sh102-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+.sh102-kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb50-accent,#7438da)}
+.sh102 h1{margin:4px 0;font-size:clamp(24px,3vw,32px);line-height:1.15}
+.sh102 h2{margin:0 0 4px;font-size:17px}
+.sh102-sub{margin:0;color:var(--mb50-muted,#746c84);max-width:680px;line-height:1.5}
+.sh102-summary{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:18px;font-weight:800;font-size:16px}
+.sh102-summary i{font-size:22px}
+.sh102-summary.ok{background:rgba(34,197,94,.12);color:#15803d}
+.sh102-summary.down{background:rgba(239,68,68,.12);color:#b91c1c}
+.sh102-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.sh102-card{border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-radius:18px;padding:16px;display:grid;gap:8px;align-content:start}
+.sh102-card.down{border-color:rgba(239,68,68,.55)}
+.sh102-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sh102-name{font-weight:800;font-size:15px}
+.sh102-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}
+.sh102-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.sh102-pill.ok{background:rgba(34,197,94,.14);color:#15803d}
+.sh102-pill.down{background:rgba(239,68,68,.14);color:#b91c1c}
+.sh102-pill.waiting{background:rgba(245,158,11,.16);color:#b45309}
+.sh102-pill.off{background:var(--mb50-panel-soft,#f3f1f7);color:var(--mb50-muted,#746c84)}
+.sh102-meta{margin:0;font-size:13px;color:var(--mb50-muted,#746c84);line-height:1.5}
+.sh102-note{margin:0;font-size:13px;line-height:1.5;padding:8px 10px;border-radius:10px;background:var(--mb50-panel-soft,#f6f4fa)}
+.sh102-note code{font-size:12px;overflow-wrap:anywhere}
+.sh102-card-wide{border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-radius:18px;padding:16px;display:grid;gap:10px}
+.sh102-list{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+.sh102-warn{margin:0;padding:10px 12px;border-radius:12px;background:rgba(245,158,11,.14);color:#92400e;font-size:14px;line-height:1.5}
+.sh102-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:12px;border:0;background:#7438da;color:#fff;font-weight:750;font-size:14px;cursor:pointer;justify-self:start}
+.sh102-btn:hover{background:#5f2bbd}
+.sh102-btn:focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+html[data-theme="dark"] .sh102-summary.ok,html[data-theme="dark"] .sh102-pill.ok{color:#86efac}
+html[data-theme="dark"] .sh102-summary.down,html[data-theme="dark"] .sh102-pill.down{color:#fca5a5}
+html[data-theme="dark"] .sh102-pill.waiting{color:#fcd34d}
+html[data-theme="dark"] .sh102-warn{color:#fde68a}
+html[data-theme="dark"] .sh102-note,html[data-theme="dark"] .sh102-pill.off{background:rgba(255,255,255,.05)}
+</style>
+<div class="sh102">
+  <header class="sh102-head">
+    <div>
+      <span class="sh102-kicker"><i class="bi bi-heart-pulse"></i> System</span>
+      <h1>System health</h1>
+      <p class="sh102-sub">Every part of MakonBook reports that it is alive about once a minute. When a part goes quiet, the recipients below get a Telegram message and an e-mail, and another one when it works again.</p>
+    </div>
+  </header>
+
+  {% if down_count %}
+  <div class="sh102-summary down" role="status"><i class="bi bi-exclamation-octagon-fill"></i> {{ down_count }} part{{ down_count|pluralize }} of MakonBook {{ down_count|pluralize:"is,are" }} not working.</div>
+  {% else %}
+  <div class="sh102-summary ok" role="status"><i class="bi bi-check-circle-fill"></i> Everything that is switched on is working.</div>
+  {% endif %}
+
+  <section class="sh102-grid" aria-label="Parts of MakonBook">
+    {% for s in statuses %}
+    <article class="sh102-card{% if s.state == 'down' %} down{% endif %}">
+      <div class="sh102-row">
+        <span class="sh102-name">{{ s.label }}</span>
+        <span class="sh102-pill {{ s.state }}">{% if s.state == 'ok' %}Working{% elif s.state == 'down' %}Not working{% elif s.state == 'waiting' %}Waiting for a first signal{% else %}Switched off{% endif %}</span>
+      </div>
+      <p class="sh102-meta">
+        {% if s.state == 'off' %}Not configured on this server.
+        {% elif s.last_seen %}Last sign of life: {{ s.last_seen|date:'d M, H:i' }} ({{ s.last_seen|timesince }} ago){% if s.key == 'celery' and s.detail.worker %} · {{ s.detail.worker }}{% endif %}.
+        {% else %}No sign of life yet.{% endif %}
+        {% if s.key == 'broker' and s.detail.queued is not None %}Jobs waiting in the queue: {{ s.detail.queued }}.{% endif %}
+        {% if s.key == 'hollihop' and s.detail.status %}Last sync status: {{ s.detail.status }}.{% endif %}
+      </p>
+      {% if s.state == 'down' %}
+        <p class="sh102-meta">{{ s.impact }}</p>
+        {% if s.detail.diagnosis %}<p class="sh102-note">{{ s.detail.diagnosis }}</p>{% endif %}
+        {% if s.key == 'hollihop' and s.detail.error %}<p class="sh102-note">Last error: {{ s.detail.error }}</p>{% endif %}
+        <p class="sh102-note"><code>{{ s.hint }}</code></p>
+        {% if s.alert_open %}<p class="sh102-meta"><i class="bi bi-bell"></i> The alert has been sent.</p>{% endif %}
+      {% endif %}
+    </article>
+    {% endfor %}
+  </section>
+
+  <section class="sh102-card-wide" aria-labelledby="sh102-recipients">
+    <div>
+      <h2 id="sh102-recipients">Who receives alerts</h2>
+      <p class="sh102-meta">A first alert when a part stops, a reminder every 6 hours while it stays down, and a message when it works again.</p>
+    </div>
+    {% if not watch_enabled %}<p class="sh102-warn">Alerts are switched off on this server (SYSTEM_HEALTH_WATCH_ENABLED). They are on by default when DEBUG is off.</p>{% endif %}
+    <ul class="sh102-list">
+      <li><strong>Telegram:</strong> {% if recipients.telegram %}{{ recipients.telegram|length }} chat{{ recipients.telegram|length|pluralize }} ({{ recipients.telegram_source }}){% else %}nobody ({{ recipients.telegram_source }}){% endif %}</li>
+      <li><strong>E-mail:</strong> {% if recipients.emails %}{{ recipients.emails|join:', ' }} ({{ recipients.email_source }}){% else %}nobody ({{ recipients.email_source }}){% endif %}</li>
+    </ul>
+    {% if not recipients.telegram and not recipients.emails %}<p class="sh102-warn">Nobody will be told when something breaks. Set MONITORING_TELEGRAM_CHAT_ID or MONITORING_ALERT_EMAILS in .env, or give a superuser an e-mail address.</p>{% endif %}
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="test"><button class="sh102-btn" type="submit"><i class="bi bi-send"></i> Send a test alert</button></form>
+  </section>
+</div>
+{% endblock admin_content %}

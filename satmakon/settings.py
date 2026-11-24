@@ -125,6 +125,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "apps.world.middleware.WorldAvailabilityMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.base.middleware.SystemHealthWatchMiddleware",
 ]
 
 
@@ -885,3 +886,19 @@ CELERY_BEAT_SCHEDULE["world-events-settlement"] = {
     "task": "apps.world.tasks.settle_world_events",
     "schedule": 3600.0,
 }
+
+# V102: system health. Every part of MakonBook writes a heartbeat; the website and
+# the Telegram bot watch each other and alert by Telegram and e-mail when one goes quiet.
+# Alerts are on in production (DEBUG=False) and off for local development.
+CELERY_BEAT_SCHEDULE["makonbook-system-heartbeat"] = {
+    "task": "apps.base.tasks.system_heartbeat",
+    "schedule": 60.0,
+    "options": {"expires": 50},
+}
+SYSTEM_HEALTH_WATCH_ENABLED = env_bool("SYSTEM_HEALTH_WATCH_ENABLED", not DEBUG)
+# Comma-separated Telegram chat ids (a group or people). Empty: the bot's active Telegram admins.
+MONITORING_TELEGRAM_CHAT_ID = env_str("MONITORING_TELEGRAM_CHAT_ID", "")
+# Comma-separated e-mail addresses. Empty: every active superuser with an e-mail.
+MONITORING_ALERT_EMAILS = env_str("MONITORING_ALERT_EMAILS", "")
+# The bot fetches this page every minute to know the website answers. Empty turns the check off.
+MONITORING_SITE_CHECK_URL = env_str("MONITORING_SITE_CHECK_URL", f"{SITE_URL}/healthz/")
