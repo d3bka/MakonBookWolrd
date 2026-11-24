@@ -113,8 +113,9 @@ class WatchTests(TestCase):
         with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "token"}), \
                 mock.patch.object(system_health, "_send_telegram") as telegram:
             report = system_health.send_alert("hello")
-        telegram.assert_called_once_with("111", "hello")
-        self.assertEqual(report["delivered"], 2)
+        # V103: everyone with access to the bot gets alerts (support accounts from before included).
+        self.assertEqual(sorted(c.args[0] for c in telegram.call_args_list), ["111", "222"])
+        self.assertEqual(report["delivered"], 3)
         self.assertEqual(mail.outbox[-1].to, ["ops@makonbook.example"])
 
     def test_bot_watch_checks_the_site(self):

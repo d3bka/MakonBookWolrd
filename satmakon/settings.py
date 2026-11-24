@@ -898,6 +898,9 @@ CELERY_BEAT_SCHEDULE["makonbook-system-heartbeat"] = {
 SYSTEM_HEALTH_WATCH_ENABLED = env_bool("SYSTEM_HEALTH_WATCH_ENABLED", not DEBUG)
 # Comma-separated Telegram chat ids (a group or people). Empty: the bot's active Telegram admins.
 MONITORING_TELEGRAM_CHAT_ID = env_str("MONITORING_TELEGRAM_CHAT_ID", "")
+# V103: Telegram user ids (comma-separated) of the bot's super admins. They give and take
+# away access to the MakonBook Telegram bot, in the bot ("👥 Access") and on the website.
+TELEGRAM_SUPERADMIN_IDS = env_str("TELEGRAM_SUPERADMIN_IDS", "")
 # Comma-separated e-mail addresses. Empty: every active superuser with an e-mail.
 MONITORING_ALERT_EMAILS = env_str("MONITORING_ALERT_EMAILS", "")
 # The bot fetches this page every minute to know the website answers. Empty turns the check off.

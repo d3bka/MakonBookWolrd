@@ -163,6 +163,7 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "edit_group_tests": "groups",
     "admin_tests": "tests",
     "admin_system_health": "system-health",
+    "admin_telegram_access": "telegram-access",
     "teacher_attention_root": "attention",
     "teacher_classroom_units_import_root": "classrooms",
     "manager_attention_root": "attention",

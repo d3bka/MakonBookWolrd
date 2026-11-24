@@ -18,17 +18,10 @@ def generate_password(length: int = 8) -> str:
 
 
 async def check_admin_privileges(telegram_id: int) -> Optional[TelegramAdmin]:
-    """Check if user has admin or support privileges"""
-    try:
-        admin = await sync_to_async(
-            TelegramAdmin.objects.get
-        )(
-            telegram_id=telegram_id,
-            is_active=True
-        )
-        return admin if (admin.is_admin or admin.is_support) else None
-    except TelegramAdmin.DoesNotExist:
-        return None
+    """V103: people a super admin gave access to, and the super admins from TELEGRAM_SUPERADMIN_IDS."""
+    from .access import access_row
+
+    return await sync_to_async(access_row)(telegram_id)
 
 
 def format_user_info(admin: TelegramAdmin) -> str:

@@ -936,3 +936,36 @@ def admin_system_health(request):
         "recipients": alert_recipients(),
         "watch_enabled": getattr(django_settings, "SYSTEM_HEALTH_WATCH_ENABLED", False),
     })
+
+
+@login_required
+@admin_panel_required
+def admin_telegram_access(request):
+    """V103: who may use the MakonBook Telegram bot. Super admins come from .env."""
+    import os
+
+    from apps.telegram_bot.access import grant_access, parse_telegram_id, people_with_access, revoke_access, superadmin_ids
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        telegram_id = parse_telegram_id(request.POST.get("telegram_id"))
+        if not telegram_id:
+            messages.error(request, "Enter a Telegram ID: only digits, for example 123456789. The person gets it by sending /id to the bot.")
+        elif action == "grant":
+            name = (request.POST.get("name") or "").strip()[:100]
+            _admin, changed = grant_access(telegram_id, first_name=name)
+            messages.success(request, f"{name or telegram_id} now has access to the bot." if changed else f"{name or telegram_id} already has access.")
+        elif action == "revoke":
+            result = revoke_access(telegram_id)
+            if result == "superadmin":
+                messages.error(request, "Super admins are changed only in .env (TELEGRAM_SUPERADMIN_IDS).")
+            else:
+                messages.success(request, "Access removed." if result == "removed" else "This person had no access.")
+        return redirect("admin_telegram_access")
+
+    return render(request, "sat/admin/telegram_access.html", {
+        "page_title": "Telegram bot access",
+        "people": people_with_access(),
+        "superadmin_count": len(superadmin_ids()),
+        "bot_configured": bool(os.getenv("TELEGRAM_BOT_TOKEN")),
+    })

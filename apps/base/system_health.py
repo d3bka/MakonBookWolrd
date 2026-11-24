@@ -266,12 +266,12 @@ def alert_recipients() -> dict:
     chat_source = "MONITORING_TELEGRAM_CHAT_ID"
     if not chats:
         try:
-            from apps.telegram_bot.models import TelegramAdmin
+            from apps.telegram_bot.access import alert_chat_ids
 
-            chats = [str(i) for i in TelegramAdmin.objects.filter(is_active=True, is_admin=True).values_list("telegram_id", flat=True)]
+            chats = alert_chat_ids()
         except Exception:  # noqa: BLE001
             chats = []
-        chat_source = "Telegram admins of the bot"
+        chat_source = "everyone with access to the Telegram bot"
     emails = _split(getattr(settings, "MONITORING_ALERT_EMAILS", ""))
     email_source = "MONITORING_ALERT_EMAILS"
     if not emails:

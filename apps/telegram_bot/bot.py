@@ -62,6 +62,10 @@ class BotRoutes:
             StartHandler.start_command,
             Command("start")
         )
+
+        # V103: /id for everyone, "👥 Access" for super admins.
+        from .access_handlers import register as register_access_handlers
+        register_access_handlers(dp)
         
         # Text message handlers
         dp.message.register(

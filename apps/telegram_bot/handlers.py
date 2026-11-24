@@ -44,15 +44,17 @@ class BaseHandler:
     """Base handler class with common functionality"""
     
     @staticmethod
-    def get_main_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
-        """Get main menu keyboard"""
+    def get_main_keyboard(is_admin: bool = False, telegram_id: Optional[int] = None) -> ReplyKeyboardMarkup:
+        """Get main menu keyboard. V103: super admins also get "👥 Access"."""
+        from .access import is_superadmin
+
         builder = ReplyKeyboardBuilder()
         builder.add(KeyboardButton(text="🔄 Create Bulk Users"))
         builder.add(KeyboardButton(text="📊 My Requests"))
-        if is_admin:
-            builder.add(KeyboardButton(text="👥 Manage Admins"))
+        if telegram_id is not None and is_superadmin(telegram_id):
+            builder.add(KeyboardButton(text="👥 Access"))
         builder.add(KeyboardButton(text="ℹ️ Help"))
-        builder.adjust(2, 1)
+        builder.adjust(2, 2)
         return builder.as_markup(resize_keyboard=True)
 
     @staticmethod
@@ -86,7 +88,8 @@ class StartHandler(BaseHandler):
             await message.answer(
                 "❌ <b>Access Denied</b>\n\n"
                 "You are not authorized to use this bot.\n"
-                "Contact the administrator to get access."
+                f"Your Telegram ID: <code>{message.from_user.id}</code>\n"
+                "Send this ID to a MakonBook administrator to get access."
             )
             return
         
@@ -103,7 +106,7 @@ class StartHandler(BaseHandler):
             f"Choose an option from the menu below: 👇"
         )
         
-        keyboard = StartHandler.get_main_keyboard(admin.is_admin)
+        keyboard = StartHandler.get_main_keyboard(admin.is_admin, admin.telegram_id)
         await message.answer(welcome_text, reply_markup=keyboard)
 
 
@@ -526,7 +529,7 @@ class UserExecutionHandler(BaseHandler):
                 await callback.message.edit_text("❌ No users were created. Please check the error messages above.")
             
             # Show main menu
-            keyboard = UserExecutionHandler.get_main_keyboard(admin.is_admin)
+            keyboard = UserExecutionHandler.get_main_keyboard(admin.is_admin, admin.telegram_id)
             await callback.message.answer("Ready for next operation!", reply_markup=keyboard)
             
         except Exception as e:
@@ -879,7 +882,7 @@ class UtilityHandler(BaseHandler):
         """Cancel current operation"""
         admin = await check_admin_privileges(callback.from_user.id)
         if admin:
-            keyboard = UtilityHandler.get_main_keyboard(admin.is_admin)
+            keyboard = UtilityHandler.get_main_keyboard(admin.is_admin, admin.telegram_id)
             await callback.message.edit_text("❌ Operation cancelled.")
             await callback.message.answer("Ready for next operation!", reply_markup=keyboard)
         

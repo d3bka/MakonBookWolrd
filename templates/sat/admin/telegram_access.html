@@ -1,0 +1,85 @@
+{% extends 'sat/admin/base_admin.html' %}
+
+{% block admin_content %}
+<style>
+/* V103: Telegram bot access */
+.ta103{display:grid;gap:18px;max-width:960px;margin:0 auto;color:var(--mb50-text,#1c1926)}
+.ta103-kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb50-accent,#7438da)}
+.ta103 h1{margin:4px 0;font-size:clamp(24px,3vw,32px);line-height:1.15}
+.ta103 h2{margin:0 0 4px;font-size:17px}
+.ta103-sub{margin:0;color:var(--mb50-muted,#746c84);max-width:700px;line-height:1.5}
+.ta103-card{border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);border-radius:18px;padding:16px}
+.ta103-form{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:12px}
+.ta103-form label{display:grid;gap:5px;font-size:12px;font-weight:750;color:var(--mb50-muted,#746c84);flex:1 1 200px}
+.ta103-form input{padding:10px 12px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font:inherit;font-size:14px}
+.ta103-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 15px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font-weight:750;font-size:14px;cursor:pointer;white-space:nowrap}
+.ta103-btn.primary{background:#7438da;border-color:transparent;color:#fff}
+.ta103-btn.primary:hover{background:#5f2bbd}
+.ta103 .ta103-btn{background:var(--mb50-panel,#fff)!important;background-image:none!important;box-shadow:none!important;color:var(--mb50-text,#1c1926)!important}
+.ta103 .ta103-btn.primary{background:#7438da!important;color:#fff!important}
+.ta103 .ta103-btn.primary:hover{background:#5f2bbd!important}
+.ta103 .ta103-btn.danger{color:#b91c1c!important}
+.ta103-btn:hover{border-color:var(--mb50-accent,#7438da)}
+.ta103 :is(button,input):focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+.ta103-list{margin:10px 0 0;padding:0;list-style:none;display:grid}
+.ta103-list li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--mb50-border,#e8e4f0)}
+.ta103-list li:first-child{border-top:0}
+.ta103-who strong{display:block;font-size:15px}
+.ta103-who code{font-size:12.5px;color:var(--mb50-muted,#746c84)}
+.ta103-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:800;background:rgba(245,158,11,.16);color:#b45309}
+.ta103-note{margin:0;padding:11px 13px;border-radius:12px;background:rgba(245,158,11,.14);color:#92400e;font-size:14px;line-height:1.5}
+.ta103-steps{margin:8px 0 0;padding-left:20px;line-height:1.7;font-size:14px}
+.ta103-steps code{font-size:13px}
+html[data-theme="dark"] .ta103-note{color:#fde68a}
+html[data-theme="dark"] .ta103-badge{color:#fcd34d}
+html[data-theme="dark"] .ta103 .ta103-btn.danger{color:#fca5a5!important}
+@media(max-width:600px){.ta103-form .ta103-btn,.ta103-list form,.ta103-list .ta103-btn{width:100%}}
+</style>
+<div class="ta103">
+  <header>
+    <span class="ta103-kicker"><i class="bi bi-telegram"></i> System</span>
+    <h1>Telegram bot access</h1>
+    <p class="ta103-sub">Only the people on this list can use the MakonBook Telegram bot. They also receive the system health alerts. Everyone else gets “Access denied” together with their Telegram ID.</p>
+  </header>
+
+  {% if not bot_configured %}<p class="ta103-note">The bot has no token on this server (TELEGRAM_BOT_TOKEN), so nobody can use it yet.</p>{% endif %}
+  {% if not superadmin_count %}<p class="ta103-note">No super admin is set. Add your Telegram ID to .env as <code>TELEGRAM_SUPERADMIN_IDS=123456789</code> and restart (<code>sudo makonbook up</code>) to manage access from the bot as well.</p>{% endif %}
+
+  <section class="ta103-card" aria-labelledby="ta103-add">
+    <h2 id="ta103-add">Give access</h2>
+    <ol class="ta103-steps">
+      <li>The person opens the bot and sends <code>/id</code>.</li>
+      <li>They send you the number, and you add it here or in the bot (“👥 Access”).</li>
+    </ol>
+    <form class="ta103-form" method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="grant">
+      <label>Telegram ID<input name="telegram_id" inputmode="numeric" pattern="[0-9 ]{5,20}" placeholder="123456789" required></label>
+      <label>Name (optional)<input name="name" maxlength="100" placeholder="e.g. Dilnoza, manager"></label>
+      <button class="ta103-btn primary"><i class="bi bi-person-plus"></i> Give access</button>
+    </form>
+  </section>
+
+  <section class="ta103-card" aria-labelledby="ta103-who">
+    <h2 id="ta103-who">Who has access ({{ people|length }})</h2>
+    {% if people %}
+    <ul class="ta103-list">
+      {% for p in people %}
+      <li>
+        <div class="ta103-who">
+          <strong>{{ p.name|default:"Name not known yet" }}{% if p.superadmin %} <span class="ta103-badge"><i class="bi bi-star-fill"></i> Super admin</span>{% endif %}</strong>
+          <code>{{ p.telegram_id }}</code>
+        </div>
+        {% if p.superadmin %}
+          <span class="ta103-sub" style="font-size:13px">Set in .env</span>
+        {% else %}
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="revoke"><input type="hidden" name="telegram_id" value="{{ p.telegram_id }}"><button class="ta103-btn danger" onclick="return confirm('Remove access for {{ p.name|default:p.telegram_id|escapejs }}?')"><i class="bi bi-person-dash"></i> Remove access</button></form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="ta103-sub" style="margin-top:8px">Nobody has access yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock admin_content %}
