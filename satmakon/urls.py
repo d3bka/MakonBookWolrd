@@ -7,10 +7,18 @@ from django.views.decorators.cache import cache_control
 from django.views.generic import RedirectView, TemplateView
 from apps.base import error_views
 from apps.base.sitemaps import sitemaps
+from django.http import HttpResponsePermanentRedirect
+
+
+def favicon_redirect(request):
+    # V74: browsers ask for /favicon.ico on pages without an icon link (allauth, error pages).
+    return HttpResponsePermanentRedirect(static("assets/img/icons/original-icon-nobg.png"))
+
 
 urlpatterns = [
     # V74: browsers ask for /favicon.ico on pages without an icon link (allauth, error pages).
-    path("favicon.ico", RedirectView.as_view(url=static("assets/img/icons/original-icon-nobg.png"), permanent=True)),
+    # V99: resolved per request, not at import time (background processes have no static manifest).
+    path("favicon.ico", favicon_redirect, name="favicon"),
     path(
         "robots.txt",
         cache_control(max_age=60 * 60 * 24)(

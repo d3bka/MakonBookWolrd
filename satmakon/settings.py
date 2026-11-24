@@ -490,7 +490,9 @@ STORAGES = {
         "BACKEND": "apps.sat.storages.PublicStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        # V99: like whitenoise's manifest storage, but a missing manifest never crashes
+        # the Celery worker / beat / Telegram bot (they do not run collectstatic).
+        "BACKEND": "apps.base.static_storage.ForgivingManifestStaticFilesStorage",
     },
 }
 
