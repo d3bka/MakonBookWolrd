@@ -37,6 +37,7 @@ urlpatterns = [
     path('classrooms/join/', views.student_join_classroom_request, name='student_join_classroom_request'),
     path('homework/', views.student_homework, name='student_homework'),
     path('homework/<int:assignment_id>/open/', views.student_homework_launch, name='student_homework_launch'),
+    path('homework/<int:assignment_id>/done/', views.student_homework_file_done, name='student_homework_file_done'),
     path('homework/<int:assignment_id>/vocabulary-quiz/result/', views.student_homework_vocab_quiz_result, name='student_homework_vocab_quiz_result'),
     path('homework/submit-attempt/', views.student_homework_submit_attempt, name='student_homework_submit_attempt'),
     path('progress/', views.student_progress, name='student_progress'),

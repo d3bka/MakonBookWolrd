@@ -1,0 +1,92 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}{{ assignment.title }} · Homework · MakonBook{% endblock %}
+{% block student_workspace_style %}
+<style>
+.hf100{max-width:860px;margin:0 auto;display:grid;gap:16px;padding-bottom:40px}
+.hf100-back{display:inline-flex;align-items:center;gap:8px;font-weight:700;text-decoration:none;color:#6d28d9}
+.hf100-card{background:#fff;border:1px solid #ece7f3;border-radius:22px;padding:22px;box-shadow:0 10px 30px rgba(40,20,70,.05)}
+.hf100-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:800;background:#ede9fe;color:#5b21b6}
+.hf100 h1{margin:10px 0 6px;font-size:28px;line-height:1.2}
+.hf100-meta{display:flex;flex-wrap:wrap;gap:8px 16px;color:#6b6478;font-size:14px}
+.hf100-meta span{display:inline-flex;align-items:center;gap:6px}
+.hf100-text{margin:14px 0 0;white-space:pre-line;line-height:1.6}
+.hf100-file{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hf100-icon{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-size:26px;background:#f3f0fb;color:#6d28d9;flex:0 0 auto}
+.hf100-file-name{flex:1;min-width:0}
+.hf100-file-name strong{display:block;overflow-wrap:anywhere}
+.hf100-file-name small{color:#6b6478;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.hf100-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;padding:12px 18px;font-weight:800;text-decoration:none;cursor:pointer;background:#6d28d9;color:#fff;font-size:15px}
+.hf100-btn.ghost{background:#f3f0fb;color:#4c1d95}
+.hf100-btn.done{background:#16a34a}
+.hf100-preview{margin-top:16px;max-width:100%;border-radius:14px;border:1px solid #ece7f3}
+.hf100-status{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.hf100-status p{margin:4px 0 0;color:#6b6478}
+.hf100-state{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px}
+.hf100-state.ok{color:#15803d}.hf100-state.partial{color:#b45309}.hf100-state.no{color:#b91c1c}
+.hf100-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:#faf7ff;font-style:italic}
+html[data-theme="dark"] .hf100-card{background:#171122;border-color:#342744}
+html[data-theme="dark"] .hf100-meta,html[data-theme="dark"] .hf100-file-name small,html[data-theme="dark"] .hf100-status p{color:#aaa0b8}
+html[data-theme="dark"] .hf100-icon,html[data-theme="dark"] .hf100-btn.ghost,html[data-theme="dark"] .hf100-note{background:#241a31;color:#ddd6fe}
+html[data-theme="dark"] .hf100-chip{background:#2c2039;color:#ddd6fe}
+html[data-theme="dark"] .hf100-back{color:#c4b5fd}
+html[data-theme="dark"] .hf100-state.ok{color:#86efac}html[data-theme="dark"] .hf100-state.partial{color:#fcd34d}html[data-theme="dark"] .hf100-state.no{color:#fca5a5}
+@media(max-width:600px){.hf100 h1{font-size:23px}.hf100-btn{width:100%}}
+</style>
+{% endblock student_workspace_style %}
+{% block content %}
+<div class="hf100">
+  <a class="hf100-back" href="{% url 'student_homework_root' %}"><i class="bi bi-arrow-left"></i> Homework</a>
+
+  <section class="hf100-card">
+    <span class="hf100-chip"><i class="bi bi-paperclip"></i> File homework</span>
+    <h1>{{ assignment.title }}</h1>
+    <div class="hf100-meta">
+      <span><i class="bi bi-people"></i>{{ assignment.classroom.name }}</span>
+      {% if assignment.due_at %}<span><i class="bi bi-clock"></i>Due {{ assignment.due_at|date:'d M, H:i' }}</span>{% else %}<span><i class="bi bi-infinity"></i>No deadline</span>{% endif %}
+    </div>
+    {% if assignment.instructions %}<p class="hf100-text">{{ assignment.instructions }}</p>{% endif %}
+  </section>
+
+  <section class="hf100-card">
+    <div class="hf100-file">
+      <span class="hf100-icon" aria-hidden="true"><i class="bi {{ assignment.attachment_icon }}"></i></span>
+      <div class="hf100-file-name"><strong>{{ assignment.attachment_display_name }}</strong><small>{{ assignment.attachment_extension }}</small></div>
+      <a class="hf100-btn" href="{{ assignment.attachment.url }}" target="_blank" rel="noopener" download><i class="bi bi-download"></i> Download</a>
+    </div>
+    {% if is_image %}<img class="hf100-preview" src="{{ assignment.attachment.url }}" alt="{{ assignment.title }}" loading="lazy">{% endif %}
+  </section>
+
+  <section class="hf100-card">
+    <div class="hf100-status">
+      <div>
+        {% if submission.teacher_verdict == 'done' %}
+          <div class="hf100-state ok"><i class="bi bi-check2-all"></i> Checked by your teacher: done</div>
+        {% elif submission.teacher_verdict == 'partial' %}
+          <div class="hf100-state partial"><i class="bi bi-circle-half"></i> Checked by your teacher: partly done</div>
+        {% elif submission.teacher_verdict == 'not_done' %}
+          <div class="hf100-state no"><i class="bi bi-x-circle"></i> Checked by your teacher: not done</div>
+        {% elif submission.status == 'submitted' %}
+          <div class="hf100-state ok"><i class="bi bi-check2-circle"></i> You marked it done</div>
+          <p>{{ submission.submitted_at|date:'d M, H:i' }} · your teacher will check it in class.</p>
+        {% elif homework_open %}
+          <div class="hf100-state"><i class="bi bi-circle"></i> Not done yet</div>
+          <p>Download the file, do the work, then press “Done”.</p>
+        {% else %}
+          <div class="hf100-state no"><i class="bi bi-lock"></i> Deadline closed</div>
+          <p>Your teacher marks this homework after checking it.</p>
+        {% endif %}
+      </div>
+      {% if homework_open and not submission.teacher_verdict %}
+        <form method="post" action="{% url 'student_homework_file_done_root' assignment.id %}">{% csrf_token %}
+          {% if submission.status == 'submitted' %}
+            <input type="hidden" name="action" value="undo"><button class="hf100-btn ghost" type="submit"><i class="bi bi-arrow-counterclockwise"></i> Not done yet</button>
+          {% else %}
+            <input type="hidden" name="action" value="done"><button class="hf100-btn done" type="submit"><i class="bi bi-check2"></i> Done</button>
+          {% endif %}
+        </form>
+      {% endif %}
+    </div>
+    {% if submission.teacher_note %}<div class="hf100-note">{{ submission.teacher_note }}</div>{% endif %}
+  </section>
+</div>
+{% endblock %}

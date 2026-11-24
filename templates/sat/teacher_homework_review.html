@@ -1,0 +1,93 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Check · {{ assignment.title }} | MakonBook{% endblock %}
+{% block staff_workspace_style %}
+<style>
+.hr100{display:grid;gap:16px;max-width:1100px}
+.hr100-back{display:inline-flex;align-items:center;gap:8px;font-weight:700;text-decoration:none;color:#6d28d9}
+.hr100-card{background:#fff;border:1px solid #ece7f3;border-radius:20px;padding:20px;box-shadow:0 10px 30px rgba(40,20,70,.05)}
+.hr100-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.hr100-head h1{margin:6px 0;font-size:26px}
+.hr100-head p{margin:0;color:#6b6478}
+.hr100-kicker{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7c3aed}
+.hr100-stats{display:flex;gap:10px}
+.hr100-stats div{min-width:96px;padding:10px 12px;border-radius:14px;background:#f8f6fc;text-align:center}
+.hr100-stats strong{display:block;font-size:22px}.hr100-stats span{font-size:12px;color:#6b6478}
+.hr100-file{display:inline-flex;align-items:center;gap:8px;margin-top:10px;font-weight:700;color:#4c1d95;text-decoration:none;overflow-wrap:anywhere}
+.hr100-help{margin:0 0 12px;color:#6b6478}
+.hr100-table{width:100%;border-collapse:collapse}
+.hr100-table th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6b6478;padding:8px;border-bottom:1px solid #ece7f3}
+.hr100-table td{padding:10px 8px;border-bottom:1px solid #f1edf7;vertical-align:middle}
+.hr100-table tr:last-child td{border-bottom:0}
+.hr100-student strong{display:block}
+.hr100-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;background:#f1f5f9;color:#475569;white-space:nowrap}
+.hr100-pill.ok{background:#dcfce7;color:#166534}
+.hr100-choices{display:flex;gap:6px;flex-wrap:wrap}
+.hr100-choices label{cursor:pointer}
+.hr100-choices input{position:absolute;opacity:0;pointer-events:none}
+.hr100-choices span{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border-radius:10px;border:1px solid #e4dcf0;font-size:13px;font-weight:700;color:#4c1d95;background:#fff}
+.hr100-choices input:checked+span.done{background:#16a34a;border-color:#16a34a;color:#fff}
+.hr100-choices input:checked+span.partial{background:#d97706;border-color:#d97706;color:#fff}
+.hr100-choices input:checked+span.not_done{background:#dc2626;border-color:#dc2626;color:#fff}
+.hr100-choices input:checked+span.none{background:#e2e8f0;border-color:#cbd5e1;color:#334155}
+.hr100-choices input:focus-visible+span{outline:2px solid #7c3aed;outline-offset:2px}
+.hr100-note{width:100%;min-width:160px;border:1px solid #e4dcf0;border-radius:10px;padding:8px 10px;background:#fff;color:inherit}
+.hr100-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+.hr100-btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:11px 16px;font-weight:800;background:#6d28d9;color:#fff;cursor:pointer}
+html[data-theme="dark"] .hr100-card{background:#171122;border-color:#342744}
+html[data-theme="dark"] .hr100-head p,html[data-theme="dark"] .hr100-help,html[data-theme="dark"] .hr100-table th,html[data-theme="dark"] .hr100-stats span{color:#aaa0b8}
+html[data-theme="dark"] .hr100-stats div{background:#21182d}
+html[data-theme="dark"] .hr100-table th,html[data-theme="dark"] .hr100-table td{border-color:#2d2240}
+html[data-theme="dark"] .hr100-choices span,html[data-theme="dark"] .hr100-note{background:#130e1c;border-color:#40314f;color:#ddd6fe}
+html[data-theme="dark"] .hr100-pill{background:#2c2039;color:#cbd5e1}html[data-theme="dark"] .hr100-pill.ok{background:#123322;color:#86efac}
+html[data-theme="dark"] .hr100-back,html[data-theme="dark"] .hr100-file{color:#c4b5fd}
+html[data-theme="dark"] .hr100-choices input:checked+span.none{background:#3b3150;border-color:#5b4a73;color:#f5f3ff}
+@media(max-width:760px){html[data-theme="dark"] .hr100-table tr{border-color:#2d2240}}
+@media(max-width:760px){.hr100-table thead{display:none}.hr100-table tr{display:grid;gap:8px;padding:12px 0;border-bottom:1px solid #ece7f3}.hr100-table td{border:0;padding:0}.hr100-actions .hr100-btn{width:100%;justify-content:center}}
+</style>
+{% endblock staff_workspace_style %}
+{% block content %}
+<div class="hr100">
+  <a class="hr100-back" href="{% url 'teacher_homework_root' %}"><i class="bi bi-arrow-left"></i> Homework</a>
+  <section class="hr100-card hr100-head">
+    <div>
+      <span class="hr100-kicker">Check file homework</span>
+      <h1>{{ assignment.title }}</h1>
+      <p>{{ assignment.classroom.name }}{% if assignment.due_at %} · due {{ assignment.due_at|date:'d M, H:i' }}{% endif %}</p>
+      {% if assignment.attachment %}<a class="hr100-file" href="{{ assignment.attachment.url }}" target="_blank" rel="noopener"><i class="bi {{ assignment.attachment_icon }}"></i>{{ assignment.attachment_display_name }}</a>{% endif %}
+    </div>
+    <div class="hr100-stats">
+      <div><strong>{{ counts.done }}</strong><span>pressed Done</span></div>
+      <div><strong>{{ counts.pending }}</strong><span>not yet</span></div>
+    </div>
+  </section>
+
+  <section class="hr100-card">
+    <p class="hr100-help">After checking in class, mark who did the homework. “Not done” and “Partly done” send the student a notification; “Not done” moves the homework back to their to-do list.</p>
+    <form method="post">{% csrf_token %}
+      <table class="hr100-table">
+        <thead><tr><th>Student</th><th>Student says</th><th>Your check</th><th>Comment (optional)</th></tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="hr100-student"><strong>{{ row.user.get_full_name|default:row.user.username }}</strong></td>
+            <td>{% if row.student_done %}<span class="hr100-pill ok"><i class="bi bi-check2"></i>Done · {{ row.submission.submitted_at|date:'d M, H:i' }}</span>{% else %}<span class="hr100-pill">Not yet</span>{% endif %}</td>
+            <td>
+              <div class="hr100-choices" role="radiogroup" aria-label="Check for {{ row.user.get_full_name|default:row.user.username }}">
+                <label><input type="radio" name="verdict_{{ row.user.id }}" value="" {% if not row.submission.teacher_verdict %}checked{% endif %}><span class="none">—</span></label>
+                {% for value, label in verdict_choices %}
+                <label><input type="radio" name="verdict_{{ row.user.id }}" value="{{ value }}" {% if row.submission.teacher_verdict == value %}checked{% endif %}><span class="{{ value }}">{{ label }}</span></label>
+                {% endfor %}
+              </div>
+            </td>
+            <td><input class="hr100-note" name="note_{{ row.user.id }}" maxlength="300" value="{{ row.submission.teacher_note|default:'' }}" placeholder="e.g. exercises 4–6 missing"></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4">No students are assigned to this homework.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if rows %}<div class="hr100-actions"><button class="hr100-btn" type="submit"><i class="bi bi-save"></i> Save</button></div>{% endif %}
+    </form>
+  </section>
+</div>
+{% endblock %}

@@ -8423,6 +8423,20 @@ def _homework_parse_due_at(raw_value):
     return due_at
 
 
+def _homework_attachment_from_request(request):
+    """V100: the worksheet of a file homework (None when no new file was sent)."""
+    upload = request.FILES.get('attachment')
+    if not upload:
+        return None
+    name = str(upload.name or '').strip()
+    extension = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    if extension not in ClassroomHomeworkAssignment.FILE_EXTENSIONS:
+        raise ValidationError('Attach a PDF, Word, Excel, PowerPoint or photo (JPG, PNG, HEIC) file.')
+    if upload.size > ClassroomHomeworkAssignment.FILE_MAX_BYTES:
+        raise ValidationError('The homework file must be 25 MB or smaller.')
+    return upload
+
+
 def _homework_payload_from_post(request):
     assignment_type = (request.POST.get('assignment_type') or '').strip()
     title = (request.POST.get('title') or '').strip()[:220]
@@ -8432,10 +8446,13 @@ def _homework_payload_from_post(request):
         raise ValidationError('Choose a homework type and add a title.')
     test = None
     unit = None
+    attachment = None
     if assignment_type == ClassroomHomeworkAssignment.TYPE_TEST:
         test = Test.objects.filter(pk=request.POST.get('test'), is_available=True).first()
         if not test:
             raise ValidationError('Choose an available SAT test.')
+    elif assignment_type == ClassroomHomeworkAssignment.TYPE_FILE:
+        attachment = _homework_attachment_from_request(request)
     else:
         unit = VocabularyUnit.objects.filter(pk=request.POST.get('vocabulary_unit'), is_active=True).first()
         if not unit:
@@ -8494,6 +8511,7 @@ def _homework_payload_from_post(request):
         'vocabulary_mode': mode,
         'vocabulary_quiz_mode': quiz_mode,
         'question_count': question_count,
+        'attachment': attachment,
         'assign_all': assign_all,
         'selected_ids': selected_ids,
         'due_at': _homework_parse_due_at(request.POST.get('due_at')),
@@ -8537,6 +8555,9 @@ def _save_homework_assignment(request, classroom, *, assignment=None):
     if assignment is not None and request.POST.get('preserve_targets') == '1':
         payload['assign_all'] = assignment.assign_all
         payload['selected_ids'] = set(assignment.assigned_students.values_list('id', flat=True))
+    upload = payload.get('attachment')
+    if payload['assignment_type'] == ClassroomHomeworkAssignment.TYPE_FILE and not upload and (is_new or not assignment.attachment):
+        raise ValidationError('Attach a file for this homework.')
     with transaction.atomic():
         if is_new:
             assignment = ClassroomHomeworkAssignment.objects.create(
@@ -8552,6 +8573,8 @@ def _save_homework_assignment(request, classroom, *, assignment=None):
                 vocabulary_mode=payload['vocabulary_mode'],
                 vocabulary_quiz_mode=payload['vocabulary_quiz_mode'],
                 question_count=payload['question_count'],
+                attachment=upload,
+                attachment_name=(upload.name[:255] if upload else ''),
                 assign_all=payload['assign_all'],
                 due_at=payload['due_at'],
                 is_active=True,
@@ -8567,6 +8590,9 @@ def _save_homework_assignment(request, classroom, *, assignment=None):
             assignment.vocabulary_mode = payload['vocabulary_mode']
             assignment.vocabulary_quiz_mode = payload['vocabulary_quiz_mode']
             assignment.question_count = payload['question_count']
+            if upload:
+                assignment.attachment = upload
+                assignment.attachment_name = upload.name[:255]
             assignment.assign_all = payload['assign_all']
             assignment.due_at = payload['due_at']
             assignment.is_active = payload['is_active']
@@ -13551,6 +13577,10 @@ def _decorate_homework_submission_state(assignments, user):
         assignment.student_submission_started_at = submission.started_at if submission else None
         assignment.student_submission_completed_at = submission.completed_at if submission else None
         assignment.student_submission_submitted_at = submission.submitted_at if submission else None
+        verdict = submission.teacher_verdict if submission else ''
+        assignment.student_teacher_verdict = verdict
+        assignment.student_teacher_verdict_label = dict(ClassroomHomeworkSubmission.VERDICT_CHOICES).get(verdict, '')
+        assignment.student_teacher_note = submission.teacher_note if submission else ''
     return rows
 
 
@@ -14076,8 +14106,133 @@ def student_homework_launch(request, assignment_id):
         context.update(student_workspace_context(request.user, active='homework'))
         return render(request, 'sat/vocabulary_practice_quiz_test.html', context)
 
+    if assignment.assignment_type == ClassroomHomeworkAssignment.TYPE_FILE and assignment.attachment:
+        submission = _homework_submission_for_student(assignment, request.user, create=True)
+        if _homework_assignment_is_open(assignment):
+            submission.mark_in_progress(source=ClassroomHomeworkSubmission.SOURCE_HOMEWORK)
+        _decorate_homework_submission_state([assignment], request.user)
+        context = student_workspace_context(request.user, active='homework')
+        context.update({
+            'assignment': assignment,
+            'submission': submission,
+            'homework_open': _homework_assignment_is_open(assignment),
+            'is_image': assignment.attachment_extension in {'jpg', 'jpeg', 'png'},
+        })
+        return render(request, 'sat/student_homework_file.html', context)
+
     messages.error(request, 'This homework assignment is not configured correctly.')
     return redirect('student_homework_root')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def student_homework_file_done(request, assignment_id):
+    """V100: the student says a file homework is done (or takes it back while it is open)."""
+    assignment = get_object_or_404(
+        _v524_homework_for_student(request.user),
+        pk=assignment_id,
+        assignment_type=ClassroomHomeworkAssignment.TYPE_FILE,
+    )
+    if not _homework_assignment_is_open(assignment):
+        messages.error(request, 'This homework deadline has passed. Your teacher marks it after checking.')
+        return redirect('student_homework_launch_root', assignment_id=assignment.pk)
+    submission = _homework_submission_for_student(assignment, request.user, create=True)
+    if submission.teacher_verdict:
+        messages.info(request, 'Your teacher has already checked this homework.')
+        return redirect('student_homework_launch_root', assignment_id=assignment.pk)
+    now_value = timezone.now()
+    if request.POST.get('action') == 'undo':
+        submission.status = ClassroomHomeworkSubmission.STATUS_IN_PROGRESS
+        submission.completed_at = None
+        submission.submitted_at = None
+        messages.info(request, 'Marked as not done yet.')
+    else:
+        submission.status = ClassroomHomeworkSubmission.STATUS_SUBMITTED
+        submission.source = ClassroomHomeworkSubmission.SOURCE_HOMEWORK
+        submission.started_at = submission.started_at or now_value
+        submission.completed_at = submission.completed_at or now_value
+        submission.submitted_at = now_value
+        messages.success(request, 'Marked as done. Your teacher will check it.')
+    submission.save(update_fields=['status', 'source', 'started_at', 'completed_at', 'submitted_at', 'updated_at'])
+    return redirect('student_homework_launch_root', assignment_id=assignment.pk)
+
+
+@login_required(login_url='/login/')
+def teacher_homework_review(request, assignment_id):
+    """V100: the teacher marks each student's file homework after checking it in class."""
+    assignment = get_object_or_404(
+        ClassroomHomeworkAssignment.objects.select_related('classroom'),
+        pk=assignment_id,
+        assignment_type=ClassroomHomeworkAssignment.TYPE_FILE,
+    )
+    if not can_manage_classroom(request.user, assignment.classroom):
+        return HttpResponseForbidden('You can manage only your own classrooms.')
+    memberships = _homework_target_memberships(assignment)
+    student_ids = [row.user_id for row in memberships]
+    submissions = {
+        row.student_id: row
+        for row in ClassroomHomeworkSubmission.objects.filter(assignment=assignment, student_id__in=student_ids)
+    }
+    valid = {value for value, _label in ClassroomHomeworkSubmission.VERDICT_CHOICES}
+
+    if request.method == 'POST':
+        now_value = timezone.now()
+        changed, notify = 0, []
+        for membership in memberships:
+            verdict = (request.POST.get(f'verdict_{membership.user_id}') or '').strip()
+            note = (request.POST.get(f'note_{membership.user_id}') or '').strip()[:300]
+            if verdict and verdict not in valid:
+                continue
+            submission = submissions.get(membership.user_id)
+            if submission is None:
+                if not verdict:
+                    continue
+                submission = ClassroomHomeworkSubmission(assignment=assignment, student_id=membership.user_id)
+            if submission.pk and verdict == submission.teacher_verdict and note == submission.teacher_note:
+                continue
+            submission.teacher_verdict = verdict
+            submission.teacher_note = note if verdict else ''
+            submission.reviewed_by = request.user if verdict else None
+            submission.reviewed_at = now_value if verdict else None
+            if verdict in {ClassroomHomeworkSubmission.VERDICT_DONE, ClassroomHomeworkSubmission.VERDICT_PARTIAL}:
+                submission.status = ClassroomHomeworkSubmission.STATUS_SUBMITTED
+                submission.started_at = submission.started_at or now_value
+                submission.completed_at = submission.completed_at or now_value
+                submission.submitted_at = submission.submitted_at or now_value
+            elif verdict == ClassroomHomeworkSubmission.VERDICT_NOT_DONE:
+                submission.status = ClassroomHomeworkSubmission.STATUS_NOT_STARTED
+                submission.completed_at = None
+                submission.submitted_at = None
+            submission.save()
+            changed += 1
+            if verdict in {ClassroomHomeworkSubmission.VERDICT_PARTIAL, ClassroomHomeworkSubmission.VERDICT_NOT_DONE}:
+                notify.append((membership.user_id, verdict))
+        for verdict in (ClassroomHomeworkSubmission.VERDICT_PARTIAL, ClassroomHomeworkSubmission.VERDICT_NOT_DONE):
+            users = [user_id for user_id, value in notify if value == verdict]
+            if users:
+                _notify_users(
+                    users,
+                    notice_type=MakonNotification.TYPE_HOMEWORK,
+                    title=f'{assignment.title}: {dict(ClassroomHomeworkSubmission.VERDICT_CHOICES)[verdict].lower()}',
+                    message=f'{assignment.classroom.name} · checked by your teacher',
+                    url=reverse('student_homework_launch_root', args=[assignment.pk]),
+                )
+        messages.success(request, f'Saved {changed} change{"" if changed == 1 else "s"}.' if changed else 'Nothing changed.')
+        return redirect('teacher_homework_review_root', assignment_id=assignment.pk)
+
+    rows = []
+    counts = {'done': 0, 'pending': 0}
+    for membership in memberships:
+        submission = submissions.get(membership.user_id)
+        student_done = bool(submission and submission.status == ClassroomHomeworkSubmission.STATUS_SUBMITTED)
+        counts['done' if student_done else 'pending'] += 1
+        rows.append({'membership': membership, 'user': membership.user, 'submission': submission, 'student_done': student_done})
+    return render(request, 'sat/teacher_homework_review.html', {
+        'assignment': assignment,
+        'rows': rows,
+        'counts': counts,
+        'verdict_choices': ClassroomHomeworkSubmission.VERDICT_CHOICES,
+    })
 
 
 @login_required(login_url='/login/')

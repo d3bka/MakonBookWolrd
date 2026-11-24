@@ -2367,11 +2367,17 @@ class ClassroomHomeworkAssignment(models.Model):
     TYPE_TEST = 'sat_test'
     TYPE_VOCAB = 'vocabulary_unit'
     TYPE_VOCAB_QUIZ = 'vocabulary_quiz'
+    TYPE_FILE = 'file'
     TYPE_CHOICES = (
         (TYPE_TEST, 'SAT test'),
         (TYPE_VOCAB, 'Vocabulary practice'),
         (TYPE_VOCAB_QUIZ, 'Vocabulary quiz'),
+        (TYPE_FILE, 'File'),
     )
+    # V100: file homework — the teacher attaches a worksheet, students download
+    # it and press "Done"; the teacher confirms after checking it in class.
+    FILE_EXTENSIONS = ('pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'heic', 'heif')
+    FILE_MAX_BYTES = 25 * 1024 * 1024
 
     TEST_MODE_FULL = 'full_test'
     TEST_MODE_RW = 'rw_only'
@@ -2433,6 +2439,8 @@ class ClassroomHomeworkAssignment(models.Model):
         default=VocabularyQuizAttempt.MODE_MIXED,
     )
     question_count = models.PositiveSmallIntegerField(default=10, validators=[MinValueValidator(1), MaxValueValidator(100)])
+    attachment = models.FileField(upload_to=RandomUploadPath('classroom_homework'), blank=True, null=True, storage=PublicStorage())
+    attachment_name = models.CharField(max_length=255, blank=True, default='', db_default='')
     assign_all = models.BooleanField(default=True)
     assigned_students = models.ManyToManyField(User, blank=True, related_name='classroom_homework')
     due_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -2449,6 +2457,26 @@ class ClassroomHomeworkAssignment(models.Model):
             raise ValidationError({'test': 'Choose a SAT test.'})
         if self.assignment_type in {self.TYPE_VOCAB, self.TYPE_VOCAB_QUIZ} and not self.vocabulary_unit_id:
             raise ValidationError({'vocabulary_unit': 'Choose a vocabulary unit.'})
+        if self.assignment_type == self.TYPE_FILE and not self.attachment:
+            raise ValidationError({'attachment': 'Attach a file.'})
+
+    @property
+    def attachment_display_name(self):
+        return self.attachment_name or (self.attachment.name.rsplit('/', 1)[-1] if self.attachment else '')
+
+    @property
+    def attachment_extension(self):
+        name = self.attachment_display_name
+        return name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+
+    @property
+    def attachment_icon(self):
+        return {
+            'pdf': 'bi-file-earmark-pdf',
+            'doc': 'bi-file-earmark-word', 'docx': 'bi-file-earmark-word',
+            'xls': 'bi-file-earmark-excel', 'xlsx': 'bi-file-earmark-excel',
+            'ppt': 'bi-file-earmark-slides', 'pptx': 'bi-file-earmark-slides',
+        }.get(self.attachment_extension, 'bi-file-earmark-image')
 
     def __str__(self):
         return f"{self.classroom.name} · {self.title}"
@@ -2528,6 +2556,19 @@ class ClassroomHomeworkSubmission(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
+    # V100: the teacher's own check (file homework is checked in class).
+    VERDICT_DONE = 'done'
+    VERDICT_PARTIAL = 'partial'
+    VERDICT_NOT_DONE = 'not_done'
+    VERDICT_CHOICES = (
+        (VERDICT_DONE, 'Done'),
+        (VERDICT_PARTIAL, 'Partly done'),
+        (VERDICT_NOT_DONE, 'Not done'),
+    )
+    teacher_verdict = models.CharField(max_length=12, choices=VERDICT_CHOICES, blank=True, default='', db_default='')
+    teacher_note = models.CharField(max_length=300, blank=True, default='', db_default='')
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_homework_submissions')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
