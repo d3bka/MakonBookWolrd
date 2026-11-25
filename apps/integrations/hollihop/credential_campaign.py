@@ -51,16 +51,57 @@ def eligible_users(roles=None):
     )
 
 
+def sms_phone_ok(phone) -> bool:
+    """True when PlayMobile accepts the number (998XXXXXXXXX after normalization)."""
+    from .normalization import normalize_phone
+
+    digits = (normalize_phone(phone) or "").lstrip("+")
+    return len(digits) == 12 and digits.startswith("998")
+
+
 def overview() -> list[dict]:
+    """Per group: people waiting for a login, split by how they can be reached.
+
+    ``with_phone`` counts only numbers PlayMobile accepts; ``invalid_phone`` are numbers it
+    will reject (fix them in Hollihop). People with a bad phone but an e-mail still get
+    the e-mail, so they are counted under ``email_only``.
+    """
     rows = []
-    for key, (field, label) in ROLES.items():
-        qs = eligible_users([key])
-        with_phone = qs.exclude(profile__phone_number__isnull=True).exclude(profile__phone_number="").count()
-        with_email_only = qs.filter(Q(profile__phone_number__isnull=True) | Q(profile__phone_number="")).exclude(email="").count()
-        total = qs.count()
-        rows.append({"key": key, "label": label, "total": total, "with_phone": with_phone,
-                     "email_only": with_email_only, "no_contact": max(0, total - with_phone - with_email_only)})
+    for key, (_field, label) in ROLES.items():
+        with_phone = invalid_phone = email_only = no_contact = 0
+        for phone, email in eligible_users([key]).values_list("profile__phone_number", "email"):
+            if phone and sms_phone_ok(phone):
+                with_phone += 1
+            elif (email or "").strip():
+                email_only += 1
+            elif phone:
+                invalid_phone += 1
+            else:
+                no_contact += 1
+        rows.append({"key": key, "label": label, "total": with_phone + invalid_phone + email_only + no_contact,
+                     "with_phone": with_phone, "invalid_phone": invalid_phone,
+                     "email_only": email_only, "no_contact": no_contact})
     return rows
+
+
+def send_sample(phone, *, manager, role="student"):
+    """V110: the exact login SMS a student would get, with a sample login and password,
+    sent to the manager's own phone. Nobody's password changes."""
+    from .credentials import _build_sms_text, _sms_template_values, generate_temporary_password
+    from .sms import send_sms
+
+    class _Sample:
+        first_name = manager.first_name or "Ism"
+        profile = None
+
+        def get_username(self):
+            return manager.get_username()
+
+    sample = _Sample()
+    login, password = "namuna.login", generate_temporary_password()
+    text = _build_sms_text(sample, login_value=login, temporary_password=password, sms_role_label=role)
+    values = _sms_template_values(sample, login_value=login, temporary_password=password, sms_role_label=role)
+    return send_sms(phone, text, template_variables=values)
 
 
 def find_test_people(text: str, roles=None, limit: int = 3):

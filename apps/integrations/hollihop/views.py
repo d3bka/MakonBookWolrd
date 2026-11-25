@@ -492,6 +492,24 @@ def credential_campaign(request):
                 return redirect(f"{request.path}{workspace}")
             campaign.roles = roles
             campaign.save(update_fields=["roles", "updated_at"])
+        if action == "sample" and campaign.status == CredentialCampaign.STATUS_DRAFT:
+            from .credential_campaign import send_sample
+            from .sms import SmsDeliveryError
+
+            phone = (request.POST.get("sample_phone") or "").strip()
+            if not phone:
+                messages.error(request, "Enter your phone number for the sample login SMS.")
+            else:
+                try:
+                    result = send_sample(phone, manager=request.user)
+                    campaign.test_sent_ok += 1
+                    campaign.save(update_fields=["test_sent_ok", "updated_at"])
+                    messages.success(request, f"Sample login SMS accepted by {result.provider}. Check that it arrived and reads well, then start sending.")
+                except SmsDeliveryError as exc:
+                    messages.error(request, f"Sample login SMS failed: {exc}")
+                except Exception as exc:  # noqa: BLE001
+                    messages.error(request, f"Sample login SMS failed: {exc.__class__.__name__}")
+            return redirect(f"{request.path}{workspace}")
         if action == "test" and campaign.status == CredentialCampaign.STATUS_DRAFT:
             people, missing = find_test_people(request.POST.get("people", ""), campaign.roles)
             for user in people:
@@ -536,10 +554,18 @@ def credential_campaign(request):
             messages.success(request, "Stopped. People who did not get a login yet can be sent later in a new campaign.")
         return redirect(f"{request.path}{workspace}")
 
-    recent_failures = HollihopCredentialDelivery.objects.filter(
+    # V110: one row per person (their latest attempt), not one per retry.
+    recent_failures, seen_users = [], set()
+    for delivery in HollihopCredentialDelivery.objects.filter(
         overall_status__in=["failed", "partial", "no_contact"],
         created_at__gte=campaign.started_at or campaign.created_at,
-    ).select_related("user")[:30]
+    ).select_related("user").order_by("-created_at")[:200]:
+        if delivery.user_id in seen_users:
+            continue
+        seen_users.add(delivery.user_id)
+        recent_failures.append(delivery)
+        if len(recent_failures) >= 30:
+            break
     # V106: the duplicate warning shows only when the Duplicate accounts page has pairs.
     from apps.base.account_merge import find_duplicate_pairs
 
