@@ -492,6 +492,15 @@ def credential_campaign(request):
                 return redirect(f"{request.path}{workspace}")
             campaign.roles = roles
             campaign.save(update_fields=["roles", "updated_at"])
+        if action == "retry_failed":
+            from .credential_campaign import retry_failed
+
+            sent, failed = retry_failed()
+            if sent or failed:
+                messages.success(request, f"Sent again: {sent} delivered, {failed} still failed.")
+            else:
+                messages.error(request, "Nobody in “Not delivered” can be reached yet. Fix their phone numbers in Hollihop first; the next sync brings them here.")
+            return redirect(f"{request.path}{workspace}")
         if action == "sample" and campaign.status == CredentialCampaign.STATUS_DRAFT:
             from .credential_campaign import send_sample
             from .sms import SmsDeliveryError
@@ -555,17 +564,27 @@ def credential_campaign(request):
         return redirect(f"{request.path}{workspace}")
 
     # V110: one row per person (their latest attempt), not one per retry.
+    # V111: with the phone on file, and only while the person still has no login.
+    from .credential_campaign import retry_candidates, sms_phone_ok
+
     recent_failures, seen_users = [], set()
+    # Everyone who still has no login, whichever sending they failed in; the list does
+    # not reset when a campaign ends.
     for delivery in HollihopCredentialDelivery.objects.filter(
         overall_status__in=["failed", "partial", "no_contact"],
-        created_at__gte=campaign.started_at or campaign.created_at,
-    ).select_related("user").order_by("-created_at")[:200]:
+        user__profile__credentials_delivery_status__in=["failed", "no_contact"],
+        user__profile__hollihop_created=True, user__last_login__isnull=True, user__is_active=True,
+    ).select_related("user", "user__profile").order_by("-created_at")[:1000]:
         if delivery.user_id in seen_users:
             continue
         seen_users.add(delivery.user_id)
+        profile = getattr(delivery.user, "profile", None)
+        delivery.phone_on_file = (profile.phone_number if profile else "") or ""
+        delivery.phone_ok_now = sms_phone_ok(delivery.phone_on_file)
         recent_failures.append(delivery)
-        if len(recent_failures) >= 30:
+        if len(recent_failures) >= 100:
             break
+    retry_ready = len(retry_candidates())
     # V106: the duplicate warning shows only when the Duplicate accounts page has pairs.
     from apps.base.account_merge import find_duplicate_pairs
 
@@ -577,6 +596,7 @@ def credential_campaign(request):
         "sms_enabled": _sms_channel_enabled(),
         "sms_provider": getattr(settings, "MAKONBOOK_SMS_PROVIDER", ""),
         "recent_failures": recent_failures,
+        "retry_ready": retry_ready,
         "past_campaigns": CredentialCampaign.objects.exclude(pk=campaign.pk)[:5],
         "workspace_query": workspace,
         "duplicates": duplicates,

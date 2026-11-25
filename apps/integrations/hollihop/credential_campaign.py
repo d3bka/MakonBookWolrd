@@ -184,3 +184,46 @@ def active_campaign() -> CredentialCampaign:
         status__in=[CredentialCampaign.STATUS_DRAFT, CredentialCampaign.STATUS_RUNNING, CredentialCampaign.STATUS_PAUSED]
     ).first()
     return campaign or CredentialCampaign.objects.create(roles=list(ROLES))
+
+
+def retry_candidates(since=None, limit=50):
+    """V111: people from "Not delivered" who can be reached now (phone fixed in Hollihop, or an e-mail)."""
+    from apps.integrations.models import HollihopCredentialDelivery
+    from .normalization import email_is_valid, normalize_email
+
+    users = []
+    seen = set()
+    deliveries = HollihopCredentialDelivery.objects.filter(overall_status__in=["failed", "no_contact"])
+    if since is not None:
+        deliveries = deliveries.filter(created_at__gte=since)
+    for delivery in deliveries.select_related("user", "user__profile").order_by("-created_at"):
+        user = delivery.user
+        if user.pk in seen:
+            continue
+        seen.add(user.pk)
+        profile = getattr(user, "profile", None)
+        if (not user.is_active or user.last_login or profile is None or not profile.hollihop_created
+                or profile.credentials_delivery_status not in {"failed", "no_contact"}):
+            continue
+        if sms_phone_ok(profile.phone_number) or email_is_valid(normalize_email(user.email)):
+            users.append(user)
+        if len(users) >= limit:
+            break
+    return users
+
+
+def retry_failed(since=None, limit=50):
+    """Send again to the reachable people of "Not delivered". Returns (sent, failed)."""
+    sent = failed = 0
+    for user in retry_candidates(since, limit):
+        if not UserProfile.objects.filter(user_id=user.pk, credentials_delivery_status__in=["failed", "no_contact"]).update(
+            credentials_delivery_status="pending",
+        ):
+            continue
+        result = send_one(user)
+        status = result if isinstance(result, str) else getattr(result, "overall_status", "failed")
+        if status in {"sent", "partial"}:
+            sent += 1
+        else:
+            failed += 1
+    return sent, failed

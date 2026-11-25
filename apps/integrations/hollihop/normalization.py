@@ -33,6 +33,13 @@ def normalize_phone(value: str | None) -> str:
     if len(digits) == 9:
         digits = "998" + digits
         had_plus = True
+    elif len(digits) == 10 and digits[0] in "80" and not had_plus:
+        # V111: old domestic forms "8 90 123 45 67" / "0 90 123 45 67" are Uzbek mobiles.
+        digits = "998" + digits[1:]
+        had_plus = True
+    elif len(digits) == 10 and digits[0] == "8" and had_plus:
+        # Stored by earlier versions as "+8XXXXXXXXX" from "8 9X XXX XX XX".
+        digits = "998" + digits[1:]
     elif digits.startswith("998") and len(digits) == 12:
         had_plus = True
     elif len(digits) >= 10:

@@ -66,6 +66,7 @@ class SendLoginsV110Tests(TestCase):
         self.client.get(self.url)  # creates the draft campaign
         CredentialCampaign.objects.update(created_at=timezone.now() - timedelta(hours=1))
         kid = student("kid", "+7 916 123 45 67")
+        UserProfile.objects.filter(user=kid).update(credentials_delivery_status="failed")  # as after a failed delivery
         for _ in range(3):
             HollihopCredentialDelivery.objects.create(user=kid, overall_status="failed", sms_status="failed",
                                                       sms_error_safe="PlayMobile recipient must be a valid Uzbekistan phone number.")
