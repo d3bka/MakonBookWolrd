@@ -26,6 +26,9 @@ class AttemptLimitTests(TestCase):
         self.other_teacher.groups.add(teachers)
         self.public = User.objects.create_user("v93_public", password="x")
         self.student = User.objects.create_user("v93_student", first_name="Aziz", password="x")
+        self.student.profile.hollihop_client_id = 777          # V113: a current student = "Занимается" in Hollihop
+        self.student.profile.hollihop_status = "Занимается"
+        self.student.profile.save()
         self.classroom = Classroom.objects.create(name="SAT 93", teacher=self.teacher, hollihop_managed=True)
         ClassroomMembership.objects.create(classroom=self.classroom, user=self.student, role="student", status="approved")
 

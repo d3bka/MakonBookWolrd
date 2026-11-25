@@ -1271,18 +1271,18 @@ class HollihopSyncEngine:
 
         active_state = self._student_active_state(status)
 
-        # Initial import rule: historical/inactive Hollihop students should not
-        # create thousands of brand-new closed MakonBook accounts. If a matching
-        # MakonBook account already exists, we still link/deactivate it and keep
-        # all history. If no account exists yet, skip creation until Hollihop
-        # marks the student active again.
-        if user is None and active_state is False:
+        # V113: only students Hollihop marks as currently studying ("Занимается")
+        # get a new MakonBook account; inactive, unknown and blank statuses are
+        # ignored. If a matching MakonBook account already exists, we still
+        # link/update it and keep all history. A skipped student is created on a
+        # later sync once Hollihop marks them as studying.
+        if user is None and active_state is not True:
             self.summary.students_inactive_skipped += 1
             self._log(
                 "student_inactive_skipped",
                 entity_type="student",
                 external_id=client_id,
-                details={"status": status, "reason": "inactive_without_existing_makonbook_account"},
+                details={"status": status, "reason": "not_studying_without_existing_makonbook_account"},
             )
             return
 
@@ -1298,7 +1298,7 @@ class HollihopSyncEngine:
         created = False
         if user is None:
             user = User(username=self._new_username("hstu", client_id), first_name=first, last_name=last, email="")
-            user.is_active = True if active_state is None else active_state
+            user.is_active = True
             user.set_unusable_password()
             user.save()
             created = True

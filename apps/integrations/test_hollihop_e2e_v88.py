@@ -120,6 +120,22 @@ class HollihopProductionFlowTests(TestCase):
 
     # ------------------------------------------------------------------ initial import
 
+    def test_only_studying_students_get_new_accounts(self):
+        # V113: blank and unknown statuses are ignored just like "Не занимается".
+        self.api.students += [student(1008, "Blank", status=""), student(1009, "Reserve", status="Резерв")]
+        self.api.relations += [rel(9001, 1008), rel(9001, 1009)]
+        summary = self.run_full()
+        self.assertEqual(summary.errors, 0, summary.as_dict())
+        self.assertIsNone(self.user_for(1008))
+        self.assertIsNone(self.user_for(1009))
+        self.assertNotIn(1008, self.members(9001))
+        self.assertIn(1001, self.members(9001))
+        # Once Hollihop marks the student as studying, the next sync creates the account.
+        self.api.students[-1]["Status"] = "Занимается"
+        self.run_full()
+        self.assertIsNotNone(self.user_for(1009))
+        self.assertIn(1009, self.members(9001))
+
     def test_initial_import_creates_the_right_people_classrooms_and_attendance(self):
         summary = self.run_full()
         self.assertEqual(summary.errors, 0, summary.as_dict())

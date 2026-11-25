@@ -40,14 +40,16 @@ class PracticeAccessTests(TestCase):
         self.make_active_by_status("Не занимается")
         self.assertEqual(len(self.open_names(self.kid)), 5)
 
-    def test_approved_hollihop_group_opens_the_whole_library(self):
+    def test_a_hollihop_group_without_studying_status_is_not_enough(self):
+        # V113: only an explicit "Занимается" status opens the library; a blank status does not.
         classroom = Classroom.objects.create(teacher=self.teacher, name="SAT group", is_active=True, hollihop_managed=True)
-        membership = ClassroomMembership.objects.create(classroom=classroom, user=self.kid, role="student",
-                                                        status="approved", approved_at=timezone.now())
-        self.assertEqual(len(self.open_names(self.kid)), 8)
-        membership.status = "removed"
-        membership.save()
+        ClassroomMembership.objects.create(classroom=classroom, user=self.kid, role="student",
+                                           status="approved", approved_at=timezone.now())
         self.assertEqual(len(self.open_names(self.kid)), 5)
+        self.make_active_by_status("")
+        self.assertFalse(is_active_satmakon_student(User.objects.get(pk=self.kid.pk)))
+        self.make_active_by_status("Занимается")
+        self.assertEqual(len(self.open_names(self.kid)), 8)
 
     def test_a_finished_status_wins_over_a_group_that_was_not_cleaned_up(self):
         classroom = Classroom.objects.create(teacher=self.teacher, name="Old group", is_active=True, hollihop_managed=True)
