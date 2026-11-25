@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from celery import shared_task
+from celery.signals import worker_shutting_down
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
@@ -14,6 +16,8 @@ from apps.integrations.models import HollihopSyncLog, HollihopSyncState
 from .client import HollihopAPIError
 from .reconcile import HollihopSmartReconciler, initial_import_can_finish, mark_initial_sync_completed
 from .sync import HollihopSyncAlreadyRunning, HollihopSyncEngine, full_stage_set
+
+logger = logging.getLogger(__name__)
 
 
 def _integration_enabled():
@@ -266,3 +270,16 @@ def run_credential_campaign_batch(campaign_id):
 
     if run_batch(campaign_id):
         run_credential_campaign_batch.apply_async(args=[campaign_id], countdown=BATCH_PAUSE_SECONDS)
+
+
+@worker_shutting_down.connect
+def _release_hollihop_lock_on_shutdown(**kwargs):
+    """V109: a restart must not leave Hollihop "busy" for half an hour."""
+    from .sync import release_locks_of_this_host
+
+    try:
+        released = release_locks_of_this_host()
+        if released:
+            logger.warning("Released the Hollihop lock held by this worker before shutdown.")
+    except Exception:  # noqa: BLE001 - shutdown must never fail because of this
+        logger.exception("Could not release the Hollihop lock on shutdown")

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 import logging
 import os
+import socket
 import time
 import uuid
 
@@ -124,6 +125,34 @@ class SyncSummary:
     def as_dict(self):
         return {name: getattr(self, name) for name in self.__dataclass_fields__ if name != "conflict_details"}
 
+
+
+# V109: a sync renews its lease about every 5 minutes. A lease that has not been
+# renewed for this long belongs to a process that died (a crash or a container
+# killed mid-sync) and may be taken over instead of blocking every cycle for 30 min.
+LOCK_ABANDONED_MINUTES = 15
+
+
+def lock_is_abandoned(state, now=None):
+    if not state.lock_token or not state.lock_expires_at:
+        return False
+    now = now or timezone.now()
+    last_renewal = state.lock_expires_at - timedelta(minutes=settings.HOLLIHOP_SYNC_LOCK_MINUTES)
+    return now - last_renewal >= timedelta(minutes=LOCK_ABANDONED_MINUTES)
+
+
+def release_locks_of_this_host(reason="The Celery worker stopped during synchronization (restart or deploy)."):
+    """V109: called when this container's Celery worker shuts down.
+
+    The running sync is killed with the container, so it can never release its own
+    lease. Releasing it here lets the next worker sync at once; if the old process
+    still writes for a moment, its next heartbeat sees the lost lock and stops.
+    """
+    host = socket.gethostname()[:200]
+    return HollihopSyncState.objects.filter(provider="hollihop", lock_owner=host).exclude(lock_token=None).update(
+        lock_token=None, lock_expires_at=None, lock_owner="",
+        last_status=HollihopSyncState.STATUS_ERROR, last_error_safe=reason[:500],
+    )
 
 
 def _profile_of(user):
@@ -314,10 +343,13 @@ class HollihopSyncEngine:
         now = timezone.now()
         with transaction.atomic():
             state, _ = HollihopSyncState.objects.select_for_update().get_or_create(provider="hollihop")
-            if state.lock_token and state.lock_expires_at and state.lock_expires_at > now:
+            if state.lock_token and state.lock_expires_at and state.lock_expires_at > now and not lock_is_abandoned(state, now):
                 raise HollihopSyncAlreadyRunning("A Hollihop synchronization is already running.")
+            if state.lock_token and state.lock_expires_at and state.lock_expires_at > now:
+                logger.warning("Taking over an abandoned Hollihop lock (no heartbeat for %s minutes).", LOCK_ABANDONED_MINUTES)
             self._lock_token = uuid.uuid4()
             state.lock_token = self._lock_token
+            state.lock_owner = socket.gethostname()[:200]
             state.lock_expires_at = now + timedelta(minutes=settings.HOLLIHOP_SYNC_LOCK_MINUTES)
             state.last_attempt = now
             state.last_status = HollihopSyncState.STATUS_SYNCING
@@ -362,6 +394,7 @@ class HollihopSyncEngine:
                 return
             state.lock_token = None
             state.lock_expires_at = None
+            state.lock_owner = ""
             state.last_status = (
                 HollihopSyncState.STATUS_PARTIAL if partial else HollihopSyncState.STATUS_SUCCESS if success else HollihopSyncState.STATUS_ERROR
             )

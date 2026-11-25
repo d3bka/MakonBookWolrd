@@ -35,6 +35,8 @@ class HollihopSyncState(models.Model):
     attendance_synced = models.PositiveIntegerField(default=0)
     lock_token = models.UUIDField(null=True, blank=True, editable=False)
     lock_expires_at = models.DateTimeField(null=True, blank=True)
+    # V109: the container (host name) whose sync holds the lock; released when that Celery worker stops.
+    lock_owner = models.CharField(max_length=200, blank=True, default="")
 
     # The first full Hollihop import is always explicit. Celery's periodic smart
     # reconciliation is a no-op until this flag is set by a successful manual

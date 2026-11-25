@@ -458,6 +458,31 @@ def credential_campaign(request):
     campaign = active_campaign()
     workspace = "?workspace=admin" if request.GET.get("workspace") == "admin" or request.POST.get("workspace") == "admin" else ""
 
+    if request.method == "POST" and request.POST.get("action") in {"check_sms", "sms_test"}:
+        # V109: check the SMS provider from the site (the server wrapper cannot run manage.py).
+        from .sms import SmsDeliveryError, send_sms, validate_sms_configuration
+
+        ready, detail = validate_sms_configuration()
+        if not ready:
+            messages.error(request, f"SMS settings: {detail}")
+        elif request.POST.get("action") == "check_sms":
+            messages.success(request, f"SMS settings: {detail} Nothing was sent.")
+        else:
+            phone = (request.POST.get("phone") or "").strip()
+            text = (request.POST.get("text") or "").strip()[:300] or "MakonBook: test SMS."
+            if not phone:
+                messages.error(request, "Enter a phone number for the test SMS.")
+            else:
+                try:
+                    result = send_sms(phone, text)
+                    extra = f", message id {result.message_id}" if result.message_id else ""
+                    messages.success(request, f"Test SMS accepted by {result.provider}: status {result.status}{extra}. Check the phone.")
+                except SmsDeliveryError as exc:
+                    messages.error(request, f"Test SMS failed: {exc}")
+                except Exception as exc:  # noqa: BLE001 - show the provider problem, never a 500
+                    messages.error(request, f"Test SMS failed: {exc.__class__.__name__}")
+        return redirect(f"{request.path}{workspace}")
+
     if request.method == "POST":
         action = request.POST.get("action")
         roles = [r for r in request.POST.getlist("roles") if r in ROLES]
