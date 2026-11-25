@@ -187,7 +187,7 @@
 </section>
 
   <section class="holli-card">
-    <div class="holli-head"><div><h2>Failed / partial credential deliveries</h2><div class="holli-muted">Resend creates a completely new temporary password and invalidates the current MakonBook password.</div></div></div>
+    <div class="holli-head"><div><h2>Logins not delivered</h2><div class="holli-muted">One row per person who still has no login. Resend creates a completely new temporary password and invalidates the current MakonBook password; it is blocked for 10 minutes after a successful sending.</div></div></div>
     <div class="holli-table-wrap"><table class="holli-table"><thead><tr><th>User</th><th>Status</th><th>Email</th><th>SMS</th><th>Action</th></tr></thead><tbody>
       {% for delivery in failed_deliveries %}<tr><td><strong>{{ delivery.user.get_full_name|default:delivery.user.username }}</strong><br>#{{ delivery.user.id }}</td><td>{{ delivery.get_overall_status_display }}</td><td>{{ delivery.get_email_status_display }}{% if delivery.email_error_safe %}<br><small>{{ delivery.email_error_safe }}</small>{% endif %}</td><td>{{ delivery.get_sms_status_display }}{% if delivery.sms_error_safe %}<br><small>{{ delivery.sms_error_safe }}</small>{% endif %}</td><td><form method="post" action="{% url 'hollihop_resend_credentials' delivery.user.id %}" onsubmit="return confirm('This will reset the user’s current MakonBook password. Continue?');">{% csrf_token %}<input type="hidden" name="confirm" value="RESET"><button class="holli-btn danger" type="submit">Reset & resend</button></form></td></tr>{% empty %}<tr><td colspan="5">No failed deliveries.</td></tr>{% endfor %}
     </tbody></table></div>

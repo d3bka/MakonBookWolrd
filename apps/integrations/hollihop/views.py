@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import secrets
 from collections import Counter
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -93,9 +94,20 @@ def integration_dashboard(request):
         return HttpResponseForbidden("Manager access required.")
     state = HollihopSyncState.objects.filter(provider="hollihop").first()
     conflicts = HollihopSyncConflict.objects.filter(status=HollihopSyncConflict.STATUS_PENDING).order_by("-updated_at")[:30]
-    failed_deliveries = HollihopCredentialDelivery.objects.filter(
-        overall_status__in=["failed", "partial", "no_contact"]
-    ).select_related("user", "user__profile")[:30]
+    # V112: one row per person who still has no login (their latest attempt). People who
+    # got it later, got it by e-mail, logged in or left are not listed again and again.
+    failed_deliveries, seen_users = [], set()
+    for delivery in HollihopCredentialDelivery.objects.filter(
+        overall_status__in=["failed", "no_contact"],
+        user__profile__credentials_delivery_status__in=["failed", "no_contact"],
+        user__is_active=True, user__last_login__isnull=True,
+    ).select_related("user", "user__profile").order_by("-created_at")[:1000]:
+        if delivery.user_id in seen_users:
+            continue
+        seen_users.add(delivery.user_id)
+        failed_deliveries.append(delivery)
+        if len(failed_deliveries) >= 30:
+            break
     recent_logs = HollihopSyncLog.objects.select_related("user", "classroom")[:50]
     # Credential delivery failures and synchronization failures are distinct.
     # Link error rows to the latest attempted sync, not to last successful sync.
@@ -301,6 +313,14 @@ def resend_credentials(request, user_id):
     if not (profile.hollihop_client_id or profile.hollihop_teacher_id or profile.hollihop_employee_id):
         messages.error(request, "This user is not linked to Hollihop.")
         return redirect("hollihop_dashboard")
+    # V112: a double click (or two managers) must not send the login twice.
+    recent = HollihopCredentialDelivery.objects.filter(
+        user=user, overall_status__in=["sent", "partial"], created_at__gte=timezone.now() - timedelta(minutes=10),
+    ).order_by("-created_at").first()
+    if recent:
+        minutes = max(1, int((timezone.now() - recent.created_at).total_seconds() // 60))
+        messages.warning(request, f"A login was already sent {minutes} min ago. Wait 10 minutes before sending again.")
+        return redirect("hollihop_dashboard")
     delivery = deliver_new_temporary_access(user)
     if delivery.overall_status == "sent":
         messages.success(request, "A new temporary password was generated and delivered.")
@@ -492,6 +512,24 @@ def credential_campaign(request):
                 return redirect(f"{request.path}{workspace}")
             campaign.roles = roles
             campaign.save(update_fields=["roles", "updated_at"])
+        if action == "dont_send":
+            # V112: a student who left (or a test record) never gets a login from here.
+            from apps.base.models import UserProfile as _Profile
+
+            user_id = request.POST.get("user_id", "")
+            changed = 0
+            if user_id.isdecimal():
+                changed = _Profile.objects.filter(
+                    user_id=int(user_id), hollihop_created=True,
+                    credentials_delivery_status__in=["failed", "no_contact", "pending"],
+                ).update(credentials_delivery_status="not_applicable")
+            if changed:
+                HollihopSyncLog.objects.create(event_type="credentials_skipped", entity_type="user",
+                                               user_id=int(user_id), details={"by": request.user.pk, "reason": "manager: not a student"})
+                messages.success(request, "Removed from the list. This person will not get a login.")
+            else:
+                messages.error(request, "This person is not waiting for a login.")
+            return redirect(f"{request.path}{workspace}")
         if action == "retry_failed":
             from .credential_campaign import retry_failed
 

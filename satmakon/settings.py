@@ -67,7 +67,7 @@ SITE_PROTOCOL = env_str("SITE_PROTOCOL", "http" if DEBUG else "https")
 SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
 
 # The release shown in Settings → Platform version. Bump it with every release commit.
-MAKONBOOK_VERSION = "V111"
+MAKONBOOK_VERSION = "V112"
 
 # MakonBook World is temporarily hidden while the next game release is prepared.
 # Set MAKONBOOK_WORLD_ENABLED=1 to reopen all /world/ routes and the live sidebar link.
@@ -720,15 +720,24 @@ HOLLIHOP_MANAGER_TYPES = {
         "Admin,Administrator,CEO,Chief Executive Officer,Админ,Администратор",
     )
 }
-HOLLIHOP_ACTIVE_STUDENT_STATUSES = {
-    item.casefold() for item in env_list("HOLLIHOP_ACTIVE_STUDENT_STATUSES", "Занимается,Active,Working")
-}
-HOLLIHOP_INACTIVE_STUDENT_STATUSES = {
-    item.casefold() for item in env_list(
-        "HOLLIHOP_INACTIVE_STUDENT_STATUSES",
-        "Inactive,Archived,Stopped studying,Не занимается,Архив,Закончил обучение",
-    )
-}
+def _status_set(values):
+    """V112: case-insensitive, and "Ушёл" also matches "Ушел" (Hollihop writes е)."""
+    result = set()
+    for item in values:
+        key = item.casefold().replace("ё", "е")
+        result.update({key, key.replace("ушел", "ушёл")})
+    return result
+
+
+HOLLIHOP_ACTIVE_STUDENT_STATUSES = _status_set(env_list("HOLLIHOP_ACTIVE_STUDENT_STATUSES", "Занимается,Active,Working"))
+# V112: the statuses Hollihop uses for students who left or paused.
+HOLLIHOP_INACTIVE_STUDENT_STATUSES_DEFAULT = (
+    "Inactive,Archived,Stopped studying,Не занимается,Архив,Закончил обучение,"
+    "Ушел (после пробного урока),Ушел (старый ученик),Отложил обучение"
+)
+HOLLIHOP_INACTIVE_STUDENT_STATUSES = _status_set(env_list(
+    "HOLLIHOP_INACTIVE_STUDENT_STATUSES", HOLLIHOP_INACTIVE_STUDENT_STATUSES_DEFAULT,
+))
 
 # SMS provider abstraction. Keep disabled until the provider account, sender and
 # operator-approved templates are ready. Supported: disabled, generic_http,
