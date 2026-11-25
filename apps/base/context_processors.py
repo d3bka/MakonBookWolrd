@@ -30,6 +30,7 @@ def site_meta(request):
 
     return {
         "SITE_URL": settings.SITE_URL,
+        "makonbook_version": getattr(settings, "MAKONBOOK_VERSION", ""),
         "makonbook_world_enabled": world_enabled,
         "world_challenges_enabled": world_challenges_enabled,
         # V77: classroom memberships come from Hollihop; join-code UI only when re-enabled.

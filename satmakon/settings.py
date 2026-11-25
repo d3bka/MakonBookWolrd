@@ -66,6 +66,9 @@ SITE_DOMAIN = env_str("SITE_DOMAIN", "makonbook.uz")
 SITE_PROTOCOL = env_str("SITE_PROTOCOL", "http" if DEBUG else "https")
 SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
 
+# The release shown in Settings → Platform version. Bump it with every release commit.
+MAKONBOOK_VERSION = "V108"
+
 # MakonBook World is temporarily hidden while the next game release is prepared.
 # Set MAKONBOOK_WORLD_ENABLED=1 to reopen all /world/ routes and the live sidebar link.
 MAKONBOOK_WORLD_ENABLED = env_bool("MAKONBOOK_WORLD_ENABLED", False)

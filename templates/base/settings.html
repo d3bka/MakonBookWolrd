@@ -38,7 +38,7 @@
         <label>What should we improve?<textarea name="message" rows="5" minlength="10" maxlength="4000" required placeholder="Describe the feature, the problem it solves, and where you expect to use it."></textarea></label>
         <div class="v523-support-report-actions"><span data-v524-support-status aria-live="polite"></span><button class="mb50-primary-btn" type="submit"><i class="bi bi-lightbulb"></i> Send suggestion</button></div>
       </form>
-      <button class="v523-setting-link" type="button" data-v523-copy-version data-version="V50.2.8"><span><strong>Platform version</strong><small>V50.2.8 Unified Workspace</small></span><i class="bi bi-copy"></i></button>
+      <button class="v523-setting-link" type="button" data-v523-copy-version data-version="{{ makonbook_version }}"><span><strong>Platform version</strong><small>MakonBook {{ makonbook_version }}</small></span><i class="bi bi-copy"></i></button>
     </article>
 
     <article class="v523-settings-card v523-reveal" style="--reveal-index:4">
@@ -64,7 +64,7 @@
   });
   var copyBtn=document.querySelector('[data-v523-copy-version]');
   if(copyBtn) copyBtn.addEventListener('click',function(){
-    var value=copyBtn.dataset.version||'V50.2.4';
+    var value=copyBtn.dataset.version||'';
     if(navigator.clipboard) navigator.clipboard.writeText(value);
     copyBtn.classList.add('is-copied'); setTimeout(function(){copyBtn.classList.remove('is-copied');},700);
   });
@@ -108,7 +108,7 @@
   });
   var copyBtn=document.querySelector('[data-v523-copy-version]');
   if(copyBtn) copyBtn.addEventListener('click',function(){
-    var value=copyBtn.dataset.version||'V50.2.4';
+    var value=copyBtn.dataset.version||'';
     if(navigator.clipboard) navigator.clipboard.writeText(value);
     copyBtn.classList.add('is-copied'); setTimeout(function(){copyBtn.classList.remove('is-copied');},700);
   });
