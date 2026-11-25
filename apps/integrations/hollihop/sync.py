@@ -125,6 +125,21 @@ class SyncSummary:
         return {name: getattr(self, name) for name in self.__dataclass_fields__ if name != "conflict_details"}
 
 
+
+def _profile_of(user):
+    """V106: the user's profile, created when it is missing.
+
+    A few old accounts have no UserProfile row (created before the profile signal or by a
+    bulk import). Hollihop then matched such an account by e-mail/phone and crashed with
+    RelatedObjectDoesNotExist on every cycle (student 4145 since 06.11).
+    """
+    try:
+        return user.profile
+    except UserProfile.DoesNotExist:
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        user.profile = profile
+        return profile
+
 class HollihopSyncEngine:
     def __init__(self, *, client=None, dry_run=False, send_credentials=False):
         self.client = client or HollihopClient()
@@ -739,7 +754,7 @@ class HollihopSyncEngine:
         return value
 
     def _maybe_send_credentials(self, user):
-        profile = user.profile
+        profile = _profile_of(user)
         if not self.send_credentials or not profile.hollihop_created:
             return
         # Closed/inactive Hollihop students must never receive fresh credentials.
@@ -925,11 +940,11 @@ class HollihopSyncEngine:
             user.set_unusable_password()
             user.save()
             created = True
-            profile = user.profile
+            profile = _profile_of(user)
             profile.hollihop_created = True
             profile.credentials_delivery_status = "pending"
         else:
-            profile = user.profile
+            profile = _profile_of(user)
             self.summary.managers_matched += 1
 
         manager_group, _ = Group.objects.get_or_create(name="Manager")
@@ -1254,11 +1269,11 @@ class HollihopSyncEngine:
             user.set_unusable_password()
             user.save()
             created = True
-            profile = user.profile
+            profile = _profile_of(user)
             profile.hollihop_created = True
             profile.credentials_delivery_status = "pending"
         else:
-            profile = user.profile
+            profile = _profile_of(user)
             self.summary.students_matched += 1
 
         contact_changed = self._safe_contact_update(
@@ -1360,11 +1375,11 @@ class HollihopSyncEngine:
             user.set_unusable_password()
             user.save()
             created = True
-            profile = user.profile
+            profile = _profile_of(user)
             profile.hollihop_created = True
             profile.credentials_delivery_status = "pending"
         else:
-            profile = user.profile
+            profile = _profile_of(user)
             self.summary.teachers_matched += 1
 
         teacher_group, _ = Group.objects.get_or_create(name="Teacher")
@@ -1975,7 +1990,7 @@ class HollihopSyncEngine:
             self.summary.memberships_removed += 1
             self._log(
                 "membership_removed", entity_type="student",
-                external_id=membership.user.profile.hollihop_client_id,
+                external_id=_profile_of(membership.user).hollihop_client_id,
                 user=membership.user, classroom=membership.classroom,
             )
         return self.summary

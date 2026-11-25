@@ -515,6 +515,10 @@ def credential_campaign(request):
         overall_status__in=["failed", "partial", "no_contact"],
         created_at__gte=campaign.started_at or campaign.created_at,
     ).select_related("user")[:30]
+    # V106: the duplicate warning shows only when the Duplicate accounts page has pairs.
+    from apps.base.account_merge import find_duplicate_pairs
+
+    duplicates = {"students": len(find_duplicate_pairs("students")), "staff": len(find_duplicate_pairs("staff"))}
     return render(request, "integrations/hollihop/credential_campaign.html", {
         "campaign": campaign,
         "overview": overview(),
@@ -524,4 +528,6 @@ def credential_campaign(request):
         "recent_failures": recent_failures,
         "past_campaigns": CredentialCampaign.objects.exclude(pk=campaign.pk)[:5],
         "workspace_query": workspace,
+        "duplicates": duplicates,
+        "duplicate_total": duplicates["students"] + duplicates["staff"],
     })
