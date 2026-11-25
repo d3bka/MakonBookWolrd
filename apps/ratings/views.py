@@ -291,6 +291,7 @@ def rating_home(request):
             "board": board,
             "config": config,
             "profile": RatingProfile.objects.get_or_create(user=request.user)[0],
+            "lesson_homework_misses": _lesson_homework_misses(request.user),
         }
         # Ranking is deliberately separate from the student's own learning
         # Progress page. Merge the complete workspace context so the shell
@@ -443,6 +444,13 @@ def parent_share_code(request):
     return render(request, 'ratings/parent_share_code.html', {'family_code': profile.parent_access_code})
 
 
+def _lesson_homework_misses(user):
+    """V107: lessons in the last 30 days where the teacher marked the homework as not done."""
+    from .homework_checks import student_misses
+
+    return student_misses(user, days=30)
+
+
 def _parent_private_context(request, profile):
     if not _parent_has_private_access(request, profile):
         return {'parent_private_verified': False}
@@ -462,6 +470,7 @@ def _parent_private_context(request, profile):
         'ap_results': APExamAttempt.objects.filter(student=user, status='submitted').select_related('event').order_by('-submitted_at'),
         'parent_attendance': attend_qs.select_related('classroom').order_by('-date', '-pk')[:60],
         'parent_attendance_stats': aggregate,
+        'lesson_homework_misses': _lesson_homework_misses(user),
     }
 
 
@@ -616,8 +625,16 @@ def teacher_classroom_ratings(request, classroom_id):
     graded_today = set(RatingAssessment.objects.filter(
         classroom=classroom, teacher=request.user, lesson_date=today,
     ).values_list('student_id', flat=True))
+    from .assessment_policy import ASSESSMENTS_PER_WEEK, PENALTY_UZS, week_lesson_dates, week_progress
+    from .homework_checks import today_check
+
+    week_done, week_required = week_progress(schedule, [m.user_id for m in memberships], today) if schedule else ({}, 0)
+    homework_check, homework_not_done = today_check(classroom, today)
     for membership in memberships:
         membership.graded_today = membership.user_id in graded_today
+        membership.week_done = week_done.get(membership.user_id, 0)
+        membership.week_complete = membership.week_done >= week_required
+        membership.homework_not_done = membership.user_id in homework_not_done
     recent = RatingAssessment.objects.filter(classroom=classroom, teacher=request.user).select_related("student")[:30]
     return render(request, "ratings/teacher_classroom.html", {
         "classroom": classroom,
@@ -629,6 +646,14 @@ def teacher_classroom_ratings(request, classroom_id):
         "assessment_required_today": required,
         "lesson_schedule": schedule,
         "week_required_dates": required_lesson_dates(schedule, today) if schedule and schedule.fines_active_on(today) else [],
+        "week_lessons": week_lesson_dates(schedule, today) if schedule else [],
+        "week_required": week_required,
+        "week_complete_count": sum(1 for m in memberships if m.week_complete),
+        "fines_on": bool(schedule and schedule.fines_active_on(today)),
+        "assessments_per_week": ASSESSMENTS_PER_WEEK,
+        "penalty_uzs": f"{PENALTY_UZS:,}",
+        "homework_check": homework_check,
+        "homework_not_done_count": len(homework_not_done),
         "graded_today_count": len(graded_today),
         **_lesson_change_context(classroom, request.user),
     })
@@ -784,6 +809,26 @@ def save_assessment_deck(request, classroom_id):
             for assessment in created
         ])
     messages.success(request, f"Assessment deck saved for {len(created)} student(s).")
+    return redirect("teacher_classroom_assessments_root", classroom_id=classroom.id)
+
+
+@login_required
+@require_POST
+def save_homework_check(request, classroom_id):
+    """V107: at the lesson the teacher marks who did not do the homework (everyone else did)."""
+    from .homework_checks import save_check
+
+    classroom = get_object_or_404(Classroom, pk=classroom_id)
+    if not _is_teacher_for(request.user, classroom):
+        raise PermissionDenied
+    _schedule, allowed, _required = today_assessment_state(classroom, request.user)
+    if not allowed:
+        raise PermissionDenied('The homework check is open only on a lesson day, until 23:59:59 (Asia/Tashkent).')
+    _check, not_done = save_check(classroom, request.user, request.POST.getlist("not_done"))
+    if not_done:
+        messages.success(request, f"Homework check saved: {len(not_done)} student(s) did not do the homework.")
+    else:
+        messages.success(request, "Homework check saved: everyone did the homework.")
     return redirect("teacher_classroom_assessments_root", classroom_id=classroom.id)
 
 

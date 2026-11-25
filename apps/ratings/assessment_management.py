@@ -312,10 +312,21 @@ def manager_assessment_report(request):
     start, end = _month_interval(request.GET.get('month'))
     fines, totals = _fines_and_summary(start, end)
     today = timezone.localdate()
-    expected = AssessmentObligation.objects.filter(lesson_date__range=(start, min(end, today))).count()
+    # V107: required assessments of the closed weeks of this month (two per student per week).
+    from .assessment_policy import _closed_week_groups, week_start
+    from .homework_checks import class_summary
+
+    expected = completed = 0
+    monday = week_start(start)
+    while monday <= min(end, today):
+        if monday + timedelta(days=6) < today:
+            for _s, _st, _m, _obs, done_days, required in _closed_week_groups(today, monday=monday):
+                expected += required
+                completed += min(required, len(done_days))
+        monday += timedelta(days=7)
     schedules = AssessmentSchedule.objects.filter(enabled=True, classroom__is_active=True).select_related('classroom', 'teacher')
     underscheduled = []
-    # Highlight impossible three-days/week targets (no invented penalties).
+    # Highlight weeks with fewer lessons than the weekly minimum (no invented penalties).
     monday = start - timedelta(days=start.weekday())
     while monday <= min(end, today):
         for schedule in schedules:
@@ -327,7 +338,8 @@ def manager_assessment_report(request):
         'month': start.strftime('%Y-%m'), 'start': start, 'end': end,
         'fines': fines[:1000], 'total_rows': len(fines), 'totals': totals,
         'open_amount': sum(t['amount'] for t in totals), 'open_count': sum(t['open'] for t in totals),
-        'expected': expected, 'under_scheduled': underscheduled[:50], 'today': today,
+        'expected': expected, 'completed': completed, 'under_scheduled': underscheduled[:50], 'today': today,
+        'homework_rows': class_summary(start, end), 'assessments_per_week': ASSESSMENTS_PER_WEEK, 'penalty_uzs': f'{PENALTY_UZS:,}',
     })
 
 

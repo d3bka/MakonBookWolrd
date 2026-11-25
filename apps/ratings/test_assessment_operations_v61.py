@@ -1,5 +1,7 @@
-"""V61 regression: class-day deadline, per-student fines, manager visibility."""
-from datetime import datetime, time, timedelta
+"""V61 regression: class-day deadline, per-student fines, manager visibility.
+
+V107: fines are settled per closed week (two assessments per student), 2,000 UZS each."""
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 from unittest.mock import patch
 from decimal import Decimal
@@ -44,6 +46,9 @@ class AssessmentOperationsTests(TestCase):
             approved_by=self.manager,
         )
 
+    def next_monday(self):
+        return self.today - timedelta(days=self.today.weekday()) + timedelta(days=7)
+
     def payload(self):
         return dict(homework='8', progress='8', activity='8', attendance='8', behavior='8', comment='Normal')
 
@@ -70,16 +75,17 @@ class AssessmentOperationsTests(TestCase):
             lesson_date=self.today, assessed_at=timezone.now(),
             homework=8, progress=8, activity=8, attendance=8, behavior=8,
         )
-        fines = settle_missed_assessments(cutoff=self.today + timedelta(days=1))
-        self.assertEqual(len(fines), 1)
+        self.assertEqual(settle_missed_assessments(cutoff=self.today + timedelta(days=1)) if self.today.weekday() != 6 else [], [])  # week still open
+        fines = settle_missed_assessments(cutoff=self.next_monday())
+        self.assertEqual(len(fines), 1)  # one lesson this week: one assessment required
         self.assertEqual(fines[0].obligation.student, self.students[1])
-        self.assertEqual(fines[0].amount_uzs, 5000)
-        self.assertEqual(settle_missed_assessments(cutoff=self.today + timedelta(days=1)), [])
+        self.assertEqual(fines[0].amount_uzs, 2000)
+        self.assertEqual(settle_missed_assessments(cutoff=self.next_monday()), [])
 
     def test_cancelled_lesson_not_fined(self):
         prepare_today_obligations(schedule=self.schedule)
         AssessmentCalendarException.objects.create(schedule=self.schedule, date=self.today, action='cancelled')
-        self.assertEqual(settle_missed_assessments(cutoff=self.today + timedelta(days=1)), [])
+        self.assertEqual(settle_missed_assessments(cutoff=self.next_monday()), [])
 
     def test_second_weekday_not_assessable_today(self):
         self.schedule.weekdays = [self.today.isoweekday() % 7 + 1]
@@ -103,7 +109,7 @@ class AssessmentOperationsTests(TestCase):
 
     def test_manager_excel_and_student_forbidden(self):
         self.assertEqual(prepare_today_obligations(schedule=self.schedule), 2)
-        settle_missed_assessments(cutoff=self.today + timedelta(days=1))
+        settle_missed_assessments(cutoff=self.next_monday())
         self.client.force_login(self.students[0])
         self.assertEqual(self.client.get(reverse('manager_penalties_xlsx')).status_code, 403)
         self.client.force_login(self.manager)
@@ -126,7 +132,7 @@ class AssessmentOperationsTests(TestCase):
 
     def test_waiver_requires_manager_reason(self):
         prepare_today_obligations(schedule=self.schedule)
-        fine = settle_missed_assessments(cutoff=self.today + timedelta(days=1))[0]
+        fine = settle_missed_assessments(cutoff=self.next_monday())[0]
         self.client.force_login(self.manager)
         url = reverse('manager_review_penalty', args=[fine.pk])
         self.client.post(url, {'status': 'waived', 'note': ''})
@@ -136,11 +142,14 @@ class AssessmentOperationsTests(TestCase):
         fine.refresh_from_db()
         self.assertEqual(fine.status, 'waived')
 
-    def test_daily_report_dedup(self):
-        yesterday = self.today - timedelta(days=1)
-        AssessmentObligation.objects.create(schedule=self.schedule, student=self.students[0], lesson_date=yesterday)
-        settle_missed_assessments(cutoff=self.today)
-        self.assertTrue(send_daily_manager_report(report_date=yesterday))
-        self.assertFalse(send_daily_manager_report(report_date=yesterday))
-        self.assertEqual(AssessmentDailyReport.objects.filter(date=yesterday).count(), 1)
-        self.assertEqual(MakonNotification.objects.filter(user=self.manager, title__startswith='Assessment report').count(), 1)
+    @patch('apps.ratings.assessment_policy.WEEKLY_RULE_FROM', date(2000, 1, 1))
+    def test_weekly_report_dedup(self):
+        last_monday = self.today - timedelta(days=self.today.weekday() + 7)
+        AssessmentSchedule.objects.filter(pk=self.schedule.pk).update(starts_on=last_monday)
+        AssessmentObligation.objects.create(schedule=self.schedule, student=self.students[0], lesson_date=last_monday)
+        self.assertEqual(len(settle_missed_assessments(cutoff=self.today)), 1)
+        self.assertTrue(send_daily_manager_report(report_date=last_monday))
+        self.assertFalse(send_daily_manager_report(report_date=last_monday))
+        self.assertEqual(AssessmentDailyReport.objects.filter(date=last_monday).count(), 1)
+        note = MakonNotification.objects.get(user=self.manager, title__startswith='Assessment report')
+        self.assertIn('1 required student assessments · 0 done · 1 missing (2,000 UZS', note.message)

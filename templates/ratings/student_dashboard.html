@@ -39,6 +39,21 @@
       </div>
     </article>
 
+    <article class="rating523-card v523-reveal" style="--reveal-index:3">
+      <div class="rating523-card-head"><div><span class="v523-card-label">Last 30 days</span><h2>Homework at lessons</h2></div><span class="rating523-count">{{ lesson_homework_misses|length }} not done</span></div>
+      {% if lesson_homework_misses %}
+      <div class="rating523-history-list">
+        {% for miss in lesson_homework_misses %}
+        <div class="rating523-history-row">
+          <time>{{ miss.homework_check.lesson_date|date:"d M" }}<small>{{ miss.homework_check.lesson_date|date:"D" }}</small></time>
+          <span><strong>{{ miss.homework_check.classroom.name }}</strong><small>The teacher marked the homework as not done</small></span>
+          <b style="color:#dc2626">✗</b>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="rating523-empty">✓ You did the homework for every lesson in the last 30 days.</div>{% endif %}
+    </article>
+
 
     <article class="rating523-card rating523-history v523-reveal" style="--reveal-index:4">
       <div class="rating523-card-head"><div><span class="v523-card-label">Assessment history</span><h2>Recent teacher evaluations</h2></div><span class="rating523-count">{{ history|length }} shown</span></div>

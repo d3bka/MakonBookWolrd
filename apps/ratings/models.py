@@ -237,7 +237,7 @@ class AssessmentPenalty(models.Model):
     WAIVED = 'waived'
     STATUS_CHOICES = [(OPEN, 'Pending manager review'), (WAIVED, 'Waived')]
     obligation = models.OneToOneField(AssessmentObligation, on_delete=models.PROTECT, related_name='penalty')
-    amount_uzs = models.PositiveIntegerField(default=5000)
+    amount_uzs = models.PositiveIntegerField(default=2000)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=OPEN)
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
@@ -321,3 +321,32 @@ class LessonChangeRequest(models.Model):
 
     def __str__(self):
         return f'{self.get_kind_display()} {self.schedule.classroom} {self.date} ({self.status})'
+
+
+class LessonHomeworkCheck(models.Model):
+    """V107: the teacher's homework check at one lesson.
+
+    Everyone counts as "did the homework" unless listed in ``misses``; a lesson without
+    a saved check also counts as "everyone did it". Saved on the lesson day only.
+    """
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='homework_checks')
+    teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='homework_checks')
+    lesson_date = models.DateField(db_index=True)
+    saved_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-lesson_date']
+        constraints = [models.UniqueConstraint(fields=['classroom', 'lesson_date'], name='rating_homework_check_class_day')]
+
+    def __str__(self):
+        return f'{self.classroom} · {self.lesson_date}'
+
+
+class LessonHomeworkMiss(models.Model):
+    """V107: one student who did not do the homework for that lesson."""
+    homework_check = models.ForeignKey(LessonHomeworkCheck, on_delete=models.CASCADE, related_name='misses')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lesson_homework_misses')
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['homework_check', 'student'], name='rating_homework_miss_student')]

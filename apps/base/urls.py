@@ -90,6 +90,7 @@ urlpatterns = [
     path('teacher/classrooms/<int:classroom_id>/assessments/lesson-change/', rating_views.teacher_report_lesson_change, name='teacher_report_lesson_change'),
     path('teacher/lesson-changes/<int:change_id>/withdraw/', rating_views.teacher_withdraw_lesson_change, name='teacher_withdraw_lesson_change'),
     path('teacher/classrooms/<int:classroom_id>/assessments/save-deck/', rating_views.save_assessment_deck, name='teacher_save_assessment_deck_root'),
+    path('teacher/classrooms/<int:classroom_id>/assessments/homework-check/', rating_views.save_homework_check, name='teacher_save_homework_check_root'),
     path('teacher/classrooms/<int:classroom_id>/assessments/<int:student_id>/', rating_views.assess_student, name='teacher_assess_student_root'),
     path('teacher/assessments/<int:assessment_id>/edit/', rating_views.edit_assessment, name='teacher_edit_assessment_root'),
     path('teacher/access/', sat_views.teacher_access_hub, name='teacher_access_root'),

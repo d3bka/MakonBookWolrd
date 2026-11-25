@@ -104,7 +104,7 @@ html[data-theme="dark"] .na102-snooze,html[data-theme="dark"] .na102-level.low{b
       <ul class="na102-reasons">
         {% for r in row.reasons %}
         <li class="na102-reason">
-          <i class="bi {% if r.kind == 'homework' %}bi-journal-x{% elif r.kind == 'partial' %}bi-circle-half{% elif r.kind == 'attendance' %}bi-calendar-x{% elif r.kind == 'score' %}bi-graph-down-arrow{% else %}bi-moon{% endif %}" aria-hidden="true"></i>
+          <i class="bi {% if r.kind == 'homework' %}bi-journal-x{% elif r.kind == 'lesson_homework' %}bi-journal-minus{% elif r.kind == 'partial' %}bi-circle-half{% elif r.kind == 'attendance' %}bi-calendar-x{% elif r.kind == 'score' %}bi-graph-down-arrow{% else %}bi-moon{% endif %}" aria-hidden="true"></i>
           <div><strong>{{ r.title }}</strong><small>{{ r.detail }}</small></div>
         </li>
         {% endfor %}
@@ -152,6 +152,7 @@ html[data-theme="dark"] .na102-snooze,html[data-theme="dark"] .na102-level.low{b
     <ul class="na102-rules">
       <li>Homework past its deadline and not done, or marked “Not done” by the teacher, in the last {{ rules.window }} days.</li>
       <li>Homework marked “Partly done” two or more times.</li>
+      <li>Homework marked “Not done” in the teacher’s homework check at lessons (two or more lessons in the last {{ rules.window }} days, or one together with another reason).</li>
       <li>Two or more missed lessons in the last {{ rules.window }} days (attendance from Hollihop).</li>
       <li>The last test score is clearly below the student’s usual score for the same kind of test.</li>
       <li>No visit to MakonBook for {{ rules.inactive }} days or more.</li>

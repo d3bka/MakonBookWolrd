@@ -2,11 +2,45 @@
 {% block page_title %}Assess Students | MakonBook{% endblock %}
 {% block style %}{{ block.super }}<link rel="stylesheet" href="{% static 'assets/css/makon-ratings.css' %}">{% endblock %}
 {% block content %}
+<style>
+/* V107: weekly progress + homework check */
+.v107-week{white-space:nowrap}.v107-week.done{background:rgba(34,197,94,.14);color:#15803d}
+html[data-theme="dark"] .v107-week.done{color:#86efac}
+.v107-hw-help{margin:0 0 12px;color:var(--mb50-muted,#746c84)}
+.v107-hw-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.v107-hw-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--mb50-border,#e8e4f0);border-radius:12px;cursor:pointer}
+.v107-hw-row input{position:absolute;opacity:0;pointer-events:none}
+.v107-hw-name{font-weight:700;overflow-wrap:anywhere}
+.v107-hw-toggle span{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:12.5px;font-weight:800;white-space:nowrap}
+.v107-hw-toggle .yes{background:rgba(34,197,94,.14);color:#15803d}
+.v107-hw-toggle .no{display:none;background:rgba(239,68,68,.14);color:#b91c1c}
+.v107-hw-row input:checked~.v107-hw-toggle .yes{display:none}
+.v107-hw-row input:checked~.v107-hw-toggle .no{display:inline-flex}
+.v107-hw-row:has(input:checked){border-color:rgba(239,68,68,.5)}
+.v107-hw-row input:focus-visible~.v107-hw-toggle{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px;border-radius:999px}
+html[data-theme="dark"] .v107-hw-toggle .yes{color:#86efac}html[data-theme="dark"] .v107-hw-toggle .no{color:#fca5a5}
+.v107-hw-save{display:flex;justify-content:flex-end;margin-top:12px}
+@media(max-width:600px){.v107-hw-save .sf28-btn{width:100%;justify-content:center}}
+</style>
 <div class="sf29-page">
-  <section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-star"></i> Assessments</span><h1>{{ classroom.name }}</h1><p>Only on confirmed class dates, before 23:59:59 Tashkent. The first 3 lessons each week are mandatory. Missed required student assessments incur a 5,000 UZS proposed fine.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'teacher_assessments_root' %}"><i class="bi bi-arrow-left"></i>Assessments center</a>{% if memberships and assessment_allowed_today %}<button class="sf28-btn primary" type="button" data-v50210-deck-open="{{ memberships.0.user.id }}"><i class="bi bi-play-fill"></i>Start assessment deck</button>{% endif %}</div></section>
-  <section class="sf29-card span-12" style="border-left:4px solid {% if assessment_allowed_today %}#16a34a{% else %}#dc2626{% endif %}"><h2>{% if assessment_allowed_today %}Assessment open today{% else %}Assessment locked today{% endif %}</h2><p>{% if assessment_allowed_today %}{% if assessment_required_today %}Mandatory class day ·{% else %}Optional class day ·{% endif %} {{ graded_today_count }} students already assessed today. Save your deck before 23:59:59.{% else %}There is no confirmed lesson on today's date for this teacher. Ask the manager to confirm the Hollihop schedule. You cannot enter backdated grades.{% endif %}</p><p>Mandatory dates this week: {% for d in week_required_dates %}{{ d|date:'D d M' }}{% if not forloop.last %}, {% endif %}{% empty %}{% if lesson_schedule %}none — fines are off for this class{% else %}No confirmed schedule{% endif %}{% endfor %}.</p></section>
+  <section class="sf29-hero"><span class="sf28-kicker"><i class="bi bi-star"></i> Assessments</span><h1>{{ classroom.name }}</h1><p>Only on confirmed class dates, before 23:59:59 Tashkent. Assess every student at least {{ assessments_per_week }} times each week, on any lesson days you choose. Each missing assessment at the end of the week (Sunday 23:59:59) is a {{ penalty_uzs }} UZS proposed fine.</p><div class="sf28-actions"><a class="sf28-btn" href="{% url 'teacher_assessments_root' %}"><i class="bi bi-arrow-left"></i>Assessments center</a>{% if memberships and assessment_allowed_today %}<button class="sf28-btn primary" type="button" data-v50210-deck-open="{{ memberships.0.user.id }}"><i class="bi bi-play-fill"></i>Start assessment deck</button>{% endif %}</div></section>
+  <section class="sf29-card span-12" style="border-left:4px solid {% if assessment_allowed_today %}#16a34a{% else %}#dc2626{% endif %}"><h2>{% if assessment_allowed_today %}Assessment open today{% else %}Assessment locked today{% endif %}</h2><p>{% if assessment_allowed_today %}{% if assessment_required_today %}Lesson day · counts for the weekly minimum ·{% else %}Lesson day · fines are off ·{% endif %} {{ graded_today_count }} students already assessed today. Save your deck before 23:59:59.{% else %}There is no confirmed lesson on today's date for this teacher. Ask the manager to confirm the Hollihop schedule. You cannot enter backdated grades.{% endif %}</p><p>{% if lesson_schedule %}Lessons this week: {% for d in week_lessons %}{{ d|date:'D d M' }}{% if not forloop.last %}, {% endif %}{% empty %}none{% endfor %}. {% if fines_on %}{{ week_complete_count }} of {{ memberships|length }} students already have {{ week_required }} assessment{{ week_required|pluralize }} this week.{% else %}Fines are off for this class.{% endif %}{% else %}No confirmed schedule.{% endif %}</p></section>
+  {% if assessment_allowed_today and memberships %}
+  <section class="sf29-card span-12 v107-hw" aria-labelledby="v107-hw-title">
+    <div class="sf29-section-head"><div><small>Today's lesson</small><h2 id="v107-hw-title">Homework check</h2></div><span class="sf28-chip">{% if homework_check %}Saved {{ homework_check.saved_at|date:'H:i' }} · {{ homework_not_done_count }} not done{% else %}Not saved · counts as everyone did it{% endif %}</span></div>
+    <p class="v107-hw-help">Everyone is marked “Did it”. Switch only the students who did not do the homework, then save before 23:59:59.</p>
+    <form method="post" action="{% url 'teacher_save_homework_check_root' classroom.id %}">{% csrf_token %}
+      <div class="v107-hw-list">
+        {% for membership in memberships %}
+        <label class="v107-hw-row"><span class="v107-hw-name">{{ membership.user.get_full_name|default:membership.user.username }}</span><input type="checkbox" name="not_done" value="{{ membership.user.id }}"{% if membership.homework_not_done %} checked{% endif %}><span class="v107-hw-toggle" aria-hidden="true"><span class="yes"><i class="bi bi-check2"></i> Did it</span><span class="no"><i class="bi bi-x"></i> Not done</span></span></label>
+        {% endfor %}
+      </div>
+      <div class="v107-hw-save"><button class="sf28-btn primary"><i class="bi bi-check2-circle"></i> Save homework check</button></div>
+    </form>
+  </section>
+  {% endif %}
   {% include 'ratings/_lesson_change_teacher.html' %}
-  <section class="sf29-card span-12"><div class="sf29-section-head"><div><small>Roster</small><h2>Students</h2></div><span class="sf28-chip">{{ memberships|length }} students</span></div><div class="sf29-list">{% for membership in memberships %}<div class="sf29-row"><span class="mb50-avatar">{{ membership.user.username|first|upper }}</span><div class="grow"><strong>{{ membership.user.get_full_name|default:membership.user.username }}</strong><small>@{{ membership.user.username }}</small></div>{% if assessment_allowed_today %}<button class="sf28-btn primary" type="button" data-v50210-deck-open="{{ membership.user.id }}">{% if membership.graded_today %}Update today{% else %}Assess{% endif %}</button>{% else %}<span class="sf28-chip">Locked</span>{% endif %}</div>{% empty %}<div class="sf29-empty">No approved students.</div>{% endfor %}</div></section>
+  <section class="sf29-card span-12"><div class="sf29-section-head"><div><small>Roster</small><h2>Students</h2></div><span class="sf28-chip">{{ memberships|length }} students</span></div><div class="sf29-list">{% for membership in memberships %}<div class="sf29-row"><span class="mb50-avatar">{{ membership.user.username|first|upper }}</span><div class="grow"><strong>{{ membership.user.get_full_name|default:membership.user.username }}</strong><small>@{{ membership.user.username }}</small></div>{% if lesson_schedule and week_required %}<span class="sf28-chip v107-week{% if membership.week_complete %} done{% endif %}" title="Assessments this week">{{ membership.week_done }}/{{ week_required }} this week</span>{% endif %}{% if assessment_allowed_today %}<button class="sf28-btn primary" type="button" data-v50210-deck-open="{{ membership.user.id }}">{% if membership.graded_today %}Update today{% else %}Assess{% endif %}</button>{% else %}<span class="sf28-chip">Locked</span>{% endif %}</div>{% empty %}<div class="sf29-empty">No approved students.</div>{% endfor %}</div></section>
   <section class="sf29-card span-12"><div class="sf29-section-head"><div><small>History</small><h2>Recent assessments</h2></div></div><div class="rating-table-wrap"><table class="rating-table"><thead><tr><th>Date</th><th>Student</th><th>Mean</th><th>Policy</th></tr></thead><tbody>{% for item in recent %}<tr><td>{{ item.assessed_at|date:'d M Y H:i' }}</td><td>{{ item.student.get_full_name|default:item.student.username }}</td><td>{{ item.mean_score|floatformat:2 }}</td><td>Current lesson date only</td></tr>{% empty %}<tr><td colspan="4">No assessments yet.</td></tr>{% endfor %}</tbody></table></div></section>
 </div>
 

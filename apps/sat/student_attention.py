@@ -3,6 +3,7 @@
 One row per (classroom, student) with the reasons that apply:
 
 * missed homework  - past-due homework not done, or marked "Not done" by the teacher;
+* lesson homework  - the teacher marked "Not done" in the homework check at a lesson (V107);
 * partly done      - the teacher marked homework "Partly done" more than once;
 * absences         - Hollihop attendance for this classroom;
 * lower score      - the last test is clearly below the student's usual result;
@@ -140,6 +141,9 @@ def attention_rows(classrooms, now=None):
     homework = _homework_signals(members, student_ids, now)
     attendance = _attendance_signals(list(by_id), student_ids, now)
     scores = _score_signals(student_ids, now)
+    from apps.ratings.homework_checks import misses_by_class_student
+
+    lesson_homework = misses_by_class_student(list(by_id), timezone.localdate(now) - timedelta(days=WINDOW_DAYS))
     visits = _last_visits(student_ids)
     snoozes = {
         (s.classroom_id, s.student_id): s
@@ -161,6 +165,14 @@ def attention_rows(classrooms, now=None):
             reasons.append(_reason("homework", 1, "1 homework missed", missed[0]))
         if len(hw["partial"]) >= 2:
             reasons.append(_reason("partial", 1, f"{len(hw['partial'])} homework only partly done", ", ".join(hw["partial"][:3])))
+        lesson_misses = lesson_homework.get(key, [])
+        if lesson_misses:
+            n = len(lesson_misses)
+            reasons.append(_reason(
+                "lesson_homework", 3 if n >= 3 else 2 if n == 2 else 1,
+                f"Homework not done at {n} lesson{'s' if n != 1 else ''}",
+                "Marked by the teacher: " + ", ".join(f"{d:%d %b}" for d in sorted(lesson_misses, reverse=True)[:4]),
+            ))
         absent, total = attendance.get(key, (0, 0))
         if absent >= 2:
             reasons.append(_reason("attendance", 3 if absent >= 3 else 2, f"Missed {absent} of {total} lessons", f"Last {WINDOW_DAYS} days, from Hollihop"))
