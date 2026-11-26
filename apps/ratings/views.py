@@ -4,6 +4,7 @@ from datetime import timedelta
 import secrets
 import re
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -33,6 +34,8 @@ PARENT_LANGUAGE_CHOICES = ("en", "ru", "uz")
 PARENT_TRANSLATIONS = {
     "en": {
         "page_title": "Parent Portal | SAT Makon",
+        "telegram_cta": "Get a weekly report in Telegram",
+        "telegram_cta_note": "Every Sunday at 19:00: attendance, homework, grades and tests.",
         "open_menu": "Open menu",
         "main_navigation": "Main navigation",
         "home": "Home",
@@ -98,6 +101,8 @@ PARENT_TRANSLATIONS = {
     },
     "ru": {
         "page_title": "Родительский портал | SAT Makon",
+        "telegram_cta": "Получать отчёт в Telegram каждую неделю",
+        "telegram_cta_note": "Каждое воскресенье в 19:00: посещаемость, домашние задания, оценки и тесты.",
         "open_menu": "Открыть меню",
         "main_navigation": "Главная навигация",
         "home": "Главная",
@@ -163,6 +168,8 @@ PARENT_TRANSLATIONS = {
     },
     "uz": {
         "page_title": "Ota-onalar portali | SAT Makon",
+        "telegram_cta": "Haftalik hisobotni Telegram'da olish",
+        "telegram_cta_note": "Har yakshanba soat 19:00 da: davomat, uy vazifalari, baholar va testlar.",
         "open_menu": "Menyuni ochish",
         "main_navigation": "Asosiy navigatsiya",
         "home": "Bosh sahifa",
@@ -261,6 +268,9 @@ def _parent_context(request, **extra):
             ("uz", "O‘zbekcha"),
         ),
         "issue_report_t": PARENT_TRANSLATIONS[language],
+        # V115: the parents' Telegram bot for the weekly report.
+        "parent_bot_link": (f"https://t.me/{settings.TELEGRAM_PARENT_BOT_USERNAME}"
+                            if getattr(settings, "TELEGRAM_PARENT_BOT_USERNAME", "") else ""),
     }
     context.update(extra)
     return context

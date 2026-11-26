@@ -285,10 +285,13 @@ async def start_bot():
         notifier_task = asyncio.create_task(placement_notification_worker(bot))
         # V102: the bot records its heartbeat, checks the website and Celery, and alerts.
         watch_task = asyncio.create_task(system_health_watch_worker())
+        # V115: the parents' bot polls in this process too (when its token is set).
+        from .parent_bot import run_parent_bot
+        parents_task = asyncio.create_task(run_parent_bot())
         try:
             await dp.start_polling(bot)
         finally:
-            for task in (notifier_task, watch_task):
+            for task in (notifier_task, watch_task, parents_task):
                 task.cancel()
                 try:
                     await task

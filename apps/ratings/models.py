@@ -350,3 +350,70 @@ class LessonHomeworkMiss(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['homework_check', 'student'], name='rating_homework_miss_student')]
+
+
+class ParentTelegramSubscriber(models.Model):
+    """V115: a parent who gets the weekly report from the MakonBook parents' Telegram bot."""
+    LANG_UZ = 'uz'
+    LANG_RU = 'ru'
+    LANGUAGE_CHOICES = [(LANG_UZ, "O'zbekcha"), (LANG_RU, 'Русский')]
+
+    chat_id = models.BigIntegerField(unique=True)
+    telegram_user_id = models.BigIntegerField(db_index=True)
+    first_name = models.CharField(max_length=200, blank=True)
+    username = models.CharField(max_length=200, blank=True)
+    phone = models.CharField(max_length=32, blank=True, db_index=True, help_text='Shared from Telegram, normalized.')
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default=LANG_UZ)
+    is_active = models.BooleanField(default=True, help_text='Off after /stop or when the parent blocked the bot.')
+    code_attempts = models.PositiveSmallIntegerField(default=0)
+    code_attempts_since = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.first_name or self.chat_id} ({self.phone or "no phone"})'
+
+
+class ParentTelegramLink(models.Model):
+    """V115: one child a parent gets reports about."""
+    VIA_PHONE = 'phone'
+    VIA_CODE = 'code'
+    VIA_CHOICES = [(VIA_PHONE, 'Phone number'), (VIA_CODE, 'Family access code')]
+
+    subscriber = models.ForeignKey(ParentTelegramSubscriber, on_delete=models.CASCADE, related_name='links')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='parent_telegram_links')
+    via = models.CharField(max_length=8, choices=VIA_CHOICES)
+    # The parent removed this child in the bot: no reports, and the phone does not add them back.
+    is_muted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['subscriber', 'student'], name='rating_parent_link_once')]
+
+    def __str__(self):
+        return f'{self.subscriber} → {self.student}'
+
+
+class ParentWeeklyReport(models.Model):
+    """V115: one weekly report to one parent about one child. Never sent twice for a week."""
+    STATUS_SENDING = 'sending'
+    STATUS_SENT = 'sent'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [(STATUS_SENDING, 'Sending'), (STATUS_SENT, 'Sent'), (STATUS_FAILED, 'Failed')]
+
+    subscriber = models.ForeignKey(ParentTelegramSubscriber, on_delete=models.CASCADE, related_name='reports')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='parent_weekly_reports')
+    week_start = models.DateField(db_index=True)
+    status = models.CharField(max_length=8, choices=STATUS_CHOICES, default=STATUS_SENDING)
+    error = models.CharField(max_length=300, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-week_start', '-id']
+        constraints = [models.UniqueConstraint(fields=['subscriber', 'student', 'week_start'], name='rating_parent_report_once_a_week')]
+
+    def __str__(self):
+        return f'{self.student} → {self.subscriber} · {self.week_start} ({self.status})'

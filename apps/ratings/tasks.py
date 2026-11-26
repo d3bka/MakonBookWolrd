@@ -10,6 +10,14 @@ def settle_assessments():
     return {'obligations_created': created, 'new_fines': len(fines), 'daily_report_sent': sent}
 
 
+@shared_task(name='apps.ratings.tasks.send_parent_weekly_reports')
+def send_parent_weekly_reports():
+    """V115: Sunday 19:00 weekly report to parents in Telegram; later runs only retry."""
+    from .parent_reports import send_weekly_reports
+
+    return send_weekly_reports()
+
+
 @shared_task(name='apps.ratings.tasks.remind_teachers_evening')
 def remind_teachers_evening():
     return {'reminders_sent': send_teacher_evening_reminders()}

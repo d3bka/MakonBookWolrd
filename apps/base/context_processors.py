@@ -168,6 +168,7 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "teacher_attention_root": "attention",
     "teacher_weak_topics_root": "weak-topics",
     "manager_weak_topics_root": "weak-topics",
+    "manager_parent_reports_root": "parent-reports",
     "teacher_classroom_units_import_root": "classrooms",
     "manager_attention_root": "attention",
     "manager_account_duplicates_root": "duplicates",

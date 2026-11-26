@@ -1,0 +1,115 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Parent reports | MakonBook{% endblock %}
+{% block staff_workspace_style %}
+<style>
+/* V115: weekly parent reports */
+.pr115{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;max-width:1180px;margin:0 auto;color:var(--mb50-text,#1c1926)}
+.pr115>*{min-width:0}
+.pr115-kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mb50-accent,#7438da)}
+.pr115 h1{margin:4px 0;font-size:clamp(24px,3vw,32px);line-height:1.15}
+.pr115 h2{margin:0 0 4px;font-size:19px}
+.pr115-sub,.pr115-muted{margin:0;color:var(--mb50-muted,#746c84);line-height:1.5}
+.pr115-sub{max-width:760px}
+.pr115-panel{padding:16px 18px;border-radius:18px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff)}
+.pr115-warn{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.08)}
+.pr115-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.pr115-stat{padding:14px 16px;border-radius:16px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff)}
+.pr115-stat span{display:block;font-size:12px;font-weight:750;color:var(--mb50-muted,#746c84)}
+.pr115-stat strong{display:block;margin-top:4px;font-size:24px;line-height:1.1}
+.pr115-stat small{display:block;margin-top:4px;color:var(--mb50-muted,#746c84);font-size:12px}
+.pr115-share{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.pr115-share code{padding:8px 12px;border-radius:10px;background:var(--mb50-panel-soft,#f6f4fa);font-size:14px;overflow-wrap:anywhere}
+.pr115-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:12px;border:1px solid var(--mb50-border,#e8e4f0);background:var(--mb50-panel,#fff);color:var(--mb50-text,#1c1926);font-weight:750;font-size:14px;text-decoration:none;cursor:pointer;line-height:1.2;white-space:nowrap}
+.pr115-btn:hover{border-color:var(--mb50-accent,#7438da)}
+.pr115-btn:focus-visible{outline:3px solid var(--mb62-focus,#8b5cf6);outline-offset:2px}
+.pr115-steps{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;line-height:1.5}
+.pr115-scroll{overflow-x:auto}
+.pr115-table{width:100%;border-collapse:collapse;font-size:14px}
+.pr115-table th{text-align:left;font-size:12px;font-weight:800;color:var(--mb50-muted,#746c84);padding:8px 10px;border-bottom:1px solid var(--mb50-border,#e8e4f0)}
+.pr115-table td{padding:10px;border-bottom:1px solid var(--mb50-border,#e8e4f0);vertical-align:top}
+.pr115-table tr:last-child td{border-bottom:0}
+.pr115-bar{display:flex;align-items:center;gap:8px;min-width:150px}
+.pr115-bar b{flex:1 1 auto;height:8px;border-radius:99px;background:var(--mb50-panel-soft,#f1eef6);overflow:hidden;position:relative}
+.pr115-bar b i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:#22c55e}
+.pr115-bar b i.low{background:#f59e0b}
+.pr115-bar span{font-weight:800;min-width:38px;text-align:right}
+html[data-theme="dark"] .pr115-share code{background:rgba(255,255,255,.06)}
+html[data-theme="dark"] .pr115-bar b{background:rgba(255,255,255,.1)}
+</style>
+{% endblock staff_workspace_style %}
+{% block content %}
+<div class="pr115">
+  <header>
+    <span class="pr115-kicker"><i class="bi bi-send"></i> Parents</span>
+    <h1>Parent reports</h1>
+    <p class="pr115-sub">Every Sunday at 19:00 parents get a report in Telegram for each child: attendance, homework, the teacher's grades and comments, practice tests and mistakes fixed. A parent subscribes by sharing their phone in the bot; it must be the number written in Hollihop, otherwise they add the child with the family access code.</p>
+  </header>
+
+  {% if not bot_enabled %}
+  <section class="pr115-panel pr115-warn">
+    <h2>The parents' bot is not set up yet</h2>
+    <ol class="pr115-steps">
+      <li>In Telegram open @BotFather → /newbot, name it e.g. “MakonBook Parents”, username e.g. MakonBookParentsBot.</li>
+      <li>Add to the server <code>.env</code>: <code>TELEGRAM_PARENT_BOT_TOKEN=…</code> and <code>TELEGRAM_PARENT_BOT_USERNAME=MakonBookParentsBot</code>.</li>
+      <li>Run <code>sudo makonbook up</code>. The bot starts with the staff bot; reports go out on Sunday at 19:00.</li>
+    </ol>
+  </section>
+  {% endif %}
+
+  {% if bot_link %}
+  <section class="pr115-panel">
+    <h2>Share with parents</h2>
+    <p class="pr115-sub">Send this link to the parents' groups or print it as a QR code at the reception.</p>
+    <div class="pr115-share"><code data-bot-link>{{ bot_link }}</code><button class="pr115-btn" type="button" data-copy-link><i class="bi bi-clipboard"></i> <span>Copy link</span></button><a class="pr115-btn" href="{{ bot_link }}" target="_blank" rel="noopener"><i class="bi bi-telegram"></i> Open bot</a></div>
+  </section>
+  {% endif %}
+
+  <section class="pr115-stats" aria-label="Summary">
+    <div class="pr115-stat"><span>Parents subscribed</span><strong>{{ data.subscribers }}</strong>{% if data.stopped %}<small>{{ data.stopped }} stopped or blocked the bot</small>{% endif %}</div>
+    <div class="pr115-stat"><span>Students with a parent in the bot</span><strong>{{ data.students_with_parent }} / {{ data.students }}</strong><small>{{ data.coverage }}% of students in active classes</small></div>
+    <div class="pr115-stat"><span>Sent this week</span><strong>{{ data.this_week.sent }}</strong><small>week from {{ data.week_start|date:"d.m" }}{% if data.this_week.failed %} · {{ data.this_week.failed }} failed{% endif %}</small></div>
+    <div class="pr115-stat"><span>Sent last week</span><strong>{{ data.last_week.sent }}</strong>{% if data.last_week.failed %}<small>{{ data.last_week.failed }} failed</small>{% endif %}</div>
+  </section>
+
+  {% if data.failures %}
+  <section class="pr115-panel">
+    <h2>Not delivered this week</h2>
+    <p class="pr115-sub">Tried up to 3 times on Sunday evening. “Blocked the bot” means the parent stopped the bot; they come back with /start.</p>
+    <div class="pr115-scroll"><table class="pr115-table">
+      <thead><tr><th>Student</th><th>Parent</th><th>Error</th></tr></thead>
+      <tbody>{% for r in data.failures %}<tr><td>{{ r.student.get_full_name|default:r.student.username }}</td><td>{{ r.subscriber.first_name|default:"—" }}{% if r.subscriber.phone %}<br><small class="pr115-muted">{{ r.subscriber.phone }}</small>{% endif %}</td><td>{{ r.error|default:"—" }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+  {% endif %}
+
+  <section class="pr115-panel">
+    <h2>By class, fewest parents first</h2>
+    <p class="pr115-sub">Ask the teachers of these classes to send the bot link to parents.</p>
+    {% if data.classes %}
+    <div class="pr115-scroll"><table class="pr115-table">
+      <thead><tr><th>Class</th><th>Teacher</th><th>Parents in the bot</th></tr></thead>
+      <tbody>{% for c in data.classes %}<tr>
+        <td><strong>{{ c.classroom.name }}</strong></td>
+        <td>{{ c.classroom.teacher.get_full_name|default:c.classroom.teacher.username|default:"—" }}</td>
+        <td><div class="pr115-bar"><b><i class="{% if c.rate < 50 %}low{% endif %}" style="width:{{ c.rate }}%"></i></b><span>{{ c.with_parent }} / {{ c.students }}</span></div></td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <p class="pr115-muted">No active classes with students.</p>
+    {% endif %}
+  </section>
+</div>
+<script>
+(function () {
+  var button = document.querySelector('[data-copy-link]');
+  var source = document.querySelector('[data-bot-link]');
+  if (!button || !source || !navigator.clipboard) return;
+  button.addEventListener('click', function () {
+    var label = button.querySelector('span');
+    navigator.clipboard.writeText(source.textContent.trim()).then(function () {
+      label.textContent = 'Copied'; setTimeout(function () { label.textContent = 'Copy link'; }, 1800);
+    }, function () { label.textContent = 'Copy failed'; });
+  });
+})();
+</script>
+{% endblock %}

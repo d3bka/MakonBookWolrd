@@ -67,7 +67,7 @@ SITE_PROTOCOL = env_str("SITE_PROTOCOL", "http" if DEBUG else "https")
 SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
 
 # The release shown in Settings → Platform version. Bump it with every release commit.
-MAKONBOOK_VERSION = "V114"
+MAKONBOOK_VERSION = "V115"
 
 # MakonBook World is temporarily hidden while the next game release is prepared.
 # Set MAKONBOOK_WORLD_ENABLED=1 to reopen all /world/ routes and the live sidebar link.
@@ -913,6 +913,16 @@ MONITORING_TELEGRAM_CHAT_ID = env_str("MONITORING_TELEGRAM_CHAT_ID", "")
 # V103: Telegram user ids (comma-separated) of the bot's super admins. They give and take
 # away access to the MakonBook Telegram bot, in the bot ("👥 Access") and on the website.
 TELEGRAM_SUPERADMIN_IDS = env_str("TELEGRAM_SUPERADMIN_IDS", "")
+# V115: the parents' bot (a separate bot from @BotFather). It runs in the telegram-bot container
+# next to the staff bot when the token is set, and sends the weekly report on Sundays at 19:00.
+TELEGRAM_PARENT_BOT_TOKEN = env_str("TELEGRAM_PARENT_BOT_TOKEN", "")
+TELEGRAM_PARENT_BOT_USERNAME = env_str("TELEGRAM_PARENT_BOT_USERNAME", "").lstrip("@")
+# 19:00 sends; the runs until 23:30 only retry what failed (each report is sent once a week).
+CELERY_BEAT_SCHEDULE["makon-parent-weekly-reports"] = {
+    "task": "apps.ratings.tasks.send_parent_weekly_reports",
+    "schedule": crontab(day_of_week="sun", hour="19-23", minute="0,30"),
+    "options": {"expires": 25 * 60},
+}
 # Comma-separated e-mail addresses. Empty: every active superuser with an e-mail.
 MONITORING_ALERT_EMAILS = env_str("MONITORING_ALERT_EMAILS", "")
 # The bot fetches this page every minute to know the website answers. Empty turns the check off.
