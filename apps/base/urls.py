@@ -11,6 +11,7 @@ from apps.sat import views_admissions_upload as sat_media_upload_views
 from apps.sat import guest_views as sat_guest_views
 from apps.sat import views_attempts as sat_attempt_views
 from apps.sat import views_attention as sat_attention_views
+from apps.sat import views_weak_topics as sat_weak_topics_views
 from apps.sat import views_lesson_import as sat_lesson_import_views
 from apps.sat import views_account_duplicates as sat_duplicate_views
 from apps.sat import event_registration_views as event_registration_views
@@ -85,6 +86,7 @@ urlpatterns = [
     path('teacher/lessons/', sat_views.teacher_lessons_hub, name='teacher_lessons_root'),
     path('teacher/progress/', sat_views.teacher_progress_hub, name='teacher_progress_root'),
     path('teacher/attention/', sat_attention_views.teacher_attention, name='teacher_attention_root'),
+    path('teacher/weak-topics/', sat_weak_topics_views.teacher_weak_topics, name='teacher_weak_topics_root'),
     path('teacher/assessments/', sat_views.teacher_assessments_hub, name='teacher_assessments_root'),
     path('teacher/classrooms/<int:classroom_id>/assessments/', rating_views.teacher_classroom_ratings, name='teacher_classroom_assessments_root'),
     path('teacher/classrooms/<int:classroom_id>/assessments/lesson-change/', rating_views.teacher_report_lesson_change, name='teacher_report_lesson_change'),
@@ -101,6 +103,7 @@ urlpatterns = [
     path('manager/dashboard/', sat_views.manager_dashboard, name='manager_dashboard_root'),
     path('manager/attendance/', manager_attendance_insights, name='manager_attendance_insights'),
     path('manager/attention/', sat_attention_views.manager_attention, name='manager_attention_root'),
+    path('manager/weak-topics/', sat_weak_topics_views.manager_weak_topics, name='manager_weak_topics_root'),
     path('manager/duplicates/', sat_duplicate_views.manager_account_duplicates, name='manager_account_duplicates_root'),
     path('manager/duplicates/merge/<int:keep_id>/<int:remove_id>/', sat_duplicate_views.manager_account_merge, name='manager_account_merge_root'),
     path('manager/assessment-schedules/', rating_manager_views.manager_assessment_schedules, name='manager_assessment_schedules'),

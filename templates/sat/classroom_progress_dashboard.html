@@ -21,6 +21,7 @@
       </div>
       <div class="mk-hero-actions">
         <a href="{% url 'teacher_classroom_root' classroom.id %}" class="mk-btn mk-btn-secondary"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        <a href="{% if staff_has_teacher %}{% url 'teacher_weak_topics_root' %}{% else %}{% url 'manager_weak_topics_root' %}{% endif %}?classroom={{ classroom.id }}" class="mk-btn mk-btn-secondary"><i class="bi bi-bullseye"></i> Weak topics</a>
         <a href="?refresh=1" class="mk-btn"><i class="bi bi-arrow-clockwise"></i> Recalculate all</a>
       </div>
     </div>

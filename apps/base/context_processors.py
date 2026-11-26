@@ -166,6 +166,8 @@ STAFF_WORKSPACE_ROUTE_MAP = {
     "admin_system_health": "system-health",
     "admin_telegram_access": "telegram-access",
     "teacher_attention_root": "attention",
+    "teacher_weak_topics_root": "weak-topics",
+    "manager_weak_topics_root": "weak-topics",
     "teacher_classroom_units_import_root": "classrooms",
     "manager_attention_root": "attention",
     "manager_account_duplicates_root": "duplicates",
