@@ -173,6 +173,8 @@ class AssessmentSchedule(models.Model):
     classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='assessment_schedules')
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assessment_schedules')
     weekdays = models.JSONField(default=list, help_text='ISO weekdays (Monday=1 to Sunday=7).')
+    # V116: lesson time per ISO weekday from Hollihop, e.g. {"1": ["14:00", "16:00"]}; empty when unknown.
+    lesson_times = models.JSONField(default=dict, blank=True)
     starts_on = models.DateField(default=timezone.localdate)
     ends_on = models.DateField(null=True, blank=True)
     enabled = models.BooleanField(default=True)

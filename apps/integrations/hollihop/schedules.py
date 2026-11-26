@@ -35,8 +35,18 @@ def _date(value):
     return parse_date(text) if text else None
 
 
+def _hhmm(value):
+    """"14:00" / "14:00:00" -> "14:00"; anything else -> ""."""
+    text = str(value or "").strip()
+    parts = text.split(":")
+    if len(parts) < 2 or not (parts[0].isdigit() and parts[1][:2].isdigit()):
+        return ""
+    hour, minute = int(parts[0]), int(parts[1][:2])
+    return f"{hour:02d}:{minute:02d}" if 0 <= hour < 24 and 0 <= minute < 60 else ""
+
+
 def plan_for_edunit(data, *, today):
-    """{hollihop_teacher_id | None: {"weekdays", "start", "end", "open"}} for current items."""
+    """{hollihop_teacher_id | None: {"weekdays", "start", "end", "open", "times"}} for current items."""
     plan = {}
     for item in data.get("ScheduleItems") or []:
         begin, end = _date(item.get("BeginDate")), _date(item.get("EndDate"))
@@ -52,8 +62,12 @@ def plan_for_edunit(data, *, today):
             except (TypeError, ValueError):
                 continue
         for teacher_id in teacher_ids or [None]:
-            entry = plan.setdefault(teacher_id, {"weekdays": set(), "start": None, "end": None, "open": False})
+            entry = plan.setdefault(teacher_id, {"weekdays": set(), "start": None, "end": None, "open": False, "times": {}})
             entry["weekdays"].update(days)
+            begin_time, end_time = _hhmm(item.get("BeginTime")), _hhmm(item.get("EndTime"))
+            if begin_time:  # V116: lesson time for the student calendar
+                for day in days:
+                    entry["times"][str(day)] = [begin_time, end_time]
             if begin and (entry["start"] is None or begin < entry["start"]):
                 entry["start"] = begin
             if end is None:
@@ -84,8 +98,9 @@ def sync_classroom_schedules(classroom, data, *, primary_teacher=None, now=None)
         user = primary_teacher if teacher_id is None else users.get(teacher_id)
         if user is None:
             continue
-        merged = by_user.setdefault(user.pk, {"user": user, "weekdays": set(), "start": None, "end": None, "open": False})
+        merged = by_user.setdefault(user.pk, {"user": user, "weekdays": set(), "start": None, "end": None, "open": False, "times": {}})
         merged["weekdays"] |= entry["weekdays"]
+        merged["times"].update(entry["times"])
         if entry["start"] and (merged["start"] is None or entry["start"] < merged["start"]):
             merged["start"] = entry["start"]
         merged["open"] = merged["open"] or entry["open"]
@@ -103,7 +118,7 @@ def sync_classroom_schedules(classroom, data, *, primary_teacher=None, now=None)
         schedule = AssessmentSchedule.objects.filter(classroom=classroom, teacher=item["user"]).first()
         if schedule is None:
             schedule = AssessmentSchedule.objects.create(
-                classroom=classroom, teacher=item["user"], weekdays=weekdays, starts_on=wanted_start,
+                classroom=classroom, teacher=item["user"], weekdays=weekdays, lesson_times=item["times"], starts_on=wanted_start,
                 ends_on=ends_on, enabled=True, fines_enabled=False, hollihop_managed=True, hollihop_synced_at=now,
             )
             changed += 1
@@ -112,6 +127,9 @@ def sync_classroom_schedules(classroom, data, *, primary_teacher=None, now=None)
             if list(schedule.weekdays or []) != weekdays:
                 schedule.weekdays = weekdays
                 fields.append("weekdays")
+            if item["times"] and (schedule.lesson_times or {}) != item["times"]:
+                schedule.lesson_times = item["times"]
+                fields.append("lesson_times")
             # A start still in the future follows Hollihop; a past start is history.
             if schedule.starts_on > today and schedule.starts_on != wanted_start and not schedule.obligations.exists():
                 schedule.starts_on = wanted_start

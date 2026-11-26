@@ -3732,3 +3732,7 @@ class StudentAttentionSnooze(models.Model):
 
     def __str__(self):
         return f"{self.student_id} in {self.classroom_id} until {self.until:%Y-%m-%d}"
+
+
+# V116: student calendar feed.
+from .calendar_models import StudentCalendarFeed  # noqa: E402,F401

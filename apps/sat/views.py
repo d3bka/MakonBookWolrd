@@ -14693,6 +14693,7 @@ def workspace_search(request):
         ('Mistakes', reverse('student_mistakes_root'), 'bi-arrow-repeat'),
         ('Practice', reverse('student_practice_root'), 'bi-lightning-charge'),
         ('Homework', reverse('student_homework_root'), 'bi-list-check'),
+        ('Calendar', reverse('student_calendar_root'), 'bi-calendar3'),
         ('Tests', reverse('practice_tests_root'), 'bi-clipboard2-check'),
         ('Classrooms', reverse('student_classrooms_root'), 'bi-people'),
         ('Vocabulary', reverse('vocabulary_root'), 'bi-journal-bookmark'),

@@ -13,6 +13,7 @@ from apps.sat import views_attempts as sat_attempt_views
 from apps.sat import views_attention as sat_attention_views
 from apps.sat import views_weak_topics as sat_weak_topics_views
 from apps.ratings import views_parent_reports as parent_report_views
+from apps.sat import views_calendar as sat_calendar_views
 from apps.sat import views_lesson_import as sat_lesson_import_views
 from apps.sat import views_account_duplicates as sat_duplicate_views
 from apps.sat import event_registration_views as event_registration_views
@@ -183,6 +184,8 @@ urlpatterns = [
     path('classrooms/<int:classroom_id>/materials/<int:resource_id>/vocabulary/', sat_views.student_lesson_vocabulary_quiz, name='student_lesson_vocabulary_quiz_root'),
     path('classrooms/<int:classroom_id>/tests/<str:pk>/start/', sat_views.classroom_start_practise, name='student_classroom_test_start_root'),
     path('homework/', sat_views.student_homework, name='student_homework_root'),
+    path('student/calendar/', sat_calendar_views.student_calendar, name='student_calendar_root'),
+    path('calendar/<str:token>.ics', sat_calendar_views.student_calendar_feed, name='student_calendar_feed'),
     path('homework/<int:assignment_id>/open/', sat_views.student_homework_launch, name='student_homework_launch_root'),
     path('homework/<int:assignment_id>/done/', sat_views.student_homework_file_done, name='student_homework_file_done_root'),
     path('homework/<int:assignment_id>/vocabulary-quiz/result/', sat_views.student_homework_vocab_quiz_result, name='student_homework_vocab_quiz_result_root'),

@@ -1,0 +1,148 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}Calendar · MakonBook{% endblock %}
+{% block student_workspace_style %}
+<style>
+/* V116: student calendar */
+.cal116{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.cal116>*{min-width:0}
+.cal116-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.cal116-layout>*{min-width:0}
+.cal116-card{padding:18px;border-radius:var(--mb523-card-radius,20px);border:1px solid var(--mb50-border);background:var(--mb50-panel)}
+.cal116-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.cal116-head h2{margin:0;font-size:20px}
+.cal116-nav{display:flex;gap:6px}
+.cal116-nav a{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:38px;padding:0 12px;border-radius:12px;border:1px solid var(--mb50-border);color:var(--mb50-text);text-decoration:none;font-weight:750;font-size:14px}
+.cal116-nav a:hover{border-color:var(--mb50-accent,#7c3aed)}
+.cal116-nav a:focus-visible,.cal116 button:focus-visible,.cal116-day:focus-visible{outline:3px solid #8b5cf6;outline-offset:2px}
+.cal116-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal116-wd{padding:4px 6px;font-size:12px;font-weight:800;color:var(--mb50-muted);text-transform:uppercase;letter-spacing:.04em}
+.cal116-day{min-height:104px;padding:6px;border-radius:12px;background:color-mix(in srgb,var(--mb50-panel) 70%,var(--mb50-border) 30%);display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.cal116-day.out{opacity:.45}
+.cal116-day.today{outline:2px solid var(--mb50-accent,#7c3aed);outline-offset:-2px}
+.cal116-num{font-size:12.5px;font-weight:800;color:var(--mb50-muted)}
+.cal116-day.today .cal116-num{color:var(--mb50-accent,#7c3aed)}
+.cal116-chip{display:flex;align-items:center;gap:5px;padding:2px 6px;border-radius:7px;font-size:11.5px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--k-bg);color:var(--k-fg)}
+.cal116-chip span{overflow:hidden;text-overflow:ellipsis}
+.cal116-chip.done{opacity:.55;text-decoration:line-through}
+.cal116-more{font-size:11px;font-weight:700;color:var(--mb50-muted);padding-left:4px}
+.k-lesson{--k-bg:rgba(124,58,237,.13);--k-fg:#6d28d9;--k-dot:#7c3aed}
+.k-homework{--k-bg:rgba(245,158,11,.16);--k-fg:#b45309;--k-dot:#f59e0b}
+.k-exam{--k-bg:rgba(239,68,68,.13);--k-fg:#b91c1c;--k-dot:#ef4444}
+.k-support{--k-bg:rgba(14,165,233,.14);--k-fg:#0369a1;--k-dot:#0ea5e9}
+.k-sat{--k-bg:rgba(34,197,94,.15);--k-fg:#15803d;--k-dot:#22c55e}
+html[data-theme="dark"] .k-lesson{--k-fg:#c4b5fd}html[data-theme="dark"] .k-homework{--k-fg:#fcd34d}html[data-theme="dark"] .k-exam{--k-fg:#fca5a5}html[data-theme="dark"] .k-support{--k-fg:#7dd3fc}html[data-theme="dark"] .k-sat{--k-fg:#86efac}
+.cal116-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:12px;font-size:12.5px;color:var(--mb50-muted)}
+.cal116-legend span{display:inline-flex;align-items:center;gap:6px}
+.cal116-legend i,.cal116-dot{width:9px;height:9px;border-radius:50%;background:var(--k-dot);display:inline-block;flex:0 0 auto}
+.cal116-agenda h2{margin:0 0 4px;font-size:18px}
+.cal116-agenda>p{margin:0 0 10px;color:var(--mb50-muted);font-size:13px}
+.cal116-aday{padding:10px 0;border-top:1px solid var(--mb50-border)}
+.cal116-aday:first-of-type{border-top:0}
+.cal116-aday h3{margin:0 0 6px;font-size:13px;font-weight:800;color:var(--mb50-muted);text-transform:uppercase;letter-spacing:.04em}
+.cal116-aday h3 b{color:var(--mb50-accent,#7c3aed)}
+.cal116-item{display:flex;gap:10px;align-items:flex-start;padding:6px 0;color:var(--mb50-text);text-decoration:none}
+.cal116-item:hover strong{text-decoration:underline}
+.cal116-item>i{flex:0 0 auto;width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:var(--k-bg);color:var(--k-fg);font-size:15px}
+.cal116-item strong{display:block;font-size:14px;line-height:1.3}
+.cal116-item small{display:block;color:var(--mb50-muted);font-size:12.5px}
+.cal116-item.done strong{text-decoration:line-through;opacity:.6}
+.cal116-empty{padding:16px 0;color:var(--mb50-muted);font-size:14px}
+.cal116-sync h2{margin:0 0 4px;font-size:18px}
+.cal116-sync p{margin:0 0 12px;color:var(--mb50-muted);font-size:13.5px;line-height:1.5}
+.cal116-sync-actions{display:flex;flex-wrap:wrap;gap:8px}
+.cal116-link{display:flex;gap:8px;margin-top:12px}
+.cal116-link input{flex:1 1 auto;min-width:0;padding:9px 11px;border-radius:11px;border:1px solid var(--mb50-border);background:var(--mb50-panel);color:var(--mb50-text);font:inherit;font-size:12.5px}
+.cal116-reset{margin-top:10px}
+.cal116-reset button{background:none;border:0;padding:0;color:var(--mb50-muted);font:inherit;font-size:12.5px;text-decoration:underline;cursor:pointer}
+@media(max-width:1100px){.cal116-layout{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){
+  .cal116-day{min-height:54px;padding:4px;align-items:center}
+  .cal116-chip{display:none}
+  .cal116-dots{display:flex!important}
+  .cal116-more{display:none}
+  .cal116-wd{text-align:center;padding:4px 0;font-size:11px}
+}
+.cal116-dots{display:none;flex-wrap:wrap;gap:3px;justify-content:center}
+</style>
+{% endblock student_workspace_style %}
+{% block content %}
+<div class="v523-page cal116">
+  <section class="v523-hero v523-reveal">
+    <span class="v523-kicker"><i class="bi bi-calendar3"></i> Calendar</span>
+    <h1>Your week at a glance.</h1>
+    <p>Lessons, homework deadlines, mock exams, support lessons and SAT dates in one place. Add it to Google or Apple Calendar and it stays up to date by itself.</p>
+  </section>
+
+  <div class="cal116-layout">
+    <section class="cal116-card v523-reveal" style="--reveal-index:1" aria-labelledby="cal116-month">
+      <div class="cal116-head">
+        <h2 id="cal116-month">{{ calendar_month|date:"F Y" }}</h2>
+        <nav class="cal116-nav" aria-label="Month">
+          <a href="?month={{ calendar_prev }}" aria-label="Previous month"><i class="bi bi-chevron-left"></i></a>
+          {% if not calendar_this_month %}<a href="{% url 'student_calendar_root' %}">Today</a>{% endif %}
+          <a href="?month={{ calendar_next }}" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
+        </nav>
+      </div>
+      <div class="cal116-grid" role="grid" aria-label="{{ calendar_month|date:'F Y' }}">
+        {% for wd in calendar_weekdays %}<div class="cal116-wd" role="columnheader">{{ wd }}</div>{% endfor %}
+        {% for week in calendar_weeks %}{% for d in week %}
+        <div class="cal116-day{% if not d.in_month %} out{% endif %}{% if d.today %} today{% endif %}" role="gridcell" aria-label="{{ d.date|date:'l j F' }}{% if d.events %}: {{ d.events|length }} event{{ d.events|length|pluralize }}{% endif %}">
+          <span class="cal116-num">{{ d.date.day }}</span>
+          {% for e in d.events|slice:":3" %}<span class="cal116-chip k-{{ e.kind }}{% if e.done %} done{% endif %}" title="{{ e.label }}: {{ e.title }}{% if e.subtitle %} · {{ e.subtitle }}{% endif %}">{% if e.start %}{{ e.start|time:"H:i" }} {% endif %}<span>{{ e.title }}</span></span>{% endfor %}
+          {% if d.events|length > 3 %}<span class="cal116-more">+{{ d.events|length|add:"-3" }} more</span>{% endif %}
+          {% if d.events %}<span class="cal116-dots" aria-hidden="true">{% for e in d.events|slice:":4" %}<i class="cal116-dot k-{{ e.kind }}"></i>{% endfor %}</span>{% endif %}
+        </div>
+        {% endfor %}{% endfor %}
+      </div>
+      <div class="cal116-legend" aria-label="Legend">{% for key, label, icon in calendar_kinds %}<span class="k-{{ key }}"><i></i>{{ label }}</span>{% endfor %}</div>
+    </section>
+
+    <div class="cal116">
+      <section class="cal116-card cal116-agenda v523-reveal" style="--reveal-index:2" aria-labelledby="cal116-next">
+        <h2 id="cal116-next">Next {{ calendar_upcoming_days }} days</h2>
+        <p>What is coming up, day by day.</p>
+        {% for day in calendar_upcoming %}
+        <div class="cal116-aday">
+          <h3>{% if forloop.first and day.date == today_date %}<b>Today</b> · {% endif %}{{ day.date|date:"l, j M" }}</h3>
+          {% for e in day.events %}
+          <a class="cal116-item k-{{ e.kind }}{% if e.done %} done{% endif %}" href="{{ e.url|default:'#' }}">
+            <i class="bi {{ e.icon }}" aria-hidden="true"></i>
+            <span><strong>{{ e.title }}</strong><small>{{ e.label }}{% if e.start %} · {{ e.start|time:"H:i" }}{% if e.end and e.kind != 'homework' %}–{{ e.end|time:"H:i" }}{% endif %}{% endif %}{% if e.subtitle %} · {{ e.subtitle }}{% endif %}{% if e.done and e.kind == 'homework' %} · submitted{% endif %}</small></span>
+          </a>
+          {% endfor %}
+        </div>
+        {% empty %}
+        <div class="cal116-empty">Nothing planned in the next {{ calendar_upcoming_days }} days.</div>
+        {% endfor %}
+      </section>
+
+      <section class="cal116-card cal116-sync v523-reveal" style="--reveal-index:3" aria-labelledby="cal116-sync">
+        <h2 id="cal116-sync">Add to your phone</h2>
+        <p>Your calendar app checks MakonBook a few times a day, so new homework and lesson changes appear by themselves. The link is personal: do not share it.</p>
+        <div class="cal116-sync-actions">
+          <a class="mb50-primary-btn" href="{{ feed_google_url }}" target="_blank" rel="noopener"><i class="bi bi-google"></i> Google Calendar</a>
+          <a class="mb50-secondary-btn" href="{{ feed_webcal_url }}"><i class="bi bi-apple"></i> Apple Calendar</a>
+        </div>
+        <div class="cal116-link"><input id="cal116-url" value="{{ feed_url }}" readonly aria-label="Calendar link for other apps"><button class="mb50-secondary-btn" type="button" data-copy-feed><i class="bi bi-clipboard"></i> <span>Copy</span></button></div>
+        <form class="cal116-reset" method="post" onsubmit="return confirm('Make a new link? The old one stops working in every calendar app.')">{% csrf_token %}<input type="hidden" name="action" value="reset_link"><button>Shared the link by mistake? Make a new one</button></form>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+{% block student_workspace_scripts %}
+<script>
+(function () {
+  var button = document.querySelector('[data-copy-feed]');
+  var input = document.getElementById('cal116-url');
+  if (!button || !input) return;
+  button.addEventListener('click', function () {
+    var label = button.querySelector('span');
+    var done = function () { label.textContent = 'Copied'; setTimeout(function () { label.textContent = 'Copy'; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(done, function () { input.select(); });
+    } else { input.select(); try { document.execCommand('copy'); done(); } catch (e) {} }
+  });
+})();
+</script>
+{% endblock student_workspace_scripts %}
