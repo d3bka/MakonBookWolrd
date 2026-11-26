@@ -1,0 +1,28 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Mid/Final exams | MakonBook{% endblock %}
+{% block staff_workspace_style %}{% include 'sat/term_exams/_staff_style.html' %}{% endblock staff_workspace_style %}
+{% block content %}
+<div class="ex117">
+  <header>
+    <span class="ex117-kicker"><i class="bi bi-journal-check"></i> Your classes</span>
+    <h1>Mid-term and Final exams</h1>
+    <p class="ex117-sub">Exam sessions of your classes and the sessions where you are the teacher in the room. After the exam you enter the paper answers here and check every student; the manager publishes the results.</p>
+  </header>
+  <section class="ex117-panel">
+    {% if session_rows %}
+    <div class="ex117-scroll"><table class="ex117-table">
+      <thead><tr><th>Exam</th><th>Subject</th><th>When and where</th><th>Students</th><th>Status</th></tr></thead>
+      <tbody>{% for r in session_rows %}{% with s=r.session %}<tr>
+        <td><strong>{{ s.exam.display_title }}</strong></td>
+        <td>{{ s.get_subject_display }}{% if s.is_retake %} <span class="ex117-tag warn">Retake</span>{% endif %}</td>
+        <td>{{ s.starts_at|date:"D d.m.Y H:i" }} · {{ s.duration_minutes }} min<br><small class="ex117-muted">{{ s.room|default:"Room not set" }}{% if s.teacher %} · {{ s.teacher.get_full_name|default:s.teacher.username }}{% endif %}</small></td>
+        <td>{{ r.total }}<br><small class="ex117-muted">{{ r.entered }} entered · {{ r.pending }} not checked</small></td>
+        <td>{% if s.is_published %}<span class="ex117-tag ok">Published</span>{% elif s.starts_at > now %}<span class="ex117-tag">Upcoming</span>{% else %}<span class="ex117-tag warn">Answers to enter</span>{% endif %}</td>
+      </tr>{% endwith %}{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <div class="ex117-empty"><h2>No exams yet</h2><p class="ex117-muted">When the manager plans a Mid-term or Final for your classes, it appears here.</p></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

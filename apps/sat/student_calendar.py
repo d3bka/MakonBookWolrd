@@ -24,6 +24,7 @@ KINDS = {
     "lesson": ("Lesson", "bi-easel2"),
     "homework": ("Homework deadline", "bi-list-check"),
     "exam": ("Mock exam", "bi-clipboard2-check"),
+    "term": ("Mid/Final exam", "bi-journal-check"),
     "support": ("Support lesson", "bi-person-video3"),
     "sat": ("SAT date", "bi-flag"),
 }
@@ -159,6 +160,23 @@ def exam_events(user, start, end):
     return events
 
 
+def term_exam_events(user, start, end):
+    """V117: Mid-term / Final sessions the student has a seat in."""
+    from .exam_models import ExamSeat
+
+    since, until = _range(start, end)
+    events = []
+    for seat in ExamSeat.objects.filter(
+        student=user, session__starts_at__gte=since, session__starts_at__lt=until,
+    ).exclude(status=ExamSeat.STATUS_MOVED).select_related("session", "session__exam"):
+        session = seat.session
+        begin = timezone.localtime(session.starts_at)
+        title = f"{session.exam.get_kind_display()} · {session.get_subject_display()}" + (" (retake)" if session.is_retake else "")
+        events.append(Event("term", title, begin.date(), begin, timezone.localtime(session.ends_at),
+                            subtitle=session.room, url=reverse("student_exams_root"), uid=f"term-{session.pk}"))
+    return events
+
+
 def support_events(user, start, end):
     from .models import SupportLessonBooking
 
@@ -204,7 +222,8 @@ def events_for(user, start, end):
     class_ids = _class_ids(user)
     events = (
         lesson_events(user, start, end, class_ids) + homework_events(user, start, end, class_ids)
-        + exam_events(user, start, end) + support_events(user, start, end) + sat_events(user, start, end)
+        + exam_events(user, start, end) + term_exam_events(user, start, end) + support_events(user, start, end)
+        + sat_events(user, start, end)
     )
     return sorted(events, key=lambda e: e.sort_key)
 
@@ -276,6 +295,8 @@ def ics_feed(user, today=None):
             summary = f"No lesson: {event.title}"
         elif event.kind == "exam":
             summary = f"Mock exam: {event.title}"
+        elif event.kind == "term":
+            summary = f"Exam: {event.title}"
         elif event.kind == "support":
             summary = f"Support lesson: {event.title}"
         lines += ["BEGIN:VEVENT", f"UID:{uid}@{domain}", f"DTSTAMP:{stamp}"]

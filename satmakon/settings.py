@@ -67,7 +67,7 @@ SITE_PROTOCOL = env_str("SITE_PROTOCOL", "http" if DEBUG else "https")
 SITE_URL = f"{SITE_PROTOCOL}://{SITE_DOMAIN}"
 
 # The release shown in Settings → Platform version. Bump it with every release commit.
-MAKONBOOK_VERSION = "V116"
+MAKONBOOK_VERSION = "V117"
 
 # MakonBook World is temporarily hidden while the next game release is prepared.
 # Set MAKONBOOK_WORLD_ENABLED=1 to reopen all /world/ routes and the live sidebar link.

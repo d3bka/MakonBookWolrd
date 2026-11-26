@@ -1,0 +1,84 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}{{ exam.display_title }} | MakonBook{% endblock %}
+{% block staff_workspace_style %}{% include 'sat/term_exams/_staff_style.html' %}{% endblock staff_workspace_style %}
+{% block content %}
+<div class="ex117">
+  <header>
+    <a class="ex117-btn small" href="{% url 'manager_exams_root' %}"><i class="bi bi-arrow-left"></i> All exams</a>
+    <span class="ex117-kicker" style="margin-top:12px"><i class="bi bi-journal-check"></i> {{ exam.get_kind_display }} · {{ exam.academic_year }}</span>
+    <h1>{{ exam.display_title }}</h1>
+    <p class="ex117-sub">{{ students|length }} student{{ students|length|pluralize }} in {{ exam_classroom_ids|length }} class{{ exam_classroom_ids|length|pluralize:"es" }}. A main session gives a seat to every student of these classes. A retake uses a different test variant and gets the students you choose.</p>
+  </header>
+
+  <section class="ex117-panel" aria-labelledby="ex117-sessions">
+    <h2 id="ex117-sessions">Sessions</h2>
+    {% if session_rows %}
+    <div class="ex117-scroll"><table class="ex117-table">
+      <thead><tr><th>Subject</th><th>When and where</th><th>Variant</th><th>Students</th><th></th></tr></thead>
+      <tbody>{% for r in session_rows %}{% with s=r.session %}<tr>
+        <td><strong>{{ s.get_subject_display }}</strong>{% if s.is_retake %} <span class="ex117-tag warn">Retake</span>{% endif %}{% if s.is_published %} <span class="ex117-tag ok">Published</span>{% endif %}</td>
+        <td>{{ s.starts_at|date:"D d.m.Y H:i" }} · {{ s.duration_minutes }} min<br><small class="ex117-muted">{{ s.room|default:"Room not set" }}{% if s.teacher %} · {{ s.teacher.get_full_name|default:s.teacher.username }}{% endif %}</small></td>
+        <td>{{ s.test.name }}</td>
+        <td>{{ r.total }}<br><small class="ex117-muted">{{ r.entered }} entered · {{ r.pending }} not checked</small></td>
+        <td><div class="ex117-row">
+          {% if not s.is_retake %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="refresh_seats"><input type="hidden" name="session" value="{{ s.pk }}"><button class="ex117-btn small" title="Give seats to students who joined the classes later">Add new students</button></form>{% endif %}
+          {% if not r.entered %}<form method="post" onsubmit="return confirm('Delete this session?')">{% csrf_token %}<input type="hidden" name="action" value="delete_session"><input type="hidden" name="session" value="{{ s.pk }}"><button class="ex117-btn small danger">Delete</button></form>{% endif %}
+        </div>
+        {% if s.is_retake %}
+        <details class="ex117-fold"><summary class="ex117-btn small"><i class="bi bi-person-plus"></i> Add students</summary>
+          <form method="post" class="ex117-form">{% csrf_token %}<input type="hidden" name="action" value="add_retake_students"><input type="hidden" name="session" value="{{ s.pk }}">
+            <div class="ex117-checks wide">{% for row in r.retake_rows %}<label><input type="checkbox" name="students" value="{{ row.student.pk }}"{% if row.missed %} checked{% endif %}> {{ row.student.get_full_name|default:row.student.username }}{% if row.missed %} <span class="ex117-tag warn">{{ row.missed }}</span>{% endif %}</label>{% endfor %}</div>
+            <div><button class="ex117-btn primary small">Add to the retake</button></div>
+          </form>
+        </details>
+        {% endif %}
+        </td>
+      </tr>{% endwith %}{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <p class="ex117-muted">No sessions yet. Add the first one below.</p>
+    {% endif %}
+  </section>
+
+  <section class="ex117-panel" aria-labelledby="ex117-add">
+    <h2 id="ex117-add">Add a session</h2>
+    {% if exam_tests %}
+    <form method="post" class="ex117-form">{% csrf_token %}<input type="hidden" name="action" value="add_session">
+      <label>Subject<select name="subject" required>{% for value, label in subjects %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>Test variant<select name="test" required>{% for t in exam_tests %}<option value="{{ t.pk }}">{{ t.name }} — R&amp;W {{ t.english_count }}, Math {{ t.math_count }}</option>{% endfor %}</select></label>
+      <label>Type<select name="is_retake"><option value="0">Main session</option><option value="1">Retake (different variant)</option></select></label>
+      <label>Date<input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required></label>
+      <label>Time<input type="time" name="time" value="18:00" required></label>
+      <label>Duration, minutes<input type="number" name="duration" min="10" max="300" value="70" required></label>
+      <label>Room<input name="room" maxlength="120" list="ex117-rooms" placeholder="e.g. Room 3, Chilonzor"><datalist id="ex117-rooms">{% for r in rooms %}<option value="{{ r }}">{% endfor %}</datalist></label>
+      <label>Teacher in the room<select name="teacher"><option value="">—</option>{% for t in teachers %}<option value="{{ t.pk }}">{{ t.get_full_name|default:t.username }}</option>{% endfor %}</select></label>
+      <div><button class="ex117-btn primary"><i class="bi bi-plus-lg"></i> Add session</button></div>
+    </form>
+    {% else %}
+    <p class="ex117-muted">There is no exam test variant yet. Import the exam PDF in the Import center (write <code>[[TEST_TYPE: EXAM]]</code> in the structured file) or mark a hidden test as an exam below.</p>
+    {% endif %}
+  </section>
+
+  <section class="ex117-panel" aria-labelledby="ex117-variants">
+    <h2 id="ex117-variants">Exam test variants</h2>
+    <p class="ex117-sub">An exam variant is never shown to students: not in Practice, not in classes, not in the test runner. A test can become a variant only while it is hidden and nobody has taken it.</p>
+    {% if convertible_tests %}
+    <form method="post" class="ex117-form" onsubmit="return confirm('Make this test an exam variant? It leaves Practice and every group.')">{% csrf_token %}<input type="hidden" name="action" value="mark_exam_test">
+      <label class="wide">Hidden test nobody has taken<select name="test">{% for t in convertible_tests %}<option value="{{ t.pk }}">{{ t.name }} — R&amp;W {{ t.english_count }}, Math {{ t.math_count }}</option>{% endfor %}</select></label>
+      <div><button class="ex117-btn"><i class="bi bi-lock"></i> Mark as exam variant</button></div>
+    </form>
+    {% else %}
+    <p class="ex117-muted">No hidden, untaken tests to convert.</p>
+    {% endif %}
+  </section>
+
+  <section class="ex117-panel" aria-labelledby="ex117-classes">
+    <details class="ex117-fold"><summary><span id="ex117-classes">Classes in this exam ({{ exam_classroom_ids|length }})</span></summary>
+      <form method="post" class="ex117-form">{% csrf_token %}<input type="hidden" name="action" value="update_classes">
+        <div class="ex117-checks wide">{% for c in all_classrooms %}<label><input type="checkbox" name="classrooms" value="{{ c.pk }}"{% if c.pk in exam_classroom_ids %} checked{% endif %}> {{ c.name }}{% if not c.is_active %} (archived){% endif %}</label>{% endfor %}</div>
+        <div><button class="ex117-btn">Save classes</button></div>
+      </form>
+    </details>
+  </section>
+</div>
+{% endblock %}

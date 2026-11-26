@@ -150,10 +150,12 @@ class Test(BaseModel):
     TYPE_REGULAR = 'regular'
     TYPE_PLACEMENT = 'placement'
     TYPE_EVENT = 'event'
+    TYPE_EXAM = 'exam'  # V117: Mid-term / Final variant; staff only, never in Practice or the runner
     TEST_TYPE_CHOICES = [
         (TYPE_REGULAR, 'Regular / Practice Test'),
         (TYPE_PLACEMENT, 'Placement Test'),
         (TYPE_EVENT, 'Event Test'),
+        (TYPE_EXAM, 'Mid/Final Exam'),
     ]
 
     name = models.CharField(max_length=400, unique=True, primary_key=True)
@@ -3736,3 +3738,6 @@ class StudentAttentionSnooze(models.Model):
 
 # V116: student calendar feed.
 from .calendar_models import StudentCalendarFeed  # noqa: E402,F401
+
+# V117: Mid-term and Final exams.
+from .exam_models import ExamAnswerChange, ExamAppeal, ExamSeat, ExamSession, TermExam  # noqa: E402,F401

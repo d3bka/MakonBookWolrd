@@ -574,7 +574,8 @@ STRUCTURED_PAGE_RE = re.compile(r"\[\[\s*MB_PAGE\s*:\s*(\d+)\s*\]\]", re.I)
 # V97: optional header [[TEST_TYPE:PLACEMENT]] and per-question [[LEVEL:...]] / [[SKILL:...]].
 STRUCTURED_TEST_TYPE_RE = re.compile(r"\[\[\s*TEST_TYPE\s*:\s*([A-Z_\-]+)\s*\]\]", re.I)
 STRUCTURED_OR_RE = re.compile(r"\[\[\s*OR\s*\]\]", re.I)
-STRUCTURED_TEST_TYPES = {"PRACTICE": "regular", "REGULAR": "regular", "PLACEMENT": "placement", "EVENT": "event"}
+STRUCTURED_TEST_TYPES = {"PRACTICE": "regular", "REGULAR": "regular", "PLACEMENT": "placement", "EVENT": "event",
+                         "EXAM": "exam", "MIDTERM": "exam", "MID_TERM": "exam", "FINAL": "exam"}
 STRUCTURED_LEVELS = {
     "FOUNDATION": "foundation", "PRE_SAT": "pre_sat", "PRESAT": "pre_sat", "PRE-SAT": "pre_sat", "SAT": "sat",
 }

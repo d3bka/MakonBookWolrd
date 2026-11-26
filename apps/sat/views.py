@@ -3821,6 +3821,8 @@ def start_Practise(request, pk):
     if getattr(test, 'test_type', Test.TYPE_REGULAR) == Test.TYPE_EVENT and not _test_library_privileged(user):
         messages.info(request, 'This test is configured as Event-only. Open it from Events when the event is available.')
         return redirect('events')
+    if getattr(test, 'test_type', Test.TYPE_REGULAR) == Test.TYPE_EXAM and not _test_library_privileged(user):
+        return HttpResponse("This test is a Mid/Final exam variant.", status=403)  # V117
 
     if not _test_attempts_open(test, user):
         return _redirect_closed_test(request, test)
@@ -12931,8 +12933,8 @@ def user_has_test_access(user, test):
     test_type = getattr(test, 'test_type', Test.TYPE_REGULAR)
     if test_type == Test.TYPE_PLACEMENT:
         return _user_can_open_placement_test(user, test)
-    if test_type == Test.TYPE_EVENT:
-        return False
+    if test_type in (Test.TYPE_EVENT, Test.TYPE_EXAM):
+        return False  # V117: exam variants are never opened by students
     # GlobalEvent membership is independent from normal Practice access.
     return any(test.pk == assigned.pk for assigned in _v550_unified_accessible_tests(user))
 
@@ -14694,6 +14696,7 @@ def workspace_search(request):
         ('Practice', reverse('student_practice_root'), 'bi-lightning-charge'),
         ('Homework', reverse('student_homework_root'), 'bi-list-check'),
         ('Calendar', reverse('student_calendar_root'), 'bi-calendar3'),
+        ('Exams', reverse('student_exams_root'), 'bi-journal-check'),
         ('Tests', reverse('practice_tests_root'), 'bi-clipboard2-check'),
         ('Classrooms', reverse('student_classrooms_root'), 'bi-people'),
         ('Vocabulary', reverse('vocabulary_root'), 'bi-journal-bookmark'),

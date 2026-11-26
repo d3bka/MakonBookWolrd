@@ -1,0 +1,59 @@
+{% extends 'sat/student_workspace.html' %}
+{% block page_title %}Exams · MakonBook{% endblock %}
+{% block student_workspace_style %}
+<style>
+/* V117: student Exams */
+.sx117-list{display:grid;gap:12px}
+.sx117-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 18px;border-radius:18px;border:1px solid var(--mb50-border);background:var(--mb50-panel)}
+.sx117-date{width:58px;padding:8px 0;border-radius:14px;text-align:center;background:color-mix(in srgb,var(--mb50-accent,#7c3aed) 12%,transparent);color:var(--mb50-accent,#7c3aed)}
+.sx117-date b{display:block;font-size:22px;line-height:1}
+.sx117-date small{display:block;font-size:11px;font-weight:800;text-transform:uppercase;margin-top:3px}
+.sx117-item h3{margin:0;font-size:16px}
+.sx117-item p{margin:3px 0 0;color:var(--mb50-muted);font-size:13.5px}
+.sx117-state{display:inline-flex;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:rgba(124,58,237,.12);color:#6d28d9}
+.sx117-state.waiting{background:rgba(245,158,11,.16);color:#b45309}
+.sx117-state.published{background:rgba(34,197,94,.15);color:#15803d}
+.sx117-state.retake{background:rgba(239,68,68,.13);color:#b91c1c}
+html[data-theme="dark"] .sx117-state{color:#c4b5fd}html[data-theme="dark"] .sx117-state.waiting{color:#fcd34d}html[data-theme="dark"] .sx117-state.published{color:#86efac}html[data-theme="dark"] .sx117-state.retake{color:#fca5a5}
+@media(max-width:600px){.sx117-item{grid-template-columns:auto minmax(0,1fr)}.sx117-item>span:last-child{grid-column:2}}
+</style>
+{% endblock student_workspace_style %}
+{% block content %}
+<div class="v523-page">
+  <section class="v523-hero v523-reveal">
+    <span class="v523-kicker"><i class="bi bi-journal-check"></i> Exams</span>
+    <h1>Mid-term and Final exams.</h1>
+    <p>When and where you write each exam. Results appear here after your teacher checks the papers and the manager publishes them. Exams are also in your <a href="{% url 'student_calendar_root' %}">Calendar</a>.</p>
+  </section>
+
+  <section class="v523-card v523-reveal" style="--reveal-index:1;padding:18px">
+    <h2 style="margin:0 0 12px;font-size:19px">Coming up</h2>
+    {% if exam_upcoming %}
+    <div class="sx117-list">{% for seat in exam_upcoming %}{% with s=seat.session %}
+      <article class="sx117-item">
+        <div class="sx117-date"><b>{{ s.starts_at|date:"d" }}</b><small>{{ s.starts_at|date:"M" }}</small></div>
+        <div><h3>{{ s.exam.get_kind_display }} · {{ s.get_subject_display }}{% if s.is_retake %} (retake){% endif %}</h3>
+          <p>{{ s.starts_at|date:"l, H:i" }} · {{ s.duration_minutes }} min{% if s.room %} · {{ s.room }}{% endif %}</p></div>
+        <span class="sx117-state">{% if seat.state == 'in_progress' %}Now{% else %}Upcoming{% endif %}</span>
+      </article>
+    {% endwith %}{% endfor %}</div>
+    {% else %}
+    <p style="margin:0;color:var(--mb50-muted)">No exams planned for you yet.</p>
+    {% endif %}
+  </section>
+
+  {% if exam_past %}
+  <section class="v523-card v523-reveal" style="--reveal-index:2;padding:18px">
+    <h2 style="margin:0 0 12px;font-size:19px">Past exams</h2>
+    <div class="sx117-list">{% for seat in exam_past %}{% with s=seat.session %}
+      <article class="sx117-item">
+        <div class="sx117-date"><b>{{ s.starts_at|date:"d" }}</b><small>{{ s.starts_at|date:"M" }}</small></div>
+        <div><h3>{{ s.exam.get_kind_display }} · {{ s.get_subject_display }}{% if s.is_retake %} (retake){% endif %}</h3>
+          <p>{{ s.exam.academic_year }}{% if s.room %} · {{ s.room }}{% endif %}</p></div>
+        <span class="sx117-state {{ seat.state }}">{% if seat.state == 'published' %}Results are out{% elif seat.state == 'retake' %}Retake: wait for your teacher{% else %}Waiting for results{% endif %}</span>
+      </article>
+    {% endwith %}{% endfor %}</div>
+  </section>
+  {% endif %}
+</div>
+{% endblock content %}

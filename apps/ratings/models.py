@@ -141,6 +141,9 @@ class TermGrade(models.Model):
     classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='term_grades')
     academic_year = models.CharField(max_length=16, help_text='E.g. 2026/2027')
     term = models.CharField(max_length=15, choices=KIND_CHOICES)
+    # V117: Mid/Final are graded per subject; "" is a grade for the whole term (entered by hand).
+    SUBJECT_CHOICES = [('', 'All subjects'), ('english', 'Reading and Writing'), ('math', 'Math')]
+    subject = models.CharField(max_length=10, choices=SUBJECT_CHOICES, blank=True, default='', db_default='')
     score = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0), MaxValueValidator(100)])
     maximum_score = models.PositiveSmallIntegerField(default=100, validators=[MinValueValidator(1), MaxValueValidator(100)])
     awarded_at = models.DateField(default=timezone.localdate)
@@ -148,7 +151,7 @@ class TermGrade(models.Model):
 
     class Meta:
         ordering = ['-awarded_at', 'classroom__name', 'term']
-        constraints = [models.UniqueConstraint(fields=['student', 'classroom', 'academic_year', 'term'], name='rating_unique_term_grade')]
+        constraints = [models.UniqueConstraint(fields=['student', 'classroom', 'academic_year', 'term', 'subject'], name='rating_unique_term_grade_subject')]
 
     @property
     def percentage(self):

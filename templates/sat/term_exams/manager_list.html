@@ -1,0 +1,45 @@
+{% extends 'sat/staff_workspace.html' %}
+{% block page_title %}Mid/Final exams | MakonBook{% endblock %}
+{% block staff_workspace_style %}{% include 'sat/term_exams/_staff_style.html' %}{% endblock staff_workspace_style %}
+{% block content %}
+<div class="ex117">
+  <header>
+    <span class="ex117-kicker"><i class="bi bi-journal-check"></i> Exams</span>
+    <h1>Mid-term and Final exams</h1>
+    <p class="ex117-sub">Create the exam for the classes, then add a session for each subject: the test variant, date, time and room. Teachers enter the paper answers and check their groups; you publish the results.</p>
+  </header>
+
+  <section class="ex117-panel" aria-labelledby="ex117-new">
+    <h2 id="ex117-new">New exam</h2>
+    <form method="post" class="ex117-form">{% csrf_token %}
+      <label>Exam
+        <select name="kind" required>{% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+      </label>
+      <label>Academic year<input name="academic_year" value="{{ default_year }}" maxlength="16" required></label>
+      <label>Title (optional)<input name="title" maxlength="160" placeholder="e.g. Mid-term · SAT groups"></label>
+      <div class="wide">
+        <span class="ex117-muted">Classes</span>
+        <div class="ex117-checks">{% for c in classrooms %}<label><input type="checkbox" name="classrooms" value="{{ c.pk }}"> {{ c.name }}{% if c.teacher %} <small class="ex117-muted">· {{ c.teacher.get_full_name|default:c.teacher.username }}</small>{% endif %}</label>{% empty %}<span class="ex117-muted">No active classes.</span>{% endfor %}</div>
+      </div>
+      <div><button class="ex117-btn primary"><i class="bi bi-plus-lg"></i> Create exam</button></div>
+    </form>
+  </section>
+
+  <section class="ex117-panel" aria-labelledby="ex117-list">
+    <h2 id="ex117-list">Exams</h2>
+    {% if exams %}
+    <div class="ex117-scroll"><table class="ex117-table">
+      <thead><tr><th>Exam</th><th>Classes</th><th>Sessions</th><th></th></tr></thead>
+      <tbody>{% for e in exams %}<tr>
+        <td><strong>{{ e.display_title }}</strong><br><small class="ex117-muted">{{ e.get_kind_display }} · {{ e.academic_year }}</small></td>
+        <td>{% for c in e.classrooms.all %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+        <td>{{ e.session_count }}</td>
+        <td><a class="ex117-btn small" href="{% url 'manager_exam_detail_root' e.pk %}">Open</a></td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <p class="ex117-muted">No exams yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -376,7 +376,7 @@ def admin_group_remove_user(request, group_id, user_id):
 
 
 # --- Tests ---
-ADMIN_TEST_TYPES = {"regular": "Practice", "placement": "Placement", "event": "Event"}
+ADMIN_TEST_TYPES = {"regular": "Practice", "placement": "Placement", "event": "Event", "exam": "Mid/Final exam"}
 ADMIN_TEST_SORTS = {"name": "Name", "recent": "Recently completed", "popular": "Most completed", "new": "Newest"}
 
 
